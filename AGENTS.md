@@ -8,10 +8,12 @@ This file is the short entrypoint. The full portable rule set lives in:
 - `docs/agent_threads/problem_representation.md`
 - `docs/agent_threads/module_contract.md`
 - `docs/agent_threads/implementation.md`
+- `docs/agent_threads/module_fixer.md`
 - `docs/agent_threads/contract_test.md`
 - `docs/agent_threads/review.md`
+- `docs/agent_threads/module_submitter.md`
 
-For non-trivial work, identify the active thread role first and apply the matching role file.
+For non-trivial work, identify the active thread role first and apply the matching role file. The canonical workflow roles are Thinker (A), Module Contract Writer (B), Module Implementer (C), Module Fixer (D), Module Reviewer (E), and Module Submitter (F).
 
 ## Non-Negotiables
 
@@ -37,11 +39,11 @@ If a proposed change moves truth ownership between layers, stop and call it out.
 
 ## Risk Gate
 
-Low-risk changes may skip the full four-thread workflow when they are obvious, local, and reversible.
+Low-risk changes may skip the full six-role workflow when they are obvious, local, and reversible.
 
 Medium-risk changes require at least a clear problem representation and focused validation.
 
-High-risk changes require a problem representation, module contract, implementation against the contract, and contract testing. High-risk areas include parser state, webhook shape, workbook schema, Apps Script receiver behavior, match/game identity, final reconciliation, secrets, deployment, and destructive data operations.
+High-risk changes require a problem representation, module contract, implementation against the contract, independent review, and an explicit submitter handoff before pushing a pull request. High-risk areas include parser state, webhook shape, workbook schema, Apps Script receiver behavior, match/game identity, final reconciliation, secrets, deployment, and destructive data operations.
 
 ## Default Workflow
 
@@ -77,4 +79,5 @@ End non-trivial work with:
 - validation run
 - still-unverified layers
 - next recommended thread role
-
+- a pasteable next-thread prompt
+- a `workflow_handoff` block when the workflow should continue

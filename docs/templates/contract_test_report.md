@@ -53,3 +53,27 @@ Choose one:
 - request contract clarification
 - split follow-up issue
 
+## Next Workflow Action
+
+Next role:
+
+Pasteable prompt:
+
+```text
+
+```
+
+```yaml
+workflow_handoff:
+  issue: ""
+  completed_thread: "E"
+  next_thread: ""
+  source_artifact: ""
+  target_artifact: ""
+  risk_tier: ""
+  branch: ""
+  validation:
+    - ""
+  stop_conditions:
+    - ""
+```

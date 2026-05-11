@@ -1,10 +1,12 @@
-# Module Contract Thread Rules
+# Module Contract Writer Thread Rules
 
 Use with `docs/agent_constitution.md`.
 
 ## Mission
 
 Convert an approved problem representation into a concrete contract that implementation and testing threads can share.
+
+This is workflow role B.
 
 Use `docs/templates/module_contract.md`.
 
@@ -60,6 +62,8 @@ End with:
 - acceptance criteria
 - open questions or contract risks
 - next recommended thread role
+- pasteable next-thread prompt
+- `workflow_handoff` block
 
 ## Completion Checklist
 
@@ -75,6 +79,5 @@ End with:
 ## Canonical Starter Prompt
 
 ```text
-Use the Mythic Edge agent constitution. Act as the module contract thread for <issue-or-problem-doc>. Produce the module contract. Do not implement behavior changes.
+Use the Mythic Edge agent constitution. Act as the Module Contract Writer thread for <issue-or-problem-doc>. Produce the module contract and a handoff to the next role. Do not implement behavior changes.
 ```
-

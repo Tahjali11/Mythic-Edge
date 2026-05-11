@@ -67,3 +67,27 @@ List the smallest checks that would prove the issue is fixed.
 
 - 
 
+## Next Workflow Action
+
+Next role:
+
+Pasteable prompt:
+
+```text
+
+```
+
+```yaml
+workflow_handoff:
+  issue: ""
+  completed_thread: "A"
+  next_thread: "B"
+  source_artifact: ""
+  target_artifact: ""
+  risk_tier: ""
+  branch: ""
+  validation:
+    - ""
+  stop_conditions:
+    - ""
+```

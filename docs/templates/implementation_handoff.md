@@ -40,3 +40,27 @@ Ask the contract test thread to pay special attention to:
 
 - 
 
+## Next Workflow Action
+
+Next role:
+
+Pasteable prompt:
+
+```text
+
+```
+
+```yaml
+workflow_handoff:
+  issue: ""
+  completed_thread: "C"
+  next_thread: "E"
+  source_artifact: ""
+  target_artifact: ""
+  risk_tier: ""
+  branch: ""
+  validation:
+    - ""
+  stop_conditions:
+    - ""
+```

@@ -8,7 +8,10 @@
 - Contract:
 - Agent constitution: `docs/agent_constitution.md`
 - Implementation rules: `docs/agent_threads/implementation.md`
+- Fixer rules: `docs/agent_threads/module_fixer.md`
+- Reviewer rules: `docs/agent_threads/review.md`
 - Contract test rules: `docs/agent_threads/contract_test.md`
+- Submitter rules: `docs/agent_threads/module_submitter.md`
 
 ## Risk Tier
 
@@ -41,3 +44,20 @@ Name the truth-producing layer and any downstream transport or display layers to
 ## Still Unverified
 
 - 
+
+## Workflow Handoff
+
+```yaml
+workflow_handoff:
+  issue: ""
+  completed_thread: "F"
+  next_thread: "none"
+  source_artifact: ""
+  target_artifact: ""
+  risk_tier: ""
+  branch: ""
+  validation:
+    - ""
+  stop_conditions:
+    - ""
+```
