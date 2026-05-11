@@ -1,5 +1,18 @@
 Assume I am a beginner programmer unless I explicitly say otherwise.
 
+## Agent Constitution Entry Point
+
+For non-trivial Codex work, first identify the thread role and use the durable rules in:
+
+- `docs/agent_constitution.md`
+- `docs/agent_threads/problem_representation.md`
+- `docs/agent_threads/module_contract.md`
+- `docs/agent_threads/implementation.md`
+- `docs/agent_threads/contract_test.md`
+- `docs/agent_threads/review.md`
+
+These files are the portable cross-machine rule set. This `AGENTS.md` remains the root instruction entrypoint, and the `docs/agent_*` files organize the reusable constitution and role-specific rules.
+
 Optimize for practical improvement, maintainable working code, and clearer system structure. Prefer small architectural cleanups over narrow local patches when the cleanup is still reasonably scoped and meaningfully reduces confusion, duplication, or fragility. Preserve existing behavior unless I explicitly ask for a redesign.
 
 Explain in plain English first. When you use a technical term, define it briefly the first time unless I already used it correctly. Assume I may need help understanding imports, shared state, modules, scope, async flow, interfaces, data pipelines, and the relationship between upstream and downstream systems.

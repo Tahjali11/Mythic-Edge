@@ -4,6 +4,8 @@ This workflow adapts the Manasight issue-to-PR pattern for Mythic Edge and Codex
 
 The goal is to keep each thread focused. A thread is a separate Codex conversation with a narrow job and a written handoff artifact. The artifacts become the stable shared memory between threads.
 
+All threads should start from the shared rules in `docs/agent_constitution.md`, then apply the role-specific file in `docs/agent_threads/`.
+
 ## Source Of Truth
 
 The parser remains the source of truth for MTGA event interpretation. GitHub issues, contracts, pull requests, test reports, Google Sheets formulas, and AI review notes are downstream coordination tools.
@@ -116,4 +118,3 @@ Ask it to review for:
 - parser truth leaking into downstream formulas
 
 Treat findings as blocking only when they include concrete evidence.
-

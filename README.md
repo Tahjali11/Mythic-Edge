@@ -144,6 +144,8 @@ For GitHub/Codex module work, use the four-thread workflow in `docs/codex_module
 3. implementation
 4. contract testing
 
+Shared Codex behavior rules live in `docs/agent_constitution.md`, with role-specific rules in `docs/agent_threads/`.
+
 ```bash
 python -m venv .venv
 .venv\\Scripts\\activate
