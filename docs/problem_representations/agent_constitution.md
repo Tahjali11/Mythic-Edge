@@ -2,6 +2,20 @@
 
 GitHub issue: https://github.com/Tahjali11/Mythic-Edge/issues/1
 
+## Decision Log
+
+- `AGENTS.md` should be concise, senior-engineer oriented, and act as the root entrypoint.
+- The full constitution should live in `docs/agent_constitution.md`.
+- GitHub issues should link to thread-rule docs rather than copying their full text.
+- Material constitution changes should be tracked through GitHub issues. Issue #1 is the active v1 design issue.
+- Each thread-role file should include a canonical starter prompt.
+- AI/API analytics boundaries should be included now at a high level, with implementation details deferred to a future analytics contract.
+- Risk tiers should guide workflow ceremony.
+- Low-risk changes may skip the full four-thread workflow when obvious, local, and reversible.
+- Ambiguity should be escalated based on risk.
+- Every thread should end with a handoff packet.
+- Constitution changes should follow an amendment process.
+
 ## Summary
 
 Mythic Edge needs a durable agent constitution: a small set of repo-owned Markdown rules that every Codex thread can use consistently, regardless of which machine starts the work. The current guidance is strong but spread across `AGENTS.md`, workflow docs, templates, and this conversation, which makes it easy for future threads to miss the same assumptions.
@@ -17,7 +31,7 @@ In plain English, a new Codex thread should be able to open the repo and quickly
 - how to decide whether it is doing problem representation, contract work, implementation, or contract testing
 - what it is allowed to change
 - what it must verify
-- how to talk to the user in a beginner-friendly way
+- how to communicate plainly without over-explaining
 - what must never be committed, posted, deleted, or guessed
 
 ## What It Is Actually Doing
@@ -43,7 +57,7 @@ This project is becoming multi-threaded and multi-machine. Without a clear const
 - workbook display fixes may move truth away from the parser
 - local logs or webhook URLs may accidentally be committed
 - a laptop checkout may lack the same behavioral assumptions as this desktop checkout
-- agents may over-focus on code and under-explain the data pipeline to a beginner programmer
+- agents may over-focus on code and under-explain the data pipeline or layer ownership
 
 The goal is not more paperwork. The goal is fewer confused handoffs.
 
@@ -126,7 +140,7 @@ In scope:
 - splitting global rules from thread-role rules
 - making rules portable across desktop, laptop, and GitHub checkouts
 - defining how threads should reference issues, contracts, PRs, and validation evidence
-- preserving beginner-friendly explanations and project layer ownership
+- preserving plain-English user communication and project layer ownership
 - preventing accidental secret, log, and workbook-drift mistakes
 
 Out of scope:
@@ -174,10 +188,16 @@ GitHub validation:
 - GitHub Actions still passes after the docs are added.
 - The issue template and PR template point to the same workflow vocabulary.
 
-## Open Questions
+## Resolved Questions For v1
 
-- Should `AGENTS.md` remain the full constitution, or should it become a short entrypoint that points to `docs/agent_constitution.md`?
-- Should each thread-role rules file be copied into GitHub issue bodies, or should issues link to the repo docs?
-- Should we create one GitHub issue for this constitution work before implementing it?
-- Should the constitution include exact starter prompts for each thread role?
-- Should Codex thread rules include OpenAI/API analytics boundaries now, or wait until the analytics module contract exists?
+- `AGENTS.md` should be a concise senior-engineer entrypoint.
+- GitHub issues should link to repo docs instead of copying full thread rules.
+- Issue #1 should track v1 constitution work.
+- Each thread-role file should include a canonical starter prompt.
+- The constitution should include high-level AI/API analytics boundaries now, with implementation details deferred to a future module contract.
+- Issue and PR templates should include short links to the relevant agent docs instead of copying full role rules.
+
+## Remaining Open Questions
+
+- Should future constitution updates require pull requests, or are direct commits acceptable for now while the repo is private?
+- Should there be a dedicated `docs/contracts/agent_constitution.md` contract, or is the problem representation plus constitution enough?

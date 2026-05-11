@@ -6,7 +6,23 @@ body:
   - type: markdown
     attributes:
       value: |
-        Use this issue for the problem representation step. A separate contract should be produced before implementation starts.
+        Use this issue for the problem representation step. A separate contract should be produced before implementation starts when the risk tier requires one.
+
+        Agent docs:
+        - `docs/agent_constitution.md`
+        - `docs/agent_threads/problem_representation.md`
+        - `docs/templates/problem_representation.md`
+  - type: dropdown
+    id: risk_tier
+    attributes:
+      label: Risk tier
+      description: Use the definitions in docs/agent_constitution.md.
+      options:
+        - Low
+        - Medium
+        - High
+    validations:
+      required: true
   - type: textarea
     id: summary
     attributes:
@@ -69,4 +85,3 @@ body:
       description: Which focused tests, replay checks, or visible workbook checks would prove the fix worked?
     validations:
       required: true
-

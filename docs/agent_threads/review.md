@@ -1,8 +1,14 @@
 # Review Thread Rules
 
+Use with `docs/agent_constitution.md`.
+
 ## Mission
 
 Review code, contracts, or pull requests with fresh context and concrete evidence.
+
+## Allowed Risk Level
+
+Review may cover any risk tier. Higher-risk reviews should focus first on truth ownership, interface contracts, workbook/deployment drift, secrets, and validation gaps.
 
 ## Do
 
@@ -25,12 +31,24 @@ Review code, contracts, or pull requests with fresh context and concrete evidenc
 
 ## Required Output
 
-For reviews, use this order:
+Use this order:
 
 1. findings
 2. open questions or assumptions
 3. brief summary
 4. test gaps or residual risk
+
+## Handoff Packet
+
+End with:
+
+- role performed
+- artifact reviewed
+- findings
+- open questions
+- residual risk
+- tests or CI checked
+- next recommended thread role
 
 ## Completion Checklist
 
@@ -40,9 +58,8 @@ For reviews, use this order:
 - [ ] Missing tests are named.
 - [ ] Remaining risk is stated.
 
-## Starter Prompt
+## Canonical Starter Prompt
 
 ```text
 Use the Mythic Edge agent constitution. Act as the fresh-context review thread for <pull-request-or-diff>. Review for bugs, contract mismatches, missing tests, drift, and unsafe behavior.
 ```
-
