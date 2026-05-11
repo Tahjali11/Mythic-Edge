@@ -113,13 +113,26 @@ Runtime and analysis surfaces:
 
 ## Thread Roles
 
-Every non-trivial thread should declare one active role:
+Every non-trivial thread should declare one active role. The canonical roles are:
 
-- problem representation
-- module contract
-- implementation
-- contract test
-- review
+- A. Thinker
+  - owns problem representation, scope, risk, and first inspection order
+  - maps to `docs/agent_threads/problem_representation.md`
+- B. Module Contract Writer
+  - owns the module contract
+  - maps to `docs/agent_threads/module_contract.md`
+- C. Module Implementer
+  - compares current code to the contract, implements missing behavior, and updates tests
+  - maps to `docs/agent_threads/implementation.md`
+- D. Module Fixer
+  - addresses concrete review, contract-test, or CI findings after implementation
+  - maps to `docs/agent_threads/module_fixer.md`
+- E. Module Reviewer
+  - verifies implementation against the contract and reports findings
+  - maps to `docs/agent_threads/review.md`
+- F. Module Submitter
+  - stages, commits, pushes, and opens a draft pull request to the approved non-production target branch
+  - maps to `docs/agent_threads/module_submitter.md`
 
 If the role is unclear, infer the safest role from the request. Prefer problem representation or contract work before implementation when behavior is ambiguous.
 
@@ -128,8 +141,12 @@ Role rules live in:
 - `docs/agent_threads/problem_representation.md`
 - `docs/agent_threads/module_contract.md`
 - `docs/agent_threads/implementation.md`
+- `docs/agent_threads/module_fixer.md`
 - `docs/agent_threads/contract_test.md`
 - `docs/agent_threads/review.md`
+- `docs/agent_threads/module_submitter.md`
+
+`docs/agent_threads/contract_test.md` remains a specialized reviewer rule set for contract-verification reports. Use it when the Module Reviewer is specifically checking an implementation against a written contract.
 
 Each role file must include one canonical starter prompt. Starter prompts should name the constitution, active role, source artifact, required output, and forbidden behavior for that role.
 
@@ -149,7 +166,7 @@ Examples:
 
 Expected workflow:
 
-- full four-thread workflow may be skipped
+- full six-role workflow may be skipped
 - state the assumption if relevant
 - make the edit directly
 - run an appropriate focused check
@@ -197,22 +214,91 @@ Expected workflow:
 - problem representation required
 - module contract required
 - implementation must reference the contract
-- contract testing required
+- module review or contract testing required
 - rollback path or sync plan required when workbook or deployment state is involved
 
 ## Workflow Gates
 
-Problem representation must happen before module contract work.
+Thinker work must happen before module contract work for medium-risk or high-risk changes.
 
 Module contract work must happen before broad implementation.
 
 Implementation must reference the contract it satisfies.
 
-Contract testing must compare implementation behavior against the contract, not against assumptions from the implementation thread.
+Module review must compare implementation behavior against the contract, not against assumptions from the implementation thread.
 
 Review must lead with concrete findings, then questions, then summary.
 
 Low-risk changes may bypass the full workflow only when they are obvious, localized, and reversible.
+
+Module Fixer may run only from a concrete finding, failing check, or explicit user request. It should not reopen broad design unless it routes back to Thinker or Module Contract Writer.
+
+Module Submitter may run only when required artifacts exist, review has no blocking findings, relevant checks have passed or failures are explained, and the PR target is not production unless the user explicitly approves that target.
+
+## Artifact-First Handoffs
+
+Threads must make durable artifacts the shared memory between roles. A pasteable prompt is convenience, not the source of truth.
+
+Each non-trivial thread should write or update its required artifact first, then generate the next-thread prompt from that artifact.
+
+Durable artifacts include:
+
+- GitHub issues
+- module contracts under `docs/contracts/`
+- implementation handoffs under `docs/implementation_handoffs/`
+- contract test reports under `docs/contract_test_reports/`
+- pull requests
+- GitHub issue or PR comments
+
+If a thread cannot write an artifact, it must explain why and provide the full artifact text in the response.
+
+## Next-Thread Blocks
+
+Each thread that expects the workflow to continue must end with:
+
+- a plain-English next step
+- a pasteable prompt for the next Codex thread
+- a machine-readable `workflow_handoff` block
+
+Use this shape:
+
+```yaml
+workflow_handoff:
+  issue: "#<number-or-url>"
+  completed_thread: "<A|B|C|D|E|F>"
+  next_thread: "<A|B|C|D|E|F|none>"
+  source_artifact: "<path-or-url>"
+  target_artifact: "<path-or-url>"
+  risk_tier: "<Low|Medium|High>"
+  branch: "<branch-or-empty>"
+  validation:
+    - "<command-or-not-run>"
+  stop_conditions:
+    - "<condition that should stop the next thread>"
+```
+
+The pasteable prompt should be generated from this block and the relevant role file, not invented from memory.
+
+## Loopback Rules
+
+The normal path is A -> B -> C -> E -> F.
+
+Use D only after C or E when there is a concrete fix target.
+
+Reviewer may route to:
+
+- D when implementation is wrong or tests are missing
+- B when the contract is ambiguous or incorrect
+- A when the problem framing or scope is wrong
+- F when the implementation is ready for PR submission
+
+Fixer may route to:
+
+- E after code or test fixes
+- B when a fix requires contract clarification
+- A when the requested behavior is outside the original problem scope
+
+Submitter must stop rather than route forward when the working tree is mixed, validation is missing, review has blocking findings, secrets or local artifacts are staged, or the requested PR target is production without explicit approval.
 
 ## Escalation Rules
 
@@ -259,7 +345,10 @@ Use these labels when applicable:
 - `workflow:problem`
 - `workflow:contract`
 - `workflow:implementation`
+- `workflow:fix`
 - `workflow:contract-test`
+- `workflow:review`
+- `workflow:submit`
 - `layer:parser`
 - `layer:webhook`
 - `layer:workbook`
@@ -271,6 +360,14 @@ Default branch names:
 - `codex/contract-<short-name>`
 - `codex/impl-<short-name>`
 - `codex/test-<short-name>`
+- `codex/fix-<short-name>`
+- `codex/submit-<short-name>`
+
+For parser module audit batches, prefer a non-production integration branch such as:
+
+- `codex/parser-module-audit-suite`
+
+Module-specific branches should target the integration branch first. The integration branch should target `main` only after the reviewed module set is complete.
 
 Use private repositories unless the user explicitly says otherwise.
 
@@ -364,14 +461,18 @@ Every non-trivial thread must end with:
 - validation run
 - still-unverified layers
 - next recommended thread role
+- pasteable next-thread prompt
+- `workflow_handoff` block when the workflow continues
 
 Role-specific additions:
 
 - problem representation: first bad value or inspection order, expected output, open questions
 - module contract: public interface, invariants, required tests, acceptance criteria
 - implementation: code changed, tests changed, interface changes, validation evidence
+- module fixer: finding fixed, files changed, regression test, remaining review focus
 - contract test: contract matches, contract mismatches, missing tests, recommendation
 - review: findings, open questions, residual risk
+- module submitter: branch, staged files, commit, push result, PR URL, target branch, CI status
 
 ## Communication Rules
 
@@ -451,8 +552,8 @@ A non-trivial change is done when:
 
 - the correct role artifact exists
 - the implementation or recommendation references the relevant artifact
+- the handoff names the next role or explicitly says the workflow is complete
 - tests or validation evidence are recorded
 - secrets and local-only files are not committed
 - GitHub Actions are expected to pass or any failure is explained
 - remaining drift or unverified layers are named
-

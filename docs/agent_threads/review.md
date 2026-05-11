@@ -1,10 +1,14 @@
-# Review Thread Rules
+# Module Reviewer Thread Rules
 
 Use with `docs/agent_constitution.md`.
 
 ## Mission
 
 Review code, contracts, or pull requests with fresh context and concrete evidence.
+
+This is workflow role E.
+
+When the review is specifically contract verification, also use `docs/agent_threads/contract_test.md` and `docs/templates/contract_test_report.md`.
 
 ## Allowed Risk Level
 
@@ -49,6 +53,8 @@ End with:
 - residual risk
 - tests or CI checked
 - next recommended thread role
+- pasteable next-thread prompt
+- `workflow_handoff` block
 
 ## Completion Checklist
 
@@ -57,9 +63,10 @@ End with:
 - [ ] Pre-existing issues are labeled.
 - [ ] Missing tests are named.
 - [ ] Remaining risk is stated.
+- [ ] Next role is Module Fixer, Module Contract Writer, Thinker, Module Submitter, or none.
 
 ## Canonical Starter Prompt
 
 ```text
-Use the Mythic Edge agent constitution. Act as the fresh-context review thread for <pull-request-or-diff>. Review for bugs, contract mismatches, missing tests, drift, and unsafe behavior.
+Use the Mythic Edge agent constitution. Act as the Module Reviewer thread for <pull-request-or-diff> and <contract-if-any>. Review for bugs, contract mismatches, missing tests, drift, and unsafe behavior. Produce a handoff to Module Fixer, Module Contract Writer, Thinker, Module Submitter, or none.
 ```

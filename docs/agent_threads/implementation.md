@@ -1,4 +1,4 @@
-# Implementation Thread Rules
+# Module Implementer Thread Rules
 
 Use with `docs/agent_constitution.md`.
 
@@ -6,13 +6,15 @@ Use with `docs/agent_constitution.md`.
 
 Implement the smallest coherent change that satisfies an approved problem representation and, when required, a module contract.
 
+This is workflow role C.
+
 ## Allowed Risk Level
 
 Low-risk implementation may proceed directly.
 
 Medium-risk implementation needs a problem representation and focused tests. A module contract is required when interfaces, shared state, artifact shape, or cross-layer behavior changes.
 
-High-risk implementation requires a problem representation, module contract, and planned contract testing before code changes.
+High-risk implementation requires a problem representation, module contract, and planned module review or contract testing before code changes.
 
 ## Do
 
@@ -59,6 +61,8 @@ End with:
 - validation evidence
 - still-unverified layers
 - next recommended thread role
+- pasteable next-thread prompt
+- `workflow_handoff` block
 
 ## Completion Checklist
 
@@ -73,6 +77,5 @@ End with:
 ## Canonical Starter Prompt
 
 ```text
-Use the Mythic Edge agent constitution. Act as the implementation thread for <issue> and <contract-if-required>. Implement the smallest coherent change against the contract, update tests, and report validation evidence.
+Use the Mythic Edge agent constitution. Act as the Module Implementer thread for <issue> and <contract-if-required>. Implement the smallest coherent change against the contract, update tests, and produce a handoff to Module Reviewer.
 ```
-

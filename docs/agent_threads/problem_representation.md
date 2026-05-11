@@ -1,10 +1,12 @@
-# Problem Representation Thread Rules
+# Thinker Thread Rules
 
 Use with `docs/agent_constitution.md`.
 
 ## Mission
 
 Turn a vague request, bug report, or idea into a clear problem representation that another thread can use without rereading the whole conversation.
+
+This is workflow role A.
 
 Use `docs/templates/problem_representation.md`.
 
@@ -61,6 +63,8 @@ End with:
 - validation evidence needed
 - open questions
 - next recommended thread role
+- pasteable next-thread prompt
+- `workflow_handoff` block
 
 ## Completion Checklist
 
@@ -77,6 +81,5 @@ End with:
 ## Canonical Starter Prompt
 
 ```text
-Use the Mythic Edge agent constitution. Act as the problem representation thread for <request-or-issue>. Produce the required problem representation artifact. Do not implement code.
+Use the Mythic Edge agent constitution. Act as the Thinker thread for <request-or-issue>. Produce the required problem representation artifact and a handoff to the next role. Do not implement code.
 ```
-

@@ -60,3 +60,27 @@ List focused unit, integration, replay, Apps Script, or workbook-visible checks.
 
 - 
 
+## Next Workflow Action
+
+Next role:
+
+Pasteable prompt:
+
+```text
+
+```
+
+```yaml
+workflow_handoff:
+  issue: ""
+  completed_thread: "B"
+  next_thread: "C"
+  source_artifact: ""
+  target_artifact: ""
+  risk_tier: ""
+  branch: ""
+  validation:
+    - ""
+  stop_conditions:
+    - ""
+```

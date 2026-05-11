@@ -1,4 +1,4 @@
-# Contract Test Thread Rules
+# Contract Test Reviewer Rules
 
 Use with `docs/agent_constitution.md`.
 
@@ -6,7 +6,7 @@ Use with `docs/agent_constitution.md`.
 
 Verify whether an implementation satisfies the module contract.
 
-The contract test thread is a checker. It should not quietly rewrite the contract or implementation unless the user explicitly asks for fixes.
+This is a specialized Module Reviewer mode. It should not quietly rewrite the contract or implementation unless the user explicitly asks for fixes.
 
 Use `docs/templates/contract_test_report.md`.
 
@@ -61,6 +61,8 @@ End with:
 - drift classification
 - recommendation
 - next recommended thread role
+- pasteable next-thread prompt
+- `workflow_handoff` block
 
 ## Completion Checklist
 
@@ -75,6 +77,5 @@ End with:
 ## Canonical Starter Prompt
 
 ```text
-Use the Mythic Edge agent constitution. Act as the contract test thread for <pull-request> and <contract>. Verify the implementation against the contract and produce a contract test report. Do not change implementation unless asked.
+Use the Mythic Edge agent constitution. Act as the Module Reviewer thread in contract-test mode for <pull-request-or-diff> and <contract>. Verify the implementation against the contract, produce a contract test report, and generate a handoff to Module Fixer, Module Contract Writer, Module Submitter, or none. Do not change implementation unless asked.
 ```
-

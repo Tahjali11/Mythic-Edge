@@ -11,10 +11,13 @@ GitHub issue: https://github.com/Tahjali11/Mythic-Edge/issues/1
 - Each thread-role file should include a canonical starter prompt.
 - AI/API analytics boundaries should be included now at a high level, with implementation details deferred to a future analytics contract.
 - Risk tiers should guide workflow ceremony.
-- Low-risk changes may skip the full four-thread workflow when obvious, local, and reversible.
+- Low-risk changes may skip the full six-role workflow when obvious, local, and reversible.
 - Ambiguity should be escalated based on risk.
 - Every thread should end with a handoff packet.
 - Constitution changes should follow an amendment process.
+- The workflow should now use six named Codex roles: Thinker (A), Module Contract Writer (B), Module Implementer (C), Module Fixer (D), Module Reviewer (E), and Module Submitter (F).
+- Each continuing thread should generate both a pasteable next-thread prompt and a machine-readable handoff block.
+- Module Submitter should push reviewed work to draft pull requests without merging to production.
 
 ## Summary
 
@@ -28,7 +31,7 @@ In plain English, a new Codex thread should be able to open the repo and quickly
 
 - what Mythic Edge is
 - which layer owns truth
-- how to decide whether it is doing problem representation, contract work, implementation, or contract testing
+- how to decide whether it is acting as Thinker, Module Contract Writer, Module Implementer, Module Fixer, Module Reviewer, or Module Submitter
 - what it is allowed to change
 - what it must verify
 - how to communicate plainly without over-explaining
@@ -41,7 +44,7 @@ The project currently has useful instructions, but they are not separated by pur
 Current state:
 
 - `AGENTS.md` contains broad project rules and detailed layer guidance.
-- `docs/codex_module_workflow.md` describes the four-thread workflow.
+- `docs/codex_module_workflow.md` describes the six-role workflow.
 - `docs/templates/` contains handoff templates.
 - `.github/ISSUE_TEMPLATE/module_workflow.yml` captures issue-shaping fields.
 - Some durable decisions still live only in this conversation, not as repo-owned rules.

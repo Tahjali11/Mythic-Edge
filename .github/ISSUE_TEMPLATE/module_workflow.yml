@@ -11,7 +11,14 @@ body:
         Agent docs:
         - `docs/agent_constitution.md`
         - `docs/agent_threads/problem_representation.md`
+        - `docs/agent_threads/module_contract.md`
+        - `docs/agent_threads/implementation.md`
+        - `docs/agent_threads/module_fixer.md`
+        - `docs/agent_threads/review.md`
+        - `docs/agent_threads/contract_test.md`
+        - `docs/agent_threads/module_submitter.md`
         - `docs/templates/problem_representation.md`
+        - `docs/templates/workflow_handoff.md`
   - type: dropdown
     id: risk_tier
     attributes:
