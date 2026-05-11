@@ -1,0 +1,17 @@
+# Source: original manasight-parser sanitized corpus slice
+# Comment lines are ignored by the Python corpus test.
+[UnityCrossThreadLogger]Client.SceneChange {"fromSceneName":"None","toSceneName":"Home","initiator":"System","context":"Landing Page 'Home'"}
+PreviousPlayBladeVisualState is being set to the same value as previously: Events
+[UnityCrossThreadLogger]==> QuestGetQuests {"id":"05d18aa5-5963-494f-a505-f316bd58e4e1","request":"\"{}\""}
+[UnityCrossThreadLogger]3/11/2026 6:08:26 PM
+<== QuestGetQuests(05d18aa5-5963-494f-a505-f316bd58e4e1)
+{"canSwap":true,"quests":[{"questId":"6a4ef8b1-cf56-4c61-b3c8-f886bd804e92","goal":20,"locKey":"Quests/Quest_Selesnya_Sentry"}]}
+[UnityCrossThreadLogger]==> PeriodicRewardsGetStatus {"id":"61f9f8f1-951f-4ef7-bfef-8c49ca3749d9","request":"{}"}
+[UnityCrossThreadLogger]3/11/2026 6:08:26 PM
+<== PeriodicRewardsGetStatus(61f9f8f1-951f-4ef7-bfef-8c49ca3749d9)
+{"_dailyRewardSequenceId":2,"_dailyRewardResetTimestamp":"2026-03-12T09:00:00Z"}
+BEGIN home page notification flow
+Beacon does not have identifier assigned! Please assign to: SparkyVFX_Enter
+END home page notification flow
+[UnityCrossThreadLogger]Client.SceneChange {"fromSceneName":"Home","toSceneName":"EventLanding","initiator":"User","context":"ECL_Quick_Draft"}
+[UnityCrossThreadLogger]==> EventGetCoursesV2 {"id":"c4c57be7-6dbf-4855-9f32-05dbd5a50067","request":"{}"}

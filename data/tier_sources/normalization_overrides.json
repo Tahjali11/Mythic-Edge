@@ -1,0 +1,7 @@
+{
+  "_comment": "Map raw website deck names to the canonical archetype names you want to use in the workbook. Leave sections empty if you want names to pass through unchanged.",
+  "global": {},
+  "mtggoldfish": {},
+  "mtgtop8": {},
+  "untapped": {}
+}

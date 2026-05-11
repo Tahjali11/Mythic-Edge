@@ -1,0 +1,9 @@
+# Sanitized router smoke slice with one example of each newly-ported family.
+DETAILED LOGS: ENABLED
+[UnityCrossThreadLogger]STATE CHANGED {"old":"Playing","new":"Disconnected"}
+[UnityCrossThreadLogger]Client.TcpConnection.Close {"status":7,"reason":"Closed by remote end"}
+[ConnectionManager] Reconnect result : Error
+Matchmaking: GRE connection lost, attempting reconnect
+[UnityCrossThreadLogger]2/22/2026 11:59:51 AM
+<== StartHook(deck-uuid)
+{"PlayerCards":{"123":4},"DeckSummaries":[{"DeckId":"deck-1","Name":"Reanimator"}],"Decks":{"deck-1":{"MainDeck":[{"cardId":1,"quantity":4}],"Sideboard":[{"cardId":9,"quantity":1}]}}}

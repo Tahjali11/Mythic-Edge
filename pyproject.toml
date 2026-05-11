@@ -1,0 +1,65 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mythic-edge-parser"
+version = "0.1.0"
+description = "Python reimplementation of the core Mythic Edge MTG Arena log parser architecture"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{name = "OpenAI"}]
+license = {text = "MIT"}
+dependencies = [
+  "beautifulsoup4>=4.14,<5",
+  "requests>=2,<3",
+]
+keywords = ["mtg", "mtga", "parser", "logs", "arena"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent"
+]
+
+[project.scripts]
+mythicedge-scrub = "mythic_edge_parser.bin.scrub:main"
+manasight-scrub = "mythic_edge_parser.bin.scrub:main"
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8,<9",
+  "pytest-cov>=5,<6",
+  "ruff>=0.6,<1",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+pythonpath = ["src"]
+markers = [
+  "integration: cross-module or pipeline contract checks",
+  "smoke: lightweight end-to-end sanity checks",
+  "performance: non-flaky performance-oriented smoke checks",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["src/mythic_edge_parser"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]

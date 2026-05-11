@@ -1,0 +1,72 @@
+name: Module workflow
+description: Shape a Mythic Edge module change before implementation.
+title: "[module] "
+labels: ["workflow:problem"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this issue for the problem representation step. A separate contract should be produced before implementation starts.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: One or two sentences describing the bug, feature, or confusing behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: intended
+    attributes:
+      label: What the code is supposed to do
+      description: Describe the intended behavior in plain English.
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What it is actually doing
+      description: Include the exact bad output, missing output, or confusing state if known.
+    validations:
+      required: true
+  - type: dropdown
+    id: layer
+    attributes:
+      label: Primary project layer
+      options:
+        - MTGA raw log source
+        - parser and state interpretation
+        - webhook / transport layer
+        - workbook landing sheets
+        - helper formulas
+        - dashboard / reporting tabs
+    validations:
+      required: true
+  - type: textarea
+    id: first_bad_value
+    attributes:
+      label: First bad value or first place to inspect
+      description: Name where the data first becomes wrong or ambiguous. If unknown, list the inspection order.
+    validations:
+      required: true
+  - type: textarea
+    id: expected_output
+    attributes:
+      label: Expected output
+      description: List parser fields, webhook rows, workbook columns, or visible dashboard effect expected.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: What is in scope and out of scope?
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation evidence needed
+      description: Which focused tests, replay checks, or visible workbook checks would prove the fix worked?
+    validations:
+      required: true
+
