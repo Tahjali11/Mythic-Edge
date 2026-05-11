@@ -226,6 +226,8 @@ class MatchSummary:
     games: dict[int, GameSummary] = field(default_factory=_default_games)
 
     def touch(self, timestamp: str) -> None:
+        if not timestamp:
+            return
         if not self.first_event_time:
             self.first_event_time = timestamp
         self.last_event_time = timestamp
@@ -272,8 +274,17 @@ class MatchSummary:
 
     def set_game_mulligans(self, game_number: Any, mulligans: int) -> None:
         game = self.game(game_number)
-        if game is not None:
-            game.mulligans = mulligans
+        if game is None or isinstance(mulligans, bool):
+            return
+        try:
+            normalized = int(mulligans)
+        except (TypeError, ValueError):
+            return
+        if not isinstance(mulligans, str) and normalized != mulligans:
+            return
+        if normalized < 0:
+            return
+        game.mulligans = normalized
 
     def set_game_opening_hand(self, game_number: Any, opening_hand: list[str]) -> None:
         game = self.game(game_number)

@@ -1,4 +1,46 @@
 from mythic_edge_parser.app.models import MatchSummary
+from mythic_edge_parser.app.sheet_schema import GAME_LOG_SYNC_FIELDS, MATCH_LOG_SYNC_FIELDS
+
+
+def test_match_log_row_contains_every_python_sync_field() -> None:
+    summary = MatchSummary(match_id="m_contract")
+
+    row = summary.to_match_log_row()
+
+    missing_fields = set(MATCH_LOG_SYNC_FIELDS) - set(row)
+    assert missing_fields == set()
+
+
+def test_game_log_row_contains_every_python_sync_field() -> None:
+    summary = MatchSummary(match_id="m_game_contract")
+    summary.touch_game(1, "2026-04-17T19:12:00-04:00")
+
+    rows = summary.to_game_sheet_rows()
+
+    assert len(rows) == 1
+    missing_fields = set(GAME_LOG_SYNC_FIELDS) - set(rows[0])
+    assert missing_fields == set()
+
+
+def test_match_summary_touch_ignores_blank_timestamp_after_existing_timestamp() -> None:
+    summary = MatchSummary(match_id="m_touch")
+    summary.touch("2026-04-17T19:11:42-04:00")
+
+    summary.touch("")
+
+    assert summary.first_event_time == "2026-04-17T19:11:42-04:00"
+    assert summary.last_event_time == "2026-04-17T19:11:42-04:00"
+
+
+def test_set_game_mulligans_ignores_non_integer_values() -> None:
+    summary = MatchSummary(match_id="m_mulligans")
+    summary.set_game_mulligans(1, 2)
+
+    for invalid_value in ("not-a-number", -1, True, 1.5, object()):
+        summary.set_game_mulligans(1, invalid_value)
+
+        assert summary.games[1].mulligans == 2
+        assert summary.total_mulligans == 2
 
 
 def test_match_summary_sheet_row_matches_workbook_shape() -> None:
