@@ -2625,6 +2625,12 @@ def write_inferred_review_reports(
     markdown_path: Path = GRP_ID_INFERRED_REVIEW_MARKDOWN_PATH,
 ) -> tuple[Path, Path]:
     output_dir.mkdir(parents=True, exist_ok=True)
+    if json_path == GRP_ID_INFERRED_REVIEW_JSON_PATH:
+        json_path = output_dir / GRP_ID_INFERRED_REVIEW_JSON_PATH.name
+    if markdown_path == GRP_ID_INFERRED_REVIEW_MARKDOWN_PATH:
+        markdown_path = output_dir / GRP_ID_INFERRED_REVIEW_MARKDOWN_PATH.name
+    json_path.parent.mkdir(parents=True, exist_ok=True)
+    markdown_path.parent.mkdir(parents=True, exist_ok=True)
     json_payload = {
         "object": "manasight_grp_id_inferred_review",
         "generated_at": report.generated_at,
