@@ -5,11 +5,15 @@ from .config import LOCAL_PLAYER_INDEX
 
 
 def _safe_local_player(players: list[dict[str, Any]]) -> dict[str, Any]:
+    if not isinstance(players, list):
+        return {}
     if not players:
         return {}
     if 0 <= LOCAL_PLAYER_INDEX < len(players):
-        return players[LOCAL_PLAYER_INDEX] or {}
-    return players[0] or {}
+        player = players[LOCAL_PLAYER_INDEX]
+        return player if isinstance(player, dict) else {}
+    player = players[0]
+    return player if isinstance(player, dict) else {}
 
 
 def _first_present(*values: Any) -> Any:
@@ -506,14 +510,15 @@ def _extract_game_result_scope_result(
 #Read match ID, game number, winning team, result type, and reason from a GameResult Payload
 def _extract_game_result_identity(payload: dict[str, Any], context: dict[str, Any]) -> tuple[Any, Any, Any, Any, Any]:
     identity = _safe_dict(payload.get("identity"))
-    game_info = payload.get("game_info") or {}
+    game_info = _safe_dict(payload.get("game_info"))
+    context = _safe_dict(context)
     match_id = str(
-        identity.get("match_id") or game_info.get("matchID") or context["current_match_id"] or ""
+        identity.get("match_id") or game_info.get("matchID") or context.get("current_match_id") or ""
     ).strip()
     game_number = _first_present(
         identity.get("game_number"),
         game_info.get("gameNumber"),
-        context["current_game_number"],
+        context.get("current_game_number"),
     )
     winning_team = payload.get("winning_team_id", "")
     result_type = payload.get("result_type", "")
@@ -523,6 +528,8 @@ def _extract_game_result_identity(payload: dict[str, Any], context: dict[str, An
 #Detect whether a GameResult payload also contains a match-scope result
 def _has_match_scope_result(payload: dict[str, Any]) -> bool:
     for result in (payload.get("results") or []):
+        if not isinstance(result, dict):
+            continue
         if _infer_scope_label(result.get("scope", "")) == "Match":
             return True
     return False
