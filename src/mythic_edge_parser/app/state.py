@@ -6,6 +6,7 @@ from typing import Any
 
 from .extractors import (
     _extract_game_result_identity,
+    _extract_game_result_scope_result,
     _extract_instance_grp_lookup,
     _extract_local_private_hand_instance_ids,
     _extract_local_team_from_client_action,
@@ -13,8 +14,9 @@ from .extractors import (
     _extract_starting_player_from_client_action,
     _extract_starting_player_from_game_state,
     _extract_turn_info,
-    _has_match_scope_result,
     _infer_scope_label,
+    _is_known_winner,
+    _result_winner,
     _safe_iso,
     _safe_local_player,
 )
@@ -615,15 +617,28 @@ def _update_match_summary(event: Any) -> None:
             summary.player_team = _CONTEXT["current_player_team"]
 
         summary.touch_game(game_number, _safe_iso(event))
-        summary.set_game_winner(game_number, winning_team)
+        has_nested_results = isinstance(payload.get("results"), list)
+        game_result = _extract_game_result_scope_result(payload, "Game", require_known_winner=True)
+        game_winner = _result_winner(game_result) if game_result is not None else winning_team
+        if (game_result is not None or not has_nested_results) and _is_known_winner(game_winner):
+            summary.set_game_winner(game_number, game_winner)
 
-        if (
-            str(payload.get("match_state", "")) == "MatchState_MatchComplete"
-            or _has_match_scope_result(payload)
-        ) and winning_team not in (None, ""):
+        match_result = _extract_game_result_scope_result(payload, "Match", require_known_winner=True)
+        match_result_fallback = _extract_game_result_scope_result(payload, "Match", require_known_winner=False)
+        if match_result is not None:
+            summary.match_winner_team = _result_winner(match_result)
+            summary.match_result_type = match_result.get("result", "")
+            summary.match_result_reason = match_result.get("reason", "")
+            return
+
+        if str(payload.get("match_state", "")) == "MatchState_MatchComplete" and _is_known_winner(winning_team):
             summary.match_winner_team = winning_team
-            summary.match_result_type = result_type
-            summary.match_result_reason = reason
+            if match_result_fallback is not None:
+                summary.match_result_type = match_result_fallback.get("result", "")
+                summary.match_result_reason = match_result_fallback.get("reason", "")
+            else:
+                summary.match_result_type = result_type
+                summary.match_result_reason = reason
         return
 
 

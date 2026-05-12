@@ -471,6 +471,38 @@ def _infer_scope_label(scope_value: Any) -> str:
         return "Match"
     return text
 
+
+def _is_known_winner(winner: Any) -> bool:
+    if winner in (None, ""):
+        return False
+    if isinstance(winner, bool):
+        return False
+    if isinstance(winner, int | float) and winner == 0:
+        return False
+    return str(winner).strip() not in {"", "0"}
+
+
+def _result_winner(result: dict[str, Any]) -> Any:
+    return _first_present(result.get("winningTeamId"), result.get("winning_team_id"))
+
+
+def _extract_game_result_scope_result(
+    payload: dict[str, Any],
+    scope_label: str,
+    *,
+    require_known_winner: bool,
+) -> dict[str, Any] | None:
+    latest: dict[str, Any] | None = None
+    for result in payload.get("results") or []:
+        if not isinstance(result, dict):
+            continue
+        if _infer_scope_label(result.get("scope", "")) != scope_label:
+            continue
+        if require_known_winner and not _is_known_winner(_result_winner(result)):
+            continue
+        latest = result
+    return latest
+
 #Read match ID, game number, winning team, result type, and reason from a GameResult Payload
 def _extract_game_result_identity(payload: dict[str, Any], context: dict[str, Any]) -> tuple[Any, Any, Any, Any, Any]:
     identity = _safe_dict(payload.get("identity"))
