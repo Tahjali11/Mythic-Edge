@@ -69,7 +69,41 @@ def test_build_game_result_payload_handles_missing_and_malformed_sections() -> N
     }
 
 
-def test_build_game_result_payload_falls_back_to_last_dict_result_when_scope_missing() -> None:
+def test_build_game_result_payload_uses_latest_game_scope_result_for_top_level_winner() -> None:
+    payload = build_game_result_payload(
+        {
+            "game_info": {
+                "stage": "GameStage_GameOver",
+                "results": [
+                    {
+                        "scope": "MatchScope_Game",
+                        "winningTeamId": 1,
+                        "result": "ResultType_WinLoss",
+                        "reason": "ResultReason_FirstGame",
+                    },
+                    {
+                        "scope": "MatchScope_Match",
+                        "winningTeamId": 3,
+                        "result": "ResultType_WinLoss",
+                        "reason": "ResultReason_Match",
+                    },
+                    {
+                        "scope": "MatchScope_Game",
+                        "winningTeamId": 2,
+                        "result": "ResultType_WinLoss",
+                        "reason": "ResultReason_LatestGame",
+                    },
+                ],
+            }
+        }
+    )
+
+    assert payload["winning_team_id"] == 2
+    assert payload["result_type"] == "ResultType_WinLoss"
+    assert payload["reason"] == "ResultReason_LatestGame"
+
+
+def test_build_game_result_payload_does_not_promote_match_scope_result_to_game_winner() -> None:
     payload = build_game_result_payload(
         {
             "game_info": {
@@ -87,6 +121,6 @@ def test_build_game_result_payload_falls_back_to_last_dict_result_when_scope_mis
         }
     )
 
-    assert payload["winning_team_id"] == 2
-    assert payload["result_type"] == "ResultType_WinLoss"
-    assert payload["reason"] == "ResultReason_Concede"
+    assert payload["winning_team_id"] == 0
+    assert payload["result_type"] == ""
+    assert payload["reason"] == ""
