@@ -278,7 +278,7 @@ class MatchSummary:
             return
         try:
             normalized = int(mulligans)
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, OverflowError):
             return
         if not isinstance(mulligans, str) and normalized != mulligans:
             return

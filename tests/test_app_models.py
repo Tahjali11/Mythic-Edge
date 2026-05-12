@@ -43,6 +43,26 @@ def test_set_game_mulligans_ignores_non_integer_values() -> None:
         assert summary.total_mulligans == 2
 
 
+def test_set_game_mulligans_ignores_non_finite_numeric_values() -> None:
+    summary = MatchSummary(match_id="m_non_finite_mulligans")
+    summary.set_game_mulligans(1, 2)
+
+    for invalid_value in (float("inf"), float("-inf"), float("nan")):
+        summary.set_game_mulligans(1, invalid_value)
+
+        assert summary.games[1].mulligans == 2
+        assert summary.total_mulligans == 2
+
+
+def test_set_game_mulligans_accepts_integer_like_string_value() -> None:
+    summary = MatchSummary(match_id="m_string_mulligans")
+
+    summary.set_game_mulligans(1, "2")
+
+    assert summary.games[1].mulligans == 2
+    assert summary.total_mulligans == 2
+
+
 def test_match_summary_sheet_row_matches_workbook_shape() -> None:
     summary = MatchSummary(match_id="m1")
     summary.first_event_time = "2026-04-17T19:11:42-04:00"
