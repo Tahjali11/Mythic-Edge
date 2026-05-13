@@ -187,7 +187,10 @@ def test_filter_match_history_payload_applies_filters() -> None:
         {
             "deck_name": "Deck A",
             "result": "W",
+            "rank_match_type": "unranked",
+            "play_mode_family": "constructed",
             "event_family": "queue",
+            "queue_subtype": "traditional_play_queue",
         },
     )
 
