@@ -1,3 +1,16 @@
+---
+version: 2
+status: active
+adopted_on: "2026-05-13"
+adoption_issue: "https://github.com/Tahjali11/Mythic-Edge/issues/18"
+adoption_pr: "https://github.com/Tahjali11/Mythic-Edge/pull/19"
+adoption_commit: "9ca3f7978b62bc24a3838675f30bcf22f0a4a01e"
+supersedes: "V1 constitution from PR #4 / commit 7cecbde"
+stable_active_path: "docs/agent_constitution.md"
+machine_rule_index: "docs/agent_rules.yml"
+archived_previous_version: "docs/archive/agent_constitution_v1_2026-05-11.md"
+---
+
 # Mythic Edge Agent Constitution
 
 Design issue: https://github.com/Tahjali11/Mythic-Edge/issues/1
