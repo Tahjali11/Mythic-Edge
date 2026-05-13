@@ -225,7 +225,14 @@ def test_match_summary_history_item_includes_normalized_event_identity() -> None
     assert payload["queue_subtype"] == "traditional_ranked_ladder"
     assert payload["rank_eligible"] is True
     assert payload["is_ranked_match"] is True
+    assert payload["is_unranked_match"] is False
+    assert payload["is_constructed_match"] is True
+    assert payload["is_limited_match"] is False
+    assert payload["is_draft_match"] is False
+    assert payload["is_sealed_match"] is False
     assert payload["is_ladder_match"] is True
+    assert payload["is_special_event_match"] is False
+    assert payload["is_event_match"] is False
 
 
 def test_game_summary_opening_hand_size_falls_back_to_seven_minus_mulligans() -> None:
