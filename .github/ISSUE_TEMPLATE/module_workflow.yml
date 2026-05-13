@@ -1,5 +1,5 @@
 name: Module workflow
-description: Shape a Mythic Edge module change before implementation.
+description: Shape a Mythic Edge module, workflow, or constitution change before implementation.
 title: "[module] "
 labels: ["workflow:problem"]
 body:
@@ -9,7 +9,10 @@ body:
         Use this issue for the problem representation step. A separate contract should be produced before implementation starts when the risk tier requires one.
 
         Agent docs:
+        - `AGENTS.md`
+        - `docs/agent_rules.yml`
         - `docs/agent_constitution.md`
+        - `docs/codex_module_workflow.md`
         - `docs/agent_threads/problem_representation.md`
         - `docs/agent_threads/module_contract.md`
         - `docs/agent_threads/implementation.md`
@@ -17,8 +20,18 @@ body:
         - `docs/agent_threads/review.md`
         - `docs/agent_threads/contract_test.md`
         - `docs/agent_threads/module_submitter.md`
+        - `docs/agent_threads/integration_deployer.md`
         - `docs/templates/problem_representation.md`
         - `docs/templates/workflow_handoff.md`
+        - `docs/templates/current_status.md`
+  - type: input
+    id: tracker
+    attributes:
+      label: Tracker issue
+      description: Parent tracker or queue issue, if any.
+      placeholder: "#5"
+    validations:
+      required: false
   - type: dropdown
     id: risk_tier
     attributes:
@@ -34,13 +47,13 @@ body:
     id: summary
     attributes:
       label: Summary
-      description: One or two sentences describing the bug, feature, or confusing behavior.
+      description: One or two sentences describing the bug, feature, audit target, or confusing behavior.
     validations:
       required: true
   - type: textarea
     id: intended
     attributes:
-      label: What the code is supposed to do
+      label: What the code or workflow is supposed to do
       description: Describe the intended behavior in plain English.
     validations:
       required: true
@@ -48,7 +61,7 @@ body:
     id: actual
     attributes:
       label: What it is actually doing
-      description: Include the exact bad output, missing output, or confusing state if known.
+      description: Include the exact bad output, missing output, confusing state, or workflow gap if known.
     validations:
       required: true
   - type: dropdown
@@ -62,22 +75,46 @@ body:
         - workbook landing sheets
         - helper formulas
         - dashboard / reporting tabs
+        - AI analysis
+        - repository coordination and agent workflow
     validations:
       required: true
   - type: textarea
     id: first_bad_value
     attributes:
       label: First bad value or first place to inspect
-      description: Name where the data first becomes wrong or ambiguous. If unknown, list the inspection order.
+      description: Name where the data or workflow first becomes wrong or ambiguous. If unknown, list the inspection order.
     validations:
       required: true
   - type: textarea
     id: expected_output
     attributes:
       label: Expected output
-      description: List parser fields, webhook rows, workbook columns, or visible dashboard effect expected.
+      description: List parser fields, webhook rows, workbook columns, visible dashboard effect, docs artifact, issue/PR state, or tracker update expected.
     validations:
       required: true
+  - type: textarea
+    id: source_artifacts
+    attributes:
+      label: Source artifacts
+      description: Link or list contracts, problem representations, logs, workbook tabs, PRs, reports, or draft docs the next role should read.
+    validations:
+      required: false
+  - type: textarea
+    id: target_artifact
+    attributes:
+      label: Target artifact
+      description: Name the durable artifact expected from this issue, such as a contract, implementation handoff, contract-test report, PR, or tracker update.
+    validations:
+      required: false
+  - type: input
+    id: branch
+    attributes:
+      label: Expected branch
+      description: Branch or base branch expected for follow-up work.
+      placeholder: codex/parser-module-audit-suite
+    validations:
+      required: false
   - type: textarea
     id: scope
     attributes:
@@ -86,9 +123,25 @@ body:
     validations:
       required: true
   - type: textarea
+    id: protected_surfaces
+    attributes:
+      label: Protected surfaces and forbidden changes
+      description: Name any protected-surface bundles or explicit surfaces that must not change.
+      value: |
+        Do not change workbook schema, webhook payload shape, Apps Script behavior, parser event classes, parser state final reconciliation, extractor behavior, match identity, game identity, deduplication, secrets, environment variables, raw logs, generated data, runtime status files, failed posts, or workbook exports unless the contract explicitly authorizes it.
+    validations:
+      required: true
+  - type: textarea
     id: validation
     attributes:
       label: Validation evidence needed
-      description: Which focused tests, replay checks, or visible workbook checks would prove the fix worked?
+      description: Which focused tests, replay checks, docs checks, YAML parse checks, CI checks, or visible workbook checks would prove the work succeeded?
     validations:
       required: true
+  - type: textarea
+    id: stop_conditions
+    attributes:
+      label: Stop conditions
+      description: List conditions that should route back to Thinker, Contract Writer, Reviewer, or the user instead of proceeding.
+    validations:
+      required: false

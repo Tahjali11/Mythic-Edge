@@ -1,0 +1,470 @@
+version: 2
+status: active
+human_constitution: docs/agent_constitution.md
+issue: https://github.com/Tahjali11/Mythic-Edge/issues/18
+tracker: https://github.com/Tahjali11/Mythic-Edge/issues/1
+
+document_architecture:
+  docs/agent_constitution.md: human_readable_authoritative_constitution
+  docs/agent_rules.yml: codex_optimized_terse_rule_index
+  docs/agent_threads/*.md: human_readable_role_docs
+  docs/agent_threads/*.yml: optional_future_per_role_specs
+
+authority_order:
+  - system_and_developer
+  - current_user_instruction
+  - AGENTS.md
+  - docs/agent_rules.yml
+  - docs/agent_constitution.md
+  - current_issue_or_problem_representation
+  - current_contract
+  - current_handoff_or_report
+  - docs/agent_threads
+  - docs/templates
+  - older_docs_examples_memory
+
+source_priority:
+  synthesis:
+    - system_and_developer
+    - current_user_instruction
+    - docs/problem_representations/agent_constitution_v2_synthesis.md
+    - AGENTS.md
+    - docs/agent_constitution.md
+    - docs/codex_module_workflow.md
+    - docs/agent_threads
+    - docs/templates
+    - .github/pull_request_template.md
+    - .github/ISSUE_TEMPLATE/module_workflow.yml
+    - role_labeled_v2_drafts
+    - older_docs_examples_memory
+
+conflict_triage:
+  order:
+    - id: preserve_active_instructions
+      rule: Preserve active system, developer, and user instructions.
+    - id: preserve_contract_decisions
+      rule: Preserve accepted decisions in the current contract.
+    - id: preserve_v1_sacred_rules
+      rule: Preserve V1 sacred safety rules.
+    - id: preserve_parser_truth_ownership
+      rule: Preserve parser truth ownership.
+    - id: prevent_high_risk_drift
+      rule: Prefer the rule that prevents irreversible or high-risk drift.
+    - id: prefer_proven_repo_workflow
+      rule: Prefer current repo workflow proven by successful issues and PRs.
+    - id: prefer_terse_machine_readable_rules
+      rule: Prefer shorter machine-readable rules when they are equally safe.
+    - id: prefer_canonical_source_links
+      rule: Prefer one canonical source plus links over duplicated prose.
+    - id: preserve_high_risk_open_questions
+      rule: Preserve minority or high-risk concerns as open questions rather than silently dropping them.
+  error_behavior:
+    - apply_conflict_triage_order
+    - preserve_safety_or_authority_disagreements_as_open_risks
+    - route_to_B_when_resolution_requires_contract_change
+  examples:
+    deployer_role_name: Codex G overrides draft F2 deployer naming.
+    per_role_yaml: Per-role YAML schema is defined, but per-role YAML files are not required in the first adoption PR.
+    role_labeled_drafts: Role-labeled V2 drafts are archived after adoption instead of left beside active rule files.
+
+sacred_rules:
+  parser_truth_ownership:
+    summary: Parser and state interpretation own event interpretation and normalized match/game facts.
+    must_not_move_truth_to:
+      - workbook_formulas
+      - dashboard_logic
+      - apps_script_transport
+      - webhook_transport
+      - ai_interpretation
+  secret_and_local_artifact_safety:
+    never_commit:
+      - secrets
+      - webhook_urls
+      - api_keys
+      - tokens
+      - credentials
+      - local_mtga_logs
+      - failed_posts
+      - runtime_status_files
+      - generated_card_data
+      - raw_workbook_exports
+  high_risk_change_gate:
+    requires:
+      - problem_representation
+      - module_contract
+      - implementation_against_contract
+      - review_or_contract_test
+      - validation_evidence
+  validation_truth:
+    rule: Do not claim validation passed without command output, test evidence, corrected output, CI evidence, or a verified code path.
+  no_silent_scope_expansion:
+    rule: Do not silently expand scope beyond the stated issue, contract, prompt, or reviewed diff.
+  no_unapproved_deletion:
+    rule: Do not delete archive, raw, debug, helper, summary, observability, or generated-data layers without explicit approval and rollback path.
+  no_main_for_audit:
+    rule: Module PR work must not target main unless explicitly approved.
+
+protected_surfaces:
+  parser_downstream_surfaces:
+    - workbook_schema
+    - webhook_payload_shape
+    - apps_script_behavior
+    - parser_event_classes
+    - parser_state_final_reconciliation
+    - extractor_behavior
+    - match_identity
+    - game_identity
+    - deduplication
+    - secrets
+    - environment_variables
+    - raw_logs
+    - generated_data
+    - runtime_status_files
+    - failed_posts
+    - workbook_exports
+  local_artifact_surfaces:
+    - local_logs
+    - failed_post_queues
+    - generated_card_data
+    - raw_workbook_exports
+  workflow_surfaces:
+    - issue_lifecycle
+    - pr_lifecycle
+    - tracker_hygiene
+    - branch_policy
+    - validation_gates
+
+roles:
+  A:
+    name: Thinker
+    owns:
+      - problem_framing
+      - scope
+      - risk
+      - first_inspection_order
+      - issue_or_problem_representation
+    may_edit_code: false
+    may_commit: false
+    may_merge: false
+    required_artifact: docs/problem_representations/*.md_or_github_issue
+    next_roles:
+      - B
+  B:
+    name: Module Contract Writer
+    owns:
+      - contracts
+      - public_interfaces
+      - truth_boundaries
+      - invariants
+      - tests_required
+      - acceptance_criteria
+    may_edit_code: false
+    may_commit: false
+    may_merge: false
+    required_artifact: docs/contracts/*.md
+    next_roles:
+      - C
+  C:
+    name: Module Implementer
+    owns:
+      - smallest_coherent_implementation
+      - focused_tests_required_by_contract
+      - implementation_handoff
+    may_edit_code: true
+    may_commit: false
+    may_merge: false
+    required_artifact: docs/implementation_handoffs/*.md
+    next_roles:
+      - E
+      - B
+      - A
+  D:
+    name: Module Fixer
+    owns:
+      - concrete_review_findings
+      - contract_test_findings
+      - ci_findings
+      - targeted_fixes
+    may_edit_code: true
+    may_commit: false
+    may_merge: false
+    required_artifact: docs/implementation_handoffs/*.md
+    next_roles:
+      - E
+      - B
+      - A
+  E:
+    name: Module Reviewer
+    owns:
+      - findings
+      - contract_test_verdicts
+      - missing_tests
+      - drift_classification
+      - routing_recommendation
+    may_edit_code: false
+    may_commit: false
+    may_merge: false
+    required_artifact: docs/contract_test_reports/*.md_or_pr_review
+    next_roles:
+      - D
+      - B
+      - A
+      - F
+  F:
+    name: Module Submitter
+    owns:
+      - staging_reviewed_files
+      - commit
+      - push
+      - draft_pr
+    may_edit_code: false
+    may_commit: true
+    may_merge: false
+    required_artifact: draft_pull_request
+    next_roles:
+      - G
+      - E
+  G:
+    name: Integration Deployer
+    owns:
+      - pr_readiness
+      - merge
+      - issue_closure
+      - tracker_update
+      - local_branch_sync_after_merge
+    may_edit_code: false
+    may_commit: false
+    may_merge: true
+    required_artifact: merged_pr_and_completion_comment
+    next_roles:
+      - A
+      - none
+
+routing:
+  normal_path:
+    - A
+    - B
+    - C
+    - E
+    - F
+    - G
+  loopbacks:
+    to_A:
+      - scope_outside_issue
+      - problem_framing_wrong
+      - requested_change_affects_different_layer
+    to_B:
+      - contract_ambiguous
+      - contract_inaccurate
+      - downstream_truth_ownership_would_change
+      - expected_output_vocabulary_unclear
+    to_D:
+      - implementation_bug
+      - required_test_missing
+      - validation_failure_in_reviewed_scope
+      - concrete_reviewer_finding
+    to_E:
+      - implementation_ready_for_review
+      - fixer_work_ready_for_review
+    to_F:
+      - reviewer_no_blocking_findings
+      - validation_complete_or_explained
+    to_G:
+      - draft_pr_reviewed_and_ready_for_merge_request
+
+risk_tiers:
+  low:
+    examples:
+      - typos
+      - README_pointers
+      - docs_organization
+      - comments
+      - local_tooling_without_runtime_effect
+    requires:
+      - focused_check_when_useful
+  medium:
+    examples:
+      - parser_behavior_changes
+      - shared_helper_changes
+      - local_artifact_shape_changes
+      - runtime_status_changes
+    requires:
+      - problem_representation
+      - focused_tests
+      - module_contract_when_interfaces_or_shared_state_change
+  high:
+    examples:
+      - webhook_payload_shape
+      - workbook_schema
+      - apps_script_behavior
+      - match_identity
+      - game_identity
+      - winner_fields
+      - play_draw_fields
+      - mulligan_counts
+      - deduplication
+      - final_reconciliation
+      - secrets
+      - deployment
+    requires:
+      - problem_representation
+      - module_contract
+      - implementation_against_contract
+      - module_review_or_contract_test
+      - validation_evidence
+
+issue_lifecycle:
+  v2_synthesis_issue: https://github.com/Tahjali11/Mythic-Edge/issues/18
+  v1_tracker_issue: https://github.com/Tahjali11/Mythic-Edge/issues/1
+  close_rules:
+    tracker: Close only when entire tracked queue or phase is complete.
+    module_audit: Close after artifacts exist, review is clean or accepted, PR is merged to approved base, validation is recorded, and tracker is updated.
+    bug: Close after fix PR is merged, validation is recorded, and no follow-up implementation is implied.
+    planning_docs: Close when requested artifacts are complete or follow-up implementation issue is linked.
+    constitution: Close when rule changes are merged, affected role docs/templates are updated if needed, validation is recorded, and no amendment work remains.
+  completion_comment_fields:
+    - pr_number
+    - merge_commit
+    - base_branch
+    - durable_artifacts
+    - validation_or_ci_result
+    - tracker_status_or_next_queue_item
+
+pr_lifecycle:
+  default_state: draft
+  module_audit_base: codex/parser-module-audit-suite
+  main_requires_explicit_approval: true
+  use_closes_only_when_issue_fully_satisfied: true
+  use_refs_for_partial_or_tracker_work: true
+  merge_owner: G
+  submitter_may_merge: false
+  merge_gates:
+    - pr_not_draft
+    - base_branch_approved
+    - target_not_main_unless_approved
+    - ci_passes_or_named_waiver
+    - no_blocking_review_findings
+    - diff_within_reviewed_scope
+    - no_forbidden_files_or_secrets
+    - issue_closing_behavior_correct
+    - tracker_update_behavior_correct
+
+tracker_hygiene:
+  update_required_when:
+    - child_issue_created
+    - child_pr_opened
+    - child_pr_merged
+    - child_issue_closed
+    - child_issue_blocked
+    - next_queue_item_changes
+  fields:
+    - issue_number_and_title
+    - pr_number_and_base
+    - merge_commit
+    - durable_artifacts
+    - validation_or_ci_status
+    - blocker_or_residual_risk
+    - next_queue_item
+    - related_open_issues
+
+branch_policy:
+  audit_integration_branch: codex/parser-module-audit-suite
+  main_requires_explicit_approval: true
+  submitter_pushes_branch: true
+  deployer_merges_only_after_user_request: true
+
+validation_gates:
+  smallest_first: true
+  evidence_format: "<command> -> <result>"
+  common:
+    focused_pytest: python3 -m pytest -q <focused tests>
+    related_pytest: python3 -m pytest -q <related tests>
+    lint: python3 -m ruff check src tests
+    full_pytest: python3 -m pytest -q
+    diff_check: git diff --check
+  docs:
+    - git diff --check
+    - parse docs/agent_rules.yml
+
+prompt_schema:
+  required:
+    - constitution_instruction
+    - role
+    - issue
+    - source_artifacts
+    - target_artifact
+    - risk_tier
+    - branch
+    - goal
+    - forbidden_surfaces_or_bundle
+    - validation
+    - stop_conditions
+    - expected_output
+
+handoff_schema:
+  required:
+    - role_performed
+    - source_issue
+    - source_artifact
+    - artifact_produced
+    - risk_tier
+    - files_changed
+    - code_changed
+    - tests_changed
+    - interface_changes
+    - validation_evidence
+    - still_unverified_layers
+    - next_recommended_role
+    - pasteable_next_thread_prompt
+    - workflow_handoff
+
+current_status_schema:
+  repo_status:
+    branch: string
+    open_issues:
+      fields:
+        - number
+        - title
+        - purpose
+        - next_action
+    open_prs:
+      fields:
+        - number
+        - title
+        - base
+        - draft
+        - checks
+        - next_action
+    recently_merged:
+      fields:
+        - pr
+        - merge_commit
+        - issue_closed
+        - tracker_updated
+    active_tracker: string
+    next_recommended_action: string
+
+per_role_yaml_schema:
+  required_fields:
+    - id
+    - name
+    - mission
+    - may_edit_code
+    - may_commit
+    - may_merge
+    - must_read
+    - may_change
+    - must_not_change
+    - required_output
+    - required_artifact
+    - required_handoff_fields
+    - validation_expectations
+    - stop_conditions
+    - next_roles
+  required_in_first_adoption_pr: false
+
+archive_policy:
+  role_labeled_v2_drafts:
+    archive_after_adoption: true
+    target: docs/archive/agent_constitution_v2_drafts/
+    delete_without_user_approval: false
