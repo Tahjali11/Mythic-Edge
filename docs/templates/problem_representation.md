@@ -2,7 +2,16 @@
 
 ## Summary
 
-One or two sentences describing the bug, feature, or confusing behavior.
+One or two sentences describing the bug, feature, audit target, or confusing
+behavior.
+
+## Source Request Or Issue
+
+Link to the originating request or GitHub issue.
+
+## Tracker
+
+Link to the tracker issue, if any.
 
 ## What The Code Is Supposed To Do
 
@@ -10,11 +19,13 @@ Describe the intended behavior in plain English.
 
 ## What It Is Actually Doing
 
-Describe the current behavior. Include the exact bad output, missing output, or confusing state if known.
+Describe the current behavior. Include the exact bad output, missing output, or
+confusing state if known.
 
 ## Why This Matters
 
-Explain the user impact, debugging impact, workbook impact, or downstream analytics impact.
+Explain the user impact, debugging impact, workbook impact, or downstream
+analytics impact.
 
 ## Project Layer
 
@@ -26,6 +37,8 @@ Choose the main layer:
 - workbook landing sheets
 - helper formulas
 - dashboard / reporting tabs
+- AI analysis
+- repository coordination and agent workflow
 
 ## First Bad Value
 
@@ -35,37 +48,41 @@ If unknown, list the places to inspect in order.
 
 ## Inputs
 
-List representative logs, payloads, fixture rows, workbook tabs, or commands involved.
+List representative logs, payloads, fixture rows, workbook tabs, docs, prompts,
+or commands involved.
 
 ## Expected Output
 
-List the final parser-managed fields, webhook rows, workbook columns, or visible dashboard effect expected.
+List the final parser-managed fields, webhook rows, workbook columns, visible
+dashboard effect, docs artifact, or workflow decision expected.
 
 ## Scope
 
 In scope:
 
-- 
+- TODO
 
 Out of scope:
 
-- 
+- TODO
 
 ## Risks And Likely Breakpoints
 
-List likely import, shared state, interface, workbook, deployment, or data drift risks.
+List likely import, shared state, interface, workbook, deployment, issue,
+tracker, PR lifecycle, or data drift risks.
 
 ## Validation Evidence Needed
 
-List the smallest checks that would prove the issue is fixed.
+List the smallest checks that would prove the issue is fixed or the artifact is
+complete.
 
-```powershell
+```bash
 
 ```
 
 ## Open Questions
 
-- 
+- TODO
 
 ## Next Workflow Action
 
@@ -80,6 +97,7 @@ Pasteable prompt:
 ```yaml
 workflow_handoff:
   issue: ""
+  tracker: ""
   completed_thread: "A"
   next_thread: "B"
   source_artifact: ""

@@ -1,6 +1,6 @@
 # Module Contract Writer Thread Rules
 
-Use with `docs/agent_constitution.md`.
+Use with `docs/agent_rules.yml` and `docs/agent_constitution.md`.
 
 ## Mission
 
@@ -54,6 +54,7 @@ End with:
 - role performed
 - source problem representation
 - contract produced or changed
+- tracker issue, if any
 - risk tier
 - owning truth layer
 - public interface

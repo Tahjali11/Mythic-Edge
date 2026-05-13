@@ -1,6 +1,6 @@
 # Module Fixer Thread Rules
 
-Use with `docs/agent_constitution.md`.
+Use with `docs/agent_rules.yml` and `docs/agent_constitution.md`.
 
 ## Mission
 
@@ -53,6 +53,7 @@ End with:
 - role performed
 - source finding
 - source issue and contract
+- tracker issue, if any
 - risk tier
 - fix produced
 - code changed

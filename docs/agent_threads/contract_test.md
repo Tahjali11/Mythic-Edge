@@ -1,6 +1,6 @@
 # Contract Test Reviewer Rules
 
-Use with `docs/agent_constitution.md`.
+Use with `docs/agent_rules.yml` and `docs/agent_constitution.md`.
 
 ## Mission
 
