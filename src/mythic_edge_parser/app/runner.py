@@ -1,5 +1,5 @@
 import json
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from urllib.parse import urlparse
 
 from ..stream import MtgaEventStream
@@ -69,10 +69,17 @@ from .transforms import include_event, summarize, to_serializable, to_sheet_rows
 def _display_path(path: Path | None) -> str:
     if path is None:
         return ""
+    path_text = str(path)
+    windows_path = PureWindowsPath(path_text)
+    windows_name = windows_path.name
+    if "\\" in path_text and windows_name and not path.is_absolute() and (windows_path.drive or windows_path.root):
+        return windows_name
     try:
         return str(path.resolve(strict=False).relative_to(PROJECT_ROOT.resolve(strict=False)))
     except Exception:
-        return path.name or str(path)
+        if "\\" in path_text and windows_name:
+            return windows_name
+        return path.name or windows_name or path_text
 
 
 def _sheet_posting_enabled() -> bool:
@@ -429,4 +436,3 @@ async def main() -> None:
         update_runtime_status(status="stopped")
         stop_status_api_server()
         await stream.shutdown()
-
