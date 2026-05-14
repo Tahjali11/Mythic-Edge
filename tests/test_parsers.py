@@ -63,7 +63,32 @@ def test_gre_game_over_emits_game_state_and_game_result() -> None:
     assert len(events) == 2
     assert events[0].kind == "GameState"
     assert events[1].kind == "GameResult"
+    assert events[1].performance_class == PerformanceClass.POST_GAME_BATCH
+    assert events[0].metadata is events[1].metadata
+    assert events[1].metadata.timestamp is TS
+    assert events[1].metadata.raw_bytes == entry.body.encode()
     assert events[1].payload["winning_team_id"] == 1
+
+
+def test_gre_queued_game_over_emits_game_state_and_game_result() -> None:
+    entry = LogEntry(
+        EntryHeader.UNITY_CROSS_THREAD_LOGGER,
+        "[UnityCrossThreadLogger]queuedGameStateMessage GameStage_GameOver\n"
+        '{"greToClientEvent":{"greToClientMessages":[{"type":"GREMessageType_QueuedGameStateMessage",'
+        '"msgId":5,"gameStateId":9,"queuedGameStateMessage":{"gameStateMessage":{"gameInfo":{'
+        '"matchID":"queued-over","gameNumber":1,"stage":"GameStage_GameOver",'
+        '"matchState":"MatchState_GameComplete","results":[{"scope":"MatchScope_Game",'
+        '"winningTeamId":2,"result":"ResultType_WinLoss","reason":"ResultReason_Game"}]}}}}]}}',
+    )
+
+    events = gre.try_parse(entry, TS)
+
+    assert len(events) == 2
+    assert events[0].kind == "GameState"
+    assert events[0].payload["type"] == "queued_game_state_message"
+    assert events[1].kind == "GameResult"
+    assert events[1].payload["identity"]["match_id"] == "queued-over"
+    assert events[1].payload["winning_team_id"] == 2
 
 
 def test_gre_game_over_uses_latest_game_scope_result_when_results_are_cumulative() -> None:
