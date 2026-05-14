@@ -10,6 +10,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -24,5 +26,9 @@ jobs:
       - name: Run tests
         run: py -m pytest -q tests
 
+      - name: Run protected surface gate
+        if: github.event_name == 'pull_request'
+        run: py tools/check_protected_surfaces.py --base origin/${{ github.base_ref }}
+
       - name: Run lint checks
-        run: py -m ruff check src tests
+        run: py -m ruff check src tests tools

@@ -11,7 +11,6 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
 from reportlab.platypus import ListFlowable, ListItem, Paragraph, Preformatted, SimpleDocTemplate, Spacer
 
-
 INLINE_CODE_RE = re.compile(r"`([^`]+)`")
 BOLD_RE = re.compile(r"\*\*([^*]+)\*\*")
 
@@ -119,7 +118,10 @@ def markdown_to_story(text: str):
     def flush_numbered() -> None:
         nonlocal numbered_lines
         if numbered_lines:
-            items = [ListItem(Paragraph(_inline_markup(line), bullet_style), value=i + 1) for i, line in enumerate(numbered_lines)]
+            items = [
+                ListItem(Paragraph(_inline_markup(line), bullet_style), value=i + 1)
+                for i, line in enumerate(numbered_lines)
+            ]
             story.append(ListFlowable(items, bulletType="1", leftIndent=18))
             story.append(Spacer(1, 4))
             numbered_lines = []
