@@ -2,11 +2,13 @@ from datetime import UTC, datetime
 
 from mythic_edge_parser.app import state
 from mythic_edge_parser.app import transforms as transforms_module
-from mythic_edge_parser.app.transforms import include_event, to_serializable, to_sheet_rows
+from mythic_edge_parser.app.config import KEEP_EVENT_LIFECYCLE_TYPES
+from mythic_edge_parser.app.transforms import include_event, summarize, to_serializable, to_sheet_rows
 from mythic_edge_parser.events import (
     ClientActionEvent,
     ConnectionErrorEvent,
     DeckCollectionEvent,
+    EventLifecycleEvent,
     EventMetadata,
     GameStateEvent,
     InventoryEvent,
@@ -102,6 +104,37 @@ def test_include_event_keeps_inventory_snapshot() -> None:
     )
 
     assert include_event(inventory_event) is True
+
+
+def test_event_lifecycle_transform_config_keeps_all_emitted_types() -> None:
+    assert KEEP_EVENT_LIFECYCLE_TYPES == {
+        "event_join",
+        "event_enter_pairing",
+        "event_claim_prize",
+    }
+
+    for event_type in KEEP_EVENT_LIFECYCLE_TYPES:
+        event = EventLifecycleEvent(
+            EventMetadata(datetime(2026, 5, 5, 21, 3, 0, tzinfo=UTC), f"raw-{event_type}".encode()),
+            {"type": event_type, "raw_event_lifecycle": f"raw-{event_type}"},
+        )
+
+        assert include_event(event) is True
+        assert summarize(event) == f"EventLifecycle type={event_type}"
+        assert to_sheet_rows(event) == []
+        assert to_serializable(event)["payload"] == {
+            "type": event_type,
+            "raw_event_lifecycle": f"raw-{event_type}",
+        }
+
+
+def test_event_lifecycle_transform_rejects_unknown_lifecycle_type() -> None:
+    event = EventLifecycleEvent(
+        EventMetadata(datetime(2026, 5, 5, 21, 3, 0, tzinfo=UTC), b"raw"),
+        {"type": "event_unknown", "raw_event_lifecycle": "raw"},
+    )
+
+    assert include_event(event) is False
 
 
 def test_to_serializable_uses_context_fallback_for_missing_game_identity() -> None:

@@ -162,6 +162,37 @@ def test_dispatch_to_parsers_uses_unknown_header_fallback_order(monkeypatch) -> 
     assert call_order == ["gre", "client_actions"]
 
 
+def test_dispatch_to_parsers_uses_unknown_header_lifecycle_position(monkeypatch) -> None:
+    call_order: list[str] = []
+    expected_event = _make_event()
+
+    for module_name in DISPATCH_MODULE_NAMES:
+        parser_module = getattr(router.parsers, module_name)
+
+        def _make_parser(name: str):
+            def _parser(entry, timestamp):
+                call_order.append(name)
+                if name == "rank":
+                    return expected_event
+                return None
+
+            return _parser
+
+        monkeypatch.setattr(parser_module, "try_parse", _make_parser(module_name))
+
+    result = router.dispatch_to_parsers(_make_entry("body", header=EntryHeader.UNKNOWN), None)
+
+    assert result == [expected_event]
+    assert call_order == [
+        "gre",
+        "client_actions",
+        "match_state",
+        "session",
+        "event_lifecycle",
+        "rank",
+    ]
+
+
 def test_dispatch_to_parsers_uses_unity_bucket_order(monkeypatch) -> None:
     call_order: list[str] = []
     expected_event = _make_event()
@@ -198,6 +229,39 @@ def test_dispatch_to_parsers_uses_unity_bucket_order(monkeypatch) -> None:
         "connection_state",
         "connection_close",
         "connection_error",
+    ]
+
+
+def test_dispatch_to_parsers_stops_after_lifecycle_event(monkeypatch) -> None:
+    call_order: list[str] = []
+    expected_event = _make_event()
+
+    for module_name in DISPATCH_MODULE_NAMES:
+        parser_module = getattr(router.parsers, module_name)
+
+        def _make_parser(name: str):
+            def _parser(entry, timestamp):
+                call_order.append(name)
+                if name == "event_lifecycle":
+                    return expected_event
+                return None
+
+            return _parser
+
+        monkeypatch.setattr(parser_module, "try_parse", _make_parser(module_name))
+
+    result = router.dispatch_to_parsers(
+        _make_entry("body", header=EntryHeader.UNITY_CROSS_THREAD_LOGGER),
+        None,
+    )
+
+    assert result == [expected_event]
+    assert call_order == [
+        "gre",
+        "client_actions",
+        "match_state",
+        "session",
+        "event_lifecycle",
     ]
 
 

@@ -2,7 +2,11 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
-from mythic_edge_parser.app.saved_event_replay import latest_jsonl_files, replay_latest_saved_events
+from mythic_edge_parser.app.saved_event_replay import (
+    event_from_saved_record,
+    latest_jsonl_files,
+    replay_latest_saved_events,
+)
 
 
 def test_latest_jsonl_files_selects_highest_version_per_day(tmp_path: Path) -> None:
@@ -77,3 +81,26 @@ def test_replay_latest_saved_events_dedupes_raw_hashes_and_reconstructs_events(t
     assert stats.events_skipped == 1
     assert [kind for kind, _timestamp in seen] == ["Rank", "MatchState"]
     assert seen[0][1] == datetime(2026, 5, 10, 17, 0, 0, tzinfo=UTC)
+
+
+def test_event_lifecycle_saved_record_reconstructs_event() -> None:
+    record = {
+        "kind": "EventLifecycle",
+        "timestamp": "2026-05-10T17:02:00+00:00",
+        "payload": {
+            "type": "event_join",
+            "raw_event_lifecycle": "==> EventJoin",
+        },
+    }
+    raw_line = json.dumps(record)
+
+    event = event_from_saved_record(raw_line, record)
+
+    assert event is not None
+    assert event.kind == "EventLifecycle"
+    assert event.metadata.timestamp == datetime(2026, 5, 10, 17, 2, 0, tzinfo=UTC)
+    assert event.metadata.raw_bytes == raw_line.encode()
+    assert event.payload == {
+        "type": "event_join",
+        "raw_event_lifecycle": "==> EventJoin",
+    }
