@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 
+from mythic_edge_parser.events import PerformanceClass
 from mythic_edge_parser.log.entry import EntryHeader, LogEntry
 from mythic_edge_parser.parsers import client_actions, gre, match_state, metadata
 
@@ -117,6 +118,59 @@ def test_gre_connect_resp_emits_game_state_event() -> None:
     assert events[0].payload["type"] == "connect_resp"
     assert events[0].payload["deck_cards"] == [11, 12]
     assert events[0].payload["sideboard_cards"] == [21]
+
+
+def test_gre_direct_connect_resp_emits_game_state_event_with_metadata() -> None:
+    entry = LogEntry(
+        EntryHeader.UNITY_CROSS_THREAD_LOGGER,
+        "[UnityCrossThreadLogger]GREMessageType_ConnectResp\n"
+        '{"type":"GREMessageType_ConnectResp","msgId":1,"gameStateId":4,"systemSeatIds":[1],'
+        '"connectResp":{"deckMessage":{"deckCards":[11],"sideboardCards":[21]},"settings":{"matchClockSec":1800}}}',
+    )
+
+    events = gre.try_parse(entry, TS)
+
+    assert len(events) == 1
+    assert events[0].kind == "GameState"
+    assert events[0].performance_class == PerformanceClass.INTERACTIVE_DISPATCH
+    assert events[0].metadata.timestamp is TS
+    assert events[0].metadata.raw_bytes == entry.body.encode()
+    assert events[0].payload["type"] == "connect_resp"
+    assert events[0].payload["system_seat_ids"] == [1]
+
+
+def test_gre_connect_resp_requires_dict_connect_resp_for_dispatch_event() -> None:
+    missing_connect_resp = LogEntry(
+        EntryHeader.UNITY_CROSS_THREAD_LOGGER,
+        "[UnityCrossThreadLogger]GREMessageType_ConnectResp\n"
+        '{"type":"GREMessageType_ConnectResp","msgId":1,"gameStateId":4}',
+    )
+    malformed_connect_resp = LogEntry(
+        EntryHeader.UNITY_CROSS_THREAD_LOGGER,
+        "[UnityCrossThreadLogger]GREMessageType_ConnectResp\n"
+        '{"type":"GREMessageType_ConnectResp","msgId":1,"gameStateId":4,"connectResp":"bad"}',
+    )
+
+    assert gre.try_parse(missing_connect_resp, TS) == []
+    assert gre.try_parse(malformed_connect_resp, TS) == []
+
+
+def test_gre_game_state_payload_takes_precedence_over_connect_resp_on_same_message() -> None:
+    entry = LogEntry(
+        EntryHeader.UNITY_CROSS_THREAD_LOGGER,
+        "[UnityCrossThreadLogger]greToClientEvent\n"
+        '{"greToClientEvent":{"greToClientMessages":[{"type":"GREMessageType_ConnectResp",'
+        '"msgId":1,"gameStateId":4,"systemSeatIds":[1],"connectResp":{"deckMessage":{"deckCards":[11]}},'
+        '"gameStateMessage":{"gameInfo":{"matchID":"match-gsm","gameNumber":1,'
+        '"stage":"GameStage_Play","matchState":"MatchState_GameInProgress"}}}]}}',
+    )
+
+    events = gre.try_parse(entry, TS)
+
+    assert len(events) == 1
+    assert events[0].kind == "GameState"
+    assert events[0].payload["type"] == "game_state_message"
+    assert events[0].payload["identity"]["match_id"] == "match-gsm"
 
 
 def test_gre_queued_game_state_message_emits_queued_payload_type() -> None:

@@ -9,6 +9,7 @@ from mythic_edge_parser.events import (
     CollectionEvent,
     DeckCollectionEvent,
     EventMetadata,
+    GameStateEvent,
     MatchStateEvent,
     RankEvent,
 )
@@ -148,6 +149,39 @@ def test_observe_event_builds_deck_profile_collection_report_and_timeline(tmp_pa
     assert timeline_payload["match_id"] == "match-1"
     assert timeline_payload["total_entries"] == 1
     assert timeline_payload["entries"][0]["event_kind"] == "ClientAction"
+
+
+def test_connect_resp_deck_evidence_does_not_update_active_submitted_deck(tmp_path, monkeypatch) -> None:
+    _reset_runtime_surface_state()
+    status_root = _patch_surface_paths(tmp_path, monkeypatch)
+    state._CONTEXT.update(
+        {
+            "current_match_id": "match-connect",
+            "current_game_number": 1,
+            "current_player_team": 1,
+        }
+    )
+    event = GameStateEvent(
+        EventMetadata(datetime(2026, 5, 5, 21, 0, 2, tzinfo=UTC), b"connect-raw"),
+        {
+            "type": "connect_resp",
+            "deck_cards": [1001, 1002],
+            "sideboard_cards": [2001],
+            "game_state_id": 77,
+            "raw_connect_resp": {
+                "type": "GREMessageType_ConnectResp",
+                "connectResp": {"deckMessage": {"deckCards": [1001, 1002], "sideboardCards": [2001]}},
+            },
+        },
+    )
+
+    runtime_surfaces.observe_event(event, include_in_timeline=True)
+
+    assert not (status_root / "active_submitted_deck_latest.json").exists()
+    assert not (status_root / "active_deck_profile_latest.json").exists()
+    timeline_payload = json.loads((status_root / "active_match_timeline_latest.json").read_text(encoding="utf-8"))
+    assert timeline_payload["entries"][0]["event_kind"] == "GameState"
+    assert timeline_payload["entries"][0]["event_type"] == "connect_resp"
 
 
 def test_filter_match_history_payload_applies_filters() -> None:
