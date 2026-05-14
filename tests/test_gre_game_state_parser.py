@@ -4,7 +4,97 @@ from mythic_edge_parser.parsers.gre.game_state import (
 )
 
 
+def test_build_game_state_payload_happy_path_fields() -> None:
+    message = {
+        "type": "GREMessageType_GameStateMessage",
+        "msgId": 7,
+        "gameStateId": 42,
+        "systemSeatIds": [1, "2"],
+    }
+    gsm = {
+        "gameInfo": {
+            "matchID": " match-42 ",
+            "gameNumber": "2",
+            "stage": "GameStage_Play",
+            "matchState": "MatchState_GameInProgress",
+        },
+        "turnInfo": {
+            "turnNumber": "3",
+            "activePlayer": "2",
+            "phase": "Phase_Main1",
+            "step": "Step_PreCombatMain",
+        },
+        "players": [{"systemSeatNumber": 1}, {"systemSeatNumber": 2}],
+        "zones": [{"zoneId": 31}],
+        "gameObjects": [{"instanceId": 101}],
+        "annotations": [{"id": 5}],
+        "persistentAnnotations": [{"id": 6}],
+        "timers": [{"timerId": 9}],
+        "actions": [{"seatId": 1}],
+        "update": "full",
+        "pendingMessageCount": "4",
+        "prevGameStateId": "41",
+        "diffDeletedInstanceIds": [10, "11"],
+        "diffDeletedPersistentAnnotationIds": [20, "21"],
+    }
+
+    payload = build_game_state_payload(message, gsm)
+
+    assert payload == {
+        "type": "game_state_message",
+        "message_type": "GREMessageType_GameStateMessage",
+        "msg_id": 7,
+        "game_state_id": 42,
+        "system_seat_ids": [1, 2],
+        "stage": "GameStage_Play",
+        "match_state": "MatchState_GameInProgress",
+        "turn_number": 3,
+        "active_player_seat_id": 2,
+        "game_info": {
+            "matchID": " match-42 ",
+            "gameNumber": "2",
+            "stage": "GameStage_Play",
+            "matchState": "MatchState_GameInProgress",
+        },
+        "turn_info": {
+            "turn_number": 3,
+            "phase": "Phase_Main1",
+            "step": "Step_PreCombatMain",
+            "active_player_seat_id": 2,
+            "decision_player_seat_id": None,
+            "priority_player_seat_id": None,
+            "next_phase": "",
+            "next_step": "",
+        },
+        "identity": {
+            "match_id": "match-42",
+            "game_number": 2,
+            "turn_number": 3,
+            "active_player_seat_id": 2,
+            "phase": "Phase_Main1",
+            "step": "Step_PreCombatMain",
+            "stage": "GameStage_Play",
+        },
+        "players": [{"systemSeatNumber": 1}, {"systemSeatNumber": 2}],
+        "zones": [{"zoneId": 31}],
+        "game_objects": [{"instanceId": 101}],
+        "annotations": [{"id": 5}],
+        "persistent_annotations": [{"id": 6}],
+        "timers": [{"timerId": 9}],
+        "actions": [{"seatId": 1}],
+        "update": "full",
+        "pending_message_count": 4,
+        "prev_game_state_id": 41,
+        "diff_deleted_instance_ids": [10, 11],
+        "diff_deleted_persistent_annotation_ids": [20, 21],
+        "raw_game_state": message,
+    }
+    assert payload["raw_game_state"] is message
+
+
 def test_build_game_state_payload_shallow_copies_normalized_fields() -> None:
+    player = {"systemSeatNumber": 1}
+    zone = {"zoneId": 31}
     message = {
         "type": "GREMessageType_GameStateMessage",
         "msgId": 7,
@@ -23,8 +113,8 @@ def test_build_game_state_payload_shallow_copies_normalized_fields() -> None:
                 "phase": "Phase_Main1",
                 "step": "Step_PreCombatMain",
             },
-            "players": [{"systemSeatNumber": 1}, {"systemSeatNumber": 2}],
-            "zones": [{"zoneId": 31}],
+            "players": [player, "non-dict-player"],
+            "zones": [zone],
             "gameObjects": [{"instanceId": 101}],
             "annotations": [{"id": 5}],
             "persistentAnnotations": [{"id": 6}],
@@ -38,11 +128,14 @@ def test_build_game_state_payload_shallow_copies_normalized_fields() -> None:
     payload["game_info"]["stage"] = "Changed"
     payload["players"].append({"systemSeatNumber": 9})
     payload["zones"].append({"zoneId": 99})
+    payload["players"][0]["teamId"] = 1
 
     raw_gsm = message["gameStateMessage"]
     assert raw_gsm["gameInfo"]["stage"] == "GameStage_Play"
     assert len(raw_gsm["players"]) == 2
     assert len(raw_gsm["zones"]) == 1
+    assert raw_gsm["players"][0]["teamId"] == 1
+    assert payload["players"][:2] == [player, "non-dict-player"]
     assert payload["raw_game_state"] is message
 
 
@@ -103,3 +196,89 @@ def test_build_game_state_payload_handles_missing_and_malformed_sections() -> No
     assert payload["prev_game_state_id"] == 3
     assert payload["diff_deleted_instance_ids"] == [11, 12]
     assert payload["diff_deleted_persistent_annotation_ids"] == [21, 22]
+
+
+def test_build_game_state_payload_defaults_for_missing_message_fields_and_sections() -> None:
+    payload = build_game_state_payload(
+        {},
+        {
+            "gameInfo": {"matchID": 0, "gameNumber": "bad", "stage": 0, "matchState": False},
+            "turnInfo": "not-a-dict",
+            "players": (),
+            "zones": {"bad": "shape"},
+            "gameObjects": None,
+            "annotations": "bad",
+            "persistentAnnotations": None,
+            "timers": object(),
+            "actions": "bad",
+            "update": 0,
+            "pendingMessageCount": "bad",
+            "prevGameStateId": None,
+            "diffDeletedInstanceIds": "not-a-list",
+            "diffDeletedPersistentAnnotationIds": None,
+        },
+    )
+
+    assert payload["type"] == "game_state_message"
+    assert payload["message_type"] == "GREMessageType_GameStateMessage"
+    assert payload["msg_id"] == 0
+    assert payload["game_state_id"] == 0
+    assert payload["system_seat_ids"] == []
+    assert payload["stage"] == ""
+    assert payload["match_state"] == ""
+    assert payload["turn_info"] == {}
+    assert payload["turn_number"] is None
+    assert payload["active_player_seat_id"] is None
+    assert payload["identity"] == {
+        "match_id": "",
+        "game_number": None,
+        "turn_number": None,
+        "active_player_seat_id": None,
+        "phase": "",
+        "step": "",
+        "stage": "",
+    }
+    assert payload["players"] == []
+    assert payload["zones"] == []
+    assert payload["game_objects"] == []
+    assert payload["annotations"] == []
+    assert payload["persistent_annotations"] == []
+    assert payload["timers"] == []
+    assert payload["actions"] == []
+    assert payload["update"] == ""
+    assert payload["pending_message_count"] is None
+    assert payload["prev_game_state_id"] is None
+    assert payload["diff_deleted_instance_ids"] == []
+    assert payload["diff_deleted_persistent_annotation_ids"] == []
+
+
+def test_build_game_state_payload_locks_integer_normalization_boundaries() -> None:
+    message = {
+        "systemSeatIds": [1, "2", " 3 ", True, False, 4.5, "-5", "bad", None, 2],
+    }
+    gsm = {
+        "gameInfo": {
+            "matchID": "match-int",
+            "gameNumber": False,
+            "stage": "GameStage_Play",
+        },
+        "turnInfo": {
+            "turnNumber": " -2 ",
+            "activePlayer": True,
+        },
+        "pendingMessageCount": True,
+        "prevGameStateId": 4.9,
+        "diffDeletedInstanceIds": [7, "8", True, False, 9.1, "-10", "bad", None],
+        "diffDeletedPersistentAnnotationIds": ["11", 12, " 13 ", True, 14.2],
+    }
+
+    payload = build_game_state_payload(message, gsm)
+
+    assert payload["system_seat_ids"] == [1, 2, 3, 2]
+    assert payload["diff_deleted_instance_ids"] == [7, 8]
+    assert payload["diff_deleted_persistent_annotation_ids"] == [11, 12, 13]
+    assert payload["identity"]["game_number"] == 0
+    assert payload["turn_info"]["turn_number"] == -2
+    assert payload["turn_info"]["active_player_seat_id"] == 1
+    assert payload["pending_message_count"] == 1
+    assert payload["prev_game_state_id"] == 4
