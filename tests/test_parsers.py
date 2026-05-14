@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from mythic_edge_parser.events import PerformanceClass
+from mythic_edge_parser.events import GameStateEvent, PerformanceClass
 from mythic_edge_parser.log.entry import EntryHeader, LogEntry
 from mythic_edge_parser.parsers import client_actions, gre, match_state, metadata
 
@@ -116,6 +116,10 @@ def test_gre_game_state_payload_is_enriched() -> None:
     events = gre.try_parse(entry, TS)
 
     assert len(events) == 1
+    assert isinstance(events[0], GameStateEvent)
+    assert events[0].performance_class == PerformanceClass.INTERACTIVE_DISPATCH
+    assert events[0].metadata.timestamp is TS
+    assert events[0].metadata.raw_bytes == entry.body.encode()
     payload = events[0].payload
     assert payload["game_state_id"] == 42
     assert payload["system_seat_ids"] == [1]
@@ -127,6 +131,27 @@ def test_gre_game_state_payload_is_enriched() -> None:
     assert len(payload["game_objects"]) == 2
     assert len(payload["players"]) == 2
     assert len(payload["actions"]) == 1
+
+
+def test_gre_direct_game_state_message_emits_game_state_event() -> None:
+    entry = LogEntry(
+        EntryHeader.UNITY_CROSS_THREAD_LOGGER,
+        "[UnityCrossThreadLogger]GREMessageType_GameStateMessage\n"
+        '{"type":"GREMessageType_GameStateMessage","msgId":11,"gameStateId":12,'
+        '"systemSeatIds":["1"],"gameStateMessage":{"gameInfo":{"matchID":"direct-gsm",'
+        '"gameNumber":1,"stage":"GameStage_Play","matchState":"MatchState_GameInProgress"}}}',
+    )
+
+    events = gre.try_parse(entry, TS)
+
+    assert len(events) == 1
+    assert isinstance(events[0], GameStateEvent)
+    assert events[0].payload["type"] == "game_state_message"
+    assert events[0].payload["message_type"] == "GREMessageType_GameStateMessage"
+    assert events[0].payload["msg_id"] == 11
+    assert events[0].payload["game_state_id"] == 12
+    assert events[0].payload["system_seat_ids"] == [1]
+    assert events[0].payload["identity"]["match_id"] == "direct-gsm"
 
 
 def test_gre_connect_resp_emits_game_state_event() -> None:
@@ -213,6 +238,28 @@ def test_gre_queued_game_state_message_emits_queued_payload_type() -> None:
     assert events[0].payload["identity"]["match_id"] == "queued-1"
 
 
+def test_gre_current_game_state_takes_precedence_over_queued_nested_game_state() -> None:
+    entry = LogEntry(
+        EntryHeader.UNITY_CROSS_THREAD_LOGGER,
+        "[UnityCrossThreadLogger]queuedGameStateMessage GREMessageType_GameStateMessage\n"
+        '{"greToClientEvent":{"greToClientMessages":[{"type":"GREMessageType_QueuedGameStateMessage",'
+        '"msgId":5,"gameStateId":9,"gameStateMessage":{"gameInfo":{"matchID":"current-gsm",'
+        '"gameNumber":1,"stage":"GameStage_Play","matchState":"MatchState_GameInProgress"}},'
+        '"queuedGameStateMessage":{"gameStateMessage":{"gameInfo":{"matchID":"queued-gsm",'
+        '"gameNumber":2,"stage":"GameStage_Play","matchState":"MatchState_GameInProgress"}}}}]}}',
+    )
+
+    events = gre.try_parse(entry, TS)
+
+    assert len(events) == 1
+    assert events[0].payload["type"] == "queued_game_state_message"
+    assert events[0].payload["identity"]["match_id"] == "current-gsm"
+    assert events[0].payload["identity"]["game_number"] == 1
+    assert events[0].payload["raw_game_state"]["queuedGameStateMessage"]["gameStateMessage"]["gameInfo"]["matchID"] == (
+        "queued-gsm"
+    )
+
+
 def test_gre_ignores_non_dict_messages_inside_batch() -> None:
     entry = LogEntry(
         EntryHeader.UNITY_CROSS_THREAD_LOGGER,
@@ -235,3 +282,20 @@ def test_gre_returns_empty_when_message_list_shape_is_invalid() -> None:
     )
 
     assert gre.try_parse(entry, TS) == []
+
+
+def test_gre_returns_empty_when_selected_game_state_shapes_are_missing_or_malformed() -> None:
+    missing = LogEntry(
+        EntryHeader.UNITY_CROSS_THREAD_LOGGER,
+        "[UnityCrossThreadLogger]GREMessageType_GameStateMessage\n"
+        '{"type":"GREMessageType_GameStateMessage","msgId":1,"gameStateId":2}',
+    )
+    malformed = LogEntry(
+        EntryHeader.UNITY_CROSS_THREAD_LOGGER,
+        "[UnityCrossThreadLogger]queuedGameStateMessage\n"
+        '{"type":"GREMessageType_QueuedGameStateMessage","msgId":1,"gameStateId":2,'
+        '"gameStateMessage":"bad","queuedGameStateMessage":{"gameStateMessage":"bad"}}',
+    )
+
+    assert gre.try_parse(missing, TS) == []
+    assert gre.try_parse(malformed, TS) == []
