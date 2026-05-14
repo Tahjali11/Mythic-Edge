@@ -23,6 +23,19 @@
 
 Name the truth-producing layer and any downstream transport or display layers touched.
 
+## Drift Budget
+
+Use `No drift`, `Authorized drift`, `Residual drift`, or `N/A`. For any `Authorized drift` or `Residual drift`, cite the issue and contract that allow it.
+
+- Runtime/parser behavior:
+- Parser event shape/classes:
+- Workbook/webhook/App Script shape:
+- Parser truth ownership:
+- Fixtures/evidence:
+- Protected-surface authorization:
+- Residual drift / accepted gaps:
+- Follow-up required:
+
 ## Changes
 
 - 
