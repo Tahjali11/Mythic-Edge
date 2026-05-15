@@ -8,7 +8,9 @@ document_architecture:
   docs/agent_constitution.md: human_readable_authoritative_constitution
   docs/agent_rules.yml: codex_optimized_terse_rule_index
   docs/agent_threads/*.md: human_readable_role_docs
+  docs/agent_threads/constitutional_lawyer.md: constitutional_lawyer_auxiliary_governance_role
   docs/agent_threads/*.yml: optional_future_per_role_specs
+  docs/templates/constitution_feedback_packet.md: constitution_feedback_packet_template
   docs/decisions/README.md: architecture_decision_record_policy_and_index
   docs/decisions/ADR_TEMPLATE.md: architecture_decision_record_template
   docs/decisions/ADR-*.md: architecture_decision_records
@@ -290,6 +292,49 @@ roles:
     next_roles:
       - A
       - none
+
+auxiliary_roles:
+  H:
+    name: Constitutional Lawyer
+    owns:
+      - constitution_feedback_synthesis
+      - source_coverage_table
+      - amendment_proposals
+      - consolidation_recommendations
+      - unresolved_conflicts
+      - watch_list_items
+    normal_path_member: false
+    may_edit_code: false
+    may_commit: false
+    may_merge: false
+    role_doc: docs/agent_threads/constitutional_lawyer.md
+    packet_template: docs/templates/constitution_feedback_packet.md
+    required_artifact: issue_comment_or_constitution_synthesis
+    guardrails:
+      - advisory_only
+      - do_not_edit_authority_docs_directly
+      - do_not_replace_A_G_normal_path
+      - raw_packets_are_evidence_not_authority
+      - preserve_minorities_as_watch_list_items
+    next_roles:
+      - A
+      - B
+      - C
+      - none
+
+constitution_feedback:
+  packet_template: docs/templates/constitution_feedback_packet.md
+  raw_packet_default_storage: issue_comment_or_pasteable_output
+  raw_packet_repo_storage_default: false
+  formal_repo_storage_requires:
+    - explicit_feedback_round_issue
+    - explicit_contract_authorization
+  preferred_formal_storage_path: docs/constitution_feedback/rounds/YYYY-MM-DD/packets/
+  source_coverage_table_required_when:
+    - multiple_packets_supplied
+    - seven_or_more_packets_supplied
+  raw_packets_are_authority: false
+  codex_h_synthesis_is_authority: false
 
 routing:
   normal_path:

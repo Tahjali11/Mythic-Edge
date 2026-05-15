@@ -72,6 +72,16 @@ analysis layers, name the truth owner before implementation starts.
      completion evidence
    - must not bypass review, CI, branch, issue, tracker, or scope gates
 
+Auxiliary governance role:
+
+- Codex H: Constitutional Lawyer
+  - synthesizes constitution feedback packets into amendment proposals,
+    consolidations, unresolved conflicts, and watch-list items
+  - produces source coverage before synthesis when multiple packets are
+    supplied
+  - does not directly edit authority docs or replace the normal A-G module
+    workflow
+
 ## Normal Path
 
 ```text
@@ -79,6 +89,10 @@ A Thinker -> B Module Contract Writer -> C Module Implementer -> E Module Review
 ```
 
 Use D only as a loopback role for concrete fix targets.
+
+Use H only for constitution feedback synthesis. H output routes back to A or B
+for new framing or contracts, or to C only when an existing issue and contract
+already authorize implementation.
 
 ## Loopbacks
 
@@ -111,6 +125,10 @@ Every thread that expects the workflow to continue must produce:
 - a machine-readable `workflow_handoff` block
 
 Use `docs/templates/workflow_handoff.md` for the handoff shape.
+
+Use `docs/templates/constitution_feedback_packet.md` for raw constitution
+feedback packets. Raw packets default to pasteable output or GitHub issue
+comments; repo storage requires an explicit feedback-round issue and contract.
 
 ## Issue Lifecycle
 
