@@ -252,6 +252,14 @@ Durable artifacts include:
 
 If a thread cannot write an artifact, it must explain why and provide the full artifact text in the response.
 
+### Architecture Decision Records
+
+Architecture Decision Records (ADRs) live under `docs/decisions/` and record durable cross-project design or process decisions. Accepted ADRs sit below active governing docs such as `AGENTS.md`, `docs/agent_rules.yml`, and this constitution, and above stale memory, old examples, or uncited assumptions.
+
+ADRs complement issues, problem representations, module contracts, handoffs, reviews, and PRs. They do not replace scoped issue/contract authorization and do not authorize protected-surface changes by implication.
+
+If a current issue or contract appears to conflict with an accepted ADR, name the conflict and route it explicitly instead of silently ignoring either source.
+
 ## Next-Thread Blocks
 
 Each thread that expects the workflow to continue must end with:

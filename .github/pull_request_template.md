@@ -6,6 +6,7 @@
 
 - Issue:
 - Contract:
+- Related ADRs:
 - Agent constitution: `docs/agent_constitution.md`
 - Implementation rules: `docs/agent_threads/implementation.md`
 - Fixer rules: `docs/agent_threads/module_fixer.md`
