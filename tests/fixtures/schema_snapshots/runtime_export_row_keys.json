@@ -1,0 +1,147 @@
+{
+  "runtime_export_rows": {
+    "ActionLogRow": {
+      "keys": [
+        "event_family",
+        "event_type",
+        "scope",
+        "generated_at",
+        "match_id",
+        "game_number",
+        "turn_number",
+        "timestamp",
+        "action_type",
+        "cast_mode",
+        "grp_id",
+        "card_name",
+        "display_name",
+        "resolution_status",
+        "actor_relation",
+        "from_zone_type",
+        "to_zone_type",
+        "summary"
+      ],
+      "metadata": {
+        "event_family": "ActionLogRow",
+        "event_type": "action_log_row",
+        "scope": "Match"
+      }
+    },
+    "CardPerformanceRow": {
+      "keys": [
+        "event_family",
+        "event_type",
+        "scope",
+        "generated_at",
+        "card_key",
+        "grp_id",
+        "card_name",
+        "display_name",
+        "resolution_status",
+        "layout",
+        "card_faces",
+        "games_seen",
+        "seen_in_game_games",
+        "seen_in_game_win_rate",
+        "opening_hand_games",
+        "opening_hand_win_rate",
+        "cast_games",
+        "cast_win_rate",
+        "postboard_cast_games",
+        "postboard_cast_win_rate",
+        "mulliganed_away_games",
+        "mulligan_tax",
+        "top_matchups",
+        "top_packages"
+      ],
+      "metadata": {
+        "event_family": "CardPerformanceRow",
+        "event_type": "card_performance_row",
+        "scope": "Card"
+      }
+    },
+    "CollectionSnapshotRow": {
+      "keys": [
+        "event_family",
+        "event_type",
+        "scope",
+        "generated_at",
+        "collection_available",
+        "inventory_available",
+        "owned_unique_cards",
+        "owned_total_card_copies",
+        "owned_by_rarity",
+        "inventory_gold",
+        "inventory_gems",
+        "wildcards_common",
+        "wildcards_uncommon",
+        "wildcards_rare",
+        "wildcards_mythic",
+        "active_deck_missing_by_rarity",
+        "active_deck_completion_rate",
+        "wanted_cards"
+      ],
+      "metadata": {
+        "event_family": "CollectionSnapshotRow",
+        "event_type": "collection_snapshot_row",
+        "scope": "Collection"
+      }
+    },
+    "DeckSnapshotRow": {
+      "keys": [
+        "event_family",
+        "event_type",
+        "scope",
+        "generated_at",
+        "submitted_at",
+        "match_id",
+        "deck_signature",
+        "deck_name",
+        "deck_match_mode",
+        "deck_format",
+        "section",
+        "arena_id",
+        "count",
+        "card_name",
+        "rarity",
+        "set",
+        "type_line",
+        "colors",
+        "owned_copies",
+        "missing_copies"
+      ],
+      "metadata": {
+        "event_family": "DeckSnapshotRow",
+        "event_type": "deck_snapshot_row",
+        "scope": "Deck"
+      }
+    },
+    "ParserStatusRow": {
+      "keys": [
+        "event_family",
+        "event_type",
+        "scope",
+        "updated_at",
+        "status",
+        "current_match_id",
+        "current_game_number",
+        "current_player_team",
+        "last_event_kind",
+        "last_event_at",
+        "webhook_successes",
+        "webhook_failures",
+        "event_failures",
+        "router_failures",
+        "active_deck_signature",
+        "active_deck_name",
+        "active_match_action_count"
+      ],
+      "metadata": {
+        "event_family": "ParserStatusRow",
+        "event_type": "parser_status_row",
+        "scope": "Runtime"
+      }
+    }
+  },
+  "schema_snapshot_version": 1
+}
