@@ -83,6 +83,16 @@ Choose one when synthesizing against current repo state:
 - superseded
 - conflict
 - watch_list
+
+### Later Amendment Quality Review
+
+Optional Codex H annotation. Packet authors may leave this blank.
+
+recommended_rule_type: <hard_rule | operating_default | role_procedure | template_field | machine_rule | adr_candidate | watch_list | no_action>
+failure_mode_prevented: <real or credible failure mode, or N/A>
+ceremony_impact: <lower | same | higher_justified | higher_not_justified>
+best_practice_mapping: <authority hierarchy | critique-before-revision | risk-tiered oversight | auditability | tool-surface boundary | lifecycle governance | other | N/A>
+tool_surface_impact: <tool/collaboration surfaces affected, or N/A>
 ```
 
 Formal repo storage for raw packets is opt-in. It requires an explicit issue and

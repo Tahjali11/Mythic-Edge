@@ -98,6 +98,12 @@ Before proposing amendments, H should classify packet recommendations against
 current repo state so satisfied, stale, superseded, conflicting, active, and
 watch-list items are not flattened together.
 
+Before routing amendments forward, H should also apply the amendment quality
+test, classify each proposal by rule type, assess whether added ceremony is
+justified by risk, and treat tools, plugins, connectors, MCP servers, and local
+skills as access or collaboration surfaces unless current repo authority says
+otherwise.
+
 ## Loopbacks
 
 Route to A when scope is outside the issue, the problem framing is wrong, a
