@@ -130,6 +130,9 @@ Use `Related ADRs: N/A` when no ADR applies.
 
 ## ADR Index
 
-No numbered ADRs exist yet.
-
-When seed ADRs are created under a later issue, keep this index sorted by ADR number.
+| ADR | Status | Decision |
+| --- | --- | --- |
+| [ADR-0001: Parser Owns Truth](ADR-0001-parser-owns-truth.md) | Accepted | Parser/state owns event interpretation and normalized match/game facts. |
+| [ADR-0002: Local Deterministic Scorer Decides, LLM Explains](ADR-0002-local-deterministic-scorer-decides-llm-explains.md) | Accepted | Deterministic local code owns scoring and LLMs explain or propose hypotheses. |
+| [ADR-0003: Player.log Drift Policy](ADR-0003-player-log-drift-policy.md) | Accepted | Player.log is observable evidence that can drift; parser resilience must expose uncertainty. |
+| [ADR-0004: Protected Surfaces And Schema-Change Policy](ADR-0004-protected-surfaces-and-schema-change-policy.md) | Accepted | Protected surfaces and schema changes require explicit issue, contract, review, and validation authority. |
