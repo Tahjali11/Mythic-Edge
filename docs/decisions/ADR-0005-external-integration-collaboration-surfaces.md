@@ -1,6 +1,6 @@
 # ADR-0005: External Integration And Collaboration Surfaces
 
-Status: Proposed
+Status: Accepted
 
 Date: 2026-05-15
 
@@ -15,7 +15,7 @@ Related issues:
 
 Related PRs:
 
-- N/A.
+- https://github.com/Tahjali11/Mythic-Edge/pull/80
 
 Related contracts, handoffs, or review reports:
 
