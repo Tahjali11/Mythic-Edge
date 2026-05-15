@@ -236,6 +236,8 @@ def _deck_snapshot_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
 def _collection_snapshot_row(payload: dict[str, Any]) -> dict[str, Any]:
     inventory = payload.get("inventory") or {}
     completion = payload.get("active_deck_completion") or {}
+    raw_wildcards = inventory.get("wildcards") or {}
+    wildcards = raw_wildcards if isinstance(raw_wildcards, dict) else {}
     return _base_runtime_row(
         COLLECTION_SNAPSHOT_FAMILY,
         generated_at=str(payload.get("generated_at", "")).strip(),
@@ -246,10 +248,10 @@ def _collection_snapshot_row(payload: dict[str, Any]) -> dict[str, Any]:
         owned_by_rarity=payload.get("owned_by_rarity") or {},
         inventory_gold=_safe_int(inventory.get("gold")),
         inventory_gems=_safe_int(inventory.get("gems")),
-        wildcards_common=_safe_int(inventory.get("wildcards_common")),
-        wildcards_uncommon=_safe_int(inventory.get("wildcards_uncommon")),
-        wildcards_rare=_safe_int(inventory.get("wildcards_rare")),
-        wildcards_mythic=_safe_int(inventory.get("wildcards_mythic")),
+        wildcards_common=_safe_int(inventory.get("wildcards_common", wildcards.get("common"))),
+        wildcards_uncommon=_safe_int(inventory.get("wildcards_uncommon", wildcards.get("uncommon"))),
+        wildcards_rare=_safe_int(inventory.get("wildcards_rare", wildcards.get("rare"))),
+        wildcards_mythic=_safe_int(inventory.get("wildcards_mythic", wildcards.get("mythic"))),
         active_deck_missing_by_rarity=payload.get("active_deck_missing_by_rarity") or {},
         active_deck_completion_rate=completion.get("completion_rate", ""),
         wanted_cards=payload.get("wanted_cards") or [],

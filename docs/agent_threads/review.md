@@ -1,6 +1,6 @@
 # Module Reviewer Thread Rules
 
-Use with `docs/agent_constitution.md`.
+Use with `docs/agent_rules.yml` and `docs/agent_constitution.md`.
 
 ## Mission
 
@@ -64,6 +64,7 @@ End with:
 - [ ] Missing tests are named.
 - [ ] Remaining risk is stated.
 - [ ] Next role is Module Fixer, Module Contract Writer, Thinker, Module Submitter, or none.
+- [ ] Deployer work is routed to Codex G after submitter work creates or updates a PR.
 
 ## Canonical Starter Prompt
 

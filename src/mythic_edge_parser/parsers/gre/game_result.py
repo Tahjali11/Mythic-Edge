@@ -45,14 +45,8 @@ def _results_payload(game_info: dict[str, Any]) -> list[Any]:
 
 
 def _selected_game_result(results: list[Any]) -> dict[str, Any]:
-    game_scope = _latest_game_scope_result(results)
-    if game_scope is not None:
-        return game_scope
-
-    fallback_result = _last_dict_result(results)
-    if fallback_result is not None:
-        return fallback_result
-    return {}
+    game_scope = _latest_known_game_scope_result(results)
+    return game_scope or {}
 
 
 def _identity_payload(game_state_payload: dict[str, Any]) -> dict[str, Any]:
@@ -62,19 +56,35 @@ def _identity_payload(game_state_payload: dict[str, Any]) -> dict[str, Any]:
     return {}
 
 
-def _latest_game_scope_result(results: Any) -> dict[str, Any] | None:
+def _latest_known_game_scope_result(results: Any) -> dict[str, Any] | None:
     if not isinstance(results, list):
         return None
 
     latest: dict[str, Any] | None = None
     for result in results:
-        if isinstance(result, dict) and result.get("scope") == "MatchScope_Game":
+        if (
+            isinstance(result, dict)
+            and _scope_label(result.get("scope")) == "Game"
+            and _is_known_winner(result.get("winningTeamId"))
+        ):
             latest = result
     return latest
 
 
-def _last_dict_result(results: list[Any]) -> dict[str, Any] | None:
-    for result in reversed(results):
-        if isinstance(result, dict):
-            return result
-    return None
+def _scope_label(scope_value: Any) -> str:
+    text = str(scope_value or "")
+    if "MatchScope_Game" in text or text == "Game":
+        return "Game"
+    if "MatchScope_Match" in text or text == "Match":
+        return "Match"
+    return text
+
+
+def _is_known_winner(winner: Any) -> bool:
+    if winner in (None, ""):
+        return False
+    if isinstance(winner, bool):
+        return False
+    if isinstance(winner, int | float) and winner == 0:
+        return False
+    return str(winner).strip() not in {"", "0"}
