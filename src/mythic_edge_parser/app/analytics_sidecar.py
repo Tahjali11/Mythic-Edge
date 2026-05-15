@@ -214,6 +214,10 @@ def _process_event_job(job: AnalyticsSidecarJob, logger: Any) -> None:
 
     for artifact_row in collect_runtime_sheet_rows(
         card_performance_payload=card_performance_payload,
-        **export_flags,
+        post_action_rows=export_flags["post_action_rows"],
+        post_deck_snapshot_rows=export_flags["post_deck_snapshot_rows"],
+        post_collection_snapshot_rows=export_flags["post_collection_snapshot_rows"],
+        post_parser_status_rows=export_flags["post_parser_status_rows"],
+        post_card_performance_rows=export_flags["post_card_performance_rows"],
     ):
         submit_row_to_google_sheets(artifact_row)

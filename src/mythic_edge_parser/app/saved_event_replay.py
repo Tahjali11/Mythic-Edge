@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from ..events import (
+    BaseEvent,
     ClientActionEvent,
     DetailedLoggingStatusEvent,
     EventLifecycleEvent,
@@ -20,7 +21,7 @@ from ..events import (
 
 _LATEST_JSONL_RE = re.compile(r"_v(?P<version>\d+)_")
 
-EVENT_CLASS_BY_KIND = {
+EVENT_CLASS_BY_KIND: dict[str, type[BaseEvent]] = {
     "ClientAction": ClientActionEvent,
     "DetailedLoggingStatus": DetailedLoggingStatusEvent,
     "EventLifecycle": EventLifecycleEvent,
@@ -61,14 +62,17 @@ def _parse_timestamp(value: Any) -> datetime | None:
 
 def event_from_saved_record(raw_line: str, payload: dict[str, Any]) -> Any | None:
     kind = payload.get("kind")
+    if not isinstance(kind, str):
+        return None
     event_class = EVENT_CLASS_BY_KIND.get(kind)
     if event_class is None:
         return None
+    event_payload = payload.get("payload", {})
     metadata = EventMetadata(
         timestamp=_parse_timestamp(payload.get("timestamp")),
         raw_bytes=raw_line.encode("utf-8", errors="ignore"),
     )
-    return event_class(metadata, payload.get("payload", {}))
+    return event_class(metadata, event_payload)
 
 
 def replay_latest_saved_events(root: Path, on_event: Callable[[Any], None]) -> ReplayStats:

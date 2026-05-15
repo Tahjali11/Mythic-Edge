@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Sequence
 from dataclasses import dataclass
 from logging import Logger
 from pathlib import Path
+from typing import Protocol
 
 from .app.diagnostics import get_logger, record_router_failure
 from .event_bus import EventBus, Subscriber
@@ -17,13 +19,31 @@ class StreamError(Exception):
     pass
 
 
+class _Tailer(Protocol):
+    @property
+    def poll_interval_seconds(self) -> float:
+        ...
+
+    @property
+    def seconds_without_structured_headers(self) -> float:
+        ...
+
+    async def poll_once(self) -> TailBatch:
+        ...
+
+
+class _Router(Protocol):
+    def route(self, entry: LogEntry) -> Sequence[GameEvent]:
+        ...
+
+
 @dataclass(slots=True)
 class MtgaEventStream:
     _shutdown_event: asyncio.Event
     _pipeline_task: asyncio.Task[None] | None
     _bus: EventBus
-    _tailer: FileTailer
-    _router: Router
+    _tailer: _Tailer
+    _router: _Router
     _logger: Logger
     _log_path: Path
     _detailed_logging_known: bool = False

@@ -500,7 +500,7 @@ def test_game_log_success_callback_snapshots_row_and_changed_fields(monkeypatch)
 
 def test_match_log_success_callback_snapshots_row_and_changed_fields(monkeypatch) -> None:
     logger = _FakeLogger()
-    row = {"Match ID": "match-1", "Result": "Win"}
+    row: dict[str, object] = {"Match ID": "match-1", "Result": "Win"}
     changed_fields = ["Result"]
     posted: list[tuple[str, dict[str, object]]] = []
 

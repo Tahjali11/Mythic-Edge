@@ -234,6 +234,7 @@ def test_refresh_pipeline_writes_global_inferred_review_even_without_current_sub
         status_path=status_path,
     )
 
+    assert result.inferred_review_json_path is not None
     status_payload = json.loads(status_path.read_text(encoding="utf-8"))
     review_payload = json.loads(result.inferred_review_json_path.read_text(encoding="utf-8"))
     assert result.candidate_report is None

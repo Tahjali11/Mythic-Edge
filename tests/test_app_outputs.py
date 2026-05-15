@@ -2,6 +2,7 @@ import json
 import logging
 import queue
 from datetime import UTC, datetime
+from typing import Any, cast
 
 import pytest
 import requests
@@ -15,7 +16,7 @@ class _FakeHttpFailureResponse:
         self.text = text
 
     def raise_for_status(self) -> None:
-        raise requests.HTTPError("403 Client Error", response=self)
+        raise requests.HTTPError("403 Client Error", response=cast(Any, self))
 
 
 class _FakeSuccessResponse:
@@ -546,6 +547,7 @@ def test_append_local_jsonl_preserves_serialized_rows_and_rolls_daily_paths(tmp_
     try:
         outputs.append_local_jsonl('{"id":"one","name":"Jace"}', first_day)
         first_path = state.get_runtime_state().current_log_path
+        assert first_path is not None
         assert first_path == tmp_path / "match_logs" / "05_14_26" / "events_05_14_26.jsonl"
         assert first_path.read_text(encoding="utf-8").splitlines() == ['{"id":"one","name":"Jace"}']
 
@@ -558,6 +560,7 @@ def test_append_local_jsonl_preserves_serialized_rows_and_rolls_daily_paths(tmp_
 
         outputs.append_local_jsonl('{"id":"three"}', second_day)
         second_path = state.get_runtime_state().current_log_path
+        assert second_path is not None
         assert second_path == tmp_path / "match_logs" / "05_15_26" / "events_05_15_26.jsonl"
         assert second_path.read_text(encoding="utf-8").splitlines() == ['{"id":"three"}']
     finally:

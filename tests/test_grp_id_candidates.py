@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 from mythic_edge_parser.app.decklists import parse_arena_decklist_text, save_current_decklist
 from mythic_edge_parser.app.grp_id_candidates import (
     build_grp_id_candidate_report,
@@ -202,6 +204,7 @@ Deck
     override_payload = json.loads(override_path.read_text(encoding="utf-8"))
     assert override_payload["cards_by_grp_id"]["99991"]["name"] == ""
 
+    assert report.report_path is not None
     report_payload = json.loads(report.report_path.read_text(encoding="utf-8"))
     assert report_payload["promoted_override_count"] == 0
     assert report_payload["markdown_report_path"].endswith("grp-id-candidate-report-latest.md")
@@ -392,6 +395,36 @@ Deck
     assert confirmed.grp_id == 99991
     override_payload = json.loads(override_path.read_text(encoding="utf-8"))
     assert override_payload["cards_by_grp_id"]["99991"]["name"] == "Mosswood Dreadknight // Dread Whispers"
+
+
+def test_load_grp_id_candidate_report_fails_on_malformed_runner_up_gap(tmp_path) -> None:
+    report_path = tmp_path / "grp-id-candidate-report-latest.json"
+    report_path.write_text(
+        json.dumps(
+            {
+                "generated_at": "2026-05-15T00:00:00+00:00",
+                "deck_label": "Malformed Runner Gap",
+                "submit_deck_timestamp": "",
+                "submit_deck_source_file": "",
+                "unresolved_mainboard_grp_ids": [
+                    {
+                        "grp_id": 99991,
+                        "section": "mainboard",
+                        "runner_up_gap": "not-an-int",
+                    }
+                ],
+                "unresolved_sideboard_grp_ids": [],
+                "remaining_mainboard_names": {},
+                "remaining_sideboard_names": {},
+                "decklist_alignment": "aligned",
+                "decklist_alignment_notes": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError):
+        load_grp_id_candidate_report(report_path)
 
 
 def test_promote_auto_suggestions_confirms_strong_fingerprint_backed_candidate(tmp_path) -> None:

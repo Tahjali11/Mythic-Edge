@@ -148,7 +148,7 @@ def _action_payload(*, entries: list[object] | None = None, generated_at: str = 
     }
 
 
-def _deck_payload(*, mainboard: list[object] | None = None, sideboard: list[object] | None = None):
+def _deck_payload(*, mainboard: object | None = None, sideboard: object | None = None):
     return {
         "generated_at": "2026-05-06T04:14:48+00:00",
         "submitted_at": "2026-05-06T00:10:40+00:00",
