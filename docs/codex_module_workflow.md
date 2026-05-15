@@ -6,6 +6,8 @@ The goal is to keep each thread focused. A thread is a separate Codex conversati
 
 All threads should start from `docs/agent_constitution.md`, then apply the role-specific file in `docs/agent_threads/`.
 
+Architecture Decision Records (ADRs) under `docs/decisions/` record durable cross-project decisions that future issues, contracts, reviews, and PRs should cite when relevant. ADRs do not replace issue-scoped contracts and do not authorize protected-surface changes by implication.
+
 ## Source Of Truth
 
 The parser remains the source of truth for MTGA event interpretation. GitHub issues, contracts, pull requests, test reports, Google Sheets formulas, and AI review notes are downstream coordination tools.
@@ -61,6 +63,8 @@ Every thread that expects the workflow to continue must produce:
 Use `docs/templates/workflow_handoff.md` for the handoff shape.
 
 The artifact is the source of truth. The prompt is only a convenience wrapper for the next thread.
+
+When the work relies on or changes durable project policy, the handoff should include `Related ADRs` or state `Related ADRs: N/A`. If a scoped issue or contract conflicts with an accepted ADR, route back to Thinker or Module Contract Writer before implementation unless the issue and contract explicitly authorize an ADR amendment or supersession path.
 
 ## Normal Path
 
