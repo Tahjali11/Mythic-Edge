@@ -145,6 +145,43 @@ protected_surfaces:
     - branch_policy
     - validation_gates
 
+external_integration_surfaces:
+  default_role: access_collaboration_evidence_transport_or_explanation_surface
+  not_authority_by_default:
+    - local_codex_skills
+    - mcp_servers
+    - plugins
+    - connectors
+    - github_connector
+    - google_drive_docs_sheets_slides
+    - browser_shell_and_local_automation_helpers
+    - openai_documentation_tooling
+    - external_data_sources
+    - ai_or_llm_output
+  must_not_own:
+    - parser_state_truth
+    - deterministic_scoring_or_evaluation_without_contract
+    - workbook_schema_truth
+    - repo_authority
+    - merge_or_deploy_readiness
+    - secret_or_credential_policy
+  separate_issue_and_contract_required_for:
+    - openai_api_runtime_integration
+    - model_provider_runtime_integration
+    - coaching_evaluation
+    - credential_or_environment_contract_changes
+    - sensitive_external_data_sharing
+    - live_google_docs_or_sheets_writes
+    - connector_plugin_mcp_installation_or_permission_expansion
+  human_approval_required_for:
+    - live_external_writes
+    - permission_or_sharing_changes
+    - credential_secret_or_oauth_changes
+    - broader_connector_authorization
+    - sensitive_external_data_sharing
+    - destructive_external_operations
+    - production_deployment_changes
+
 architecture_decision_records:
   directory: docs/decisions
   template: docs/decisions/ADR_TEMPLATE.md

@@ -167,6 +167,21 @@ Use this ownership model before changing behavior:
 If a proposed change moves truth from one layer to another, stop and call that
 out before implementation.
 
+## External Integration And Collaboration Surfaces
+
+External tools and collaboration spaces may help Mythic Edge work, but they do
+not own project truth or repo authority by default. Treat GitHub connectors,
+Google Drive, Google Docs, Google Sheets, MCP servers, plugins, browser or
+shell automation helpers, local Codex skills, OpenAI documentation tooling, and
+external data sources as access, collaboration, evidence, transport, or
+explanation surfaces unless a current issue, contract, accepted ADR, or
+higher-priority authority explicitly grants a stronger role.
+
+Live external writes, permission or sharing changes, credential or secret
+changes, broader connector authorization, sensitive external data sharing,
+OpenAI API runtime integration, and coaching evaluation require explicit scoped
+issue and contract authority before implementation.
+
 ## Protected Surface Bundles
 
 Prompts and reports may name a bundle instead of repeating every forbidden
