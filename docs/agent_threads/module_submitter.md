@@ -81,5 +81,5 @@ End with:
 ## Canonical Starter Prompt
 
 ```text
-Use the Mythic Edge agent constitution. Act as the Module Submitter thread for <issue>, <contract>, <implementation-handoff>, and <review-report>. Stage only the reviewed scope, run or verify validation, push the branch, and open a draft pull request to the approved non-production target branch. Do not merge.
+Use $mythic-edge-workflow. If older context conflicts with the skill, AGENTS.md, docs/agent_rules.yml, docs/agent_constitution.md, docs/codex_module_workflow.md, the current GitHub issue, or the current contract, prefer the current repo artifacts. Act as the Module Submitter thread for <issue>, <contract>, <implementation-handoff>, and <review-report>. Stage only the reviewed scope, run or verify validation, push the branch, and open a draft pull request to the approved non-production target branch. Do not merge.
 ```

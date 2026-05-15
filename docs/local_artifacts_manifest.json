@@ -1,0 +1,135 @@
+{
+  "version": 1,
+  "description": "Local and generated Mythic Edge artifacts. Missing optional artifacts should be reported clearly instead of causing agents to assume desktop-only data exists on another machine.",
+  "profiles": {
+    "clean_clone": {
+      "description": "A fresh clone with no local MTGA data. All artifacts are optional in this profile.",
+      "required_artifact_ids": []
+    },
+    "live_parser": {
+      "description": "A machine expected to run the live parser against MTGA and optionally post to Google Sheets.",
+      "required_artifact_ids": [
+        "mtga_player_log"
+      ]
+    },
+    "analytics_dev": {
+      "description": "A machine expected to develop local analytics from generated parser outputs.",
+      "required_artifact_ids": [
+        "match_logs_root",
+        "status_root"
+      ]
+    }
+  },
+  "artifacts": [
+    {
+      "id": "mtga_player_log",
+      "label": "MTGA Player.log",
+      "default_path": "{home}/AppData/LocalLow/Wizards Of The Coast/MTGA/Player.log",
+      "env_var": "MTGA_PLAYER_LOG",
+      "committed": false,
+      "contains_private_data": true,
+      "generator": "Run MTG Arena on this machine.",
+      "safe_fixture": "tests/fixtures/*_slice.log",
+      "notes": "Player.log is evidence for local parsing and should not be committed."
+    },
+    {
+      "id": "match_logs_root",
+      "label": "Saved parser match logs",
+      "default_path": "{repo_root}/data/match_logs",
+      "env_var": "MYTHICEDGE_MATCH_LOGS_ROOT",
+      "committed": false,
+      "contains_private_data": true,
+      "generator": "Run the parser or replay committed test fixtures.",
+      "safe_fixture": "tests/fixtures/parser_regression_*",
+      "notes": "Use committed fixtures for tests; local match logs are machine-specific."
+    },
+    {
+      "id": "runtime_logs_root",
+      "label": "Runtime logs",
+      "default_path": "{repo_root}/data/runtime_logs",
+      "env_var": "MYTHICEDGE_RUNTIME_LOGS_ROOT",
+      "committed": false,
+      "contains_private_data": true,
+      "generator": "Run the parser or launcher.",
+      "safe_fixture": null,
+      "notes": "Troubleshooting artifact only."
+    },
+    {
+      "id": "status_root",
+      "label": "Runtime status snapshots",
+      "default_path": "{repo_root}/data/status",
+      "env_var": "MYTHICEDGE_STATUS_ROOT",
+      "committed": false,
+      "contains_private_data": true,
+      "generator": "Run the parser, launcher, or status-producing tools.",
+      "safe_fixture": null,
+      "notes": "Local current-state artifact; do not treat as source code."
+    },
+    {
+      "id": "failed_posts_root",
+      "label": "Failed webhook post queue",
+      "default_path": "{repo_root}/data/failed_posts",
+      "env_var": "MYTHICEDGE_FAILED_POSTS_ROOT",
+      "committed": false,
+      "contains_private_data": true,
+      "generator": "Run the parser with webhook posting enabled and a failed post.",
+      "safe_fixture": null,
+      "notes": "May contain workbook payloads and should never be committed."
+    },
+    {
+      "id": "bad_events_root",
+      "label": "Bad event captures",
+      "default_path": "{repo_root}/data/bad_events",
+      "env_var": "MYTHICEDGE_BAD_EVENTS_ROOT",
+      "committed": false,
+      "contains_private_data": true,
+      "generator": "Run the parser against malformed or unsupported events.",
+      "safe_fixture": null,
+      "notes": "Diagnostic captures may contain raw event data."
+    },
+    {
+      "id": "oracle_data_root",
+      "label": "Generated card catalog data",
+      "default_path": "{repo_root}/data/oracle_data",
+      "env_var": "MYTHICEDGE_ORACLE_DATA_ROOT",
+      "committed": false,
+      "contains_private_data": false,
+      "generator": "py sync_card_catalog.py",
+      "safe_fixture": null,
+      "notes": "Regenerable support data; keep source-of-truth rules explicit before committing snapshots."
+    },
+    {
+      "id": "tier_sources_root",
+      "label": "Generated tier-source data",
+      "default_path": "{repo_root}/data/tier_sources",
+      "env_var": "MYTHICEDGE_TIER_SOURCES_ROOT",
+      "committed": "partial",
+      "contains_private_data": false,
+      "generator": "py sync_tier_buckets.py",
+      "safe_fixture": "data/tier_sources/normalization_overrides.json",
+      "notes": "Normalization overrides may be committed; latest generated snapshots should remain local unless explicitly approved."
+    },
+    {
+      "id": "current_decklist",
+      "label": "Current decklist artifact",
+      "default_path": "{repo_root}/data/decklists/current_deck_latest.json",
+      "env_var": "MYTHICEDGE_CURRENT_DECKLIST_PATH",
+      "committed": false,
+      "contains_private_data": true,
+      "generator": "py import_current_decklist.py",
+      "safe_fixture": null,
+      "notes": "Local deck snapshot used for analytics and hand confirmation workflows."
+    },
+    {
+      "id": "webhook_url",
+      "label": "Google Sheets webhook URL",
+      "default_path": null,
+      "env_var": "MYTHICEDGE_SHEETS_WEBHOOK",
+      "committed": false,
+      "contains_private_data": true,
+      "generator": "Configure locally in the launcher or shell environment.",
+      "safe_fixture": ".env.example",
+      "notes": "Secrets must stay in local environment variables or local settings, never in committed files."
+    }
+  ]
+}

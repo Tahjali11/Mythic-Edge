@@ -25,4 +25,8 @@ if ($Coverage) {
     Invoke-Checked "Running test suite..." py -m pytest -q tests
 }
 
-Invoke-Checked "Running lint checks..." py -m ruff check src tests
+Invoke-Checked "Running agent docs checks..." py tools\check_agent_docs.py
+Invoke-Checked "Running content secret checks..." py tools\check_secret_patterns.py --all
+Invoke-Checked "Running clean-clone local artifact check..." py tools\check_local_environment.py --profile clean_clone
+Invoke-Checked "Running workbook state probe..." py tools\report_workbook_state.py
+Invoke-Checked "Running lint checks..." py -m ruff check src tests tools

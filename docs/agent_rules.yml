@@ -290,6 +290,22 @@ roles:
     next_roles:
       - A
       - none
+  H:
+    name: Constitutional Lawyer
+    owns:
+      - constitution_feedback_synthesis
+      - evidence_quote_review
+      - governance_amendment_proposals
+      - minority_reports_and_watch_list
+      - synthesis_handoff
+    may_edit_code: false
+    may_commit: false
+    may_merge: false
+    required_artifact: feedback_round_issue_comment_or_docs/problem_representations/agent_constitution_*.md
+    next_roles:
+      - B
+      - A
+      - none
 
 routing:
   normal_path:
@@ -322,6 +338,11 @@ routing:
       - validation_complete_or_explained
     to_G:
       - draft_pr_reviewed_and_ready_for_merge_request
+    to_H:
+      - major_suite_completed
+      - major_governance_change_requested
+      - serious_workflow_failure
+      - constitution_feedback_synthesis_requested
 
 risk_tiers:
   low:

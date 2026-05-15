@@ -81,5 +81,5 @@ End with:
 ## Canonical Starter Prompt
 
 ```text
-Use the Mythic Edge agent constitution. Act as the Thinker thread for <request-or-issue>. Produce the required problem representation artifact and a handoff to the next role. Do not implement code.
+Use $mythic-edge-workflow. If older context conflicts with the skill, AGENTS.md, docs/agent_rules.yml, docs/agent_constitution.md, docs/codex_module_workflow.md, the current GitHub issue, or the current contract, prefer the current repo artifacts. Act as the Thinker thread for <request-or-issue>. Produce the required problem representation artifact and a handoff to the next role. Do not implement code.
 ```

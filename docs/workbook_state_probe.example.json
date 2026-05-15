@@ -1,0 +1,16 @@
+{
+  "description": "Optional input for tools/report_workbook_state.py. This file is an example only; do not fill it with private workbook IDs, webhook URLs, or live secrets.",
+  "deployed_apps_script": {
+    "version": "example-version",
+    "code_gs_sha256": "replace-with-sha256-of-deployed-code-gs-if-you-have-a-safe-export"
+  },
+  "workbook_headers": {
+    "Match Log": [],
+    "Game Log": [],
+    "Webhook Debug": []
+  },
+  "notes": [
+    "Leave this file as a placeholder in the repo.",
+    "Use a local ignored JSON file for real workbook/deployment state if needed."
+  ]
+}

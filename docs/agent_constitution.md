@@ -133,6 +133,13 @@ Every non-trivial thread should declare one active role. The canonical roles are
 - F. Module Submitter
   - stages, commits, pushes, and opens a draft pull request to the approved non-production target branch
   - maps to `docs/agent_threads/module_submitter.md`
+- G. Integration Deployer
+  - verifies integration readiness, merge readiness, tracker updates, issue closure, and local branch sync after explicit approval
+  - maps to `docs/agent_rules.yml` and the active integration issue or PR
+- H. Constitutional Lawyer
+  - synthesizes constitution feedback packets, evidence quotes, current repo authorities, accepted ADRs, and archived drafts into amendment proposals
+  - maps to `docs/agent_threads/constitutional_lawyer.md`
+  - is a special governance role, not part of the normal module implementation path
 
 If the role is unclear, infer the safest role from the request. Prefer problem representation or contract work before implementation when behavior is ambiguous.
 
@@ -145,10 +152,17 @@ Role rules live in:
 - `docs/agent_threads/contract_test.md`
 - `docs/agent_threads/review.md`
 - `docs/agent_threads/module_submitter.md`
+- `docs/agent_threads/constitutional_lawyer.md`
 
 `docs/agent_threads/contract_test.md` remains a specialized reviewer rule set for contract-verification reports. Use it when the Module Reviewer is specifically checking an implementation against a written contract.
 
-Each role file must include one canonical starter prompt. Starter prompts should name the constitution, active role, source artifact, required output, and forbidden behavior for that role.
+Each role file must include one canonical starter prompt. Starter prompts should begin with the portable skill invocation and repo-artifact conflict rule, then name the active role, source artifact, required output, and forbidden behavior for that role.
+
+Canonical starter prompt lead-in:
+
+```text
+Use $mythic-edge-workflow. If older context conflicts with the skill, AGENTS.md, docs/agent_rules.yml, docs/agent_constitution.md, docs/codex_module_workflow.md, the current GitHub issue, or the current contract, prefer the current repo artifacts.
+```
 
 ## Risk Tiers
 
@@ -260,6 +274,18 @@ ADRs complement issues, problem representations, module contracts, handoffs, rev
 
 If a current issue or contract appears to conflict with an accepted ADR, name the conflict and route it explicitly instead of silently ignoring either source.
 
+### Constitution Feedback And Codex H
+
+Codex H / Constitutional Lawyer owns constitution feedback synthesis. It reads structured feedback packets, current repo authority docs, accepted ADRs, archived drafts, and visible local chat evidence to propose amendments.
+
+Individual constitution feedback packets should not be committed to the repo by default. Prefer storing them as comments on a dedicated feedback-round GitHub issue or pasting them into the synthesis thread. The repo should commit the packet template, synthesis artifacts, accepted ADRs when needed, and final reviewed constitution amendment PRs.
+
+Feedback packets may include short direct quotes from local chat history when the quote materially supports a recommendation. Quotes must be redacted and targeted; do not include full transcripts, secrets, webhook URLs, raw logs, workbook IDs, generated local data, runtime status files, failed posts, or workbook exports.
+
+Run Codex H after major suites, before major governance changes, or after serious workflow failures. Low-confidence suggestions belong in a watch list or minority report, not directly in the next constitution draft.
+
+Codex H must not directly rewrite `docs/agent_constitution.md`, `docs/agent_rules.yml`, role files, or templates unless the workflow explicitly routes into an implementation thread with issue, contract, review, and validation authority.
+
 ## Next-Thread Blocks
 
 Each thread that expects the workflow to continue must end with:
@@ -273,8 +299,8 @@ Use this shape:
 ```yaml
 workflow_handoff:
   issue: "#<number-or-url>"
-  completed_thread: "<A|B|C|D|E|F>"
-  next_thread: "<A|B|C|D|E|F|none>"
+  completed_thread: "<A|B|C|D|E|F|G|H>"
+  next_thread: "<A|B|C|D|E|F|G|H|none>"
   source_artifact: "<path-or-url>"
   target_artifact: "<path-or-url>"
   risk_tier: "<Low|Medium|High>"
@@ -481,6 +507,7 @@ Role-specific additions:
 - contract test: contract matches, contract mismatches, missing tests, recommendation
 - review: findings, open questions, residual risk
 - module submitter: branch, staged files, commit, push result, PR URL, target branch, CI status
+- constitutional lawyer: feedback packets reviewed, evidence quotes used, proposed amendments, watch list, next governance route
 
 ## Communication Rules
 

@@ -22,6 +22,16 @@ Briefly restate the behavior that must be true.
 
 ```
 
+## Mutation Boundary
+
+This report should identify mismatches and route them. It should not mutate implementation files unless the user explicitly asked this thread to switch from review/contract-test mode into fixer mode.
+
+Role-scope command when reviewing local paths:
+
+```powershell
+py tools\check_role_scope.py --role E --paths <reviewed-report-paths>
+```
+
 ## Results
 
 Pass/fail summary.

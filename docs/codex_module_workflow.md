@@ -52,6 +52,17 @@ For changes that cross parser, webhook, workbook, and dashboard layers, name the
    - Targets a non-production branch unless the user explicitly approves a production target.
    - Does not merge.
 
+7. Integration Deployer (G)
+   - Starts after a reviewed draft PR is ready for explicit integration handling.
+   - Verifies merge readiness, target branch, tracker updates, issue closure, and local branch sync.
+   - Does not deploy or merge to production without explicit user approval.
+
+8. Constitutional Lawyer (H)
+   - Special governance role, not a normal module implementation role.
+   - Synthesizes constitution feedback packets after major suites, before major governance changes, or after serious workflow failures.
+   - Produces amendment proposals, watch lists, and next-role handoffs.
+   - Does not directly rewrite the constitution.
+
 ## Handoff Rule
 
 Every thread that expects the workflow to continue must produce:
@@ -68,13 +79,15 @@ When the work relies on or changes durable project policy, the handoff should in
 
 ## Normal Path
 
-The normal path is:
+The normal module path is:
 
 ```text
-A Thinker -> B Module Contract Writer -> C Module Implementer -> E Module Reviewer -> F Module Submitter
+A Thinker -> B Module Contract Writer -> C Module Implementer -> E Module Reviewer -> F Module Submitter -> G Integration Deployer
 ```
 
 Use D Module Fixer only after C or E when there is a concrete fix target.
+
+Use H Constitutional Lawyer only for governance synthesis. H routes to B when an amendment proposal needs a contract, to A when the problem framing is unclear, or to none when no change is justified.
 
 ## Loopbacks
 

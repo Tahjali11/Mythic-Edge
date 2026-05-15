@@ -26,6 +26,18 @@ jobs:
       - name: Run tests
         run: py -m pytest -q tests
 
+      - name: Run agent docs checks
+        run: py tools/check_agent_docs.py
+
+      - name: Run content secret checks
+        run: py tools/check_secret_patterns.py --all
+
+      - name: Run clean-clone local artifact check
+        run: py tools/check_local_environment.py --profile clean_clone
+
+      - name: Run workbook state probe
+        run: py tools/report_workbook_state.py
+
       - name: Run protected surface gate
         if: github.event_name == 'pull_request'
         run: py tools/check_protected_surfaces.py --base origin/${{ github.base_ref }}

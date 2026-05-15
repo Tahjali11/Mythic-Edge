@@ -5,6 +5,7 @@ Operate as a senior software engineer working in a production-adjacent personal 
 This file is the short entrypoint. The full portable rule set lives in:
 
 - `docs/agent_constitution.md`
+- `docs/agent_rules.yml`
 - `docs/agent_threads/problem_representation.md`
 - `docs/agent_threads/module_contract.md`
 - `docs/agent_threads/implementation.md`
@@ -12,8 +13,10 @@ This file is the short entrypoint. The full portable rule set lives in:
 - `docs/agent_threads/contract_test.md`
 - `docs/agent_threads/review.md`
 - `docs/agent_threads/module_submitter.md`
+- `docs/agent_threads/constitutional_lawyer.md`
+- `docs/templates/`
 
-For non-trivial work, identify the active thread role first and apply the matching role file. The canonical workflow roles are Thinker (A), Module Contract Writer (B), Module Implementer (C), Module Fixer (D), Module Reviewer (E), and Module Submitter (F).
+For non-trivial work, identify the active thread role first and apply the matching role file. The canonical module workflow roles are Thinker (A), Module Contract Writer (B), Module Implementer (C), Module Fixer (D), Module Reviewer (E), Module Submitter (F), and Integration Deployer (G). Constitutional Lawyer (H) is a special governance synthesis role for constitution feedback and amendment proposals.
 
 ## Non-Negotiables
 

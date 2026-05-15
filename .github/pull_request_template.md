@@ -41,6 +41,12 @@ Use `No drift`, `Authorized drift`, `Residual drift`, or `N/A`. For any `Authori
 
 - 
 
+## Authorized Scope
+
+- Authorized changed paths:
+- Role scope check:
+- Validation matrix command:
+
 ## Tests
 
 ```powershell
@@ -51,6 +57,8 @@ Use `No drift`, `Authorized drift`, `Residual drift`, or `N/A`. For any `Authori
 
 - [ ] Implementation was checked against the module contract.
 - [ ] Risk-tier requirements were followed.
+- [ ] Validation was selected from `docs/validation_matrix.json` or the exception is explained.
+- [ ] Role scope matched the active workflow thread or the exception is explained.
 - [ ] Provisional and final values are distinguished where relevant.
 - [ ] Parser truth was not moved into workbook formulas or dashboard-only logic.
 - [ ] Workbook, repo, and deployed Apps Script drift are called out if relevant.

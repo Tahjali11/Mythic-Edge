@@ -237,6 +237,10 @@ def _is_documented_fixture(path: str) -> bool:
     return path.startswith("tests/fixtures/")
 
 
+def _is_safe_env_example(path: str) -> bool:
+    return path == ".env.example" or path.endswith("/.env.example")
+
+
 def _is_token_credential_filename(path: str) -> bool:
     name = path.rsplit("/", 1)[-1].lower()
     stem, dot, extension = name.rpartition(".")
@@ -264,6 +268,8 @@ def classify_path(path: str | Path) -> Classification:
     normalized = normalize_path(path)
 
     for rule in FORBIDDEN_RULES:
+        if rule.category_id == "secret_file" and _is_safe_env_example(normalized):
+            continue
         if rule.category_id in {"local_mtga_log", "raw_workbook_export"} and _is_documented_fixture(
             normalized,
         ):

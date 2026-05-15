@@ -71,6 +71,7 @@ def test_forbidden_paths_fail_with_stable_categories(path: str, category_id: str
         "tests/fixtures/Player.log",
         "tests/fixtures/sample.Player.log",
         "tests/fixtures/sample.player.log",
+        ".env.example",
     ],
 )
 def test_allowed_paths_do_not_warn_or_fail(path: str) -> None:
