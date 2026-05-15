@@ -78,6 +78,10 @@ Reason: analytics and coaching are only as trustworthy as the parser facts they 
 analytics a way to know not only what happened, but how the project knows it and how confident downstream tools should
 be.
 
+## Long-Horizon Idea Parking Lot
+
+For ideas beyond the current roadmap, see `docs/future_enhancement_ideas.md`.
+
 Expected next tracker after code hardening:
 
 ```text
