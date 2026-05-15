@@ -281,6 +281,18 @@ A Thinker -> B Module Contract Writer -> C Module Implementer -> E Module Review
 
 D is a loopback role used only for concrete fix targets.
 
+### Auxiliary Governance Role
+
+Codex H: Constitutional Lawyer synthesizes constitution feedback packets into
+amendment proposals, consolidation recommendations, unresolved conflicts, and
+watch-list items. It maps to
+`docs/agent_threads/constitutional_lawyer.md` and uses
+`docs/templates/constitution_feedback_packet.md`.
+
+Codex H is advisory. It must not directly rewrite authority documents, bypass
+the normal issue/contract/implementation/review/submitter/deployer path, or
+insert itself into the A-G module implementation workflow.
+
 ## Risk Tiers
 
 ### Low Risk
@@ -464,6 +476,10 @@ Durable artifacts include:
 - contract test reports under `docs/contract_test_reports/`
 - pull requests
 - GitHub issue or PR comments
+
+Constitution feedback packets are raw evidence by default. They should be
+pasteable output or GitHub issue comments unless a formal feedback-round issue
+and contract explicitly authorize repo storage.
 
 If a thread cannot write an artifact, it must explain why and provide the full
 artifact text in the response.

@@ -17,11 +17,17 @@ This file is the short entrypoint. The active rule package lives in:
 - `docs/agent_threads/review.md`
 - `docs/agent_threads/module_submitter.md`
 - `docs/agent_threads/integration_deployer.md`
+- `docs/agent_threads/constitutional_lawyer.md`
 
 For non-trivial work, identify the active thread role first and apply the
 matching role file. The canonical workflow roles are Thinker (A), Module
 Contract Writer (B), Module Implementer (C), Module Fixer (D), Module Reviewer
 (E), Module Submitter (F), and Integration Deployer (G).
+
+Codex H, Constitutional Lawyer, is an auxiliary governance synthesis role for
+constitution feedback packets. It proposes amendments, consolidations, and
+watch-list items, but it does not directly rewrite authority docs, merge PRs,
+or replace the normal A-G module workflow.
 
 ## Non-Negotiables
 
