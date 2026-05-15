@@ -94,6 +94,10 @@ Use H only for constitution feedback synthesis. H output routes back to A or B
 for new framing or contracts, or to C only when an existing issue and contract
 already authorize implementation.
 
+Before proposing amendments, H should classify packet recommendations against
+current repo state so satisfied, stale, superseded, conflicting, active, and
+watch-list items are not flattened together.
+
 ## Loopbacks
 
 Route to A when scope is outside the issue, the problem framing is wrong, a

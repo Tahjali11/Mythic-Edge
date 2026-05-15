@@ -333,6 +333,21 @@ constitution_feedback:
   source_coverage_table_required_when:
     - multiple_packets_supplied
     - seven_or_more_packets_supplied
+  current_status_classification_required_before_synthesis: true
+  current_status_labels:
+    - active
+    - partially_satisfied
+    - satisfied
+    - stale
+    - superseded
+    - conflict
+    - watch_list
+  current_status_sources:
+    - current_repo_governance_docs
+    - accepted_architecture_decision_records
+    - relevant_issues
+    - relevant_pull_requests
+    - active_contracts
   raw_packets_are_authority: false
   codex_h_synthesis_is_authority: false
 

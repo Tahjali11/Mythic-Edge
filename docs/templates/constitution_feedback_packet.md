@@ -69,6 +69,20 @@ Choose one:
 ### Routing Recommendation
 
 <state whether Codex H should propose an amendment, consolidate/remove wording, preserve an unresolved conflict, or place it on the watch list>
+
+### Later Synthesis Status
+
+Optional Codex H annotation. Packet authors may leave this blank.
+
+Choose one when synthesizing against current repo state:
+
+- active
+- partially_satisfied
+- satisfied
+- stale
+- superseded
+- conflict
+- watch_list
 ```
 
 Formal repo storage for raw packets is opt-in. It requires an explicit issue and
