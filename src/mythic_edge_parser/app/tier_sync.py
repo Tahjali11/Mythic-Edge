@@ -162,7 +162,7 @@ def load_normalization_overrides() -> dict[str, dict[str, str]]:
 
 
 def _scrape_mtggoldfish(
-    session: requests.Session,
+    session: Any,
     refreshed_at: str,
     overrides: dict[str, dict[str, str]],
 ) -> list[TierRecord]:
@@ -205,7 +205,7 @@ def _scrape_mtggoldfish(
 
 
 def _scrape_mtgtop8(
-    session: requests.Session,
+    session: Any,
     refreshed_at: str,
     overrides: dict[str, dict[str, str]],
 ) -> list[TierRecord]:
@@ -250,7 +250,7 @@ def _scrape_mtgtop8(
 
 
 def _scrape_untapped(
-    session: requests.Session,
+    session: Any,
     refreshed_at: str,
     overrides: dict[str, dict[str, str]],
 ) -> list[TierRecord]:

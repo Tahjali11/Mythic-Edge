@@ -10,7 +10,7 @@ import shutil
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any, Iterator, cast
 from urllib.parse import urlparse
 
 import requests
@@ -1020,7 +1020,7 @@ def write_catalog_csv(path: Path, cards: list[dict[str, Any]]) -> None:
                 "games": " ".join(card.get("games") or []),
                 "card_faces_json": json.dumps(card.get("card_faces") or [], ensure_ascii=False),
             }
-            writer.writerow(row)
+            writer.writerow(cast(Any, row))
 
 
 def build_arg_parser() -> argparse.ArgumentParser:

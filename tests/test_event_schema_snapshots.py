@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import re
+from collections.abc import Sequence
 from dataclasses import fields
 from datetime import UTC, datetime
 from pathlib import Path
@@ -730,18 +731,18 @@ def _gre_entry(messages: list[dict[str, Any]]) -> LogEntry:
     return _unity_json_entry("greToClientEvent", {"greToClientEvent": {"greToClientMessages": messages}})
 
 
-def _expect_one_event(value: events.BaseEvent | list[events.BaseEvent] | None) -> events.BaseEvent:
+def _expect_one_event(value: events.BaseEvent | Sequence[events.BaseEvent] | None) -> events.BaseEvent:
     parsed_events = _flatten_events(value)
     if len(parsed_events) != 1:
         pytest.fail(f"Expected one schema sample event, got {len(parsed_events)}")
     return parsed_events[0]
 
 
-def _flatten_events(value: events.BaseEvent | list[events.BaseEvent] | None) -> list[events.BaseEvent]:
+def _flatten_events(value: events.BaseEvent | Sequence[events.BaseEvent] | None) -> list[events.BaseEvent]:
     if value is None:
         return []
-    if isinstance(value, list):
-        return value
+    if isinstance(value, Sequence):
+        return list(value)
     return [value]
 
 
@@ -984,6 +985,7 @@ def _extract_apps_script_landing_headers(code: str, header_key: str) -> list[str
     match = re.search(rf"\b{re.escape(header_key)}:\s*\[(?P<body>.*?)^\s*\],", code, re.MULTILINE | re.DOTALL)
     if match is None:
         pytest.fail(f"Could not find Apps Script landing header array {header_key}")
+    assert match is not None
     return re.findall(r'"([^"]+)"', match.group("body"))
 
 
@@ -1007,4 +1009,5 @@ def _extract_apps_script_function_body(code: str, function_name: str) -> str:
     )
     if match is None:
         pytest.fail(f"Could not find Apps Script function {function_name}")
+    assert match is not None
     return match.group("body")

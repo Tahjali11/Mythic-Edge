@@ -96,7 +96,7 @@ def test_runtime_sheet_spec_is_frozen_and_slotted() -> None:
 
     assert not hasattr(spec, "__dict__")
     with pytest.raises(FrozenInstanceError):
-        spec.scope = "Match"
+        setattr(spec, "scope", "Match")
 
 
 @pytest.mark.parametrize(

@@ -272,7 +272,7 @@ class MatchSummary:
         if game is not None and starting_player not in (None, ""):
             game.starting_player = starting_player
 
-    def set_game_mulligans(self, game_number: Any, mulligans: int) -> None:
+    def set_game_mulligans(self, game_number: Any, mulligans: Any) -> None:
         game = self.game(game_number)
         if game is None or isinstance(mulligans, bool):
             return

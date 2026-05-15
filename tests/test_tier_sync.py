@@ -19,7 +19,7 @@ class _FakeSession:
     def __init__(self, html: str) -> None:
         self.html = html
 
-    def get(self, url: str, timeout: int) -> _FakeResponse:
+    def get(self, url: str, **kwargs) -> _FakeResponse:
         return _FakeResponse(self.html)
 
 

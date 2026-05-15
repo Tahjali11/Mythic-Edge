@@ -653,6 +653,13 @@ def _deck_attribute(deck_payload: dict[str, Any], name: str) -> str:
     return ""
 
 
+def _safe_int(value: Any) -> int | None:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _deck_section_counts(deck_sections: Any, section_name: str) -> Counter[str]:
     if not isinstance(deck_sections, dict):
         return Counter()
@@ -663,11 +670,11 @@ def _deck_section_counts(deck_sections: Any, section_name: str) -> Counter[str]:
     for card in cards:
         if not isinstance(card, dict):
             continue
-        try:
-            card_id = str(int(card.get("cardId")))
-            quantity = int(card.get("quantity", 0))
-        except (TypeError, ValueError):
+        card_id_int = _safe_int(card.get("cardId"))
+        quantity = _safe_int(card.get("quantity", 0))
+        if card_id_int is None or quantity is None:
             continue
+        card_id = str(card_id_int)
         if quantity > 0:
             counts[card_id] += quantity
     return counts

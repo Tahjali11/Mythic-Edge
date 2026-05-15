@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any, cast
 
 from mythic_edge_parser.app import state
 from mythic_edge_parser.app.models import MatchSummary
@@ -22,7 +23,7 @@ class UnknownEvent:
 
 
 def test_reset_runtime_state_restores_default_shared_state() -> None:
-    state._MATCH_SUMMARIES["m1"] = object()
+    state._MATCH_SUMMARIES["m1"] = cast(Any, object())
     state._MULLIGAN_COUNTS[("m1", 1)] = 2
     state._LAST_POSTED_MATCH_LOG_ROWS["m1"] = {"Match Win?": "W"}
     state._LAST_POSTED_GAME_LOG_ROWS[("m1", 1)] = {"Game Result": "W"}
@@ -205,7 +206,7 @@ def test_invalid_game_log_keys_are_skipped() -> None:
 
     state.mark_game_log_posted("", 1, {"MTGA Match ID": "", "Game Number": 1})
     state.mark_game_log_posted("match-invalid-game", "", {"MTGA Match ID": "match-invalid-game", "Game Number": ""})
-    state._MATCH_SUMMARIES["match-invalid-game"] = InvalidGameRows()
+    state._MATCH_SUMMARIES["match-invalid-game"] = cast(Any, InvalidGameRows())
 
     assert state._LAST_POSTED_GAME_LOG_ROWS == {}
     assert state.build_game_log_updates("match-invalid-game") == []

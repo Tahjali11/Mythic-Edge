@@ -4,7 +4,7 @@ from typing import Any
 from .config import LOCAL_PLAYER_INDEX
 
 
-def _safe_local_player(players: list[dict[str, Any]]) -> dict[str, Any]:
+def _safe_local_player(players: Any) -> dict[str, Any]:
     if not isinstance(players, list):
         return {}
     if not players:
