@@ -36,6 +36,7 @@ Use `No drift`, `Authorized drift`, `Residual drift`, or `N/A`. For any `Authori
 - Parser event shape/classes:
 - Workbook/webhook/App Script shape:
 - Parser truth ownership:
+- External integrations / collaboration surfaces:
 - Fixtures/evidence:
 - Protected-surface authorization:
 - Residual drift / accepted gaps:
@@ -57,6 +58,7 @@ and contract.
 - [ ] Match/game identity unchanged or authorized.
 - [ ] Deduplication unchanged or authorized.
 - [ ] Final reconciliation unchanged or authorized.
+- [ ] External integrations, live Docs/Sheets, connector permissions, OpenAI API runtime behavior, and coaching evaluation unchanged or authorized.
 - [ ] Secrets, raw logs, generated data, runtime status files, failed posts, and workbook exports are not included.
 
 ## Tests

@@ -34,6 +34,10 @@ or replace the normal A-G module workflow.
 - Never commit secrets, webhook URLs, API keys, tokens, credentials, local MTGA
   logs, failed posts, runtime status files, generated card data, or raw
   workbook exports.
+- Treat external tools, local skills, MCP servers, plugins, connectors, Google
+  Docs, Google Sheets, and OpenAI documentation tooling as access or
+  collaboration surfaces unless current repo authority explicitly says
+  otherwise.
 - Do not move parser-owned truth into workbook formulas, dashboard logic, Apps
   Script transport, webhook transport, or AI-generated interpretation.
 - Do not change webhook payload shape, workbook schema, deployed Apps Script

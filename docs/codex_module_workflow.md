@@ -27,6 +27,14 @@ coordination or display surfaces.
 For work that crosses parser, webhook, workbook, dashboard, deployment, or AI
 analysis layers, name the truth owner before implementation starts.
 
+External tools and collaboration spaces, including Google Docs, Google Sheets,
+local skills, MCP servers, plugins, connectors, browser or shell helpers,
+OpenAI documentation tooling, and external data sources, are access or
+collaboration surfaces unless current repo authority says otherwise. Live
+external writes, permission changes, credential work, sensitive external data
+sharing, OpenAI API runtime integration, and coaching evaluation require
+separate scoped authorization.
+
 ## Thread Roles
 
 1. Codex A: Thinker
