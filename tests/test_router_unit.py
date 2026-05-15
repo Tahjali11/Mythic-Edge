@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 
 from mythic_edge_parser import router
-from mythic_edge_parser.events import CollectionEvent, DetailedLoggingStatusEvent, EventMetadata
+from mythic_edge_parser.events import BaseEvent, CollectionEvent, DetailedLoggingStatusEvent, EventMetadata
 from mythic_edge_parser.log.entry import EntryHeader, LogEntry
 
 DISPATCH_MODULE_NAMES = (
@@ -24,7 +24,7 @@ def _make_entry(body: str, header: EntryHeader = EntryHeader.UNKNOWN) -> LogEntr
     return LogEntry(header=header, body=body)
 
 
-def _make_event(event_cls=DetailedLoggingStatusEvent):
+def _make_event(event_cls: type[BaseEvent] = DetailedLoggingStatusEvent) -> BaseEvent:
     return event_cls(
         metadata=EventMetadata(timestamp=None, raw_bytes=b"router-test"),
         payload={},

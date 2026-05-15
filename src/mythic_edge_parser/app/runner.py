@@ -1,5 +1,6 @@
 import json
 from pathlib import Path, PureWindowsPath
+from typing import Any, Callable
 from urllib.parse import urlparse
 
 from ..stream import MtgaEventStream
@@ -137,7 +138,7 @@ def _post_sheet_debug_rows(event: object) -> int:
     return posted
 
 
-def _maybe_record_submitted_deck(event: object, logger: object) -> None:
+def _maybe_record_submitted_deck(event: object, logger: Any) -> None:
     if getattr(event, "kind", "") != "ClientAction":
         return
 
@@ -155,7 +156,7 @@ def _maybe_record_submitted_deck(event: object, logger: object) -> None:
         logger.info("Active submitted deck updated: %s", _display_path(submitted_deck_path))
 
 
-def _post_game_log_rows(logger: object) -> None:
+def _post_game_log_rows(logger: Any) -> None:
     if not POST_GAME_LOG_ROWS:
         return
 
@@ -195,7 +196,7 @@ def _post_match_summary_row() -> None:
     )
 
 
-def _post_match_log_row(logger: object) -> None:
+def _post_match_log_row(logger: Any) -> None:
     if not POST_MATCH_LOG_ROWS:
         return
 
@@ -221,13 +222,13 @@ def _post_match_log_row(logger: object) -> None:
 
 
 def _game_log_success_callback(
-    logger: object,
+    logger: Any,
     *,
     match_id: str,
     game_row: dict[str, object],
     changed_fields: list[str],
     sync_phase: str,
-) -> object:
+) -> Callable[[], None]:
     game_row_snapshot = dict(game_row)
     changed_fields_snapshot = list(changed_fields)
 
@@ -249,13 +250,13 @@ def _game_log_success_callback(
 
 
 def _match_log_success_callback(
-    logger: object,
+    logger: Any,
     *,
     match_id: str,
     match_log_row: dict[str, object],
     changed_fields: list[str],
     sync_phase: str,
-) -> object:
+) -> Callable[[], None]:
     match_log_snapshot = dict(match_log_row)
     changed_fields_snapshot = list(changed_fields)
 

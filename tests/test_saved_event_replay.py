@@ -310,6 +310,17 @@ def test_missing_saved_record_payload_defaults_to_empty_payload() -> None:
     assert event.payload == {}
 
 
+def test_present_malformed_saved_record_payload_fails_fast() -> None:
+    record = {
+        "kind": "Rank",
+        "timestamp": "2026-05-10T17:00:00+00:00",
+        "payload": "not-a-mapping",
+    }
+
+    with pytest.raises(ValueError):
+        event_from_saved_record(json.dumps(record), record)
+
+
 @pytest.mark.parametrize("timestamp", [None, "", "   ", 0])
 def test_saved_record_falsey_or_blank_timestamp_reconstructs_as_none(timestamp) -> None:
     record = {

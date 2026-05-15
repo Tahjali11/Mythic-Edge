@@ -286,6 +286,8 @@ def _evidence_summary_from_payload(payload: dict[str, Any]) -> CandidateEvidence
 
 def _candidate_row_from_payload(payload: dict[str, Any]) -> GrpIdCandidateRow:
     evidence_payload = payload.get("evidence_summary") if isinstance(payload.get("evidence_summary"), dict) else {}
+    runner_up_gap_payload = payload.get("runner_up_gap")
+    runner_up_gap = int(runner_up_gap_payload) if runner_up_gap_payload not in (None, "") else None
     return GrpIdCandidateRow(
         grp_id=int(payload.get("grp_id", 0) or 0),
         section=str(payload.get("section", "")).strip(),
@@ -308,16 +310,12 @@ def _candidate_row_from_payload(payload: dict[str, Any]) -> GrpIdCandidateRow:
         ],
         top_candidate_name=str(payload.get("top_candidate_name", "")).strip(),
         top_candidate_score=int(payload.get("top_candidate_score", 0) or 0),
-        runner_up_gap=(
-            int(payload.get("runner_up_gap"))
-            if payload.get("runner_up_gap") not in (None, "")
-            else None
-        ),
+        runner_up_gap=runner_up_gap,
         auto_suggestion=str(payload.get("auto_suggestion", "")).strip(),
         evidence_match_percent=int(payload.get("evidence_match_percent", payload.get("confidence_percent", 0)) or 0),
         promotion_status=str(payload.get("promotion_status", "")).strip()
         or _promotion_status_label(str(payload.get("confirmation_status", "")).strip()),
-        evidence_summary=_evidence_summary_from_payload(evidence_payload),
+        evidence_summary=_evidence_summary_from_payload(evidence_payload if isinstance(evidence_payload, dict) else {}),
         confidence_percent=int(payload.get("confidence_percent", payload.get("evidence_match_percent", 0)) or 0),
         confirmation_status=str(payload.get("confirmation_status", "")).strip(),
         confirmation_reasons=[

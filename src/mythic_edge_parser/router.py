@@ -4,6 +4,7 @@ import re
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from threading import Lock
+from typing import Protocol
 
 from . import parsers
 from .events import GameEvent
@@ -13,7 +14,14 @@ _TIMESTAMP_RE = re.compile(
     r"\](?P<date>\d{1,2}/\d{1,2}/\d{4})\s+(?P<time>\d{1,2}:\d{2}:\d{2})\s+(?P<ampm>AM|PM)",
     re.IGNORECASE,
 )
-HEADER_PARSER_DISPATCH_ORDER = {
+
+
+class ParserModule(Protocol):
+    def try_parse(self, entry: LogEntry, timestamp: datetime | None) -> GameEvent | list[GameEvent] | None:
+        ...
+
+
+HEADER_PARSER_DISPATCH_ORDER: dict[EntryHeader, tuple[ParserModule, ...]] = {
     EntryHeader.METADATA: (
         parsers.metadata,
     ),
@@ -126,5 +134,5 @@ def dispatch_to_parsers(entry: LogEntry, timestamp: datetime | None) -> list[Gam
     return []
 
 
-def _dispatch_order_for_header(header: EntryHeader) -> tuple[object, ...]:
+def _dispatch_order_for_header(header: EntryHeader) -> tuple[ParserModule, ...]:
     return HEADER_PARSER_DISPATCH_ORDER.get(header, HEADER_PARSER_DISPATCH_ORDER[EntryHeader.UNKNOWN])

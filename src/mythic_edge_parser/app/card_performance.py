@@ -341,7 +341,7 @@ def _aggregate_card_performance(
 
         mulligan_rate = _safe_rate(len(stats["mulliganed_away_wins"]), len(stats["mulliganed_away_games"]))
         mulligan_tax: float | str = ""
-        if mulligan_rate != "" and baseline_game_win_rate != "":
+        if isinstance(mulligan_rate, float) and isinstance(baseline_game_win_rate, float):
             mulligan_tax = baseline_game_win_rate - mulligan_rate
 
         cards.append(

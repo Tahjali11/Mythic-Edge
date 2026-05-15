@@ -15,6 +15,8 @@ Start every non-trivial thread from:
 The artifact is the source of truth. Pasteable prompts are only convenience
 wrappers for the next thread.
 
+Architecture Decision Records (ADRs) under `docs/decisions/` record durable cross-project decisions that future issues, contracts, reviews, and PRs should cite when relevant. ADRs do not replace issue-scoped contracts and do not authorize protected-surface changes by implication.
+
 ## Source Of Truth
 
 The parser and state layer own MTGA event interpretation and normalized
@@ -111,6 +113,8 @@ Every thread that expects the workflow to continue must produce:
 Use `docs/templates/workflow_handoff.md` for the handoff shape.
 
 ## Issue Lifecycle
+
+When the work relies on or changes durable project policy, the handoff should include `Related ADRs` or state `Related ADRs: N/A`. If a scoped issue or contract conflicts with an accepted ADR, route back to Thinker or Module Contract Writer before implementation unless the issue and contract explicitly authorize an ADR amendment or supersession path.
 
 Use one GitHub issue per coherent module or workflow change. Link contracts,
 handoffs, reports, and PRs back to the issue and to the tracker when one exists.

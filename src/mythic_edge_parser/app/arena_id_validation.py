@@ -377,6 +377,13 @@ def _owner_seat_label(owner_seat: Any, local_seat: Any) -> str:
     return owner_text
 
 
+def _safe_int(value: Any) -> int | None:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _zone_labels_by_id(gsm: dict[str, Any], local_seat: Any) -> dict[int, str]:
     zones = gsm.get("zones")
     if not isinstance(zones, list):
@@ -386,10 +393,8 @@ def _zone_labels_by_id(gsm: dict[str, Any], local_seat: Any) -> dict[int, str]:
     for zone in zones:
         if not isinstance(zone, dict):
             continue
-        zone_id = zone.get("zoneId")
-        try:
-            normalized_zone_id = int(zone_id)
-        except (TypeError, ValueError):
+        normalized_zone_id = _safe_int(zone.get("zoneId"))
+        if normalized_zone_id is None:
             continue
 
         zone_type = str(zone.get("type") or "UnknownZone").strip()
@@ -417,10 +422,8 @@ def _actions_by_instance_id(gsm: dict[str, Any]) -> dict[int, list[dict[str, Any
         action = wrapped.get("action")
         if not isinstance(action, dict):
             continue
-        instance_id = action.get("instanceId")
-        try:
-            normalized_instance_id = int(instance_id)
-        except (TypeError, ValueError):
+        normalized_instance_id = _safe_int(action.get("instanceId"))
+        if normalized_instance_id is None:
             continue
         mapped.setdefault(normalized_instance_id, []).append(action)
     return mapped
@@ -532,20 +535,15 @@ def _scan_saved_match_logs(
                 for game_object in gsm.get("gameObjects") or []:
                     if not isinstance(game_object, dict):
                         continue
-                    observed_grp_id = game_object.get("grpId", game_object.get("overlayGrpId"))
-                    try:
-                        normalized_observed_grp_id = int(observed_grp_id)
-                    except (TypeError, ValueError):
+                    normalized_observed_grp_id = _safe_int(game_object.get("grpId", game_object.get("overlayGrpId")))
+                    if normalized_observed_grp_id is None:
                         continue
                     if normalized_target_grp_ids and normalized_observed_grp_id not in normalized_target_grp_ids:
                         continue
 
                     zone_id = game_object.get("zoneId")
                     zone_label = f"zone:{zone_id}"
-                    try:
-                        normalized_zone_id = int(zone_id)
-                    except (TypeError, ValueError):
-                        normalized_zone_id = None
+                    normalized_zone_id = _safe_int(zone_id)
                     if normalized_zone_id is not None:
                         zone_label = zone_labels.get(normalized_zone_id, zone_label)
 
@@ -576,7 +574,7 @@ def _scan_saved_match_logs(
                         ArenaIdEvidence(),
                     ).note_object_fingerprint(
                         game_object,
-                        actions=actions_by_instance_id.get(int(game_object.get("instanceId") or -1), []),
+                        actions=actions_by_instance_id.get(_safe_int(game_object.get("instanceId")) or -1, []),
                     )
 
     return scanned_files, evidence_by_observed_grp_id
@@ -626,10 +624,8 @@ def discover_unresolved_grp_ids_from_saved_logs(
                 for game_object in gsm.get("gameObjects") or []:
                     if not isinstance(game_object, dict):
                         continue
-                    observed_grp_id = game_object.get("grpId", game_object.get("overlayGrpId"))
-                    try:
-                        normalized_observed_grp_id = int(observed_grp_id)
-                    except (TypeError, ValueError):
+                    normalized_observed_grp_id = _safe_int(game_object.get("grpId", game_object.get("overlayGrpId")))
+                    if normalized_observed_grp_id is None:
                         continue
                     if str(normalized_observed_grp_id) in resolved_lookup:
                         continue

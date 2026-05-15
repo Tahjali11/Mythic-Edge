@@ -1,0 +1,16 @@
+{
+  "include": ["src", "tests"],
+  "exclude": [
+    ".venv",
+    "**/__pycache__",
+    ".pytest_cache",
+    ".ruff_cache",
+    "build",
+    "dist",
+    "data",
+    "exports",
+    "workbook_exports"
+  ],
+  "pythonVersion": "3.11",
+  "typeCheckingMode": "basic"
+}

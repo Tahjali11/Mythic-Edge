@@ -1,0 +1,162 @@
+{
+  "dataclass_fields": {
+    "BaseEvent": [
+      "metadata",
+      "payload"
+    ],
+    "EventMetadata": [
+      "timestamp",
+      "raw_bytes",
+      "raw_bytes_hash"
+    ],
+    "RuntimeSheetSpec": [
+      "family",
+      "event_type",
+      "scope",
+      "headers"
+    ]
+  },
+  "event_classes": [
+    {
+      "class": "GameStateEvent",
+      "in_game_event_union": true,
+      "kind": "GameState",
+      "performance_class": "InteractiveDispatch"
+    },
+    {
+      "class": "ClientActionEvent",
+      "in_game_event_union": true,
+      "kind": "ClientAction",
+      "performance_class": "InteractiveDispatch"
+    },
+    {
+      "class": "MatchStateEvent",
+      "in_game_event_union": true,
+      "kind": "MatchState",
+      "performance_class": "InteractiveDispatch"
+    },
+    {
+      "class": "DraftBotEvent",
+      "in_game_event_union": true,
+      "kind": "DraftBot",
+      "performance_class": "DurablePerEvent"
+    },
+    {
+      "class": "DraftHumanEvent",
+      "in_game_event_union": true,
+      "kind": "DraftHuman",
+      "performance_class": "DurablePerEvent"
+    },
+    {
+      "class": "DraftCompleteEvent",
+      "in_game_event_union": true,
+      "kind": "DraftComplete",
+      "performance_class": "DurablePerEvent"
+    },
+    {
+      "class": "EventLifecycleEvent",
+      "in_game_event_union": true,
+      "kind": "EventLifecycle",
+      "performance_class": "DurablePerEvent"
+    },
+    {
+      "class": "SessionEvent",
+      "in_game_event_union": true,
+      "kind": "Session",
+      "performance_class": "DurablePerEvent"
+    },
+    {
+      "class": "RankEvent",
+      "in_game_event_union": true,
+      "kind": "Rank",
+      "performance_class": "DurablePerEvent"
+    },
+    {
+      "class": "CollectionEvent",
+      "in_game_event_union": true,
+      "kind": "Collection",
+      "performance_class": "DurablePerEvent"
+    },
+    {
+      "class": "DeckCollectionEvent",
+      "in_game_event_union": true,
+      "kind": "DeckCollection",
+      "performance_class": "DurablePerEvent"
+    },
+    {
+      "class": "InventoryEvent",
+      "in_game_event_union": true,
+      "kind": "Inventory",
+      "performance_class": "DurablePerEvent"
+    },
+    {
+      "class": "GameResultEvent",
+      "in_game_event_union": true,
+      "kind": "GameResult",
+      "performance_class": "PostGameBatch"
+    },
+    {
+      "class": "LogFileRotatedEvent",
+      "in_game_event_union": true,
+      "kind": "LogFileRotated",
+      "performance_class": "InteractiveDispatch"
+    },
+    {
+      "class": "DetailedLoggingStatusEvent",
+      "in_game_event_union": true,
+      "kind": "DetailedLoggingStatus",
+      "performance_class": "InteractiveDispatch"
+    },
+    {
+      "class": "MatchConnectionStateEvent",
+      "in_game_event_union": true,
+      "kind": "MatchConnectionState",
+      "performance_class": "InteractiveDispatch"
+    },
+    {
+      "class": "TcpConnectionCloseEvent",
+      "in_game_event_union": true,
+      "kind": "TcpConnectionClose",
+      "performance_class": "InteractiveDispatch"
+    },
+    {
+      "class": "WebSocketClosedEvent",
+      "in_game_event_union": true,
+      "kind": "WebSocketClosed",
+      "performance_class": "InteractiveDispatch"
+    },
+    {
+      "class": "ConnectionErrorEvent",
+      "in_game_event_union": true,
+      "kind": "ConnectionError",
+      "performance_class": "InteractiveDispatch"
+    }
+  ],
+  "game_event_union": [
+    "GameStateEvent",
+    "ClientActionEvent",
+    "MatchStateEvent",
+    "DraftBotEvent",
+    "DraftHumanEvent",
+    "DraftCompleteEvent",
+    "EventLifecycleEvent",
+    "SessionEvent",
+    "RankEvent",
+    "CollectionEvent",
+    "DeckCollectionEvent",
+    "InventoryEvent",
+    "GameResultEvent",
+    "LogFileRotatedEvent",
+    "DetailedLoggingStatusEvent",
+    "MatchConnectionStateEvent",
+    "TcpConnectionCloseEvent",
+    "WebSocketClosedEvent",
+    "ConnectionErrorEvent"
+  ],
+  "performance_class_values": [
+    "InteractiveDispatch",
+    "DurablePerEvent",
+    "PostGameBatch"
+  ],
+  "schema_snapshot_version": 1
+}

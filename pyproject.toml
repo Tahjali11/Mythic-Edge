@@ -30,6 +30,7 @@ manasight-scrub = "mythic_edge_parser.bin.scrub:main"
 dev = [
   "pytest>=8,<9",
   "pytest-cov>=5,<6",
+  "pyright>=1.1,<2",
   "ruff>=0.6,<1",
 ]
 

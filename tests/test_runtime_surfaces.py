@@ -397,7 +397,7 @@ def test_observe_event_refreshes_ready_match_history_when_late_enrichment_arrive
 
     summary.constructed_rank = "Diamond 4"
     summary.constructed_class = "Diamond"
-    summary.constructed_level = 4
+    summary.constructed_level = "4"
     rank_event = RankEvent(
         EventMetadata(datetime(2026, 5, 5, 21, 30, 2, tzinfo=UTC), b"raw"),
         {
