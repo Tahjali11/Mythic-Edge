@@ -333,6 +333,69 @@ constitution_feedback:
   source_coverage_table_required_when:
     - multiple_packets_supplied
     - seven_or_more_packets_supplied
+  current_status_classification_required_before_synthesis: true
+  current_status_labels:
+    - active
+    - partially_satisfied
+    - satisfied
+    - stale
+    - superseded
+    - conflict
+    - watch_list
+  current_status_sources:
+    - current_repo_governance_docs
+    - accepted_architecture_decision_records
+    - relevant_issues
+    - relevant_pull_requests
+    - active_contracts
+  amendment_quality_test:
+    adopt_or_route_when:
+      - prevents_real_or_credible_failure_mode
+      - clarifies_authority_truth_role_or_protected_surface
+      - improves_human_oversight_of_high_risk_or_irreversible_actions
+      - improves_validation_auditability_or_evidence_quality
+      - reduces_stale_duplicated_or_conflicting_governance
+      - preserves_or_improves_low_risk_escape_hatches
+    watch_list_or_no_action_when:
+      - mainly_adds_ceremony
+      - duplicates_existing_rule
+      - hides_safety_rule_behind_vague_reference
+      - lacks_concrete_failure_mode
+  rule_type_labels:
+    - hard_rule
+    - operating_default
+    - role_procedure
+    - template_field
+    - machine_rule
+    - adr_candidate
+    - watch_list
+    - no_action
+  ceremony_impact_labels:
+    - lower
+    - same
+    - higher_justified
+    - higher_not_justified
+  ceremony_budget_rule: New required process must be justified by risk, repeated drift, external side effects, authority changes, or protected-surface impact.
+  tool_surface_boundary:
+    surfaces:
+      - local_codex_skills
+      - mcp_servers
+      - plugins
+      - connectors
+      - github_connector
+      - google_drive_sheets_docs_connectors
+      - openai_developer_docs_connector
+      - openai_api_runtime_integrations
+      - browser_shell_and_local_automation_helpers
+    default_authority: access_or_collaboration_layer_not_project_truth
+    must_not_supersede:
+      - repo_governance_docs
+      - accepted_architecture_decision_records
+      - parser_state_truth
+      - deterministic_analytics
+      - protected_surface_gates
+      - secret_policy
+      - human_approval_gates
   raw_packets_are_authority: false
   codex_h_synthesis_is_authority: false
 
