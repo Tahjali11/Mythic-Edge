@@ -1,4 +1,66 @@
 from mythic_edge_parser.app.models import MatchSummary
+from mythic_edge_parser.app.sheet_schema import GAME_LOG_SYNC_FIELDS, MATCH_LOG_SYNC_FIELDS
+
+
+def test_match_log_row_contains_every_python_sync_field() -> None:
+    summary = MatchSummary(match_id="m_contract")
+
+    row = summary.to_match_log_row()
+
+    missing_fields = set(MATCH_LOG_SYNC_FIELDS) - set(row)
+    assert missing_fields == set()
+
+
+def test_game_log_row_contains_every_python_sync_field() -> None:
+    summary = MatchSummary(match_id="m_game_contract")
+    summary.touch_game(1, "2026-04-17T19:12:00-04:00")
+
+    rows = summary.to_game_sheet_rows()
+
+    assert len(rows) == 1
+    missing_fields = set(GAME_LOG_SYNC_FIELDS) - set(rows[0])
+    assert missing_fields == set()
+
+
+def test_match_summary_touch_ignores_blank_timestamp_after_existing_timestamp() -> None:
+    summary = MatchSummary(match_id="m_touch")
+    summary.touch("2026-04-17T19:11:42-04:00")
+
+    summary.touch("")
+
+    assert summary.first_event_time == "2026-04-17T19:11:42-04:00"
+    assert summary.last_event_time == "2026-04-17T19:11:42-04:00"
+
+
+def test_set_game_mulligans_ignores_non_integer_values() -> None:
+    summary = MatchSummary(match_id="m_mulligans")
+    summary.set_game_mulligans(1, 2)
+
+    for invalid_value in ("not-a-number", -1, True, 1.5, object()):
+        summary.set_game_mulligans(1, invalid_value)
+
+        assert summary.games[1].mulligans == 2
+        assert summary.total_mulligans == 2
+
+
+def test_set_game_mulligans_ignores_non_finite_numeric_values() -> None:
+    summary = MatchSummary(match_id="m_non_finite_mulligans")
+    summary.set_game_mulligans(1, 2)
+
+    for invalid_value in (float("inf"), float("-inf"), float("nan")):
+        summary.set_game_mulligans(1, invalid_value)
+
+        assert summary.games[1].mulligans == 2
+        assert summary.total_mulligans == 2
+
+
+def test_set_game_mulligans_accepts_integer_like_string_value() -> None:
+    summary = MatchSummary(match_id="m_string_mulligans")
+
+    summary.set_game_mulligans(1, "2")
+
+    assert summary.games[1].mulligans == 2
+    assert summary.total_mulligans == 2
 
 
 def test_match_summary_sheet_row_matches_workbook_shape() -> None:
@@ -163,7 +225,14 @@ def test_match_summary_history_item_includes_normalized_event_identity() -> None
     assert payload["queue_subtype"] == "traditional_ranked_ladder"
     assert payload["rank_eligible"] is True
     assert payload["is_ranked_match"] is True
+    assert payload["is_unranked_match"] is False
+    assert payload["is_constructed_match"] is True
+    assert payload["is_limited_match"] is False
+    assert payload["is_draft_match"] is False
+    assert payload["is_sealed_match"] is False
     assert payload["is_ladder_match"] is True
+    assert payload["is_special_event_match"] is False
+    assert payload["is_event_match"] is False
 
 
 def test_game_summary_opening_hand_size_falls_back_to_seven_minus_mulligans() -> None:

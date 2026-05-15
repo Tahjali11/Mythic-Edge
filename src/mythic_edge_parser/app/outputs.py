@@ -57,7 +57,13 @@ _PENDING_ROW_KEYS: set[str] = set()
 def reset_outputs_runtime_state() -> None:
     global _DISPATCH_THREAD
 
-    stop_webhook_dispatcher(wait_for_queue=False)
+    thread = _DISPATCH_THREAD
+    _drain_queue_without_processing()
+    if thread is not None and thread.is_alive():
+        _DISPATCH_QUEUE.put(None)
+        thread.join(timeout=5)
+        if thread.is_alive():
+            get_logger("webhook").warning("Webhook dispatcher thread did not stop cleanly during reset")
     _drain_queue_without_processing()
     _drain_results_without_callbacks()
     with _DISPATCH_LOCK:
@@ -317,9 +323,10 @@ def _ensure_daily_log_path(event_dt: datetime) -> Path:
     return runtime_state.current_log_path
 
 
-# Append one already-serialized row to the local JSONL log.
-def append_local_jsonl(local_row: dict[str, Any], event_dt: datetime) -> None:
+# Append one row to the local JSONL log.
+def append_local_jsonl(local_row: str | dict[str, Any], event_dt: datetime) -> None:
     out_path = _ensure_daily_log_path(event_dt)
+    row_text = local_row if isinstance(local_row, str) else json.dumps(local_row, ensure_ascii=False)
     with out_path.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(local_row, ensure_ascii=False) + "\n")
+        f.write(row_text + "\n")
         f.flush()

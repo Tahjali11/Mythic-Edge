@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 
 import pytest
 
+from mythic_edge_parser.events import PerformanceClass
 from mythic_edge_parser.log.entry import EntryHeader, LogEntry
 from mythic_edge_parser.parsers import (
     event_lifecycle,
@@ -49,8 +50,14 @@ def test_event_lifecycle_parse_known_markers(body: str, expected_type: str) -> N
 
     assert event is not None
     assert event.kind == "EventLifecycle"
-    assert event.payload["type"] == expected_type
-    assert event.payload["raw_event_lifecycle"] == body
+    assert event.performance_class == PerformanceClass.DURABLE_PER_EVENT
+    assert event.metadata.timestamp is TS
+    assert event.metadata.raw_bytes == body.encode()
+    assert event.metadata.raw_bytes_hash
+    assert event.payload == {
+        "type": expected_type,
+        "raw_event_lifecycle": body,
+    }
 
 
 def test_event_lifecycle_parse_unknown_marker_returns_none() -> None:
@@ -59,6 +66,75 @@ def test_event_lifecycle_parse_unknown_marker_returns_none() -> None:
     event = event_lifecycle.try_parse(entry, TS)
 
     assert event is None
+
+
+def test_event_lifecycle_parse_unrelated_body_returns_none() -> None:
+    entry = LogEntry(EntryHeader.UNITY_CROSS_THREAD_LOGGER, "[UnityCrossThreadLogger]unrelated")
+
+    event = event_lifecycle.try_parse(entry, TS)
+
+    assert event is None
+
+
+def test_event_lifecycle_parse_is_case_sensitive() -> None:
+    entry = LogEntry(EntryHeader.UNITY_CROSS_THREAD_LOGGER, "[UnityCrossThreadLogger]==> eventjoin")
+
+    event = event_lifecycle.try_parse(entry, TS)
+
+    assert event is None
+
+
+def test_event_lifecycle_parse_accepts_whitespace_and_newline_after_marker() -> None:
+    entry = LogEntry(EntryHeader.UNITY_CROSS_THREAD_LOGGER, "[UnityCrossThreadLogger]==>\nEventJoin")
+
+    event = event_lifecycle.try_parse(entry, TS)
+
+    assert event is not None
+    assert event.payload["type"] == "event_join"
+
+
+def test_event_lifecycle_parse_preserves_prefix_match_behavior() -> None:
+    body = "[UnityCrossThreadLogger]==> EventJoinSomethingElse"
+    entry = LogEntry(EntryHeader.UNITY_CROSS_THREAD_LOGGER, body)
+
+    event = event_lifecycle.try_parse(entry, TS)
+
+    assert event is not None
+    assert event.payload == {
+        "type": "event_join",
+        "raw_event_lifecycle": body,
+    }
+
+
+@pytest.mark.parametrize(
+    ("body", "expected_type"),
+    [
+        ("==> EventEnterPairing\n==> EventJoin", "event_join"),
+        ("==> EventClaimPrize\n==> EventJoin", "event_join"),
+        ("==> EventEnterPairing\n==> EventClaimPrize", "event_claim_prize"),
+    ],
+)
+def test_event_lifecycle_parse_uses_tuple_precedence_not_text_order(body: str, expected_type: str) -> None:
+    entry = LogEntry(EntryHeader.UNITY_CROSS_THREAD_LOGGER, body)
+
+    event = event_lifecycle.try_parse(entry, TS)
+
+    assert event is not None
+    assert event.payload["type"] == expected_type
+
+
+def test_event_lifecycle_parse_does_not_extract_json_fields() -> None:
+    body = '[UnityCrossThreadLogger]==> EventJoin {"eventId":"event-1","matchId":"match-1"'
+    entry = LogEntry(EntryHeader.UNKNOWN, body)
+
+    event = event_lifecycle.try_parse(entry, TS)
+
+    assert event is not None
+    assert event.kind == "EventLifecycle"
+    assert event.payload == {
+        "type": "event_join",
+        "raw_event_lifecycle": body,
+    }
 
 
 def test_rank_parse_snapshot_payload() -> None:

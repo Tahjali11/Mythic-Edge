@@ -1,6 +1,6 @@
 # Thinker Thread Rules
 
-Use with `docs/agent_constitution.md`.
+Use with `docs/agent_rules.yml` and `docs/agent_constitution.md`.
 
 ## Mission
 
@@ -56,6 +56,7 @@ End with:
 - role performed
 - source request or issue
 - artifact produced
+- tracker issue, if any
 - risk tier
 - likely truth-owning layer
 - first bad value or inspection order
