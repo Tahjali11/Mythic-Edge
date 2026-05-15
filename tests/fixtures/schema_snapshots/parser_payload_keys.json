@@ -1,0 +1,360 @@
+{
+  "payloads": {
+    "ClientAction.client_ui_message": {
+      "discriminator": "client_ui_message",
+      "event_kind": "ClientAction",
+      "keys": [
+        "type",
+        "raw_client_action"
+      ]
+    },
+    "ClientAction.generic_client_action": {
+      "discriminator": "generic_client_action",
+      "event_kind": "ClientAction",
+      "keys": [
+        "type",
+        "message_type",
+        "raw_client_action"
+      ]
+    },
+    "ClientAction.mulligan_resp": {
+      "discriminator": "mulligan_resp",
+      "event_kind": "ClientAction",
+      "keys": [
+        "type",
+        "decision",
+        "game_state_id",
+        "resp_id",
+        "request_id",
+        "raw_client_action"
+      ]
+    },
+    "ClientAction.select_n_resp": {
+      "discriminator": "select_n_resp",
+      "event_kind": "ClientAction",
+      "keys": [
+        "type",
+        "selected_option_ids",
+        "selected_object_ids",
+        "game_state_id",
+        "resp_id",
+        "request_id",
+        "raw_client_action"
+      ]
+    },
+    "ClientAction.submit_deck_resp": {
+      "discriminator": "submit_deck_resp",
+      "event_kind": "ClientAction",
+      "keys": [
+        "type",
+        "deck_cards",
+        "sideboard_cards",
+        "game_state_id",
+        "resp_id",
+        "request_id",
+        "raw_client_action"
+      ]
+    },
+    "Collection.collection_snapshot": {
+      "discriminator": "collection_snapshot",
+      "event_kind": "Collection",
+      "keys": [
+        "type",
+        "player_cards",
+        "raw_start_hook"
+      ]
+    },
+    "ConnectionError.matchmaking_gre_connection_lost": {
+      "discriminator": "matchmaking_gre_connection_lost",
+      "event_kind": "ConnectionError",
+      "keys": [
+        "error_type"
+      ]
+    },
+    "ConnectionError.reconnect_outcome": {
+      "discriminator": "reconnect_outcome",
+      "event_kind": "ConnectionError",
+      "keys": [
+        "error_type",
+        "outcome",
+        "attempts"
+      ]
+    },
+    "ConnectionError.reconnect_result": {
+      "discriminator": "reconnect_result",
+      "event_kind": "ConnectionError",
+      "keys": [
+        "error_type",
+        "result"
+      ]
+    },
+    "ConnectionError.unity_error_payload": {
+      "discriminator": "unity_error_payload",
+      "event_kind": "ConnectionError",
+      "keys": [
+        "error_type",
+        "payload"
+      ]
+    },
+    "DeckCollection.deck_collection_snapshot": {
+      "discriminator": "deck_collection_snapshot",
+      "event_kind": "DeckCollection",
+      "keys": [
+        "type",
+        "decks",
+        "raw_start_hook"
+      ]
+    },
+    "DetailedLoggingStatus.detailed_logging_status": {
+      "discriminator": "detailed_logging_status",
+      "event_kind": "DetailedLoggingStatus",
+      "keys": [
+        "enabled"
+      ]
+    },
+    "EventLifecycle.event_claim_prize": {
+      "discriminator": "event_claim_prize",
+      "event_kind": "EventLifecycle",
+      "keys": [
+        "type",
+        "raw_event_lifecycle"
+      ]
+    },
+    "EventLifecycle.event_enter_pairing": {
+      "discriminator": "event_enter_pairing",
+      "event_kind": "EventLifecycle",
+      "keys": [
+        "type",
+        "raw_event_lifecycle"
+      ]
+    },
+    "EventLifecycle.event_join": {
+      "discriminator": "event_join",
+      "event_kind": "EventLifecycle",
+      "keys": [
+        "type",
+        "raw_event_lifecycle"
+      ]
+    },
+    "GameResult.game_result": {
+      "discriminator": "game_result",
+      "event_kind": "GameResult",
+      "keys": [
+        "type",
+        "source",
+        "stage",
+        "match_state",
+        "winning_team_id",
+        "result_type",
+        "reason",
+        "results",
+        "game_info",
+        "identity",
+        "game_state_id",
+        "message_type"
+      ]
+    },
+    "GameState.connect_resp": {
+      "discriminator": "connect_resp",
+      "event_kind": "GameState",
+      "keys": [
+        "type",
+        "message_type",
+        "msg_id",
+        "game_state_id",
+        "system_seat_ids",
+        "deck_cards",
+        "sideboard_cards",
+        "settings",
+        "raw_connect_resp"
+      ]
+    },
+    "GameState.game_state_message": {
+      "discriminator": "game_state_message",
+      "event_kind": "GameState",
+      "keys": [
+        "type",
+        "message_type",
+        "msg_id",
+        "game_state_id",
+        "system_seat_ids",
+        "stage",
+        "match_state",
+        "turn_number",
+        "active_player_seat_id",
+        "game_info",
+        "turn_info",
+        "identity",
+        "players",
+        "zones",
+        "game_objects",
+        "annotations",
+        "persistent_annotations",
+        "timers",
+        "actions",
+        "update",
+        "pending_message_count",
+        "prev_game_state_id",
+        "diff_deleted_instance_ids",
+        "diff_deleted_persistent_annotation_ids",
+        "raw_game_state"
+      ]
+    },
+    "GameState.queued_game_state_message": {
+      "discriminator": "queued_game_state_message",
+      "event_kind": "GameState",
+      "keys": [
+        "type",
+        "message_type",
+        "msg_id",
+        "game_state_id",
+        "system_seat_ids",
+        "stage",
+        "match_state",
+        "turn_number",
+        "active_player_seat_id",
+        "game_info",
+        "turn_info",
+        "identity",
+        "players",
+        "zones",
+        "game_objects",
+        "annotations",
+        "persistent_annotations",
+        "timers",
+        "actions",
+        "update",
+        "pending_message_count",
+        "prev_game_state_id",
+        "diff_deleted_instance_ids",
+        "diff_deleted_persistent_annotation_ids",
+        "raw_game_state"
+      ]
+    },
+    "Inventory.inventory_snapshot": {
+      "discriminator": "inventory_snapshot",
+      "event_kind": "Inventory",
+      "keys": [
+        "type",
+        "inventory",
+        "raw_start_hook"
+      ]
+    },
+    "LogFileRotated.log_file_rotated": {
+      "discriminator": "log_file_rotated",
+      "event_kind": "LogFileRotated",
+      "keys": [
+        "type",
+        "path"
+      ]
+    },
+    "MatchConnectionState.state_changed": {
+      "discriminator": "state_changed",
+      "event_kind": "MatchConnectionState",
+      "keys": [
+        "old",
+        "new"
+      ]
+    },
+    "MatchState.match_completed": {
+      "discriminator": "match_completed",
+      "event_kind": "MatchState",
+      "keys": [
+        "type",
+        "state_type",
+        "match_id",
+        "event_id",
+        "players",
+        "raw_match_state",
+        "match_completed_reason",
+        "game_results"
+      ]
+    },
+    "MatchState.match_started": {
+      "discriminator": "match_started",
+      "event_kind": "MatchState",
+      "keys": [
+        "type",
+        "state_type",
+        "match_id",
+        "event_id",
+        "players",
+        "raw_match_state"
+      ]
+    },
+    "MatchState.state_changed": {
+      "discriminator": "state_changed",
+      "event_kind": "MatchState",
+      "keys": [
+        "type",
+        "state_type",
+        "match_id",
+        "event_id",
+        "players",
+        "raw_match_state"
+      ]
+    },
+    "Rank.rank_snapshot": {
+      "discriminator": "rank_snapshot",
+      "event_kind": "Rank",
+      "keys": [
+        "type",
+        "constructed_class",
+        "constructed_level",
+        "limited_class",
+        "limited_level",
+        "constructed_percentile",
+        "limited_percentile",
+        "raw_rank"
+      ]
+    },
+    "Session.session_account_update": {
+      "discriminator": "session_account_update",
+      "event_kind": "Session",
+      "keys": [
+        "type",
+        "display_name",
+        "account_id",
+        "raw_session"
+      ]
+    },
+    "Session.session_authenticated": {
+      "discriminator": "session_authenticated",
+      "event_kind": "Session",
+      "keys": [
+        "type",
+        "display_name",
+        "account_id",
+        "screen_name",
+        "raw_session"
+      ]
+    },
+    "Session.session_logout": {
+      "discriminator": "session_logout",
+      "event_kind": "Session",
+      "keys": [
+        "type",
+        "raw_session"
+      ]
+    },
+    "TcpConnectionClose.tcp_connection_close": {
+      "discriminator": "tcp_connection_close",
+      "event_kind": "TcpConnectionClose",
+      "keys": [
+        "host",
+        "port",
+        "reason",
+        "status"
+      ]
+    },
+    "WebSocketClosed.websocket_closed": {
+      "discriminator": "websocket_closed",
+      "event_kind": "WebSocketClosed",
+      "keys": [
+        "closeType",
+        "reason"
+      ]
+    }
+  },
+  "schema_snapshot_version": 1
+}
