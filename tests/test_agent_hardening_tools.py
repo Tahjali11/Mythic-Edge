@@ -69,9 +69,14 @@ def test_role_scope_blocks_constitutional_lawyer_from_mutating_authority_docs() 
 
 
 def test_secret_pattern_scanner_flags_realistic_webhook_but_allows_placeholders(tmp_path: Path) -> None:
+    realistic_webhook = (
+        "https://script.google.com/macros/s/"
+        "AKfycb1234567890abcdefREAL"
+        "/exec"
+    )
     leak_path = tmp_path / "leak.txt"
     leak_path.write_text(
-        "MYTHICEDGE_SHEETS_WEBHOOK=https://script.google.com/macros/s/AKfycb1234567890abcdefREAL/exec\n",
+        f"MYTHICEDGE_SHEETS_WEBHOOK={realistic_webhook}\n",
         encoding="utf-8",
     )
     placeholder_path = tmp_path / "placeholder.txt"
