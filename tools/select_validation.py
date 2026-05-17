@@ -46,6 +46,8 @@ FOCUSED_TEST_MAPPINGS: tuple[tuple[str, str], ...] = (
     ("tests/test_check_secret_patterns.py", "python3 -m pytest -q tests/test_check_secret_patterns.py"),
     ("tools/check_protected_surfaces.py", "python3 -m pytest -q tests/test_check_protected_surfaces.py"),
     ("tests/test_check_protected_surfaces.py", "python3 -m pytest -q tests/test_check_protected_surfaces.py"),
+    ("tools/check_surface_authorization.py", "python3 -m pytest -q tests/test_check_surface_authorization.py"),
+    ("tests/test_check_surface_authorization.py", "python3 -m pytest -q tests/test_check_surface_authorization.py"),
     (
         "src/mythic_edge_parser/parsers/gre/connect_resp.py",
         "python3 -m pytest -q tests/test_gre_connect_resp_parser.py",
@@ -350,6 +352,8 @@ def _command_id_for_pytest(command: str) -> str:
         return "secret_pattern_tests"
     if "tests/test_check_protected_surfaces.py" in command:
         return "protected_surface_tests"
+    if "tests/test_check_surface_authorization.py" in command:
+        return "surface_authorization_tests"
     if "tests/test_event_schema_snapshots.py" in command:
         return "schema_snapshot_tests"
     if "tests/test_parser_regressions.py" in command:
@@ -542,6 +546,26 @@ def select_recommendations(
             ),
             categories=touched_protected_groups,
             paths=paths,
+        )
+
+    protected_classifications = classify_protected_warnings(paths)
+    if protected_classifications:
+        _add_recommendation(
+            recommendations,
+            priority=PRIORITY_RECOMMENDED,
+            command_id="protected_surface_authorization",
+            command=(
+                f"python3 tools/check_surface_authorization.py --base {base} "
+                "--authorization-file issue=<issue-body-file> "
+                "--authorization-file contract=<contract-file> "
+                "--authorization-file pr=<pr-body-file>"
+            ),
+            reason=(
+                "Protected or forbidden path classifications should be compared against explicit "
+                "authorization evidence."
+            ),
+            categories=tuple(item.category_id for item in protected_classifications),
+            paths=tuple(item.path for item in protected_classifications),
         )
 
     governance_paths = tuple(
