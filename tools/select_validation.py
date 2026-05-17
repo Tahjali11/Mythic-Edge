@@ -488,9 +488,10 @@ def select_recommendations(
             recommendations,
             priority=PRIORITY_RECOMMENDED,
             command_id="pyright_advisory",
-            command="python3 -m pyright",
+            command="python3 tools/run_pyright_advisory_report.py",
             reason=(
-                "Source, hardening tool, or dependency configuration changed; type checking is useful before review."
+                "Source, hardening tool, or dependency configuration changed; run the repo-approved Pyright "
+                "advisory report so type findings are separated from local resolver noise."
             ),
             categories=categories,
             paths=pyright_paths,

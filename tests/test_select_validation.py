@@ -196,7 +196,7 @@ def test_parser_module_change_selects_focused_tests_ruff_and_pyright() -> None:
     expected = "python3 -m pytest -q tests/test_match_state_parser.py tests/test_match_summary_from_match_state.py"
     assert expected in command_values
     assert "python3 -m ruff check src tests tools" in command_values
-    assert "python3 -m pyright" in command_values
+    assert "python3 tools/run_pyright_advisory_report.py" in command_values
 
 
 def test_workbook_schema_export_change_selects_schema_snapshot_tests() -> None:
@@ -232,7 +232,7 @@ def test_ci_or_dependency_change_recommends_broader_tests_and_pyright() -> None:
     commands = _commands(result)
 
     assert commands["full_pytest"] == "python3 -m pytest -q tests"
-    assert commands["pyright_advisory"] == "python3 -m pyright"
+    assert commands["pyright_advisory"] == "python3 tools/run_pyright_advisory_report.py"
     assert commands["ruff"] == "python3 -m ruff check src tests tools"
 
 
