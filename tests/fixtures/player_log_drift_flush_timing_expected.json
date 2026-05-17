@@ -1,0 +1,92 @@
+{
+  "object": "mythic_edge_player_log_drift_report_reference",
+  "schema_version": 1,
+  "fixture_id": "player_log_drift_flush_timing_v1",
+  "input_path": "tests/fixtures/flush_timing_corpus_slice.log",
+  "input_transform": "strip_fixture_comment_lines_for_existing_test_compatibility",
+  "report_builder": "src.mythic_edge_parser.app.log_drift_sensor.build_player_log_drift_report",
+  "baseline_mode": "empty_in_memory_baseline",
+  "normalized_report": {
+    "object": "player_log_drift_report",
+    "status": "review",
+    "entry_counts": {
+      "total": 7,
+      "routed": 0,
+      "unknown": 7,
+      "unknown_rate_pct": 100.0,
+      "timestamp_missing": 5,
+      "timestamp_parse_failure": 0
+    },
+    "headers": {
+      "UnityCrossThreadLogger": 7
+    },
+    "routed_event_kinds": {},
+    "top_unknown_signatures": [
+      {
+        "signature": "Client.SceneChange",
+        "count": 2
+      },
+      {
+        "signature": "QuestGetQuests",
+        "count": 2
+      },
+      {
+        "signature": "PeriodicRewardsGetStatus",
+        "count": 2
+      },
+      {
+        "signature": "EventGetCoursesV2",
+        "count": 1
+      }
+    ],
+    "top_unmatched_api_names": [
+      {
+        "api_name": "Client.SceneChange",
+        "count": 2
+      },
+      {
+        "api_name": "QuestGetQuests",
+        "count": 1
+      },
+      {
+        "api_name": "PeriodicRewardsGetStatus",
+        "count": 1
+      }
+    ],
+    "top_unmatched_request_api_names": [
+      {
+        "api_name": "QuestGetQuests",
+        "count": 1
+      },
+      {
+        "api_name": "PeriodicRewardsGetStatus",
+        "count": 1
+      },
+      {
+        "api_name": "EventGetCoursesV2",
+        "count": 1
+      }
+    ],
+    "baseline_delta": {
+      "new_unknown_signatures": [
+        "Client.SceneChange",
+        "EventGetCoursesV2",
+        "PeriodicRewardsGetStatus",
+        "QuestGetQuests"
+      ],
+      "resolved_unknown_signatures": [],
+      "new_unmatched_api_names": [
+        "Client.SceneChange",
+        "PeriodicRewardsGetStatus",
+        "QuestGetQuests"
+      ],
+      "resolved_unmatched_api_names": [],
+      "new_unmatched_request_api_names": [
+        "EventGetCoursesV2",
+        "PeriodicRewardsGetStatus",
+        "QuestGetQuests"
+      ],
+      "resolved_unmatched_request_api_names": []
+    }
+  }
+}
