@@ -397,15 +397,43 @@ These should go through the normal A-G workflow before analytics suite work
 depends on them:
 
 1. `TruncationEvent` and GSM truncation marker parser.
-2. DraftBot parser.
-3. DraftHuman parser.
-4. DraftComplete parser.
-5. Annotation normalization module under the GameState normalization backlog.
-6. GameState timer normalization module.
-7. GameState diff/update/deletion mechanics module.
-8. Feature-equity corpus ratchet/report.
-9. Field-level parity audit for ConnectResp, EventLifecycle, Session, Rank,
+2. Annotation normalization module under the GameState normalization backlog.
+3. GameState timer normalization module.
+4. GameState diff/update/deletion mechanics module.
+5. Feature-equity corpus ratchet/report.
+6. Field-level parity audit for ConnectResp, EventLifecycle, Session, Rank,
    DeckCollection, Inventory, and connection-error payload shapes.
+7. DraftBot parser.
+   - Sequencing reminder: before starting this parser, prompt the user to
+     consider moving to a different part of the project unless draft support is
+     now an explicit near-term goal.
+8. DraftHuman parser.
+   - Sequencing reminder: before starting this parser, prompt the user to
+     consider moving to a different part of the project unless draft support is
+     now an explicit near-term goal.
+9. DraftComplete parser.
+   - Sequencing reminder: before starting this parser, prompt the user to
+     consider moving to a different part of the project unless draft support is
+     now an explicit near-term goal.
+
+## Parser Modules To Generate
+
+These module candidates exist because this feature-equity audit found missing
+or partial first-class parser coverage. Each candidate still needs its own
+normal workflow issue, contract, implementation/comparison, review, and submit
+path before becoming parser behavior.
+
+| Module candidate | Source gap | Priority note |
+| --- | --- | --- |
+| GSM truncation marker parser and event | Manasight emits a first-class `Truncation` event; Mythic Edge does not currently model this data-loss signal. | Do before analytics or drift confidence claims depend on complete GameState evidence. |
+| Annotation normalization module | Mythic Edge preserves annotation arrays, but does not yet have dedicated first-class annotation normalization equivalent to Manasight's annotation helper layer. | Should be part of the GameState normalization backlog before gameplay analytics rely on annotation semantics. |
+| Timer normalization module | Mythic Edge preserves timers, but first-class timer facts still need a dedicated contract/module. | Useful before clock-pressure analytics. |
+| GameState diff/update/deletion mechanics module | Mythic Edge preserves diff deletion ids and update metadata, but first-class diff/update semantics need a contract/module. | Useful before replay-quality or state-reconstruction claims. |
+| Feature-equity corpus ratchet/report | Manasight has a smoke/corpus ratchet; Mythic Edge has hardening tools but no exact feature-equity ratchet artifact yet. | Keep report-only at first. |
+| Field-level parity audit module | Static parity appears strong for several event families, but field-level equivalence was not deeply proven. | Use to confirm ConnectResp, EventLifecycle, Session, Rank, DeckCollection, Inventory, and connection-error payload shapes. |
+| DraftBot parser | Event class exists, but no parser module/routing was found. | Defer unless draft support becomes near-term; prompt the user to move to a different project area first. |
+| DraftHuman parser | Event class exists, but no parser module/routing was found. | Defer unless draft support becomes near-term; prompt the user to move to a different project area first. |
+| DraftComplete parser | Event class exists, but no parser module/routing was found. | Defer unless draft support becomes near-term; prompt the user to move to a different project area first. |
 
 ## Recommended Codex A Prompt
 
