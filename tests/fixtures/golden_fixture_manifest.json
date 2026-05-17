@@ -99,6 +99,121 @@
         "failed_post_artifact": "<placeholder_not_applicable: failed post artifacts are not inputs to this fixture and remain out of scope>",
         "workbook_export_artifact": "<placeholder_not_applicable: workbook exports are not inputs to this fixture and remain out of scope>"
       }
+    },
+    {
+      "fixture_id": "player_log_drift_flush_timing_v1",
+      "fixture_classes": [
+        "sanitized_player_log_excerpt",
+        "drift_report_expected_output",
+        "report_only_reference"
+      ],
+      "input_path": "tests/fixtures/flush_timing_corpus_slice.log",
+      "expected_output_path": "tests/fixtures/player_log_drift_flush_timing_expected.json",
+      "expected_output_kind": "normalized_drift_report_reference",
+      "source_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/96",
+      "tracker_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/82",
+      "source_contract": "docs/contracts/repo_wide_drift_detector_baseline_first_pass.md",
+      "policy_contracts": [
+        "docs/contracts/code_hardening_drift_detector_baseline_policy.md",
+        "docs/contracts/code_hardening_golden_fixture_policy.md",
+        "docs/contracts/repo_wide_golden_fixture_first_pass.md"
+      ],
+      "related_adrs": [
+        "docs/decisions/ADR-0003-player-log-drift-policy.md",
+        "docs/decisions/ADR-0004-protected-surfaces-and-schema-change-policy.md"
+      ],
+      "source_type": "local_saved_log_slice",
+      "source_privacy_class": "sanitized_committable",
+      "redaction_status": "preexisting_sanitized_fixture",
+      "redaction_method": "preexisting_committed_sanitized_fixture_no_new_sanitization_in_issue_96",
+      "redaction_categories": [
+        "account_identity",
+        "display_names",
+        "local_paths",
+        "credentials",
+        "webhook_urls",
+        "workbook_identifiers",
+        "runtime_local_artifacts",
+        "raw_private_log_context"
+      ],
+      "minimum_evidence_preserved": [
+        "scene_change",
+        "unmatched_api_response",
+        "unmatched_api_request",
+        "unknown_signature",
+        "routed_event_family_evidence"
+      ],
+      "parser_surfaces_under_test": [
+        "log_drift_sensor.build_player_log_drift_report",
+        "LineBuffer",
+        "Router",
+        "_entry_signature",
+        "_api_name",
+        "_baseline_delta",
+        "test_fixture_comment_stripping_loader_behavior"
+      ],
+      "expected_output_fields": [
+        "object",
+        "status",
+        "entry_counts",
+        "headers",
+        "routed_event_kinds",
+        "top_unknown_signatures",
+        "top_unmatched_api_names",
+        "top_unmatched_request_api_names",
+        "baseline_delta"
+      ],
+      "evidence_ledger_tiers": [
+        "Tier 0: fixture metadata only",
+        "Tier 6: runtime health and drift detection"
+      ],
+      "tier_scope_notes": "This fixture does not prove Tier 1-5 parser facts, Tier 7 analytics, live workbook state, deployed Apps Script state, or full evidence-ledger behavior.",
+      "value_source_labels_expected": "not_applicable",
+      "confidence_labels_expected": "not_applicable",
+      "finality_labels_expected": "not_applicable",
+      "drift_flags_expected": "not_applicable",
+      "invariants_expected": [
+        "stable_normalized_report_shape",
+        "normalized_expected_output_contains_no_volatile_fields",
+        "normalized_expected_output_contains_no_local_paths",
+        "normalized_expected_output_contains_no_raw_log_bodies",
+        "no_baseline_file_write",
+        "no_fixture_input_changes"
+      ],
+      "input_transform": "strip_fixture_comment_lines_for_existing_test_compatibility",
+      "baseline_mode": "empty_in_memory_baseline",
+      "update_approval_required": true,
+      "update_policy": "Updates require issue #96 or a follow-up issue, this contract or an amended contract, Codex C handoff, Codex E review, and PR drift-budget disclosure.",
+      "known_limitations": [
+        "Does not prove broad drift coverage.",
+        "Does not prove live local Player.log drift.",
+        "Does not prove runtime baseline refresh policy.",
+        "Does not resolve request-name-only status semantics.",
+        "Does not prove parser correctness.",
+        "Does not prove workbook state.",
+        "Does not prove deployed Apps Script state.",
+        "Does not prove evidence-ledger metadata.",
+        "Does not prove sanitizer completeness."
+      ],
+      "not_applicable": {
+        "raw_log_source_path": "Raw local source path is not recorded because raw local log provenance may expose private local source details.",
+        "source_log_session_id": "Source session ID is not recorded because raw local log provenance may expose private local source details.",
+        "source_schema_snapshot_id": "No schema snapshot is paired with this report-only drift reference.",
+        "sanitizer_tool_version": "Issue #96 reuses an existing committed sanitized fixture and does not run or implement sanitizer tooling.",
+        "evidence_ledger_fixture_id": "The Player.log evidence ledger is not implemented.",
+        "runtime_drift_report_path": "This issue must not create, refresh, or commit local runtime drift report artifacts.",
+        "runtime_drift_baseline_path": "This issue must not create, refresh, or commit local runtime drift baseline artifacts.",
+        "committed_drift_baseline_path": "This issue authorizes a normalized expected report reference, not a committed detector baseline.",
+        "refresh_baseline_command": "The --refresh-baseline command is not used by this report-only reference.",
+        "live_workbook_id": "Live workbook state is not an input to this fixture and remains out of scope.",
+        "deployed_apps_script_version": "Deployed Apps Script state is not an input to this fixture and remains out of scope.",
+        "webhook_url": "<placeholder_not_applicable: webhook URLs are not inputs to this fixture and remain out of scope>",
+        "generated_card_data_version": "<placeholder_not_applicable: generated card data is not an input to this fixture and remains out of scope>",
+        "external_api_source": "No external API source is used by this fixture.",
+        "runtime_status_artifact": "<placeholder_not_applicable: runtime status artifacts are not inputs to this fixture and remain out of scope>",
+        "failed_post_artifact": "<placeholder_not_applicable: failed post artifacts are not inputs to this fixture and remain out of scope>",
+        "workbook_export_artifact": "<placeholder_not_applicable: workbook exports are not inputs to this fixture and remain out of scope>"
+      }
     }
   ]
 }
