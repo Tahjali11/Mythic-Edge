@@ -1,3 +1,4 @@
+from mythic_edge_parser.app import tier_sync
 from mythic_edge_parser.app.tier_sync import (
     _scrape_mtggoldfish,
     _scrape_mtgtop8,
@@ -18,9 +19,32 @@ class _FakeResponse:
 class _FakeSession:
     def __init__(self, html: str) -> None:
         self.html = html
+        self.headers: dict[str, str] = {}
 
     def get(self, url: str, **kwargs) -> _FakeResponse:
         return _FakeResponse(self.html)
+
+
+def test_tier_source_snapshot_payload_top_level_schema_is_stable(monkeypatch) -> None:
+    monkeypatch.setattr(tier_sync.requests, "Session", lambda: _FakeSession(""))
+    monkeypatch.setattr(
+        tier_sync,
+        "load_normalization_overrides",
+        lambda: {"global": {}, "mtggoldfish": {}, "mtgtop8": {}, "untapped": {}},
+    )
+    monkeypatch.setattr(tier_sync, "_scrape_mtggoldfish", lambda *_args: [])
+    monkeypatch.setattr(tier_sync, "_scrape_mtgtop8", lambda *_args: [])
+    monkeypatch.setattr(tier_sync, "_scrape_untapped", lambda *_args: [])
+
+    payload = tier_sync.build_tier_snapshot_payload()
+
+    assert list(payload) == ["event_family", "event_type", "scope", "timestamp", "records", "raw_json"]
+    assert payload["event_family"] == "TierSourceSnapshot"
+    assert payload["event_type"] == "tier_source_snapshot"
+    assert payload["scope"] == "Workbook"
+    assert isinstance(payload["timestamp"], str)
+    assert payload["records"] == []
+    assert payload["raw_json"] == "[]"
 
 
 def test_classify_tier_bucket_supports_percent_thresholds() -> None:
