@@ -248,6 +248,48 @@ def test_protected_and_forbidden_path_classifications_are_warnings() -> None:
     assert result.selection_status == selector.STATUS_WARNING
 
 
+def test_protected_warning_path_recommends_surface_authorization_checker() -> None:
+    result = selector.run_selector_for_paths(
+        ["src/mythic_edge_parser/app/state.py"],
+        base="origin/main",
+    )
+    commands = _commands(result)
+
+    command = commands["protected_surface_authorization"]
+    assert command.startswith("python3 tools/check_surface_authorization.py --base origin/main")
+    assert "--authorization-file issue=<issue-body-file>" in command
+    assert "--authorization-file contract=<contract-file>" in command
+    assert "--authorization-file pr=<pr-body-file>" in command
+    recommendation = next(
+        item
+        for item in result.recommendations
+        if item.command_id == "protected_surface_authorization"
+    )
+    assert recommendation.priority == "recommended"
+    assert recommendation.categories == ("parser_state_final_reconciliation",)
+    assert recommendation.paths == ("src/mythic_edge_parser/app/state.py",)
+
+
+def test_forbidden_path_recommends_surface_authorization_checker() -> None:
+    result = selector.run_selector_for_paths(["data/status/runtime.json"], base="origin/main")
+    recommendation = next(
+        item
+        for item in result.recommendations
+        if item.command_id == "protected_surface_authorization"
+    )
+
+    assert recommendation.priority == "recommended"
+    assert recommendation.categories == ("runtime_status",)
+    assert recommendation.paths == ("data/status/runtime.json",)
+
+
+def test_allowed_docs_only_path_does_not_recommend_surface_authorization_checker() -> None:
+    result = selector.run_selector_for_paths(["README.md"], base="origin/main")
+    commands = _commands(result)
+
+    assert "protected_surface_authorization" not in commands
+
+
 def test_duplicate_commands_are_emitted_once_with_aggregated_paths() -> None:
     result = selector.run_selector_for_paths(
         ["tools/check_secret_patterns.py", "tests/test_check_secret_patterns.py"],
