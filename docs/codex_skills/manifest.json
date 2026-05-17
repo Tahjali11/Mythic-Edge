@@ -1,0 +1,55 @@
+{
+  "object": "mythic_edge_codex_skill_bundle",
+  "schema_version": 1,
+  "description": "Repo-owned portable Codex skill bundle for Mythic Edge project work.",
+  "authority_note": "These skills are instruction helpers. Repo authority remains AGENTS.md, docs/agent_rules.yml, docs/agent_constitution.md, current issues, contracts, accepted ADRs, and tests.",
+  "included_skills": [
+    {
+      "name": "mythic-edge-workflow",
+      "path": "docs/codex_skills/mythic-edge-workflow",
+      "source": "local project skill export",
+      "portable_adjustments": [
+        "Removed machine-specific absolute repo path.",
+        "Updated installer command to tools/install_codex_skills.py."
+      ]
+    },
+    {
+      "name": "mythic-edge-constitution-review",
+      "path": "docs/codex_skills/mythic-edge-constitution-review",
+      "source": "local project skill export",
+      "portable_adjustments": []
+    },
+    {
+      "name": "mythic-edge-constitutional-lawyer",
+      "path": "docs/codex_skills/mythic-edge-constitutional-lawyer",
+      "source": "local project skill export",
+      "portable_adjustments": []
+    },
+    {
+      "name": "openai-current-docs",
+      "path": "docs/codex_skills/openai-current-docs",
+      "source": "local helper skill export",
+      "portable_adjustments": [
+        "Replaced machine-specific openai-docs path with the skill name."
+      ]
+    }
+  ],
+  "excluded_local_skills": [
+    {
+      "name": ".system",
+      "reason": "Codex-managed bundled system skills are installed by Codex, not owned by this repo."
+    },
+    {
+      "name": "pdf",
+      "reason": "Generic local skill outside Mythic Edge project governance."
+    },
+    {
+      "name": "playwright",
+      "reason": "Generic local skill outside Mythic Edge project governance."
+    },
+    {
+      "name": "plugin cache skills",
+      "reason": "Plugin skills are managed by plugins and should not be vendored into this repo."
+    }
+  ]
+}

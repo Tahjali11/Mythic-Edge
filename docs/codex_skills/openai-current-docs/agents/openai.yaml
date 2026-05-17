@@ -1,0 +1,7 @@
+interface:
+  display_name: "OpenAI Current Docs"
+  short_description: "Check official OpenAI docs first"
+  default_prompt: "Use $openai-current-docs. Check the current official OpenAI docs before answering."
+
+policy:
+  allow_implicit_invocation: true
