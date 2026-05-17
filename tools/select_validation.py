@@ -42,6 +42,8 @@ PROTECTED_CATEGORY_GROUPS = {
 FOCUSED_TEST_MAPPINGS: tuple[tuple[str, str], ...] = (
     ("tools/select_validation.py", "python3 -m pytest -q tests/test_select_validation.py"),
     ("tests/test_select_validation.py", "python3 -m pytest -q tests/test_select_validation.py"),
+    ("tools/generate_hardening_report.py", "python3 -m pytest -q tests/test_hardening_report_generator.py"),
+    ("tests/test_hardening_report_generator.py", "python3 -m pytest -q tests/test_hardening_report_generator.py"),
     ("tools/check_secret_patterns.py", "python3 -m pytest -q tests/test_check_secret_patterns.py"),
     ("tests/test_check_secret_patterns.py", "python3 -m pytest -q tests/test_check_secret_patterns.py"),
     ("tools/check_protected_surfaces.py", "python3 -m pytest -q tests/test_check_protected_surfaces.py"),
@@ -235,8 +237,10 @@ def categorize_path(path: str) -> tuple[str, ...]:
     if (
         fnmatch.fnmatchcase(path, "tools/check_*.py")
         or path == "tools/select_validation.py"
+        or path == "tools/generate_hardening_report.py"
         or fnmatch.fnmatchcase(path, "tests/test_check_*.py")
         or path == "tests/test_select_validation.py"
+        or path == "tests/test_hardening_report_generator.py"
     ):
         categories.add("hardening_tool_surface")
     if (
@@ -348,6 +352,8 @@ def classify_protected_warnings(paths: Iterable[str]) -> tuple[SelectorWarning, 
 def _command_id_for_pytest(command: str) -> str:
     if "tests/test_select_validation.py" in command:
         return "select_validation_tests"
+    if "tests/test_hardening_report_generator.py" in command:
+        return "hardening_report_generator_tests"
     if "tests/test_check_secret_patterns.py" in command:
         return "secret_pattern_tests"
     if "tests/test_check_protected_surfaces.py" in command:
