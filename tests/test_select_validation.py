@@ -186,6 +186,23 @@ def test_selector_changes_select_selector_tests() -> None:
     assert commands["select_validation_tests"] == "python3 -m pytest -q tests/test_select_validation.py"
 
 
+def test_hardening_report_generator_changes_select_focused_tests() -> None:
+    result = selector.run_selector_for_paths(
+        ["tools/generate_hardening_report.py", "tests/test_hardening_report_generator.py"],
+        base="origin/main",
+    )
+    commands = _commands(result)
+
+    assert (
+        commands["hardening_report_generator_tests"]
+        == "python3 -m pytest -q tests/test_hardening_report_generator.py"
+    )
+    recommendation = next(
+        item for item in result.recommendations if item.command_id == "hardening_report_generator_tests"
+    )
+    assert recommendation.categories == ("hardening_tool_surface", "test_surface")
+
+
 def test_parser_module_change_selects_focused_tests_ruff_and_pyright() -> None:
     result = selector.run_selector_for_paths(
         ["src/mythic_edge_parser/parsers/match_state.py"],
