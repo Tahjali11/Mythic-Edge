@@ -10,13 +10,18 @@ from typing import Any, Callable
 from ..events import (
     BaseEvent,
     ClientActionEvent,
+    ConnectionErrorEvent,
+    DeckCollectionEvent,
     DetailedLoggingStatusEvent,
     EventLifecycleEvent,
     EventMetadata,
     GameResultEvent,
     GameStateEvent,
+    MatchConnectionStateEvent,
     MatchStateEvent,
     RankEvent,
+    TcpConnectionCloseEvent,
+    WebSocketClosedEvent,
 )
 
 _LATEST_JSONL_RE = re.compile(r"_v(?P<version>\d+)_")
@@ -27,8 +32,13 @@ EVENT_CLASS_BY_KIND: dict[str, type[BaseEvent]] = {
     "EventLifecycle": EventLifecycleEvent,
     "GameResult": GameResultEvent,
     "GameState": GameStateEvent,
+    "MatchConnectionState": MatchConnectionStateEvent,
     "MatchState": MatchStateEvent,
     "Rank": RankEvent,
+    "TcpConnectionClose": TcpConnectionCloseEvent,
+    "DeckCollection": DeckCollectionEvent,
+    "WebSocketClosed": WebSocketClosedEvent,
+    "ConnectionError": ConnectionErrorEvent,
 }
 
 

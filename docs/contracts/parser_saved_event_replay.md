@@ -111,12 +111,17 @@ Observed supported kinds:
 | Saved `kind` | Event class |
 | --- | --- |
 | `ClientAction` | `ClientActionEvent` |
+| `ConnectionError` | `ConnectionErrorEvent` |
+| `DeckCollection` | `DeckCollectionEvent` |
 | `DetailedLoggingStatus` | `DetailedLoggingStatusEvent` |
 | `EventLifecycle` | `EventLifecycleEvent` |
 | `GameResult` | `GameResultEvent` |
 | `GameState` | `GameStateEvent` |
+| `MatchConnectionState` | `MatchConnectionStateEvent` |
 | `MatchState` | `MatchStateEvent` |
 | `Rank` | `RankEvent` |
+| `TcpConnectionClose` | `TcpConnectionCloseEvent` |
+| `WebSocketClosed` | `WebSocketClosedEvent` |
 
 The lookup is exact and case-sensitive. Unknown, missing, differently cased, or
 whitespace-padded kinds do not reconstruct an event.
@@ -272,30 +277,34 @@ Unknowns and suspected gaps:
 Required v1 supported mapping:
 
 - `ClientAction`
+- `ConnectionError`
+- `DeckCollection`
 - `DetailedLoggingStatus`
 - `EventLifecycle`
 - `GameResult`
 - `GameState`
+- `MatchConnectionState`
 - `MatchState`
 - `Rank`
+- `TcpConnectionClose`
+- `WebSocketClosed`
 
 Observed callback implications:
 
 - `state.py` currently interprets `MatchState`, `GameState`, `Rank`,
   `ClientAction`, and `GameResult`.
 - `state.py` treats unknown event kinds as no-ops.
-- `DetailedLoggingStatus` and `EventLifecycle` are reconstructable by replay
-  but are not parser-state truth owners.
+- `DetailedLoggingStatus`, `EventLifecycle`, `DeckCollection`,
+  `MatchConnectionState`, `TcpConnectionClose`, `WebSocketClosed`, and
+  `ConnectionError` are reconstructable by replay but are not parser-state
+  truth owners.
 
 Suspected mapping gap:
 
 - `transforms.include_event()` can keep additional event kinds that are not
-  currently reconstructable by replay, including `Inventory`,
-  `DeckCollection`, `MatchConnectionState`, `TcpConnectionClose`,
-  `WebSocketClosed`, and `ConnectionError`.
+  currently reconstructable by replay, including `Inventory`.
 - Unsupported archived kinds are skipped by replay today. Whether replay should
-  reconstruct every archived kind is an implementation/comparison question for
-  Codex C, not a behavior change authorized by this contract writer pass.
+  reconstruct every archived kind remains a future contract question.
 
 Required change-control rule:
 
@@ -452,7 +461,7 @@ contract is explicitly revised:
   `to_serializable(event)` output.
 - Latest-file selection remains recursive, per parent directory, highest
   numeric `_v<number>_`, unversioned `-1`, sorted by parent directory name.
-- Supported event kind mapping includes the seven current kinds listed above.
+- Supported event kind mapping includes the twelve current kinds listed above.
 - Unknown event kinds are skipped without event construction.
 - Blank timestamps become `None`; invalid nonblank timestamps fail fast.
 - `metadata.raw_bytes` for replayed events is based on the saved JSONL line

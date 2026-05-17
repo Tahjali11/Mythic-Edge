@@ -14,12 +14,17 @@ from mythic_edge_parser.app.saved_event_replay import (
 
 SUPPORTED_REPLAY_KINDS = {
     "ClientAction",
+    "ConnectionError",
+    "DeckCollection",
     "DetailedLoggingStatus",
     "EventLifecycle",
     "GameResult",
     "GameState",
+    "MatchConnectionState",
     "MatchState",
     "Rank",
+    "TcpConnectionClose",
+    "WebSocketClosed",
 }
 
 
@@ -269,6 +274,57 @@ def test_event_lifecycle_saved_record_reconstructs_event() -> None:
         "type": "event_join",
         "raw_event_lifecycle": "==> EventJoin",
     }
+
+
+def test_replay_latest_saved_events_reconstructs_historical_connection_and_deck_kinds(tmp_path: Path) -> None:
+    day_dir = tmp_path / "2026_05_10"
+    day_dir.mkdir()
+    jsonl_path = day_dir / "match-events_v1_sample.jsonl"
+    records = [
+        {
+            "kind": "MatchConnectionState",
+            "timestamp": "2026-05-10T17:00:00+00:00",
+            "payload": {"old": "Connecting", "new": "Connected"},
+        },
+        {
+            "kind": "TcpConnectionClose",
+            "timestamp": "2026-05-10T17:01:00+00:00",
+            "payload": {"status": 0, "reason": "closed"},
+        },
+        {
+            "kind": "DeckCollection",
+            "timestamp": "2026-05-10T17:02:00+00:00",
+            "payload": {"type": "deck_collection_snapshot", "decks": {"deck-1": {"name": "Test"}}},
+        },
+        {
+            "kind": "WebSocketClosed",
+            "timestamp": "2026-05-10T17:03:00+00:00",
+            "payload": {"closeType": 1, "reason": "network"},
+        },
+        {
+            "kind": "ConnectionError",
+            "timestamp": "2026-05-10T17:04:00+00:00",
+            "payload": {"error_type": "gre_connection_lost"},
+        },
+    ]
+    jsonl_path.write_text(
+        "\n".join(json.dumps(record) for record in records) + "\n",
+        encoding="utf-8",
+    )
+
+    seen: list[str] = []
+    stats = replay_latest_saved_events(tmp_path, lambda event: seen.append(event.kind))
+
+    assert stats.files_processed == 1
+    assert stats.events_processed == 5
+    assert stats.events_skipped == 0
+    assert seen == [
+        "MatchConnectionState",
+        "TcpConnectionClose",
+        "DeckCollection",
+        "WebSocketClosed",
+        "ConnectionError",
+    ]
 
 
 def test_replay_event_kind_mapping_contains_exact_supported_kinds() -> None:
