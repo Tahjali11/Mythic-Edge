@@ -35,6 +35,9 @@ No tracker has been created by this artifact.
 - `docs/problem_representations/polish_installer_setup_parity_audit.md`
   compares Manasight's installer/setup polish against Mythic Edge and maps the
   parity gaps into this suite's child modules.
+- `docs/problem_representations/polish_corpus_regression_parity_with_manasight.md`
+  lists the corpus regression additions needed for Manasight-style real-log
+  smoke and ratchet parity.
 
 ## What The Project Is Supposed To Do
 
@@ -196,6 +199,10 @@ Candidate Python analogs to evaluate:
 - static security scanning: Semgrep Python rules
 - smoke testing: committed sanitized fixtures, golden replay, feature-equity
   corpus, or an opt-in private local corpus path
+- corpus regression parity:
+  `docs/problem_representations/polish_corpus_regression_parity_with_manasight.md`
+  defines the fuller Manasight-style smoke, baseline, ratchet, field-metric,
+  and report-only CI target.
 
 ### Issue 4: Public Sanitizer And Repository Presentation Polish
 
