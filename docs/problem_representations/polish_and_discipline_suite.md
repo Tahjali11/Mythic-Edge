@@ -30,6 +30,12 @@ Recommended new tracker issue:
 
 No tracker has been created by this artifact.
 
+## Related Audit Artifacts
+
+- `docs/problem_representations/polish_installer_setup_parity_audit.md`
+  compares Manasight's installer/setup polish against Mythic Edge and maps the
+  parity gaps into this suite's child modules.
+
 ## What The Project Is Supposed To Do
 
 Mythic Edge should be installable and verifiable on a new local machine with
