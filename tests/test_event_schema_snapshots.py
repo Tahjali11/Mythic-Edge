@@ -21,6 +21,7 @@ from mythic_edge_parser.parsers import (
     connection_error,
     connection_state,
     draft_bot,
+    draft_human,
     event_lifecycle,
     gre,
     inventory,
@@ -227,6 +228,7 @@ def _parser_payload_sample_events() -> list[tuple[str, events.BaseEvent]]:
     samples.extend(_truncation_sample_events())
     samples.extend(_collection_sample_events())
     samples.extend(_draft_bot_sample_events())
+    samples.extend(_draft_human_sample_events())
     samples.extend(_small_parser_sample_events())
     samples.extend(_connection_sample_events())
     samples.append(
@@ -582,6 +584,69 @@ def _draft_bot_sample_events() -> list[tuple[str, events.BaseEvent]]:
                                 "pickNumber": 2,
                                 "pickedCardId": 1001,
                             }
+                        },
+                    ),
+                    TS,
+                )
+            ),
+        ),
+    ]
+
+
+def _draft_human_sample_events() -> list[tuple[str, events.BaseEvent]]:
+    return [
+        (
+            "human_draft_notify",
+            _expect_one_event(
+                draft_human.try_parse(
+                    _api_response_entry(
+                        "Draft.Notify",
+                        {
+                            "draftId": "schema-draft",
+                            "eventName": "PremierDraft_Schema",
+                            "draftStatus": "PackOpen",
+                            "packNumber": 1,
+                            "pickNumber": 2,
+                            "packCards": [1001, 1002],
+                        },
+                    ),
+                    TS,
+                )
+            ),
+        ),
+        (
+            "human_draft_make_pick",
+            _expect_one_event(
+                draft_human.try_parse(
+                    _api_request_entry(
+                        "EventPlayerDraftMakePick",
+                        {
+                            "EventPlayerDraftMakePick": {
+                                "draftId": "schema-draft",
+                                "pickNumber": 2,
+                                "pickedCardId": 1001,
+                            }
+                        },
+                    ),
+                    TS,
+                )
+            ),
+        ),
+        (
+            "human_draft_business_pick",
+            _expect_one_event(
+                draft_human.try_parse(
+                    _api_request_entry(
+                        "LogBusinessEvents",
+                        {
+                            "LogBusinessEvents": [
+                                {
+                                    "EventName": "DraftPick",
+                                    "PickGrpId": 1001,
+                                    "PackNumber": 1,
+                                    "PickNumber": 2,
+                                }
+                            ]
                         },
                     ),
                     TS,

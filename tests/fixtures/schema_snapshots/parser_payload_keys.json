@@ -148,6 +148,63 @@
         "raw_draft_bot"
       ]
     },
+    "DraftHuman.human_draft_business_pick": {
+      "discriminator": "human_draft_business_pick",
+      "event_kind": "DraftHuman",
+      "keys": [
+        "type",
+        "source_method",
+        "api_direction",
+        "draft_id",
+        "event_id",
+        "draft_status",
+        "pack_number",
+        "pick_number",
+        "pack_card_ids",
+        "picked_card_id",
+        "picked_card_ids",
+        "business_event_type",
+        "raw_draft_human"
+      ]
+    },
+    "DraftHuman.human_draft_make_pick": {
+      "discriminator": "human_draft_make_pick",
+      "event_kind": "DraftHuman",
+      "keys": [
+        "type",
+        "source_method",
+        "api_direction",
+        "draft_id",
+        "event_id",
+        "draft_status",
+        "pack_number",
+        "pick_number",
+        "pack_card_ids",
+        "picked_card_id",
+        "picked_card_ids",
+        "business_event_type",
+        "raw_draft_human"
+      ]
+    },
+    "DraftHuman.human_draft_notify": {
+      "discriminator": "human_draft_notify",
+      "event_kind": "DraftHuman",
+      "keys": [
+        "type",
+        "source_method",
+        "api_direction",
+        "draft_id",
+        "event_id",
+        "draft_status",
+        "pack_number",
+        "pick_number",
+        "pack_card_ids",
+        "picked_card_id",
+        "picked_card_ids",
+        "business_event_type",
+        "raw_draft_human"
+      ]
+    },
     "EventLifecycle.event_claim_prize": {
       "discriminator": "event_claim_prize",
       "event_kind": "EventLifecycle",

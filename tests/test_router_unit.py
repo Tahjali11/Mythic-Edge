@@ -13,6 +13,7 @@ DISPATCH_MODULE_NAMES = (
     "session",
     "event_lifecycle",
     "draft_bot",
+    "draft_human",
     "rank",
     "collection",
     "inventory",
@@ -263,6 +264,7 @@ def test_dispatch_to_parsers_uses_unknown_header_lifecycle_position(monkeypatch)
         "session",
         "event_lifecycle",
         "draft_bot",
+        "draft_human",
         "rank",
     ]
 
@@ -298,6 +300,7 @@ def test_dispatch_to_parsers_uses_unity_bucket_order(monkeypatch) -> None:
         "session",
         "event_lifecycle",
         "draft_bot",
+        "draft_human",
         "rank",
         "collection",
         "inventory",
