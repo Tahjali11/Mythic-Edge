@@ -38,6 +38,10 @@ No tracker has been created by this artifact.
 - `docs/problem_representations/polish_corpus_regression_parity_with_manasight.md`
   lists the corpus regression additions needed for Manasight-style real-log
   smoke and ratchet parity.
+- `docs/problem_representations/polish_professional_handoff_readiness.md`
+  defines the README, repo-map, contributor-workflow, professional hygiene, and
+  historic-file triage work needed before handing the project to an outside
+  professional development team.
 
 ## What The Project Is Supposed To Do
 
@@ -263,6 +267,31 @@ Early candidate surfaces:
 - evidence-ledger value-source labels
 - analytics input records once analytics work begins
 
+### Issue 6: Professional Handoff Readiness
+
+Suggested title:
+
+```text
+[polish] Professional handoff README, repo map, and cleanup audit
+```
+
+Goal:
+
+- make the repo understandable to an outside professional development team
+- add clear README and architecture entry points
+- add a repo map and artifact taxonomy
+- document how normal engineering contribution maps onto the Codex workflow
+- make setup, validation, sanitizer, CI, and roadmap docs discoverable
+- plan a read-only folder-by-folder cleanup audit for historic files
+
+Related artifact:
+
+- `docs/problem_representations/polish_professional_handoff_readiness.md`
+
+This issue should not duplicate the setup, lockfile, CI, sanitizer, corpus, or
+type-discipline modules. It should make those outputs visible and coherent from
+the repo front door.
+
 ## Scope
 
 In scope:
@@ -287,6 +316,8 @@ Out of scope:
 - making Pyright a failing gate without a contract
 - making `uv` the only supported install path without a contract
 - adding public corpus data without sanitizer and fixture policy review
+- deleting historic, archived, generated, local-only, or observability files
+  without a folder-by-folder inventory and explicit approval
 
 ## Risks And Likely Breakpoints
 
@@ -343,6 +374,9 @@ checks.
 - Which parser module should be the first strict typing pilot?
 - Should Pyright strictness remain global basic plus targeted strict modules,
   or should a future contract introduce gradual package-wide strictness?
+- Which historic folders should remain archived in-repo, move to a smaller
+  archive with README context, or become deletion candidates after a read-only
+  triage?
 
 ## Next Workflow Action
 
