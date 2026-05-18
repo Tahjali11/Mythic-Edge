@@ -1,0 +1,170 @@
+{
+  "object": "mythic_edge_golden_replay_manifest",
+  "schema_version": "parser_golden_replay_manifest.v1",
+  "fixture_id": "bo3_sideboard_match_loss",
+  "description": "Sanitized Bo3 match loss with mulligan, sideboarding, and final match result.",
+  "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/48",
+  "authorized_by_contract": "docs/contracts/parser_golden_replay_harness.md",
+  "source": {
+    "log_path": "tests/fixtures/parser_regression_bo3_slice.log",
+    "source_kind": "sanitized_player_log_slice",
+    "sanitization_status": "sanitized",
+    "source_privacy_class": "sanitized_committable",
+    "raw_private_log_committed": false
+  },
+  "coverage": {
+    "covered_event_families": [
+      "Rank",
+      "MatchState",
+      "ClientAction",
+      "GameState",
+      "GameResult"
+    ],
+    "known_gaps": [],
+    "expected_degradation": [],
+    "expected_truncation_signals": []
+  },
+  "expected": {
+    "router_stats": {
+      "routed": 8,
+      "unknown": 0,
+      "timestamp_missing": 0,
+      "timestamp_parse_failure": 0
+    },
+    "event_family_counts": {
+      "ClientAction": 2,
+      "GameResult": 2,
+      "GameState": 4,
+      "MatchState": 1,
+      "Rank": 1
+    },
+    "event_kind_sequence": [
+      "MatchState",
+      "Rank",
+      "ClientAction",
+      "GameState",
+      "GameState",
+      "GameResult",
+      "ClientAction",
+      "GameState",
+      "GameState",
+      "GameResult"
+    ],
+    "diagnostics_summary": {
+      "overall_status": "pass",
+      "parser_status": "pass",
+      "routed_entries": 8,
+      "unknown_entries": 0,
+      "truncation_events": 0
+    },
+    "truncation_and_data_loss": {
+      "truncation_count": 0,
+      "data_loss_events": []
+    },
+    "unknowns_and_degradation": {
+      "unknown_entry_count": 0,
+      "degraded_outputs": []
+    },
+    "parser_state": {
+      "match_id": "match-regression-bo3",
+      "current_game_number": 2,
+      "player_team": 1,
+      "constructed_rank": "Gold 1",
+      "event_id": "Event_Constructed_BestOfThree",
+      "submit_deck_seen": false,
+      "sideboarding_entered": true,
+      "total_games": 2,
+      "game_wins": 1,
+      "game_losses": 1,
+      "games": [
+        {
+          "game_number": 1,
+          "winner_team": 1,
+          "result": "W",
+          "play_draw": "Play",
+          "mulligans": 1,
+          "turn_count": 9,
+          "opening_hand_size": 6
+        },
+        {
+          "game_number": 2,
+          "winner_team": 2,
+          "result": "L",
+          "play_draw": "Draw",
+          "mulligans": 0,
+          "turn_count": 12,
+          "opening_hand_size": 7
+        }
+      ]
+    },
+    "final_reconciliation": {
+      "match_winner_team": 2,
+      "match_result_type": "ResultType_WinLoss",
+      "match_result_reason": "ResultReason_Normal",
+      "game_results": [
+        {
+          "game_number": 1,
+          "winner_team": 1,
+          "result": "W"
+        },
+        {
+          "game_number": 2,
+          "winner_team": 2,
+          "result": "L"
+        }
+      ]
+    },
+    "parser_owned_rows": {
+      "match_log_row": {
+        "MTGA Match ID": "match-regression-bo3",
+        "MTGA Event ID": "Event_Constructed_BestOfThree",
+        "MTGA Format": "Standard",
+        "MTGA Queue Type": "Best of 3",
+        "MTGA Rank Raw": "Gold 1",
+        "MTGA Submit Deck Seen": "No",
+        "MTGA Sideboard Entered": "Yes",
+        "Match Win?": "L",
+        "Match Win Flag": 0,
+        "Total Games": 2,
+        "Games Won": 1,
+        "Games Lost": 1,
+        "Game 1 Result": "W",
+        "Game 2 Result": "L",
+        "G1 Mulligans": 1,
+        "G2 Mulligans": 0,
+        "G1 Play / Draw": "Play",
+        "G2 Play / Draw": "Draw",
+        "G1 Turn Count": 9,
+        "G2 Turn Count": 12
+      },
+      "game_log_rows": [
+        {
+          "MTGA Match ID": "match-regression-bo3",
+          "MTGA Event ID": "Event_Constructed_BestOfThree",
+          "MTGA Format": "Standard",
+          "MTGA Queue Type": "Best of 3",
+          "Game Number": 1,
+          "Game Result": "W",
+          "Turn Count": 9,
+          "Mulligans": 1,
+          "Play / Draw": "Play",
+          "Pre / Postboard": "Preboard",
+          "Opening Hand Size": 6
+        },
+        {
+          "MTGA Match ID": "match-regression-bo3",
+          "MTGA Event ID": "Event_Constructed_BestOfThree",
+          "MTGA Format": "Standard",
+          "MTGA Queue Type": "Best of 3",
+          "Game Number": 2,
+          "Game Result": "L",
+          "Turn Count": 12,
+          "Mulligans": 0,
+          "Play / Draw": "Draw",
+          "Pre / Postboard": "Postboard",
+          "Opening Hand Size": 7
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,135 @@
+{
+  "object": "mythic_edge_golden_replay_manifest",
+  "schema_version": "parser_golden_replay_manifest.v1",
+  "fixture_id": "bo1_match_win_basic",
+  "description": "Sanitized Bo1 match win with rank, submit deck, GameState, and GameResult.",
+  "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/48",
+  "authorized_by_contract": "docs/contracts/parser_golden_replay_harness.md",
+  "source": {
+    "log_path": "tests/fixtures/parser_regression_match_slice.log",
+    "source_kind": "sanitized_player_log_slice",
+    "sanitization_status": "sanitized",
+    "source_privacy_class": "sanitized_committable",
+    "raw_private_log_committed": false
+  },
+  "coverage": {
+    "covered_event_families": [
+      "Rank",
+      "MatchState",
+      "ClientAction",
+      "GameState",
+      "GameResult"
+    ],
+    "known_gaps": [],
+    "expected_degradation": [],
+    "expected_truncation_signals": []
+  },
+  "expected": {
+    "router_stats": {
+      "routed": 5,
+      "unknown": 0,
+      "timestamp_missing": 0,
+      "timestamp_parse_failure": 0
+    },
+    "event_family_counts": {
+      "ClientAction": 1,
+      "GameResult": 1,
+      "GameState": 2,
+      "MatchState": 1,
+      "Rank": 1
+    },
+    "event_kind_sequence": [
+      "Rank",
+      "MatchState",
+      "ClientAction",
+      "GameState",
+      "GameState",
+      "GameResult"
+    ],
+    "diagnostics_summary": {
+      "overall_status": "pass",
+      "parser_status": "pass",
+      "routed_entries": 5,
+      "unknown_entries": 0,
+      "truncation_events": 0
+    },
+    "truncation_and_data_loss": {
+      "truncation_count": 0,
+      "data_loss_events": []
+    },
+    "unknowns_and_degradation": {
+      "unknown_entry_count": 0,
+      "degraded_outputs": []
+    },
+    "parser_state": {
+      "match_id": "match-regression-1",
+      "current_game_number": 1,
+      "player_team": 1,
+      "constructed_rank": "Diamond 2",
+      "event_id": "Event_Constructed_BestOfOne",
+      "submit_deck_seen": true,
+      "sideboarding_entered": false,
+      "total_games": 1,
+      "game_wins": 1,
+      "game_losses": 0,
+      "games": [
+        {
+          "game_number": 1,
+          "winner_team": 1,
+          "result": "W",
+          "play_draw": "Play",
+          "mulligans": 0,
+          "turn_count": 7,
+          "opening_hand_size": 7
+        }
+      ]
+    },
+    "final_reconciliation": {
+      "match_winner_team": 1,
+      "match_result_type": "ResultType_WinLoss",
+      "match_result_reason": "ResultReason_Normal",
+      "game_results": [
+        {
+          "game_number": 1,
+          "winner_team": 1,
+          "result": "W"
+        }
+      ]
+    },
+    "parser_owned_rows": {
+      "match_log_row": {
+        "MTGA Match ID": "match-regression-1",
+        "MTGA Event ID": "Event_Constructed_BestOfOne",
+        "MTGA Format": "Standard",
+        "MTGA Queue Type": "Best of 1",
+        "MTGA Rank Raw": "Diamond 2",
+        "MTGA Submit Deck Seen": "Yes",
+        "MTGA Sideboard Entered": "No",
+        "Match Win?": "W",
+        "Match Win Flag": 1,
+        "Total Games": 1,
+        "Games Won": 1,
+        "Games Lost": 0,
+        "Game 1 Result": "W",
+        "G1 Mulligans": 0,
+        "G1 Play / Draw": "Play",
+        "G1 Turn Count": 7
+      },
+      "game_log_rows": [
+        {
+          "MTGA Match ID": "match-regression-1",
+          "MTGA Event ID": "Event_Constructed_BestOfOne",
+          "MTGA Format": "Standard",
+          "MTGA Queue Type": "Best of 1",
+          "Game Number": 1,
+          "Game Result": "W",
+          "Turn Count": 7,
+          "Mulligans": 0,
+          "Play / Draw": "Play",
+          "Pre / Postboard": "Preboard",
+          "Opening Hand Size": 7
+        }
+      ]
+    }
+  }
+}
