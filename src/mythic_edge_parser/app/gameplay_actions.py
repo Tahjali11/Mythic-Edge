@@ -6,6 +6,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from ..parsers.gre.annotations import (
+    annotation_categories_for_instance,
+    normalize_annotation_arrays,
+)
+from ..parsers.gre.annotations import (
+    replacement_instance_ids as normalized_replacement_instance_ids,
+)
 from . import state
 from .config import (
     ACTIVE_DECK_PROFILE_PATH,
@@ -325,65 +332,35 @@ def _normalize_action_instance_map(payload: dict[str, Any]) -> dict[int, list[st
 
 
 def _annotation_types(payload: dict[str, Any]) -> list[str]:
-    found: list[str] = []
-    for annotation in _game_state_annotations(payload):
-        _extend_unique_strings(found, _clean_string_list(annotation.get("type") or []))
-    return found
-
-
-def _annotation_int_detail_values(annotation: dict[str, Any], key: str) -> list[int]:
-    values: list[int] = []
-    for detail in annotation.get("details") or []:
-        if not isinstance(detail, dict):
-            continue
-        if str(detail.get("key") or "").strip() != key:
-            continue
-        for raw_value in detail.get("valueInt32") or []:
-            value = _safe_int(raw_value)
-            if value is not None:
-                values.append(value)
-    return values
-
-
-def _annotation_string_detail_values(annotation: dict[str, Any], key: str) -> list[str]:
-    values: list[str] = []
-    for detail in annotation.get("details") or []:
-        if not isinstance(detail, dict):
-            continue
-        if str(detail.get("key") or "").strip() != key:
-            continue
-        _extend_unique_strings(values, _clean_string_list(detail.get("valueString") or []))
-    return values
+    normalized_annotations = _normalized_gameplay_annotations(payload)
+    return [value for value in normalized_annotations.get("annotation_types", []) if isinstance(value, str)]
 
 
 def _annotation_instance_hints(payload: dict[str, Any]) -> tuple[dict[int, list[str]], dict[int, int]]:
     categories_by_instance: dict[int, list[str]] = {}
-    replacement_instance_ids: dict[int, int] = {}
+    normalized_annotations = _normalized_gameplay_annotations(payload)
+    zone_transfers = normalized_annotations.get("zone_transfers")
+    if isinstance(zone_transfers, list):
+        for zone_transfer in zone_transfers:
+            if not isinstance(zone_transfer, dict):
+                continue
+            for affected_id in zone_transfer.get("affected_ids", []):
+                if not isinstance(affected_id, int):
+                    continue
+                categories_by_instance[affected_id] = annotation_categories_for_instance(
+                    normalized_annotations,
+                    affected_id,
+                )
 
-    for annotation in _game_state_annotations(payload):
-        annotation_types = set(_clean_string_list(annotation.get("type") or []))
-        affected_ids = [
-            affected_id
-            for raw_affected_id in (annotation.get("affectedIds") or [])
-            if (affected_id := _safe_int(raw_affected_id)) is not None
-        ]
+    return categories_by_instance, normalized_replacement_instance_ids(normalized_annotations)
 
-        if "AnnotationType_ZoneTransfer" in annotation_types:
-            categories = _annotation_string_detail_values(annotation, "category")
-            if categories:
-                for affected_id in affected_ids:
-                    rows = categories_by_instance.setdefault(affected_id, [])
-                    for category in categories:
-                        if category not in rows:
-                            rows.append(category)
 
-        if "AnnotationType_ObjectIdChanged" in annotation_types:
-            original_ids = _annotation_int_detail_values(annotation, "orig_id")
-            new_ids = _annotation_int_detail_values(annotation, "new_id")
-            if original_ids and new_ids:
-                replacement_instance_ids[original_ids[0]] = new_ids[0]
-
-    return categories_by_instance, replacement_instance_ids
+def _normalized_gameplay_annotations(payload: dict[str, Any]) -> dict[str, object]:
+    return normalize_annotation_arrays(
+        annotations=_game_state_annotations(payload),
+        persistent_annotations=[],
+        diff_deleted_persistent_annotation_ids=[],
+    )
 
 
 def _has_spell_like_annotation(annotation_categories: list[str]) -> bool:
