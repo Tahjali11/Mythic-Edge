@@ -4,6 +4,7 @@ from typing import Any
 
 from .. import api_common
 from .annotations import normalize_annotation_arrays
+from .game_state_diff import build_game_state_diff_mechanics
 from .timers import normalize_timer_array
 from .turn_info import build_turn_info
 
@@ -14,15 +15,20 @@ def build_game_state_payload(message: dict[str, Any], gsm: dict[str, Any]) -> di
     game_info = _game_info_payload(gsm)
     turn_info = build_turn_info(gsm)
     identity = _build_identity_payload(game_info, turn_info)
+    payload_type = _payload_type(message)
     annotations = _safe_list_copy(gsm.get("annotations"))
     persistent_annotations = _safe_list_copy(gsm.get("persistentAnnotations"))
     timers = _safe_list_copy(gsm.get("timers"))
+    update = str(gsm.get("update") or "")
+    pending_message_count = _maybe_int(gsm.get("pendingMessageCount"))
+    prev_game_state_id = _maybe_int(gsm.get("prevGameStateId"))
+    diff_deleted_instance_ids = api_common.normalize_int_list(gsm.get("diffDeletedInstanceIds"))
     diff_deleted_persistent_annotation_ids = api_common.normalize_int_list(
         gsm.get("diffDeletedPersistentAnnotationIds")
     )
 
     return {
-        "type": _payload_type(message),
+        "type": payload_type,
         "message_type": message.get("type", "GREMessageType_GameStateMessage"),
         "msg_id": message.get("msgId", 0),
         "game_state_id": message.get("gameStateId", 0),
@@ -47,11 +53,22 @@ def build_game_state_payload(message: dict[str, Any], gsm: dict[str, Any]) -> di
         "timers": timers,
         "normalized_timers": normalize_timer_array(gsm.get("timers"), turn_info=turn_info),
         "actions": _safe_list_copy(gsm.get("actions")),
-        "update": str(gsm.get("update") or ""),
-        "pending_message_count": _maybe_int(gsm.get("pendingMessageCount")),
-        "prev_game_state_id": _maybe_int(gsm.get("prevGameStateId")),
-        "diff_deleted_instance_ids": api_common.normalize_int_list(gsm.get("diffDeletedInstanceIds")),
+        "update": update,
+        "pending_message_count": pending_message_count,
+        "prev_game_state_id": prev_game_state_id,
+        "diff_deleted_instance_ids": diff_deleted_instance_ids,
         "diff_deleted_persistent_annotation_ids": diff_deleted_persistent_annotation_ids,
+        "game_state_diff_mechanics": build_game_state_diff_mechanics(
+            message=message,
+            gsm=gsm,
+            payload_type=payload_type,
+            game_state_id=message.get("gameStateId", 0),
+            update=update,
+            pending_message_count=pending_message_count,
+            prev_game_state_id=prev_game_state_id,
+            diff_deleted_instance_ids=diff_deleted_instance_ids,
+            diff_deleted_persistent_annotation_ids=diff_deleted_persistent_annotation_ids,
+        ),
         "raw_game_state": message,
     }
 
