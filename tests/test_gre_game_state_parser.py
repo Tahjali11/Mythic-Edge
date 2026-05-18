@@ -39,7 +39,19 @@ def test_build_game_state_payload_happy_path_fields() -> None:
     }
 
     payload = build_game_state_payload(message, gsm)
+    normalized_annotations = payload.pop("normalized_annotations")
 
+    assert normalized_annotations["object"] == "mythic_edge_gre_annotations"
+    assert normalized_annotations["schema_version"] == "parser_gre_annotations.v1"
+    assert normalized_annotations["total_records"] == 2
+    assert normalized_annotations["degraded_records"] == 2
+    assert normalized_annotations["review_required"] is True
+    assert normalized_annotations["source_arrays"] == {"annotations": 1, "persistent_annotations": 1}
+    assert normalized_annotations["diff_deleted_persistent_annotation_ids"] == [20, 21]
+    assert normalized_annotations["records"][0]["source_array"] == "annotations"
+    assert normalized_annotations["records"][1]["source_array"] == "persistent_annotations"
+    assert payload["annotations"] == [{"id": 5}]
+    assert payload["persistent_annotations"] == [{"id": 6}]
     assert payload == {
         "type": "game_state_message",
         "message_type": "GREMessageType_GameStateMessage",
@@ -190,6 +202,9 @@ def test_build_game_state_payload_handles_missing_and_malformed_sections() -> No
     assert payload["game_objects"] == [{"instanceId": 101}]
     assert payload["annotations"] == []
     assert payload["persistent_annotations"] == []
+    assert payload["normalized_annotations"]["total_records"] == 0
+    assert payload["normalized_annotations"]["degradation_flags"] == ["malformed_annotations_section"]
+    assert payload["normalized_annotations"]["review_required"] is True
     assert payload["timers"] == [{"timerId": 1}]
     assert payload["actions"] == []
     assert payload["pending_message_count"] == 4
@@ -243,6 +258,9 @@ def test_build_game_state_payload_defaults_for_missing_message_fields_and_sectio
     assert payload["game_objects"] == []
     assert payload["annotations"] == []
     assert payload["persistent_annotations"] == []
+    assert payload["normalized_annotations"]["total_records"] == 0
+    assert payload["normalized_annotations"]["degradation_flags"] == ["malformed_annotations_section"]
+    assert payload["normalized_annotations"]["review_required"] is True
     assert payload["timers"] == []
     assert payload["actions"] == []
     assert payload["update"] == ""
