@@ -20,6 +20,7 @@ from mythic_edge_parser.parsers import (
     connection_close,
     connection_error,
     connection_state,
+    draft_bot,
     event_lifecycle,
     gre,
     inventory,
@@ -225,6 +226,7 @@ def _parser_payload_sample_events() -> list[tuple[str, events.BaseEvent]]:
     samples.extend(_gre_sample_events())
     samples.extend(_truncation_sample_events())
     samples.extend(_collection_sample_events())
+    samples.extend(_draft_bot_sample_events())
     samples.extend(_small_parser_sample_events())
     samples.extend(_connection_sample_events())
     samples.append(
@@ -547,6 +549,48 @@ def _collection_sample_events() -> list[tuple[str, events.BaseEvent]]:
     ]
 
 
+def _draft_bot_sample_events() -> list[tuple[str, events.BaseEvent]]:
+    return [
+        (
+            "bot_draft_status",
+            _expect_one_event(
+                draft_bot.try_parse(
+                    _api_response_entry(
+                        "BotDraftDraftStatus",
+                        {
+                            "draftId": "schema-draft",
+                            "eventName": "QuickDraft_Schema",
+                            "draftStatus": "PackOpen",
+                            "packNumber": 1,
+                            "pickNumber": 2,
+                            "packCards": [1001, 1002],
+                        },
+                    ),
+                    TS,
+                )
+            ),
+        ),
+        (
+            "bot_draft_pick",
+            _expect_one_event(
+                draft_bot.try_parse(
+                    _api_request_entry(
+                        "BotDraftDraftPick",
+                        {
+                            "BotDraftDraftPick": {
+                                "draftId": "schema-draft",
+                                "pickNumber": 2,
+                                "pickedCardId": 1001,
+                            }
+                        },
+                    ),
+                    TS,
+                )
+            ),
+        ),
+    ]
+
+
 def _small_parser_sample_events() -> list[tuple[str, events.BaseEvent]]:
     return [
         (
@@ -741,6 +785,13 @@ def _api_response_entry(name: str, payload: dict[str, Any]) -> LogEntry:
     return LogEntry(
         EntryHeader.UNITY_CROSS_THREAD_LOGGER,
         f"[UnityCrossThreadLogger]<== {name}\n{json.dumps(payload, sort_keys=True)}",
+    )
+
+
+def _api_request_entry(name: str, payload: dict[str, Any]) -> LogEntry:
+    return LogEntry(
+        EntryHeader.UNITY_CROSS_THREAD_LOGGER,
+        f"[UnityCrossThreadLogger]==> {name}\n{json.dumps(payload, sort_keys=True)}",
     )
 
 

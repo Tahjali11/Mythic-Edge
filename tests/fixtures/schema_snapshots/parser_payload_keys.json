@@ -112,6 +112,42 @@
         "enabled"
       ]
     },
+    "DraftBot.bot_draft_pick": {
+      "discriminator": "bot_draft_pick",
+      "event_kind": "DraftBot",
+      "keys": [
+        "type",
+        "source_method",
+        "api_direction",
+        "draft_id",
+        "event_id",
+        "draft_status",
+        "pack_number",
+        "pick_number",
+        "pack_card_ids",
+        "picked_card_id",
+        "picked_card_ids",
+        "raw_draft_bot"
+      ]
+    },
+    "DraftBot.bot_draft_status": {
+      "discriminator": "bot_draft_status",
+      "event_kind": "DraftBot",
+      "keys": [
+        "type",
+        "source_method",
+        "api_direction",
+        "draft_id",
+        "event_id",
+        "draft_status",
+        "pack_number",
+        "pick_number",
+        "pack_card_ids",
+        "picked_card_id",
+        "picked_card_ids",
+        "raw_draft_bot"
+      ]
+    },
     "EventLifecycle.event_claim_prize": {
       "discriminator": "event_claim_prize",
       "event_kind": "EventLifecycle",
