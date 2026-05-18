@@ -40,6 +40,7 @@ def test_build_game_state_payload_happy_path_fields() -> None:
 
     payload = build_game_state_payload(message, gsm)
     normalized_annotations = payload.pop("normalized_annotations")
+    normalized_timers = payload.pop("normalized_timers")
 
     assert normalized_annotations["object"] == "mythic_edge_gre_annotations"
     assert normalized_annotations["schema_version"] == "parser_gre_annotations.v1"
@@ -50,8 +51,21 @@ def test_build_game_state_payload_happy_path_fields() -> None:
     assert normalized_annotations["diff_deleted_persistent_annotation_ids"] == [20, 21]
     assert normalized_annotations["records"][0]["source_array"] == "annotations"
     assert normalized_annotations["records"][1]["source_array"] == "persistent_annotations"
+    assert normalized_timers["object"] == "mythic_edge_gre_timers"
+    assert normalized_timers["schema_version"] == "parser_gre_timers.v1"
+    assert normalized_timers["total_records"] == 1
+    assert normalized_timers["degraded_records"] == 0
+    assert normalized_timers["review_required"] is False
+    assert normalized_timers["timer_ids"] == [9]
+    assert normalized_timers["contextual_turn_info"] == {
+        "turn_number": 3,
+        "active_player_seat_id": 2,
+        "decision_player_seat_id": "",
+        "priority_player_seat_id": "",
+    }
     assert payload["annotations"] == [{"id": 5}]
     assert payload["persistent_annotations"] == [{"id": 6}]
+    assert payload["timers"] == [{"timerId": 9}]
     assert payload == {
         "type": "game_state_message",
         "message_type": "GREMessageType_GameStateMessage",
@@ -206,6 +220,10 @@ def test_build_game_state_payload_handles_missing_and_malformed_sections() -> No
     assert payload["normalized_annotations"]["degradation_flags"] == ["malformed_annotations_section"]
     assert payload["normalized_annotations"]["review_required"] is True
     assert payload["timers"] == [{"timerId": 1}]
+    assert payload["normalized_timers"]["total_records"] == 1
+    assert payload["normalized_timers"]["degraded_records"] == 0
+    assert payload["normalized_timers"]["timer_ids"] == [1]
+    assert payload["normalized_timers"]["contextual_turn_info"]["active_player_seat_id"] == 2
     assert payload["actions"] == []
     assert payload["pending_message_count"] == 4
     assert payload["prev_game_state_id"] == 3
@@ -262,6 +280,9 @@ def test_build_game_state_payload_defaults_for_missing_message_fields_and_sectio
     assert payload["normalized_annotations"]["degradation_flags"] == ["malformed_annotations_section"]
     assert payload["normalized_annotations"]["review_required"] is True
     assert payload["timers"] == []
+    assert payload["normalized_timers"]["total_records"] == 0
+    assert payload["normalized_timers"]["degradation_flags"] == ["malformed_timers_section"]
+    assert payload["normalized_timers"]["review_required"] is True
     assert payload["actions"] == []
     assert payload["update"] == ""
     assert payload["pending_message_count"] is None
