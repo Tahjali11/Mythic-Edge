@@ -4,6 +4,7 @@ from typing import Any
 
 from .. import api_common
 from .annotations import normalize_annotation_arrays
+from .timers import normalize_timer_array
 from .turn_info import build_turn_info
 
 QUEUED_GAME_STATE_MESSAGE_TYPE = "GREMessageType_QueuedGameStateMessage"
@@ -15,6 +16,7 @@ def build_game_state_payload(message: dict[str, Any], gsm: dict[str, Any]) -> di
     identity = _build_identity_payload(game_info, turn_info)
     annotations = _safe_list_copy(gsm.get("annotations"))
     persistent_annotations = _safe_list_copy(gsm.get("persistentAnnotations"))
+    timers = _safe_list_copy(gsm.get("timers"))
     diff_deleted_persistent_annotation_ids = api_common.normalize_int_list(
         gsm.get("diffDeletedPersistentAnnotationIds")
     )
@@ -42,7 +44,8 @@ def build_game_state_payload(message: dict[str, Any], gsm: dict[str, Any]) -> di
             persistent_annotations=gsm.get("persistentAnnotations"),
             diff_deleted_persistent_annotation_ids=gsm.get("diffDeletedPersistentAnnotationIds"),
         ),
-        "timers": _safe_list_copy(gsm.get("timers")),
+        "timers": timers,
+        "normalized_timers": normalize_timer_array(gsm.get("timers"), turn_info=turn_info),
         "actions": _safe_list_copy(gsm.get("actions")),
         "update": str(gsm.get("update") or ""),
         "pending_message_count": _maybe_int(gsm.get("pendingMessageCount")),
