@@ -347,6 +347,27 @@
         "status"
       ]
     },
+    "Truncation.game_state_message_truncation": {
+      "discriminator": "game_state_message_truncation",
+      "event_kind": "Truncation",
+      "keys": [
+        "type",
+        "marker_family",
+        "affected_event_family",
+        "affected_message_type",
+        "data_loss",
+        "recoverable",
+        "parser_confidence",
+        "value_source",
+        "confidence",
+        "finality",
+        "drift_flag",
+        "source_header",
+        "game_object_count",
+        "annotation_count",
+        "raw_marker_summary"
+      ]
+    },
     "WebSocketClosed.websocket_closed": {
       "discriminator": "websocket_closed",
       "event_kind": "WebSocketClosed",

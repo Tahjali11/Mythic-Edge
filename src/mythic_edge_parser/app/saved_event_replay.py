@@ -17,6 +17,7 @@ from ..events import (
     GameStateEvent,
     MatchStateEvent,
     RankEvent,
+    TruncationEvent,
 )
 
 _LATEST_JSONL_RE = re.compile(r"_v(?P<version>\d+)_")
@@ -29,6 +30,7 @@ EVENT_CLASS_BY_KIND: dict[str, type[BaseEvent]] = {
     "GameState": GameStateEvent,
     "MatchState": MatchStateEvent,
     "Rank": RankEvent,
+    "Truncation": TruncationEvent,
 }
 
 

@@ -121,6 +121,7 @@ def include_event(event: Any) -> bool:
         "WebSocketClosed",
         "ConnectionError",
         "DeckCollection",
+        "Truncation",
     }:
         return True
 
@@ -412,6 +413,14 @@ def _summarize_client_action(payload: dict[str, Any]) -> str:
     return f"ClientAction message_type={payload.get('message_type')}"
 
 
+def _summarize_truncation(payload: dict[str, Any]) -> str:
+    return (
+        f"Truncation affected={payload.get('affected_message_type')} data_loss={payload.get('data_loss')} "
+        f"recoverable={payload.get('recoverable')} game_object_count={payload.get('game_object_count')} "
+        f"annotation_count={payload.get('annotation_count')}"
+    )
+
+
 def summarize(event: Any) -> str:
     kind = getattr(event, "kind", "")
     payload = getattr(event, "payload", {}) or {}
@@ -448,4 +457,6 @@ def summarize(event: Any) -> str:
         return _summarize_game_result(payload)
     if kind == "ClientAction":
         return _summarize_client_action(payload)
+    if kind == "Truncation":
+        return _summarize_truncation(payload)
     return f"{kind} {payload}"

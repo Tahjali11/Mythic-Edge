@@ -36,6 +36,12 @@
       "performance_class": "InteractiveDispatch"
     },
     {
+      "class": "TruncationEvent",
+      "in_game_event_union": true,
+      "kind": "Truncation",
+      "performance_class": "InteractiveDispatch"
+    },
+    {
       "class": "DraftBotEvent",
       "in_game_event_union": true,
       "kind": "DraftBot",
@@ -136,6 +142,7 @@
     "GameStateEvent",
     "ClientActionEvent",
     "MatchStateEvent",
+    "TruncationEvent",
     "DraftBotEvent",
     "DraftHumanEvent",
     "DraftCompleteEvent",

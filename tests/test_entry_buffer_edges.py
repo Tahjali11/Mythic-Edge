@@ -42,6 +42,28 @@ def test_unknown_header_collects_continuations_until_next_header() -> None:
     assert entries[1].body == "[ConnectionManager] Reconnect result : Connected"
 
 
+def test_truncation_marker_collects_count_lines_until_next_header() -> None:
+    buffer = LineBuffer()
+
+    entries = buffer.feed(
+        "[Message summarized - GREMessageType_GameStateMessage payload omitted]\n"
+        "GameObject Count: 4\n"
+        "Annotation Count: 2\n"
+        "[ConnectionManager] Reconnect result : Connected\n"
+    )
+
+    assert [entry.header for entry in entries] == [
+        EntryHeader.TRUNCATION_MARKER,
+        EntryHeader.CONNECTION_MANAGER,
+    ]
+    assert entries[0].body == (
+        "[Message summarized - GREMessageType_GameStateMessage payload omitted]\n"
+        "GameObject Count: 4\n"
+        "Annotation Count: 2"
+    )
+    assert entries[1].body == "[ConnectionManager] Reconnect result : Connected"
+
+
 def test_new_header_flushes_buffered_multiline_entry_before_immediate_header() -> None:
     buffer = LineBuffer()
 
