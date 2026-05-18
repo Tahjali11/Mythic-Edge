@@ -199,6 +199,7 @@
         "prev_game_state_id",
         "diff_deleted_instance_ids",
         "diff_deleted_persistent_annotation_ids",
+        "game_state_diff_mechanics",
         "raw_game_state"
       ]
     },
@@ -232,6 +233,7 @@
         "prev_game_state_id",
         "diff_deleted_instance_ids",
         "diff_deleted_persistent_annotation_ids",
+        "game_state_diff_mechanics",
         "raw_game_state"
       ]
     },
