@@ -105,6 +105,18 @@ def test_refresh_card_performance_artifacts_aggregates_opening_cast_seen_and_mul
                         "card_faces": [],
                         "actor_relation": "local",
                     },
+                    {
+                        "match_id": "match-1",
+                        "game_number": 2,
+                        "action_type": "spell_cast",
+                        "grp_id": 9999,
+                        "card_name": "Opponent Card",
+                        "display_name": "Opponent Card",
+                        "resolution_status": "confirmed",
+                        "layout": "",
+                        "card_faces": [],
+                        "actor_relation": "opponent",
+                    },
                 ],
             },
             indent=2,
@@ -120,6 +132,7 @@ def test_refresh_card_performance_artifacts_aggregates_opening_cast_seen_and_mul
 
     assert payload["total_cards"] == 2
     cards_by_name = {card["display_name"]: card for card in payload["cards"]}
+    assert "Opponent Card" not in cards_by_name
     assert cards_by_name["Card A"]["opening_hand_games"] == 1
     assert cards_by_name["Card A"]["opening_hand_win_rate"] == 1.0
     assert cards_by_name["Card A"]["cast_games"] == 1
