@@ -12,12 +12,14 @@ class EntryHeader(str, Enum):
     CONNECTION_MANAGER = "ConnectionManager"
     MATCHMAKING = "Matchmaking"
     CLIENT_GRE = "Client GRE"
+    TRUNCATION_MARKER = "TruncationMarker"
     UNKNOWN = "Unknown"
 
 
 HEADER_RE = re.compile(r"^(?:\[\d+\]\s+)?(\[(?P<header>[^\]]+)\]|DETAILED LOGS:)")
 UTC_PREFIX_RE = re.compile(r"^\[\d+\]\s+")
 _LINE_ENDINGS = ("\n", "\r")
+TRUNCATION_MARKER_PREFIX = "[Message summarized"
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,6 +49,10 @@ _MATCHMAKING_POLICY = HeaderPolicy(
     header=EntryHeader.MATCHMAKING,
     is_single_line=_always_single_line,
 )
+_TRUNCATION_MARKER_POLICY = HeaderPolicy(
+    header=EntryHeader.TRUNCATION_MARKER,
+    is_single_line=_never_single_line,
+)
 _UNKNOWN_HEADER_POLICY = HeaderPolicy(
     header=EntryHeader.UNKNOWN,
     is_single_line=_never_single_line,
@@ -70,6 +76,7 @@ _HEADER_POLICIES_BY_HEADER = {
     for policy in (
         _METADATA_POLICY,
         _MATCHMAKING_POLICY,
+        _TRUNCATION_MARKER_POLICY,
         _UNKNOWN_HEADER_POLICY,
         *_HEADER_POLICIES_BY_NAME.values(),
     )
@@ -144,14 +151,17 @@ class LineBuffer:
 
 
 def resolve_header_policy(line: str) -> HeaderPolicy | None:
+    normalized_line = UTC_PREFIX_RE.sub("", line.lstrip())
     # Keep these explicit prefix rules for now. If entry.py gets another
     # structural review, revisit whether metadata and matchmaking should move
     # into the same ordered rule registry as the bracketed header families.
-    if line.startswith("DETAILED LOGS:"):
+    if normalized_line.startswith("DETAILED LOGS:"):
         return _METADATA_POLICY
-    if line.startswith("Matchmaking: "):
+    if normalized_line.startswith("Matchmaking: "):
         return _MATCHMAKING_POLICY
-    match = HEADER_RE.match(line)
+    if normalized_line.startswith(TRUNCATION_MARKER_PREFIX):
+        return _TRUNCATION_MARKER_POLICY
+    match = HEADER_RE.match(normalized_line)
     if not match:
         return None
     name = match.group("header") or ""

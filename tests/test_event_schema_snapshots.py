@@ -27,6 +27,7 @@ from mythic_edge_parser.parsers import (
     metadata,
     rank,
     session,
+    truncation,
 )
 
 SNAPSHOT_VERSION = 1
@@ -222,6 +223,7 @@ def _parser_payload_sample_events() -> list[tuple[str, events.BaseEvent]]:
     samples.extend(_client_action_sample_events())
     samples.extend(_match_state_sample_events())
     samples.extend(_gre_sample_events())
+    samples.extend(_truncation_sample_events())
     samples.extend(_collection_sample_events())
     samples.extend(_small_parser_sample_events())
     samples.extend(_connection_sample_events())
@@ -498,6 +500,25 @@ def _gre_sample_events() -> list[tuple[str, events.BaseEvent]]:
         ("queued_game_state_message", queued_event),
         ("connect_resp", connect_resp_event),
         ("game_result", game_result_event),
+    ]
+
+
+def _truncation_sample_events() -> list[tuple[str, events.BaseEvent]]:
+    return [
+        (
+            "game_state_message_truncation",
+            _expect_one_event(
+                truncation.try_parse(
+                    LogEntry(
+                        EntryHeader.TRUNCATION_MARKER,
+                        "[Message summarized - GREMessageType_GameStateMessage payload omitted]\n"
+                        "GameObject Count: 12\n"
+                        "Annotation Count: 3",
+                    ),
+                    TS,
+                )
+            ),
+        )
     ]
 
 

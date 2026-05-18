@@ -20,6 +20,7 @@ SUPPORTED_REPLAY_KINDS = {
     "GameState",
     "MatchState",
     "Rank",
+    "Truncation",
 }
 
 
@@ -269,6 +270,27 @@ def test_event_lifecycle_saved_record_reconstructs_event() -> None:
         "type": "event_join",
         "raw_event_lifecycle": "==> EventJoin",
     }
+
+
+def test_truncation_saved_record_reconstructs_event() -> None:
+    record = {
+        "kind": "Truncation",
+        "timestamp": "2026-05-10T17:02:00+00:00",
+        "payload": {
+            "type": "game_state_message_truncation",
+            "data_loss": True,
+            "recoverable": False,
+        },
+    }
+    raw_line = json.dumps(record)
+
+    event = event_from_saved_record(raw_line, record)
+
+    assert event is not None
+    assert event.kind == "Truncation"
+    assert event.metadata.timestamp == datetime(2026, 5, 10, 17, 2, 0, tzinfo=UTC)
+    assert event.metadata.raw_bytes_hash == hashlib.sha256(raw_line.encode()).hexdigest()
+    assert event.payload["type"] == "game_state_message_truncation"
 
 
 def test_replay_event_kind_mapping_contains_exact_supported_kinds() -> None:

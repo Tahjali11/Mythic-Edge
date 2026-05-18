@@ -68,6 +68,12 @@ class MatchStateEvent(BaseEvent):
 
 
 @dataclass(slots=True)
+class TruncationEvent(BaseEvent):
+    kind: ClassVar[str] = "Truncation"
+    performance_class: ClassVar[PerformanceClass] = PerformanceClass.INTERACTIVE_DISPATCH
+
+
+@dataclass(slots=True)
 class DraftBotEvent(BaseEvent):
     kind: ClassVar[str] = "DraftBot"
     performance_class: ClassVar[PerformanceClass] = PerformanceClass.DURABLE_PER_EVENT
@@ -167,6 +173,7 @@ GameEvent = (
     GameStateEvent
     | ClientActionEvent
     | MatchStateEvent
+    | TruncationEvent
     | DraftBotEvent
     | DraftHumanEvent
     | DraftCompleteEvent
