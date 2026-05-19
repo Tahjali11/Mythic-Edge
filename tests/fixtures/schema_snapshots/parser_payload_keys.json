@@ -148,6 +148,26 @@
         "raw_draft_bot"
       ]
     },
+    "DraftComplete.draft_complete_draft": {
+      "discriminator": "draft_complete_draft",
+      "event_kind": "DraftComplete",
+      "keys": [
+        "type",
+        "source_method",
+        "api_direction",
+        "draft_id",
+        "event_id",
+        "queue_id",
+        "draft_status",
+        "completion_status",
+        "draft_type",
+        "draft_mode",
+        "completion_source",
+        "is_bot_draft",
+        "is_human_draft",
+        "raw_draft_complete"
+      ]
+    },
     "DraftHuman.human_draft_business_pick": {
       "discriminator": "human_draft_business_pick",
       "event_kind": "DraftHuman",

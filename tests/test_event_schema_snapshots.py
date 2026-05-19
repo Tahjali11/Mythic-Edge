@@ -21,6 +21,7 @@ from mythic_edge_parser.parsers import (
     connection_error,
     connection_state,
     draft_bot,
+    draft_complete,
     draft_human,
     event_lifecycle,
     gre,
@@ -229,6 +230,7 @@ def _parser_payload_sample_events() -> list[tuple[str, events.BaseEvent]]:
     samples.extend(_collection_sample_events())
     samples.extend(_draft_bot_sample_events())
     samples.extend(_draft_human_sample_events())
+    samples.extend(_draft_complete_sample_events())
     samples.extend(_small_parser_sample_events())
     samples.extend(_connection_sample_events())
     samples.append(
@@ -647,6 +649,33 @@ def _draft_human_sample_events() -> list[tuple[str, events.BaseEvent]]:
                                     "PickNumber": 2,
                                 }
                             ]
+                        },
+                    ),
+                    TS,
+                )
+            ),
+        ),
+    ]
+
+
+def _draft_complete_sample_events() -> list[tuple[str, events.BaseEvent]]:
+    return [
+        (
+            "draft_complete_draft",
+            _expect_one_event(
+                draft_complete.try_parse(
+                    _api_response_entry(
+                        "DraftCompleteDraft",
+                        {
+                            "DraftCompleteDraft": {
+                                "draftId": "schema-draft",
+                                "eventName": "PremierDraft_Schema",
+                                "queueId": "PremierDraft",
+                                "completionStatus": "Complete",
+                                "draftType": "HumanDraft",
+                                "draftMode": "Premier",
+                                "isHumanDraft": True,
+                            }
                         },
                     ),
                     TS,
