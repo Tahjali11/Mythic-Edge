@@ -7,6 +7,41 @@ import json
 
 from mythic_edge_parser.app import evidence_ledger
 
+CONTRACTED_TIER1_FIELDS = [
+    "match_id",
+    "match_started_at",
+    "match_finished_at",
+    "match_winner_team",
+    "match_result",
+    "match_sync_status",
+]
+
+CONTRACTED_TIER1_ENTRY_IDS = {
+    "tier1.match_identity.match_id",
+    "tier1.match_lifecycle.match_started_at",
+    "tier1.match_lifecycle.match_finished_at",
+    "tier1.match_result.match_winner_team",
+    "tier1.match_result.match_result",
+    "tier1.match_lifecycle.match_sync_status",
+}
+
+DEFERRED_AGGREGATE_FIELDS = {
+    "games_won",
+    "games_lost",
+    "total_games",
+    "match_win_flag",
+    "game_win_rate",
+}
+
+
+def _entries_by_id() -> dict[str, dict[str, object]]:
+    return {entry["entry_id"]: entry for entry in evidence_ledger.iter_ledger_entries()}
+
+
+def _tier1_family() -> dict[str, object]:
+    families = evidence_ledger.build_player_log_evidence_ledger()["output_families"]
+    return next(family for family in families if family["output_family"] == "match_identity_and_lifecycle")
+
 
 def test_vocabulary_constants_match_contract_slice() -> None:
     assert evidence_ledger.VALUE_SOURCES == (
@@ -83,14 +118,14 @@ def test_output_family_registry_contains_required_seven_families() -> None:
         (6, "runtime_health_and_drift_detection", "registered_future"),
         (7, "derived_analytics_outputs", "registered_future"),
     ]
-    assert [family for family in families if family["status"] == "seeded_sample"][0]["seed_fields"] == ["match_id"]
+    tier1 = _tier1_family()
+    assert tier1["seed_fields"] == CONTRACTED_TIER1_FIELDS
+    assert set(tier1["future_fields"]) == DEFERRED_AGGREGATE_FIELDS
 
 
 def test_seed_entry_maps_match_id_evidence_signals() -> None:
-    entries = evidence_ledger.iter_ledger_entries()
+    entry = _entries_by_id()["tier1.match_identity.match_id"]
 
-    assert len(entries) == 1
-    entry = entries[0]
     assert entry["entry_id"] == "tier1.match_identity.match_id"
     assert entry["tier"] == 1
     assert entry["output_family"] == "match_identity_and_lifecycle"
@@ -114,6 +149,92 @@ def test_seed_entry_maps_match_id_evidence_signals() -> None:
     }
     assert entry["fallback_evidence"][0]["signal_id"] == "parser_context.current_match_id"
     assert entry["fallback_evidence"][0]["value_source_when_used"] == "derived"
+
+
+def test_tier1_match_lifecycle_entries_are_expanded_without_aggregates() -> None:
+    entries = _entries_by_id()
+    output_fields = {entry["output_field"] for entry in entries.values()}
+
+    assert set(entries) == CONTRACTED_TIER1_ENTRY_IDS
+    assert all(entry["tier"] == 1 for entry in entries.values())
+    assert all(entry["output_family"] == "match_identity_and_lifecycle" for entry in entries.values())
+    assert output_fields == set(CONTRACTED_TIER1_FIELDS)
+    assert DEFERRED_AGGREGATE_FIELDS.isdisjoint(output_fields)
+
+
+def test_lifecycle_time_entries_document_required_sources_and_aliases() -> None:
+    entries = _entries_by_id()
+    start = entries["tier1.match_lifecycle.match_started_at"]
+    finish = entries["tier1.match_lifecycle.match_finished_at"]
+
+    assert start["display_name"] == "MGTA Start Time"
+    assert {signal["signal_id"] for signal in start["direct_evidence"]} == {
+        "match_state.match_started.timestamp"
+    }
+    assert start["fallback_evidence"][0]["signal_id"] == "parser_state.match_summary.first_event_time"
+    assert start["direct_evidence"][0]["value_source_when_used"] == "observed"
+    assert start["fallback_evidence"][0]["value_source_when_used"] == "derived"
+
+    assert finish["display_name"] == "MTGA End Time"
+    assert {signal["signal_id"] for signal in finish["direct_evidence"]} == {
+        "game_result.match_complete.timestamp",
+        "match_state.match_complete.timestamp",
+    }
+    assert finish["fallback_evidence"][0]["signal_id"] == "parser_state.match_summary.last_event_time"
+    assert any("live rows leave MTGA End Time blank" in item for item in finish["degradation_behavior"])
+
+
+def test_match_winner_entry_documents_precedence_unknowns_and_fallback_gate() -> None:
+    entry = _entries_by_id()["tier1.match_result.match_winner_team"]
+
+    assert {signal["signal_id"] for signal in entry["direct_evidence"]} == {
+        "game_result.results.match_scope_winner",
+        "match_state.game_results.match_scope_winner",
+    }
+    assert entry["fallback_evidence"][0]["signal_id"] == "game_result.top_level_match_complete_winner"
+    assert entry["fallback_evidence"][0]["confidence_when_used"] == "medium"
+    assert "top_level_winner_fallback_requires_match_complete" in entry["invariant_checks"]
+    assert "unknown_winner_values_do_not_overwrite_known_winner" in entry["invariant_checks"]
+    assert any("0, and string 0 are unknown" in item for item in entry["degradation_behavior"])
+    assert any("game-level result aggregation must not infer" in item for item in entry["degradation_behavior"])
+
+
+def test_match_winner_game_result_evidence_paths_match_parser_raw_shape() -> None:
+    entry = _entries_by_id()["tier1.match_result.match_winner_team"]
+    signals = {
+        signal["signal_id"]: signal
+        for signal in (*entry["direct_evidence"], *entry["fallback_evidence"])
+    }
+
+    assert signals["game_result.results.match_scope_winner"]["raw_payload_path"] == (
+        "greToClientMessages[].gameStateMessage.gameInfo.results[].winningTeamId"
+    )
+    assert signals["game_result.top_level_match_complete_winner"]["raw_payload_path"] == (
+        "greToClientMessages[].gameStateMessage.gameInfo.results[].winningTeamId"
+    )
+
+
+def test_match_result_and_sync_status_are_derived_parser_state_entries() -> None:
+    entries = _entries_by_id()
+    result = entries["tier1.match_result.match_result"]
+    sync_status = entries["tier1.match_lifecycle.match_sync_status"]
+
+    assert result["display_name"] == "Match Win?"
+    assert result["value_source_policy"]["direct"] == "derived"
+    assert {signal["signal_id"] for signal in result["fallback_evidence"]} == {
+        "parser_state.match_summary.match_winner_team_dependency",
+        "parser_state.match_summary.player_team_dependency",
+    }
+    assert "match_result_not_directly_observed_as_win_loss" in result["invariant_checks"]
+
+    assert sync_status["display_name"] == "MTGA Sync Status"
+    assert sync_status["value_source_policy"]["direct"] == "derived"
+    assert sync_status["direct_evidence"][0]["signal_id"] == "parser_state.match_summary_ready"
+    assert {signal["signal_id"] for signal in sync_status["fallback_evidence"]} == {
+        "parser_state.live_match_log_row",
+        "models.match_summary.to_match_log_row.final_argument",
+    }
+    assert any("webhook delivery do not decide finality" in item for item in sync_status["degradation_behavior"])
 
 
 def test_builtin_ledger_and_entries_validate_cleanly() -> None:
@@ -192,11 +313,12 @@ def test_validator_reports_absolute_paths_and_raw_log_like_text() -> None:
     entry = copy.deepcopy(evidence_ledger.iter_ledger_entries()[0])
     entry["parser_owner"] = "/private/example/state.py"
     entry["notes"].append("[UnityCrossThreadLogger]5/19/2026 12:00:00 PM")
+    forbidden_note_index = len(entry["notes"]) - 1
 
     errors = evidence_ledger.validate_ledger_entry(entry)
 
     assert "privacy:absolute_path:entry.parser_owner" in errors
-    assert "privacy:forbidden_text:entry.notes[1]" in errors
+    assert f"privacy:forbidden_text:entry.notes[{forbidden_note_index}]" in errors
 
 
 def test_field_evidence_validator_enforces_vocabularies_and_review_rules() -> None:
