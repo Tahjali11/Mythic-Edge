@@ -10,6 +10,7 @@ from mythic_edge_parser.app import golden_replay
 FIXTURE_DIR = Path("tests/fixtures/golden_replay")
 BO1_MANIFEST = FIXTURE_DIR / "bo1_match_win_basic.manifest.json"
 BO3_MANIFEST = FIXTURE_DIR / "bo3_sideboard_match_loss.manifest.json"
+DRAFT_MANIFEST = FIXTURE_DIR / "draft_parser_family.manifest.json"
 
 
 def _manifest_payload(path: Path = BO1_MANIFEST) -> dict:
@@ -22,15 +23,15 @@ def _write_manifest(tmp_path: Path, payload: dict) -> Path:
     return manifest_path
 
 
-def test_committed_golden_manifests_pass_through_normal_parser_path() -> None:
-    report = golden_replay.build_golden_replay_report([BO1_MANIFEST, BO3_MANIFEST])
+def test_committed_golden_manifests_replay_through_normal_parser_path() -> None:
+    report = golden_replay.build_golden_replay_report([BO1_MANIFEST, BO3_MANIFEST, DRAFT_MANIFEST])
 
     assert report["object"] == "mythic_edge_golden_replay_report"
     assert report["schema_version"] == "parser_golden_replay_report.v1"
     assert report["suite_status"] == "pass"
     assert report["summary"] == {
-        "manifests_total": 2,
-        "pass": 2,
+        "manifests_total": 3,
+        "pass": 3,
         "degraded": 0,
         "review": 0,
         "diff": 0,
@@ -41,6 +42,7 @@ def test_committed_golden_manifests_pass_through_normal_parser_path() -> None:
     assert [result["fixture_id"] for result in report["results"]] == [
         "bo1_match_win_basic",
         "bo3_sideboard_match_loss",
+        "draft_parser_family",
     ]
     assert report["metadata"]["normal_parser_path"] == [
         "LineBuffer",
@@ -49,6 +51,24 @@ def test_committed_golden_manifests_pass_through_normal_parser_path() -> None:
         "transforms",
         "parser state",
     ]
+
+
+def test_draft_parser_family_manifest_records_draft_coverage_without_degradation() -> None:
+    report = golden_replay.build_golden_replay_report([DRAFT_MANIFEST])
+
+    assert report["suite_status"] == "pass"
+    assert report["summary"] == {
+        "manifests_total": 1,
+        "pass": 1,
+        "degraded": 0,
+        "review": 0,
+        "diff": 0,
+        "fail": 0,
+        "fixtures_with_truncation": 0,
+        "fixtures_with_data_loss": 0,
+    }
+    assert report["results"][0]["comparisons"]["event_family_counts"] == "pass"
+    assert report["results"][0]["degradation"] == []
 
 
 def test_run_golden_replay_reports_reduced_expected_manifest_diffs(tmp_path: Path) -> None:
@@ -150,9 +170,9 @@ def test_cli_accepts_manifest_directory_and_writes_explicit_local_report(tmp_pat
     captured = capsys.readouterr()
     report = json.loads(out_path.read_text(encoding="utf-8"))
     assert exit_code == 0
-    assert "Golden replay: pass (2 manifests, 2 pass, 0 degraded, 0 review, 0 diff, 0 fail)" in captured.out
+    assert "Golden replay: pass (3 manifests, 3 pass, 0 degraded, 0 review, 0 diff, 0 fail)" in captured.out
     assert report["suite_status"] == "pass"
-    assert report["summary"]["manifests_total"] == 2
+    assert report["summary"]["manifests_total"] == 3
 
 
 def test_cli_returns_nonzero_for_review_status(tmp_path: Path, capsys) -> None:

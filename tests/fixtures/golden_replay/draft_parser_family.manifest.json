@@ -1,0 +1,86 @@
+{
+  "object": "mythic_edge_golden_replay_manifest",
+  "schema_version": "parser_golden_replay_manifest.v1",
+  "fixture_id": "draft_parser_family",
+  "description": "Synthetic draft parser family slice covering DraftBot, DraftHuman, and DraftComplete through the normal parser path.",
+  "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/48",
+  "coverage_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/126",
+  "authorized_by_contract": "docs/contracts/parser_golden_replay_harness.md",
+  "source": {
+    "log_path": "tests/fixtures/draft_parser_family_slice.log",
+    "source_kind": "synthetic_player_log_slice",
+    "sanitization_status": "synthetic",
+    "source_privacy_class": "sanitized_committable",
+    "raw_private_log_committed": false
+  },
+  "coverage": {
+    "covered_event_families": [
+      "DraftBot",
+      "DraftHuman",
+      "DraftComplete"
+    ],
+    "known_gaps": [],
+    "expected_degradation": [],
+    "expected_truncation_signals": []
+  },
+  "expected": {
+    "router_stats": {
+      "routed": 4,
+      "unknown": 0,
+      "timestamp_missing": 0,
+      "timestamp_parse_failure": 0
+    },
+    "event_family_counts": {
+      "DraftBot": 1,
+      "DraftComplete": 1,
+      "DraftHuman": 1,
+      "GameState": 1
+    },
+    "event_kind_sequence": [
+      "DraftBot",
+      "DraftHuman",
+      "DraftComplete",
+      "GameState"
+    ],
+    "diagnostics_summary": {
+      "overall_status": "pass",
+      "parser_status": "pass",
+      "routed_entries": 4,
+      "unknown_entries": 0,
+      "truncation_events": 0,
+      "parser_failures": 0
+    },
+    "truncation_and_data_loss": {
+      "truncation_count": 0,
+      "data_loss_events": []
+    },
+    "unknowns_and_degradation": {
+      "unknown_entry_count": 0,
+      "degraded_outputs": [],
+      "unknown_signatures": []
+    },
+    "parser_state": {
+      "match_id": "synthetic-draft-match-anchor",
+      "current_game_number": 1,
+      "player_team": 1,
+      "match_win_condition": "MatchWinCondition_SingleGame",
+      "games": []
+    },
+    "final_reconciliation": {
+      "match_winner_team": "",
+      "game_results": []
+    },
+    "parser_owned_rows": {
+      "match_log_row": {},
+      "game_log_rows": [
+        {
+          "MTGA Match ID": "synthetic-draft-match-anchor",
+          "MTGA Format": "Limited",
+          "MTGA Queue Type": "Best of 1",
+          "Game Number": 1,
+          "Pre / Postboard": "Preboard"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,13 @@
+# Synthetic draft parser family slice for issue #126 fixture coverage.
+# This is not a raw Player.log excerpt.
+[UnityCrossThreadLogger]5/19/2026 12:00:00 PM
+<== BotDraftDraftStatus
+{"draftId":"synthetic-bot-draft-1","eventName":"QuickDraft_Synthetic","draftStatus":"PackOpen","packNumber":1,"pickNumber":1,"packCards":[1001,1002,1003],"pickedCardId":1001,"pickedCardIds":[1001]}
+[UnityCrossThreadLogger]5/19/2026 12:00:01 PM
+==> EventPlayerDraftMakePick
+{"EventPlayerDraftMakePick":{"DraftId":"synthetic-human-draft-1","EventId":"PremierDraft_Synthetic","status":"Submitted","PackNumber":"002","PickNumber":"3","DraftPack":["2001",2002,2003],"PickGrpId":"2002","PickedGrpIds":["2002"]}}
+[UnityCrossThreadLogger]5/19/2026 12:00:02 PM
+<== DraftCompleteDraft
+{"DraftCompleteDraft":{"DraftId":"synthetic-human-draft-1","EventName":"PremierDraft_Synthetic","EventQueueId":"PremierDraft_Synthetic","state":"Complete","Result":"Complete","DraftCategory":"HumanDraft","Mode":"Premier","Source":"DraftCompleteDraft","BotDraft":false,"HumanDraft":true}}
+[Client GRE]5/19/2026 12:00:03 PM
+{"greToClientEvent":{"greToClientMessages":[{"type":"GREMessageType_GameStateMessage","msgId":1,"gameStateId":700,"systemSeatIds":[1,2],"gameStateMessage":{"gameInfo":{"matchID":"synthetic-draft-match-anchor","gameNumber":1,"stage":"GameStage_Play","matchState":"MatchState_GameInProgress","superFormat":"SuperFormat_Limited","matchWinCondition":"MatchWinCondition_SingleGame"},"turnInfo":{"turnNumber":0,"activePlayer":1},"players":[{"systemSeatNumber":1,"teamId":1},{"systemSeatNumber":2,"teamId":2}]}}]}}

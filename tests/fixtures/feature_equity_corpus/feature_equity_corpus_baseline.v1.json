@@ -7,12 +7,12 @@
       "ConnectionError": 0,
       "DeckCollection": 0,
       "DetailedLoggingStatus": 0,
-      "DraftBot": 0,
-      "DraftComplete": 0,
-      "DraftHuman": 0,
+      "DraftBot": 1,
+      "DraftComplete": 1,
+      "DraftHuman": 1,
       "EventLifecycle": 0,
       "GameResult": 3,
-      "GameState": 6,
+      "GameState": 7,
       "Inventory": 0,
       "LogFileRotated": 0,
       "MatchConnectionState": 0,
@@ -29,12 +29,12 @@
       "ConnectionError": 0,
       "DeckCollection": 0,
       "DetailedLoggingStatus": 0,
-      "DraftBot": 0,
-      "DraftComplete": 0,
-      "DraftHuman": 0,
+      "DraftBot": 1,
+      "DraftComplete": 1,
+      "DraftHuman": 1,
       "EventLifecycle": 0,
       "GameResult": 3,
-      "GameState": 6,
+      "GameState": 7,
       "Inventory": 0,
       "LogFileRotated": 0,
       "MatchConnectionState": 0,
@@ -54,30 +54,30 @@
       "connect_resp_events": 0,
       "diff_complete_snapshots": 0,
       "diff_confidence_counts": {
-        "unknown": 6
+        "unknown": 7
       },
-      "diff_degraded_records": 6,
+      "diff_degraded_records": 7,
       "diff_deleted_annotation_ids": 0,
       "diff_deleted_instance_ids": 0,
       "diff_deletion_evidence_present": 0,
       "diff_evidence_status_counts": {
-        "unknown": 6
+        "unknown": 7
       },
       "diff_incremental_updates": 0,
       "diff_previous_state_linked": 0,
-      "diff_previous_state_missing": 6,
+      "diff_previous_state_missing": 7,
       "diff_queued_messages": 0,
-      "diff_review_required": 6,
+      "diff_review_required": 7,
       "diff_source_field_counts": {
-        "gameStateId": 6,
-        "msgId": 6,
-        "type": 6
+        "gameStateId": 7,
+        "msgId": 7,
+        "type": 7
       },
       "diff_value_source_counts": {
-        "unknown": 6
+        "unknown": 7
       },
-      "game_state_events": 6,
-      "game_state_message_events": 6,
+      "game_state_events": 7,
+      "game_state_message_events": 7,
       "queued_game_state_messages": 0,
       "timer_time_unit_counts": {
         "milliseconds": 0,
@@ -91,17 +91,17 @@
     },
     "input_counts": {
       "fixtures_private_rejected": 0,
-      "fixtures_sanitized_committable": 2,
+      "fixtures_sanitized_committable": 3,
       "fixtures_synthetic_committable": 0,
-      "fixtures_total": 2,
-      "manifests_total": 2,
-      "source_files_total": 2
+      "fixtures_total": 3,
+      "manifests_total": 3,
+      "source_files_total": 3
     },
     "parser_claim_counts": {
       "client_action_claims": 3,
       "final_reconciliation_claims": 3,
       "game_result_claims": 3,
-      "game_state_claims": 6,
+      "game_state_claims": 7,
       "match_lifecycle_claims": 2,
       "opponent_observation_claims": 0,
       "rank_context_claims": 2
@@ -110,13 +110,16 @@
       "ClientAction:generic_client_action": 1,
       "ClientAction:mulligan_resp": 1,
       "ClientAction:submit_deck_resp": 1,
+      "DraftBot:bot_draft_status": 1,
+      "DraftComplete:draft_complete_draft": 1,
+      "DraftHuman:human_draft_make_pick": 1,
       "GameResult:game_result": 3,
-      "GameState:game_state_message": 6,
+      "GameState:game_state_message": 7,
       "MatchState:match_started": 2,
       "Rank:rank_snapshot": 2
     },
     "router_stats": {
-      "routed": 13,
+      "routed": 17,
       "timestamp_missing": 0,
       "timestamp_parse_failure": 0,
       "unknown": 0
@@ -129,9 +132,9 @@
       "truncation_events": 0
     },
     "unknowns_and_degradation": {
-      "degraded_parser_outputs": 6,
+      "degraded_parser_outputs": 7,
       "malformed_records": 0,
-      "review_required_outputs": 6,
+      "review_required_outputs": 7,
       "timestamp_missing": 0,
       "timestamp_parse_failure": 0,
       "unknown_entries": 0,
@@ -141,13 +144,15 @@
   "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/119",
   "object": "mythic_edge_feature_equity_corpus_ratchet_baseline",
   "review_notes": [
-    "Initial V1 count-only baseline generated from the two committed golden replay manifests on codex/parser-reliability-intelligence.",
+    "V1 count-only baseline generated from committed golden replay manifests on codex/parser-reliability-intelligence.",
+    "Issue #126 adds one synthetic draft parser family fixture to cover DraftBot, DraftHuman, and DraftComplete counts without changing parser behavior.",
     "Positive GameState diff review/degradation counters reflect current fixture payloads missing update-kind evidence; this baseline records coverage shape only."
   ],
   "schema_version": "parser_feature_equity_corpus_ratchet_baseline.v1",
   "source_manifest_paths": [
     "tests/fixtures/golden_replay/bo1_match_win_basic.manifest.json",
-    "tests/fixtures/golden_replay/bo3_sideboard_match_loss.manifest.json"
+    "tests/fixtures/golden_replay/bo3_sideboard_match_loss.manifest.json",
+    "tests/fixtures/golden_replay/draft_parser_family.manifest.json"
   ],
   "source_privacy": {
     "privacy_class": "committed_count_only",
