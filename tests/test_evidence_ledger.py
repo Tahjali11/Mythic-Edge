@@ -73,6 +73,12 @@ CONTRACTED_TIER3_FIELDS = [
     "game1_result",
     "game2_result",
     "game3_result",
+    "game1_starting_player",
+    "game2_starting_player",
+    "game3_starting_player",
+    "game1_play_draw",
+    "game2_play_draw",
+    "game3_play_draw",
 ]
 
 CONTRACTED_TIER3_ENTRY_IDS = {
@@ -83,11 +89,33 @@ CONTRACTED_TIER3_ENTRY_IDS = {
     "tier3.game_results.game1_result",
     "tier3.game_results.game2_result",
     "tier3.game_results.game3_result",
+    "tier3.play_draw.game1_starting_player",
+    "tier3.play_draw.game2_starting_player",
+    "tier3.play_draw.game3_starting_player",
+    "tier3.play_draw.game1_play_draw",
+    "tier3.play_draw.game2_play_draw",
+    "tier3.play_draw.game3_play_draw",
+}
+
+CONTRACTED_PLAY_DRAW_ENTRY_IDS = {
+    "tier3.play_draw.game1_starting_player",
+    "tier3.play_draw.game2_starting_player",
+    "tier3.play_draw.game3_starting_player",
+    "tier3.play_draw.game1_play_draw",
+    "tier3.play_draw.game2_play_draw",
+    "tier3.play_draw.game3_play_draw",
+}
+
+CONTRACTED_PLAY_DRAW_FIELDS = {
+    "game1_starting_player",
+    "game2_starting_player",
+    "game3_starting_player",
+    "game1_play_draw",
+    "game2_play_draw",
+    "game3_play_draw",
 }
 
 CONTRACTED_TIER3_DEFERRED_FIELDS = {
-    "play_draw",
-    "starting_player",
     "mulligans",
     "turn_count",
     "opening_hand",
@@ -208,7 +236,11 @@ def test_output_family_registry_contains_required_seven_families() -> None:
     tier3 = _tier3_family()
     assert tier3["seed_fields"] == CONTRACTED_TIER3_FIELDS
     assert set(tier3["future_fields"]) == CONTRACTED_TIER3_DEFERRED_FIELDS
+    assert CONTRACTED_PLAY_DRAW_FIELDS.issubset(tier3["seed_fields"])
+    assert "play_draw" not in tier3["future_fields"]
+    assert "starting_player" not in tier3["future_fields"]
     assert any("match-scope results are not promoted" in item for item in tier3["notes"])
+    assert any("Issue #139 maps starting-player and play/draw" in item for item in tier3["notes"])
 
 
 def test_seed_entry_maps_match_id_evidence_signals() -> None:
@@ -633,6 +665,142 @@ def test_tier3_game_result_entries_are_derived_from_winner_and_player_team() -> 
         assert f"{game_label}_result_not_inferred_from_match_result_or_aggregates" in entry["invariant_checks"]
         assert any("unplayed game slot is expected" in item for item in entry["degradation_behavior"])
         assert any("match result, match winner, aggregate counts" in item for item in entry["degradation_behavior"])
+
+
+def test_tier3_play_draw_entries_are_mapped_and_validate() -> None:
+    entries = _entries_by_id()
+
+    assert CONTRACTED_PLAY_DRAW_ENTRY_IDS.issubset(entries)
+    for entry_id in CONTRACTED_PLAY_DRAW_ENTRY_IDS:
+        entry = entries[entry_id]
+        assert entry["tier"] == 3
+        assert entry["output_family"] == "game_level_facts"
+        assert entry["coverage_status"] == "seeded_sample"
+        assert entry["parser_managed_truth"] is True
+        assert evidence_ledger.validate_ledger_entry(entry) == []
+
+
+def test_tier3_starting_player_entries_document_explicit_turn_one_and_inference_sources() -> None:
+    entries = _entries_by_id()
+
+    for game_number in (1, 2, 3):
+        game_label = f"game{game_number}"
+        entry = entries[f"tier3.play_draw.{game_label}_starting_player"]
+        direct_signals = {signal["signal_id"]: signal for signal in entry["direct_evidence"]}
+        fallback_signals = {signal["signal_id"]: signal for signal in entry["fallback_evidence"]}
+
+        assert entry["display_name"] == f"g{game_number}_starting_player"
+        assert entry["model_surface"] == f"MatchSummary.effective_starting_player({game_number})"
+        assert direct_signals[f"client_action.{game_label}.choose_starting_player"][
+            "raw_message_type"
+        ] == "ClientMessageType_ChooseStartingPlayerResp"
+        assert direct_signals[f"client_action.{game_label}.choose_starting_player"][
+            "confidence_when_used"
+        ] == "high"
+        assert direct_signals[f"game_state.{game_label}.turn_one_active_player_team"][
+            "confidence_when_used"
+        ] == "high"
+        assert direct_signals[f"game_state.{game_label}.turn_one_active_player_seat"][
+            "confidence_when_used"
+        ] == "low"
+        assert "tier3.game_results.game_number_dependency" in fallback_signals
+        assert "ledger.tier1.participants.participant_team_mapping_dependency" in fallback_signals
+        assert f"{game_label}_starting_player_turn_one_evidence_requires_turn_number_1" in entry[
+            "invariant_checks"
+        ]
+        assert f"{game_label}_starting_player_unknown_like_values_are_unknown" in entry[
+            "invariant_checks"
+        ]
+        assert any("seat-only starting-player evidence is degraded" in item for item in entry["degradation_behavior"])
+        assert all(signal["privacy_class"] == "path_only_no_values" for signal in entry["direct_evidence"])
+
+    game1 = entries["tier3.play_draw.game1_starting_player"]
+    assert "model.game1.inferred_starting_player_from_previous_game" not in _all_signal_ids(game1)
+    assert "game1_starting_player_not_inferred_from_previous_game" in game1["invariant_checks"]
+    assert game1["value_source_policy"]["fallback"] == "derived"
+
+    game2 = entries["tier3.play_draw.game2_starting_player"]
+    assert "model.game2.inferred_starting_player_from_previous_game" in _all_signal_ids(game2)
+    assert "ledger.tier3.game_results.game1_winner_team_dependency" in _all_signal_ids(game2)
+    assert "ledger.tier1.participants.player_team_dependency" in _all_signal_ids(game2)
+    assert "ledger.tier1.participants.opponent_team_dependency" in _all_signal_ids(game2)
+    assert game2["value_source_policy"]["fallback"] == "inferred"
+    assert any(
+        signal["signal_id"] == "model.game2.inferred_starting_player_from_previous_game"
+        and signal["value_source_when_used"] == "inferred"
+        for signal in game2["fallback_evidence"]
+    )
+
+    game3 = entries["tier3.play_draw.game3_starting_player"]
+    assert "model.game3.inferred_starting_player_from_previous_game" in _all_signal_ids(game3)
+    assert "ledger.tier3.game_results.game2_winner_team_dependency" in _all_signal_ids(game3)
+    assert "ledger.tier1.participants.player_team_dependency" in _all_signal_ids(game3)
+    assert "ledger.tier1.participants.opponent_team_dependency" in _all_signal_ids(game3)
+    assert game3["value_source_policy"]["fallback"] == "inferred"
+    assert any(
+        signal["signal_id"] == "model.game3.inferred_starting_player_from_previous_game"
+        and signal["value_source_when_used"] == "inferred"
+        for signal in game3["fallback_evidence"]
+    )
+
+
+def test_tier3_play_draw_entries_are_derived_from_starting_player_and_participants() -> None:
+    entries = _entries_by_id()
+
+    for game_number in (1, 2, 3):
+        game_label = f"game{game_number}"
+        entry = entries[f"tier3.play_draw.{game_label}_play_draw"]
+        fallback_signals = _signal_ids(entry, "fallback_evidence")
+
+        assert entry["display_name"] == f"G{game_number} Play / Draw"
+        assert entry["model_surface"] == f"MatchSummary.game_play_draw({game_number})"
+        assert entry["value_source_policy"]["direct"] == "derived"
+        assert entry["direct_evidence"][0]["signal_id"] == f"parser_state.match_summary.{game_label}_play_draw"
+        assert entry["direct_evidence"][0]["value_source_when_used"] == "derived"
+        assert f"ledger.tier3.play_draw.{game_label}_starting_player_dependency" in fallback_signals
+        assert "ledger.tier1.participants.player_team_dependency" in fallback_signals
+        assert f"{game_label}_play_draw_requires_starting_player_and_player_team" in entry[
+            "invariant_checks"
+        ]
+        assert f"{game_label}_play_draw_missing_starting_player_not_draw" in entry["invariant_checks"]
+        assert f"{game_label}_play_draw_expected_blank_when_unplayed" in entry["invariant_checks"]
+        assert any("missing starting player leaves play/draw blank" in item for item in entry["degradation_behavior"])
+        assert any(
+            "played game" in item and "degraded and review-worthy" in item
+            for item in entry["degradation_behavior"]
+        )
+        assert all(signal["privacy_class"] == "path_only_no_values" for signal in entry["fallback_evidence"])
+
+    game2 = entries["tier3.play_draw.game2_play_draw"]
+    assert "ledger.tier1.participants.opponent_team_dependency" in _all_signal_ids(game2)
+    assert "ledger.tier3.game_results.game1_winner_team_dependency" in _all_signal_ids(game2)
+    assert "game2_play_draw_exposes_inferred_starting_player_dependency" in game2["invariant_checks"]
+
+    game3 = entries["tier3.play_draw.game3_play_draw"]
+    assert "ledger.tier1.participants.opponent_team_dependency" in _all_signal_ids(game3)
+    assert "ledger.tier3.game_results.game2_winner_team_dependency" in _all_signal_ids(game3)
+    assert "game3_play_draw_exposes_inferred_starting_player_dependency" in game3["invariant_checks"]
+
+
+def test_tier3_play_draw_keeps_mulligan_and_other_game_facts_deferred() -> None:
+    tier3 = _tier3_family()
+    entries = _entries_by_id()
+
+    assert "play_draw" not in tier3["future_fields"]
+    assert "starting_player" not in tier3["future_fields"]
+    assert {
+        "mulligans",
+        "turn_count",
+        "opening_hand",
+        "game_timing",
+        "game_duration",
+        "pre_postboard",
+        "sideboarding",
+        "deck_state",
+    }.issubset(tier3["future_fields"])
+    assert not any("mulligan" in entry_id for entry_id in entries if entry_id.startswith("tier3.play_draw."))
+    for entry_id in CONTRACTED_PLAY_DRAW_ENTRY_IDS:
+        assert any("Issue #140 mulligan provenance remains deferred" in note for note in entries[entry_id]["notes"])
 
 
 def test_builtin_ledger_and_entries_validate_cleanly() -> None:
