@@ -9,6 +9,10 @@ from mythic_edge_parser.app import evidence_ledger
 
 CONTRACTED_TIER1_FIELDS = [
     "match_id",
+    "player_team",
+    "opponent_team",
+    "local_system_seat_id",
+    "participant_team_mapping",
     "match_started_at",
     "match_finished_at",
     "match_winner_team",
@@ -23,6 +27,10 @@ CONTRACTED_TIER1_FIELDS = [
 
 CONTRACTED_TIER1_ENTRY_IDS = {
     "tier1.match_identity.match_id",
+    "tier1.participants.player_team",
+    "tier1.participants.opponent_team",
+    "tier1.participants.local_system_seat_id",
+    "tier1.participants.participant_team_mapping",
     "tier1.match_lifecycle.match_started_at",
     "tier1.match_lifecycle.match_finished_at",
     "tier1.match_result.match_winner_team",
@@ -41,6 +49,20 @@ CONTRACTED_AGGREGATE_FIELDS = {
     "total_games",
     "match_win_flag",
     "game_win_rate",
+}
+
+CONTRACTED_PARTICIPANT_FIELDS = {
+    "player_team",
+    "opponent_team",
+    "local_system_seat_id",
+    "participant_team_mapping",
+}
+
+CONTRACTED_PARTICIPANT_ENTRY_IDS = {
+    "tier1.participants.player_team",
+    "tier1.participants.opponent_team",
+    "tier1.participants.local_system_seat_id",
+    "tier1.participants.participant_team_mapping",
 }
 
 CONTRACTED_TIER3_FIELDS = [
@@ -92,6 +114,14 @@ def _tier1_family() -> dict[str, object]:
 
 def _tier3_family() -> dict[str, object]:
     return _family("game_level_facts")
+
+
+def _signal_ids(entry: dict[str, object], key: str) -> set[str]:
+    return {signal["signal_id"] for signal in entry[key]}
+
+
+def _all_signal_ids(entry: dict[str, object]) -> set[str]:
+    return _signal_ids(entry, "direct_evidence") | _signal_ids(entry, "fallback_evidence")
 
 
 def test_vocabulary_constants_match_contract_slice() -> None:
@@ -172,6 +202,8 @@ def test_output_family_registry_contains_required_seven_families() -> None:
     tier1 = _tier1_family()
     assert tier1["seed_fields"] == CONTRACTED_TIER1_FIELDS
     assert tier1["future_fields"] == []
+    assert CONTRACTED_PARTICIPANT_FIELDS.issubset(tier1["seed_fields"])
+    assert any("Issue #137 maps participant" in item for item in tier1["notes"])
 
     tier3 = _tier3_family()
     assert tier3["seed_fields"] == CONTRACTED_TIER3_FIELDS
@@ -220,6 +252,112 @@ def test_tier1_match_lifecycle_and_aggregate_entries_are_mapped() -> None:
     )
     assert set(CONTRACTED_TIER1_FIELDS).issubset(output_fields)
     assert CONTRACTED_AGGREGATE_FIELDS.issubset(output_fields)
+
+
+def test_participant_entries_are_mapped_and_validate() -> None:
+    entries = _entries_by_id()
+
+    assert CONTRACTED_PARTICIPANT_ENTRY_IDS.issubset(entries)
+    for entry_id in CONTRACTED_PARTICIPANT_ENTRY_IDS:
+        entry = entries[entry_id]
+        assert entry["tier"] == 1
+        assert entry["output_family"] == "match_identity_and_lifecycle"
+        assert entry["coverage_status"] == "seeded_sample"
+        assert entry["parser_managed_truth"] is True
+        assert evidence_ledger.validate_ledger_entry(entry) == []
+
+
+def test_player_team_entry_documents_sources_unknowns_and_context_limits() -> None:
+    entry = _entries_by_id()["tier1.participants.player_team"]
+
+    assert entry["display_name"] == "player_team"
+    assert entry["model_surface"] == "MatchSummary.player_team"
+    assert _signal_ids(entry, "direct_evidence") == {
+        "match_state.players.selected_local_player_team",
+        "game_state.system_seat_ids.local_player_team",
+        "client_action.local_player_team",
+    }
+    assert _signal_ids(entry, "fallback_evidence") == {
+        "parser_context.current_player_team",
+        "parser_state.match_summary.player_team",
+    }
+    assert "player_facing_results_require_known_non_conflicting_player_team" in entry["invariant_checks"]
+    assert "known_winner_does_not_repair_missing_player_team" in entry["invariant_checks"]
+    assert any(
+        "whitespace-only strings, zero, string zero, and booleans" in item
+        for item in entry["degradation_behavior"]
+    )
+    assert any("LOCAL_PLAYER_INDEX" in item for item in entry["notes"])
+    assert all(signal["privacy_class"] == "path_only_no_values" for signal in entry["direct_evidence"])
+
+
+def test_opponent_team_entry_is_derived_from_player_team_only() -> None:
+    entry = _entries_by_id()["tier1.participants.opponent_team"]
+
+    assert entry["value_source_policy"]["direct"] == "derived"
+    assert entry["direct_evidence"][0]["signal_id"] == "parser_state.match_summary.opponent_team"
+    assert entry["fallback_evidence"][0]["signal_id"] == "ledger.tier1.participants.player_team_dependency"
+    assert entry["fallback_evidence"][0]["normalized_payload_path"] == "ledger.entries[tier1.participants.player_team]"
+    assert "opponent_team_derived_only_from_known_player_team" in entry["invariant_checks"]
+    assert "opponent_team_not_guessed_when_player_team_unknown" in entry["invariant_checks"]
+    assert any("not 1 or 2" in item for item in entry["degradation_behavior"])
+    assert any("hidden cards, decklists, archetypes, or advice" in item for item in entry["degradation_behavior"])
+
+
+def test_local_system_seat_entry_documents_game_state_match_state_and_degradation() -> None:
+    entry = _entries_by_id()["tier1.participants.local_system_seat_id"]
+    signals = {
+        signal["signal_id"]: signal
+        for signal in (*entry["direct_evidence"], *entry["fallback_evidence"])
+    }
+
+    assert signals["game_state.system_seat_ids.local_system_seat"]["raw_payload_path"] == (
+        "greToClientMessages[].systemSeatIds[0]"
+    )
+    assert signals["match_state.players.selected_local_player_seat"]["raw_payload_path"] == (
+        "matchGameRoomStateChangedEvent.gameRoomInfo.gameRoomConfig.reservedPlayers[].systemSeatId"
+    )
+    assert signals["gameplay_actions.local_seat_id"]["normalized_payload_path"] == "GameplayGameState.local_seat_id"
+    assert "local_private_zone_interpretation_requires_known_local_seat" in entry["invariant_checks"]
+    assert "actor_relation_requires_known_local_and_actor_seats" in entry["invariant_checks"]
+    assert any("zero, string zero, and booleans are unknown" in item for item in entry["degradation_behavior"])
+
+
+def test_participant_team_mapping_entry_documents_cross_surface_dependencies() -> None:
+    entry = _entries_by_id()["tier1.participants.participant_team_mapping"]
+
+    assert _signal_ids(entry, "direct_evidence") == {
+        "match_state.players.participant_team_mapping",
+        "game_state.players.participant_team_mapping",
+    }
+    assert _signal_ids(entry, "fallback_evidence") == {
+        "client_action.participant_team_supplement",
+        "parser_context.participant_team_carry_forward",
+        "opponent_card_observations.missing_seat_mapping_dependency",
+    }
+    assert "participant_mapping_stays_parser_owned" in entry["invariant_checks"]
+    assert "missing_mapping_degrades_player_relative_outputs" in entry["invariant_checks"]
+    assert any("missing player_team or local_system_seat_id" in item for item in entry["degradation_behavior"])
+    assert any("hidden cards, decklists, archetypes" in item for item in entry["degradation_behavior"])
+
+
+def test_existing_entries_cite_participant_player_team_provenance() -> None:
+    entries = _entries_by_id()
+    dependent_entry_ids = {
+        "tier1.match_result.match_result",
+        "tier1.match_aggregates.games_won",
+        "tier1.match_aggregates.games_lost",
+        "tier1.match_aggregates.match_win_flag",
+        "tier1.match_aggregates.game_win_rate",
+        "tier3.game_results.game1_result",
+        "tier3.game_results.game2_result",
+        "tier3.game_results.game3_result",
+    }
+
+    for entry_id in dependent_entry_ids:
+        entry = entries[entry_id]
+        assert "ledger.tier1.participants.player_team_dependency" in _all_signal_ids(entry)
+        assert any("Issue #137" in note for note in entry["notes"])
 
 
 def test_lifecycle_time_entries_document_required_sources_and_aliases() -> None:
@@ -284,6 +422,7 @@ def test_match_result_and_sync_status_are_derived_parser_state_entries() -> None
     assert {signal["signal_id"] for signal in result["fallback_evidence"]} == {
         "parser_state.match_summary.match_winner_team_dependency",
         "parser_state.match_summary.player_team_dependency",
+        "ledger.tier1.participants.player_team_dependency",
     }
     assert "match_result_not_directly_observed_as_win_loss" in result["invariant_checks"]
 
@@ -348,12 +487,14 @@ def test_game_count_aggregate_entries_document_dependencies_and_blank_behavior()
     assert {signal["signal_id"] for signal in games_won["fallback_evidence"]} == {
         "parser_state.match_summary.game_winner_dependencies",
         "parser_state.match_summary.player_team_dependency",
+        "ledger.tier1.participants.player_team_dependency",
         "parser_state.match_summary.total_games_display_dependency",
     }
     assert {signal["signal_id"] for signal in games_lost["fallback_evidence"]} == {
         "parser_state.match_summary.completed_game_dependencies",
         "parser_state.match_summary.game_wins_dependency",
         "parser_state.match_summary.player_team_dependency",
+        "ledger.tier1.participants.player_team_dependency",
     }
     assert {signal["signal_id"] for signal in total_games["fallback_evidence"]} == {
         "parser_state.match_summary.game_wins_dependency",
@@ -379,6 +520,7 @@ def test_match_win_flag_and_game_win_rate_document_dependency_invariants() -> No
     assert {signal["signal_id"] for signal in match_win_flag["fallback_evidence"]} == {
         "parser_state.match_summary.match_wl_dependency",
         "ledger.tier1.match_result.match_result_dependency",
+        "ledger.tier1.participants.player_team_dependency",
     }
     assert "match_win_flag_agrees_with_match_result" in match_win_flag["invariant_checks"]
     assert "match_win_flag_blank_when_match_result_blank" in match_win_flag["invariant_checks"]
@@ -388,6 +530,7 @@ def test_match_win_flag_and_game_win_rate_document_dependency_invariants() -> No
     assert {signal["signal_id"] for signal in game_win_rate["fallback_evidence"]} == {
         "parser_state.match_summary.game_wins_dependency",
         "parser_state.match_summary.total_games_dependency",
+        "ledger.tier1.participants.player_team_dependency",
     }
     assert "game_win_rate_equals_game_wins_div_total_games" in game_win_rate["invariant_checks"]
     assert "game_win_rate_blank_when_total_games_zero" in game_win_rate["invariant_checks"]
@@ -483,6 +626,7 @@ def test_tier3_game_result_entries_are_derived_from_winner_and_player_team() -> 
         assert fallback_signals == {
             f"ledger.tier3.game_results.{game_label}_winner_team_dependency",
             "parser_state.match_summary.player_team_dependency",
+            "ledger.tier1.participants.player_team_dependency",
         }
         assert f"{game_label}_result_derived_from_winner_and_player_team" in entry["invariant_checks"]
         assert f"{game_label}_result_missing_winner_not_inferred_loss" in entry["invariant_checks"]
