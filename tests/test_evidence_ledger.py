@@ -79,6 +79,10 @@ CONTRACTED_TIER3_FIELDS = [
     "game1_play_draw",
     "game2_play_draw",
     "game3_play_draw",
+    "game1_mulligans",
+    "game2_mulligans",
+    "game3_mulligans",
+    "total_mulligans",
 ]
 
 CONTRACTED_TIER3_ENTRY_IDS = {
@@ -95,6 +99,10 @@ CONTRACTED_TIER3_ENTRY_IDS = {
     "tier3.play_draw.game1_play_draw",
     "tier3.play_draw.game2_play_draw",
     "tier3.play_draw.game3_play_draw",
+    "tier3.mulligans.game1_mulligans",
+    "tier3.mulligans.game2_mulligans",
+    "tier3.mulligans.game3_mulligans",
+    "tier3.mulligans.total_mulligans",
 }
 
 CONTRACTED_PLAY_DRAW_ENTRY_IDS = {
@@ -115,8 +123,21 @@ CONTRACTED_PLAY_DRAW_FIELDS = {
     "game3_play_draw",
 }
 
+CONTRACTED_MULLIGAN_ENTRY_IDS = {
+    "tier3.mulligans.game1_mulligans",
+    "tier3.mulligans.game2_mulligans",
+    "tier3.mulligans.game3_mulligans",
+    "tier3.mulligans.total_mulligans",
+}
+
+CONTRACTED_MULLIGAN_FIELDS = {
+    "game1_mulligans",
+    "game2_mulligans",
+    "game3_mulligans",
+    "total_mulligans",
+}
+
 CONTRACTED_TIER3_DEFERRED_FIELDS = {
-    "mulligans",
     "turn_count",
     "opening_hand",
     "game_timing",
@@ -239,8 +260,11 @@ def test_output_family_registry_contains_required_seven_families() -> None:
     assert CONTRACTED_PLAY_DRAW_FIELDS.issubset(tier3["seed_fields"])
     assert "play_draw" not in tier3["future_fields"]
     assert "starting_player" not in tier3["future_fields"]
+    assert CONTRACTED_MULLIGAN_FIELDS.issubset(tier3["seed_fields"])
+    assert "mulligans" not in tier3["future_fields"]
     assert any("match-scope results are not promoted" in item for item in tier3["notes"])
     assert any("Issue #139 maps starting-player and play/draw" in item for item in tier3["notes"])
+    assert any("Issue #140 maps per-game and total mulligan" in item for item in tier3["notes"])
 
 
 def test_seed_entry_maps_match_id_evidence_signals() -> None:
@@ -782,14 +806,13 @@ def test_tier3_play_draw_entries_are_derived_from_starting_player_and_participan
     assert "game3_play_draw_exposes_inferred_starting_player_dependency" in game3["invariant_checks"]
 
 
-def test_tier3_play_draw_keeps_mulligan_and_other_game_facts_deferred() -> None:
+def test_tier3_play_draw_remains_independent_from_mulligan_entries() -> None:
     tier3 = _tier3_family()
     entries = _entries_by_id()
 
     assert "play_draw" not in tier3["future_fields"]
     assert "starting_player" not in tier3["future_fields"]
     assert {
-        "mulligans",
         "turn_count",
         "opening_hand",
         "game_timing",
@@ -801,6 +824,111 @@ def test_tier3_play_draw_keeps_mulligan_and_other_game_facts_deferred() -> None:
     assert not any("mulligan" in entry_id for entry_id in entries if entry_id.startswith("tier3.play_draw."))
     for entry_id in CONTRACTED_PLAY_DRAW_ENTRY_IDS:
         assert any("Issue #140 mulligan provenance remains deferred" in note for note in entries[entry_id]["notes"])
+
+
+def test_tier3_mulligan_entries_are_mapped_and_validate() -> None:
+    entries = _entries_by_id()
+
+    assert CONTRACTED_MULLIGAN_ENTRY_IDS.issubset(entries)
+    for entry_id in CONTRACTED_MULLIGAN_ENTRY_IDS:
+        entry = entries[entry_id]
+        assert entry["tier"] == 3
+        assert entry["output_family"] == "game_level_facts"
+        assert entry["coverage_status"] == "seeded_sample"
+        assert entry["parser_managed_truth"] is True
+        assert evidence_ledger.validate_ledger_entry(entry) == []
+
+
+def test_tier3_mulligan_entries_document_client_action_state_and_context_sources() -> None:
+    entries = _entries_by_id()
+
+    for game_number in (1, 2, 3):
+        game_label = f"game{game_number}"
+        entry = entries[f"tier3.mulligans.{game_label}_mulligans"]
+        direct_signals = {signal["signal_id"]: signal for signal in entry["direct_evidence"]}
+        all_signals = _all_signal_ids(entry)
+
+        assert entry["display_name"] == f"G{game_number} Mulligans"
+        assert entry["model_surface"] == f"MatchSummary.games[{game_number}].mulligans"
+        assert direct_signals[f"client_action.{game_label}.mulligan_response"][
+            "raw_message_type"
+        ] == "ClientMessageType_MulliganResp"
+        assert direct_signals[f"client_action.{game_label}.mulligan_response"][
+            "normalized_payload_path"
+        ] == "payload.decision"
+        assert direct_signals[f"client_action.{game_label}.mulligan_response"][
+            "confidence_when_used"
+        ] == "high"
+        assert direct_signals[f"parser_state.match_summary.{game_label}_mulligans"][
+            "value_source_when_used"
+        ] == "derived"
+        assert f"parser_state.mulligan_counts.{game_label}" in all_signals
+        assert "tier3.game_results.game_number_dependency" in all_signals
+        assert "parser_context.current_match_id" in all_signals
+        assert "parser_context.current_game_number" in all_signals
+        assert f"{game_label}_mulligans_unknown_decisions_not_high_confidence" in entry[
+            "invariant_checks"
+        ]
+        assert f"{game_label}_mulligans_blank_display_not_zero" in entry["invariant_checks"]
+        assert f"{game_label}_mulligans_not_inferred_from_opening_hand_size" in entry[
+            "invariant_checks"
+        ]
+        assert any(
+            "unknown, blank, malformed, or future decision values" in item
+            for item in entry["degradation_behavior"]
+        )
+        assert any("contextless fallback zero" in item for item in entry["degradation_behavior"])
+        assert any("duplicate or replayed ClientAction" in item for item in entry["degradation_behavior"])
+        assert all(
+            signal["privacy_class"] == "path_only_no_values"
+            for signal in (*entry["direct_evidence"], *entry["fallback_evidence"])
+        )
+
+
+def test_total_mulligans_entry_is_derived_from_per_game_counts() -> None:
+    entry = _entries_by_id()["tier3.mulligans.total_mulligans"]
+
+    assert entry["display_name"] == "MTGA Mulligans"
+    assert entry["model_surface"] == "MatchSummary.total_mulligans"
+    assert entry["value_source_policy"]["direct"] == "derived"
+    assert entry["value_source_policy"]["fallback"] == "derived"
+    assert entry["direct_evidence"][0]["signal_id"] == "parser_state.match_summary.total_mulligans"
+    assert entry["direct_evidence"][0]["value_source_when_used"] == "derived"
+    assert _signal_ids(entry, "fallback_evidence") == {
+        "ledger.tier3.mulligans.game1_mulligans_dependency",
+        "ledger.tier3.mulligans.game2_mulligans_dependency",
+        "ledger.tier3.mulligans.game3_mulligans_dependency",
+    }
+    assert "total_mulligans_equals_sum_of_per_game_counts" in entry["invariant_checks"]
+    assert "total_mulligans_derived_not_observed" in entry["invariant_checks"]
+    assert "total_mulligans_does_not_count_unplayed_slot_blanks" in entry["invariant_checks"]
+    assert "total_mulligans_final_zero_and_live_blank_are_distinct" in entry["invariant_checks"]
+    assert any("final MTGA Mulligans zero is valid" in item for item in entry["degradation_behavior"])
+    assert any("live MTGA Mulligans blank is expected" in item for item in entry["degradation_behavior"])
+    assert any("opening-hand size, card analytics" in item for item in entry["degradation_behavior"])
+
+
+def test_tier3_mulligan_scope_defers_opening_hand_and_analytics() -> None:
+    tier3 = _tier3_family()
+    entries = _entries_by_id()
+
+    assert CONTRACTED_PLAY_DRAW_ENTRY_IDS.issubset(entries)
+    assert CONTRACTED_MULLIGAN_ENTRY_IDS.issubset(entries)
+    assert "mulligans" not in tier3["future_fields"]
+    assert {
+        "turn_count",
+        "opening_hand",
+        "game_timing",
+        "game_duration",
+        "pre_postboard",
+        "sideboarding",
+        "deck_state",
+    }.issubset(tier3["future_fields"])
+    assert not any("opening_hand" in entry_id for entry_id in CONTRACTED_TIER3_ENTRY_IDS)
+    assert not any("mulliganed_away" in entry_id for entry_id in CONTRACTED_TIER3_ENTRY_IDS)
+    for entry_id in CONTRACTED_MULLIGAN_ENTRY_IDS:
+        entry = entries[entry_id]
+        assert any("Opening-hand" in note or "opening-hand" in note for note in entry["notes"])
 
 
 def test_builtin_ledger_and_entries_validate_cleanly() -> None:
