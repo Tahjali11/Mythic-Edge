@@ -229,10 +229,14 @@ _OUTPUT_FAMILIES: tuple[dict[str, Any], ...] = (
             "game1_result",
             "game2_result",
             "game3_result",
+            "game1_starting_player",
+            "game2_starting_player",
+            "game3_starting_player",
+            "game1_play_draw",
+            "game2_play_draw",
+            "game3_play_draw",
         ],
         "future_fields": [
-            "play_draw",
-            "starting_player",
             "mulligans",
             "turn_count",
             "opening_hand",
@@ -249,8 +253,10 @@ _OUTPUT_FAMILIES: tuple[dict[str, Any], ...] = (
         "notes": [
             "Issue #134 maps a seeded game-result provenance slice only.",
             "Game-level winners come from game-scope evidence; match-scope results are not promoted.",
-            "Play/draw, mulligan, turn-count, opening-hand, timing, duration, "
-            "sideboarding, and deck-state provenance remain deferred.",
+            "Issue #139 maps starting-player and play/draw provenance using #137 participant "
+            "provenance and #134 game-result dependencies.",
+            "Mulligan, turn-count, opening-hand, timing, duration, sideboarding, "
+            "and deck-state provenance remain deferred.",
         ],
     },
     {
@@ -2565,6 +2571,434 @@ def _game_result_entry(game_number: int) -> dict[str, Any]:
     }
 
 
+def _play_draw_starting_player_entry(game_number: int) -> dict[str, Any]:
+    game_label = f"game{game_number}"
+    previous_game = game_number - 1
+    fallback_evidence: list[dict[str, Any]] = [
+        {
+            "signal_id": "tier3.game_results.game_number_dependency",
+            "parser_event_kind": "parser_context",
+            "parser_event_type": "",
+            "raw_event_family": "parser_context",
+            "raw_message_type": "",
+            "normalized_payload_path": "ledger.entries[tier3.game_results.game_number]",
+            "raw_payload_path": "",
+            "required_for_final": False,
+            "value_source_when_used": "derived",
+            "confidence_when_used": "medium",
+            "finality_when_used": "provisional",
+            "allowed_types": ["int", "str-int"],
+            "missing_behavior": "starting-player evidence is degraded when the game slot cannot be identified",
+            "privacy_class": "path_only_no_values",
+        },
+        {
+            "signal_id": "ledger.tier1.participants.participant_team_mapping_dependency",
+            "parser_event_kind": "parser_context",
+            "parser_event_type": "",
+            "raw_event_family": "parser_context",
+            "raw_message_type": "",
+            "normalized_payload_path": "ledger.entries[tier1.participants.participant_team_mapping]",
+            "raw_payload_path": "",
+            "required_for_final": False,
+            "value_source_when_used": "derived",
+            "confidence_when_used": "medium",
+            "finality_when_used": "provisional",
+            "allowed_types": ["dict"],
+            "missing_behavior": "seat-only starting-player evidence stays degraded without participant mapping",
+            "privacy_class": "path_only_no_values",
+        },
+    ]
+    if game_number > 1:
+        fallback_evidence.extend(
+            [
+                {
+                    "signal_id": f"model.{game_label}.inferred_starting_player_from_previous_game",
+                    "parser_event_kind": "parser_context",
+                    "parser_event_type": "",
+                    "raw_event_family": "parser_context",
+                    "raw_message_type": "",
+                    "normalized_payload_path": f"MatchSummary.effective_starting_player({game_number})",
+                    "raw_payload_path": "",
+                    "required_for_final": False,
+                    "value_source_when_used": "inferred",
+                    "confidence_when_used": "medium",
+                    "finality_when_used": "provisional",
+                    "allowed_types": ["int", "str-int", "unknown"],
+                    "missing_behavior": (
+                        "later-game inference is unavailable when the previous winner or participant "
+                        "context is missing"
+                    ),
+                    "privacy_class": "path_only_no_values",
+                },
+                {
+                    "signal_id": f"ledger.tier3.game_results.game{previous_game}_winner_team_dependency",
+                    "parser_event_kind": "parser_context",
+                    "parser_event_type": "",
+                    "raw_event_family": "parser_context",
+                    "raw_message_type": "",
+                    "normalized_payload_path": (
+                        f"ledger.entries[tier3.game_results.game{previous_game}_winner_team]"
+                    ),
+                    "raw_payload_path": "",
+                    "required_for_final": False,
+                    "value_source_when_used": "derived",
+                    "confidence_when_used": "medium",
+                    "finality_when_used": "provisional",
+                    "allowed_types": ["int", "str-int", "unknown"],
+                    "missing_behavior": (
+                        f"missing game {previous_game} winner prevents inferred game {game_number} starter"
+                    ),
+                    "privacy_class": "path_only_no_values",
+                },
+                {
+                    "signal_id": "ledger.tier1.participants.player_team_dependency",
+                    "parser_event_kind": "parser_context",
+                    "parser_event_type": "",
+                    "raw_event_family": "parser_context",
+                    "raw_message_type": "",
+                    "normalized_payload_path": "ledger.entries[tier1.participants.player_team]",
+                    "raw_payload_path": "",
+                    "required_for_final": False,
+                    "value_source_when_used": "derived",
+                    "confidence_when_used": "medium",
+                    "finality_when_used": "provisional",
+                    "allowed_types": ["dict"],
+                    "missing_behavior": "missing local player team prevents inferred later-game starter",
+                    "privacy_class": "path_only_no_values",
+                },
+                {
+                    "signal_id": "ledger.tier1.participants.opponent_team_dependency",
+                    "parser_event_kind": "parser_context",
+                    "parser_event_type": "",
+                    "raw_event_family": "parser_context",
+                    "raw_message_type": "",
+                    "normalized_payload_path": "ledger.entries[tier1.participants.opponent_team]",
+                    "raw_payload_path": "",
+                    "required_for_final": False,
+                    "value_source_when_used": "derived",
+                    "confidence_when_used": "medium",
+                    "finality_when_used": "provisional",
+                    "allowed_types": ["dict"],
+                    "missing_behavior": "missing opponent team prevents inferred starter when prior winner is local",
+                    "privacy_class": "path_only_no_values",
+                },
+            ]
+        )
+
+    return {
+        "entry_id": f"tier3.play_draw.{game_label}_starting_player",
+        "tier": 3,
+        "output_family": "game_level_facts",
+        "output_field": f"{game_label}_starting_player",
+        "display_name": f"g{game_number}_starting_player",
+        "parser_owner": "src/mythic_edge_parser/app/models.py",
+        "model_surface": f"MatchSummary.effective_starting_player({game_number})",
+        "downstream_surfaces": ["MatchLogRow", "GameLogRow", "match_history", "state_snapshots"],
+        "parser_managed_truth": True,
+        "coverage_status": "seeded_sample",
+        "direct_evidence": [
+            {
+                "signal_id": f"client_action.{game_label}.choose_starting_player",
+                "parser_event_kind": "ClientAction",
+                "parser_event_type": "generic_client_action",
+                "raw_event_family": "ClientToGREMessage",
+                "raw_message_type": "ClientMessageType_ChooseStartingPlayerResp",
+                "normalized_payload_path": "_extract_starting_player_from_client_action(payload)",
+                "raw_payload_path": "ClientToGREMessage.payload.chooseStartingPlayerResp.systemSeatId",
+                "required_for_final": False,
+                "value_source_when_used": "observed",
+                "confidence_when_used": "high",
+                "finality_when_used": "live",
+                "allowed_types": ["int", "str-int", "unknown"],
+                "missing_behavior": "missing choose-starting-player response does not infer the starter",
+                "privacy_class": "path_only_no_values",
+            },
+            {
+                "signal_id": f"game_state.{game_label}.turn_one_active_player_team",
+                "parser_event_kind": "GameState",
+                "parser_event_type": "game_state_message",
+                "raw_event_family": "greToClientEvent",
+                "raw_message_type": "GREMessageType_GameStateMessage",
+                "normalized_payload_path": (
+                    "payload.turn_info.active_player_seat_id + payload.players[].team_id"
+                ),
+                "raw_payload_path": (
+                    "greToClientMessages[].gameStateMessage.turnInfo.activePlayer + "
+                    "greToClientMessages[].gameStateMessage.players[].teamId"
+                ),
+                "required_for_final": False,
+                "value_source_when_used": "observed",
+                "confidence_when_used": "high",
+                "finality_when_used": "live",
+                "allowed_types": ["int", "str-int"],
+                "missing_behavior": "turn-one active-player evidence must map to a known team",
+                "privacy_class": "path_only_no_values",
+            },
+            {
+                "signal_id": f"game_state.{game_label}.turn_one_active_player_seat",
+                "parser_event_kind": "GameState",
+                "parser_event_type": "game_state_message",
+                "raw_event_family": "greToClientEvent",
+                "raw_message_type": "GREMessageType_GameStateMessage",
+                "normalized_payload_path": "payload.turn_info.active_player_seat_id",
+                "raw_payload_path": (
+                    "greToClientMessages[].gameStateMessage.turnInfo.activePlayerSeatId"
+                ),
+                "required_for_final": False,
+                "value_source_when_used": "observed",
+                "confidence_when_used": "low",
+                "finality_when_used": "live",
+                "allowed_types": ["int", "str-int", "unknown"],
+                "missing_behavior": "seat-only active-player evidence is degraded without team mapping",
+                "privacy_class": "path_only_no_values",
+            },
+        ],
+        "fallback_evidence": fallback_evidence,
+        "value_source_policy": {
+            "direct": "observed",
+            "fallback": "inferred" if game_number > 1 else "derived",
+            "missing": "unknown",
+            "contradiction": "conflict",
+        },
+        "confidence_policy": {
+            "direct": "high",
+            "fallback": "medium",
+            "weak_fallback": "low",
+            "missing": "unknown",
+            "contradiction": "low",
+        },
+        "finality_policy": {
+            "live": "live",
+            "provisional": "provisional",
+            "final": "final",
+            "corrected_by_later_evidence": "reconciled",
+        },
+        "invariant_checks": [
+            f"{game_label}_starting_player_explicit_evidence_outranks_inference",
+            f"{game_label}_starting_player_turn_one_evidence_requires_turn_number_1",
+            f"{game_label}_starting_player_seat_only_evidence_degraded_without_mapping",
+            f"{game_label}_starting_player_unknown_like_values_are_unknown",
+            f"{game_label}_starting_player_expected_blank_when_unplayed",
+            *(
+                [
+                    f"{game_label}_starting_player_inference_requires_game{previous_game}_winner_and_participants",
+                    f"{game_label}_starting_player_inference_labeled_inferred_not_observed",
+                ]
+                if game_number > 1
+                else [f"{game_label}_starting_player_not_inferred_from_previous_game"]
+            ),
+        ],
+        "degradation_behavior": [
+            "None, empty strings, whitespace-only strings, zero, string zero, and booleans are unknown",
+            "seat-only starting-player evidence is degraded unless participant mapping proves the team",
+            f"blank {game_label} starting player is expected when game {game_number} is unplayed",
+            f"played game {game_number} with missing starting-player evidence is degraded and review-worthy",
+            "conflicting ClientAction, GameState, model, or participant evidence requires review",
+            "workbook formulas, dashboards, Apps Script, webhook transport, and AI do not populate starters",
+        ],
+        "drift_flags": [
+            "missing_expected_payload_path",
+            "weak_fallback_used",
+            "conflicting_evidence",
+            "invariant_failed",
+        ],
+        "recommended_review_modules": [
+            "src/mythic_edge_parser/app/extractors.py",
+            "src/mythic_edge_parser/app/state.py",
+            "src/mythic_edge_parser/app/models.py",
+        ],
+        "tests": [
+            "tests/test_evidence_ledger.py",
+            "tests/test_app_extractors.py",
+            "tests/test_app_models.py",
+            "tests/test_match_summary_from_match_state.py",
+            "tests/test_state.py",
+        ],
+        "fixture_refs": [],
+        "notes": [
+            "Issue #139 documents starting-player provenance without changing parser behavior.",
+            "Issue #137 participant mapping controls seat-to-team confidence for play/draw.",
+            "Issue #134 game-number and game-result entries provide slot and inference dependencies.",
+            "Issue #140 mulligan provenance remains deferred and is not required by this entry.",
+        ],
+    }
+
+
+def _play_draw_label_entry(game_number: int) -> dict[str, Any]:
+    game_label = f"game{game_number}"
+    previous_game = game_number - 1
+    fallback_evidence: list[dict[str, Any]] = [
+        {
+            "signal_id": f"ledger.tier3.play_draw.{game_label}_starting_player_dependency",
+            "parser_event_kind": "parser_context",
+            "parser_event_type": "",
+            "raw_event_family": "parser_context",
+            "raw_message_type": "",
+            "normalized_payload_path": f"ledger.entries[tier3.play_draw.{game_label}_starting_player]",
+            "raw_payload_path": "",
+            "required_for_final": False,
+            "value_source_when_used": "derived",
+            "confidence_when_used": "medium",
+            "finality_when_used": "provisional",
+            "allowed_types": ["dict"],
+            "missing_behavior": "missing or degraded starting-player provenance leaves play/draw blank",
+            "privacy_class": "path_only_no_values",
+        },
+        {
+            "signal_id": "ledger.tier1.participants.player_team_dependency",
+            "parser_event_kind": "parser_context",
+            "parser_event_type": "",
+            "raw_event_family": "parser_context",
+            "raw_message_type": "",
+            "normalized_payload_path": "ledger.entries[tier1.participants.player_team]",
+            "raw_payload_path": "",
+            "required_for_final": False,
+            "value_source_when_used": "derived",
+            "confidence_when_used": "medium",
+            "finality_when_used": "provisional",
+            "allowed_types": ["dict"],
+            "missing_behavior": "missing local player team leaves play/draw blank",
+            "privacy_class": "path_only_no_values",
+        },
+    ]
+    if game_number > 1:
+        fallback_evidence.extend(
+            [
+                {
+                    "signal_id": "ledger.tier1.participants.opponent_team_dependency",
+                    "parser_event_kind": "parser_context",
+                    "parser_event_type": "",
+                    "raw_event_family": "parser_context",
+                    "raw_message_type": "",
+                    "normalized_payload_path": "ledger.entries[tier1.participants.opponent_team]",
+                    "raw_payload_path": "",
+                    "required_for_final": False,
+                    "value_source_when_used": "derived",
+                    "confidence_when_used": "medium",
+                    "finality_when_used": "provisional",
+                    "allowed_types": ["dict"],
+                    "missing_behavior": "missing opponent team weakens inferred later-game play/draw",
+                    "privacy_class": "path_only_no_values",
+                },
+                {
+                    "signal_id": f"ledger.tier3.game_results.game{previous_game}_winner_team_dependency",
+                    "parser_event_kind": "parser_context",
+                    "parser_event_type": "",
+                    "raw_event_family": "parser_context",
+                    "raw_message_type": "",
+                    "normalized_payload_path": (
+                        f"ledger.entries[tier3.game_results.game{previous_game}_winner_team]"
+                    ),
+                    "raw_payload_path": "",
+                    "required_for_final": False,
+                    "value_source_when_used": "derived",
+                    "confidence_when_used": "medium",
+                    "finality_when_used": "provisional",
+                    "allowed_types": ["int", "str-int", "unknown"],
+                    "missing_behavior": (
+                        f"missing game {previous_game} winner weakens inferred game {game_number} play/draw"
+                    ),
+                    "privacy_class": "path_only_no_values",
+                },
+            ]
+        )
+
+    return {
+        "entry_id": f"tier3.play_draw.{game_label}_play_draw",
+        "tier": 3,
+        "output_family": "game_level_facts",
+        "output_field": f"{game_label}_play_draw",
+        "display_name": f"G{game_number} Play / Draw",
+        "parser_owner": "src/mythic_edge_parser/app/models.py",
+        "model_surface": f"MatchSummary.game_play_draw({game_number})",
+        "downstream_surfaces": ["MatchLogRow", "GameLogRow", "match_history", "state_snapshots"],
+        "parser_managed_truth": True,
+        "coverage_status": "seeded_sample",
+        "direct_evidence": [
+            {
+                "signal_id": f"parser_state.match_summary.{game_label}_play_draw",
+                "parser_event_kind": "parser_context",
+                "parser_event_type": "",
+                "raw_event_family": "parser_context",
+                "raw_message_type": "",
+                "normalized_payload_path": f"MatchSummary._game_play_draw_fields().g{game_number}_play_draw",
+                "raw_payload_path": "",
+                "required_for_final": False,
+                "value_source_when_used": "derived",
+                "confidence_when_used": "high",
+                "finality_when_used": "provisional",
+                "allowed_types": ["str", "unknown"],
+                "missing_behavior": "blank is expected when starting player or local player team is unknown",
+                "privacy_class": "path_only_no_values",
+            },
+        ],
+        "fallback_evidence": fallback_evidence,
+        "value_source_policy": {
+            "direct": "derived",
+            "fallback": "derived",
+            "missing": "unknown",
+            "contradiction": "conflict",
+        },
+        "confidence_policy": {
+            "direct": "high",
+            "fallback": "medium",
+            "weak_fallback": "low",
+            "missing": "unknown",
+            "contradiction": "low",
+        },
+        "finality_policy": {
+            "live": "live",
+            "provisional": "provisional",
+            "final": "final",
+            "corrected_by_later_evidence": "reconciled",
+        },
+        "invariant_checks": [
+            f"{game_label}_play_draw_requires_starting_player_and_player_team",
+            f"{game_label}_play_draw_missing_starting_player_not_draw",
+            f"{game_label}_play_draw_expected_blank_when_unplayed",
+            f"{game_label}_play_draw_not_inferred_from_match_result_aggregates_or_ai",
+            *(
+                [f"{game_label}_play_draw_exposes_inferred_starting_player_dependency"]
+                if game_number > 1
+                else []
+            ),
+        ],
+        "degradation_behavior": [
+            "missing starting player leaves play/draw blank",
+            "missing local player team leaves play/draw blank",
+            "known starting player without known player team is not high-confidence play/draw",
+            "known player team without starting-player evidence is not high-confidence play/draw",
+            f"blank {game_label} play/draw is expected when game {game_number} is unplayed",
+            f"played game {game_number} with missing starting-player evidence is degraded and review-worthy",
+            "match result, aggregate counts, workbook formulas, dashboards, Apps Script, webhook "
+            "transport, and AI must not populate play/draw",
+        ],
+        "drift_flags": [
+            "missing_expected_payload_path",
+            "weak_fallback_used",
+            "conflicting_evidence",
+            "invariant_failed",
+        ],
+        "recommended_review_modules": [
+            "src/mythic_edge_parser/app/models.py",
+            "src/mythic_edge_parser/app/state.py",
+        ],
+        "tests": [
+            "tests/test_evidence_ledger.py",
+            "tests/test_app_models.py",
+            "tests/test_match_summary_from_match_state.py",
+            "tests/test_state.py",
+        ],
+        "fixture_refs": [],
+        "notes": [
+            "Issue #139 documents derived play/draw labels without changing model behavior.",
+            "Issue #137 participant provenance supplies player-team dependencies.",
+            "Issue #134 game-result dependencies are cited only for later-game inference context.",
+            "Issue #140 mulligan provenance remains deferred and is not required by this entry.",
+        ],
+    }
+
+
 _GAME_NUMBER_ENTRY = _game_number_entry()
 _GAME1_WINNER_TEAM_ENTRY = _game_winner_entry(1)
 _GAME2_WINNER_TEAM_ENTRY = _game_winner_entry(2)
@@ -2572,6 +3006,12 @@ _GAME3_WINNER_TEAM_ENTRY = _game_winner_entry(3)
 _GAME1_RESULT_ENTRY = _game_result_entry(1)
 _GAME2_RESULT_ENTRY = _game_result_entry(2)
 _GAME3_RESULT_ENTRY = _game_result_entry(3)
+_GAME1_STARTING_PLAYER_ENTRY = _play_draw_starting_player_entry(1)
+_GAME2_STARTING_PLAYER_ENTRY = _play_draw_starting_player_entry(2)
+_GAME3_STARTING_PLAYER_ENTRY = _play_draw_starting_player_entry(3)
+_GAME1_PLAY_DRAW_ENTRY = _play_draw_label_entry(1)
+_GAME2_PLAY_DRAW_ENTRY = _play_draw_label_entry(2)
+_GAME3_PLAY_DRAW_ENTRY = _play_draw_label_entry(3)
 
 _LEDGER_ENTRIES: tuple[dict[str, Any], ...] = (
     _MATCH_ID_ENTRY,
@@ -2596,6 +3036,12 @@ _LEDGER_ENTRIES: tuple[dict[str, Any], ...] = (
     _GAME1_RESULT_ENTRY,
     _GAME2_RESULT_ENTRY,
     _GAME3_RESULT_ENTRY,
+    _GAME1_STARTING_PLAYER_ENTRY,
+    _GAME2_STARTING_PLAYER_ENTRY,
+    _GAME3_STARTING_PLAYER_ENTRY,
+    _GAME1_PLAY_DRAW_ENTRY,
+    _GAME2_PLAY_DRAW_ENTRY,
+    _GAME3_PLAY_DRAW_ENTRY,
 )
 
 
