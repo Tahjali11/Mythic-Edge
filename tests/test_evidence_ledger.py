@@ -14,6 +14,11 @@ CONTRACTED_TIER1_FIELDS = [
     "match_winner_team",
     "match_result",
     "match_sync_status",
+    "games_won",
+    "games_lost",
+    "total_games",
+    "match_win_flag",
+    "game_win_rate",
 ]
 
 CONTRACTED_TIER1_ENTRY_IDS = {
@@ -23,9 +28,14 @@ CONTRACTED_TIER1_ENTRY_IDS = {
     "tier1.match_result.match_winner_team",
     "tier1.match_result.match_result",
     "tier1.match_lifecycle.match_sync_status",
+    "tier1.match_aggregates.games_won",
+    "tier1.match_aggregates.games_lost",
+    "tier1.match_aggregates.total_games",
+    "tier1.match_aggregates.match_win_flag",
+    "tier1.match_aggregates.game_win_rate",
 }
 
-DEFERRED_AGGREGATE_FIELDS = {
+CONTRACTED_AGGREGATE_FIELDS = {
     "games_won",
     "games_lost",
     "total_games",
@@ -120,7 +130,7 @@ def test_output_family_registry_contains_required_seven_families() -> None:
     ]
     tier1 = _tier1_family()
     assert tier1["seed_fields"] == CONTRACTED_TIER1_FIELDS
-    assert set(tier1["future_fields"]) == DEFERRED_AGGREGATE_FIELDS
+    assert tier1["future_fields"] == []
 
 
 def test_seed_entry_maps_match_id_evidence_signals() -> None:
@@ -151,7 +161,7 @@ def test_seed_entry_maps_match_id_evidence_signals() -> None:
     assert entry["fallback_evidence"][0]["value_source_when_used"] == "derived"
 
 
-def test_tier1_match_lifecycle_entries_are_expanded_without_aggregates() -> None:
+def test_tier1_match_lifecycle_and_aggregate_entries_are_mapped() -> None:
     entries = _entries_by_id()
     output_fields = {entry["output_field"] for entry in entries.values()}
 
@@ -159,7 +169,7 @@ def test_tier1_match_lifecycle_entries_are_expanded_without_aggregates() -> None
     assert all(entry["tier"] == 1 for entry in entries.values())
     assert all(entry["output_family"] == "match_identity_and_lifecycle" for entry in entries.values())
     assert output_fields == set(CONTRACTED_TIER1_FIELDS)
-    assert DEFERRED_AGGREGATE_FIELDS.isdisjoint(output_fields)
+    assert CONTRACTED_AGGREGATE_FIELDS.issubset(output_fields)
 
 
 def test_lifecycle_time_entries_document_required_sources_and_aliases() -> None:
@@ -235,6 +245,104 @@ def test_match_result_and_sync_status_are_derived_parser_state_entries() -> None
         "models.match_summary.to_match_log_row.final_argument",
     }
     assert any("webhook delivery do not decide finality" in item for item in sync_status["degradation_behavior"])
+
+
+def test_aggregate_entries_are_derived_matchsummary_metadata() -> None:
+    entries = _entries_by_id()
+    expected = {
+        "tier1.match_aggregates.games_won": (
+            "Games Won",
+            "MatchSummary.game_wins",
+            "parser_state.match_summary.game_wins",
+        ),
+        "tier1.match_aggregates.games_lost": (
+            "Games Lost",
+            "MatchSummary.game_losses",
+            "parser_state.match_summary.game_losses",
+        ),
+        "tier1.match_aggregates.total_games": (
+            "Total Games",
+            "MatchSummary.total_games",
+            "parser_state.match_summary.total_games",
+        ),
+        "tier1.match_aggregates.match_win_flag": (
+            "Match Win Flag",
+            "MatchSummary.match_win_flag",
+            "parser_state.match_summary.match_win_flag",
+        ),
+        "tier1.match_aggregates.game_win_rate": (
+            "Game Win %",
+            "MatchSummary.game_win_rate",
+            "parser_state.match_summary.game_win_rate",
+        ),
+    }
+
+    for entry_id, (display_name, model_surface, direct_signal) in expected.items():
+        entry = entries[entry_id]
+        assert entry["display_name"] == display_name
+        assert entry["model_surface"] == model_surface
+        assert entry["parser_owner"] == "src/mythic_edge_parser/app/models.py"
+        assert entry["value_source_policy"]["direct"] == "derived"
+        assert entry["value_source_policy"]["fallback"] == "derived"
+        assert entry["direct_evidence"][0]["signal_id"] == direct_signal
+        assert entry["direct_evidence"][0]["value_source_when_used"] == "derived"
+        assert "aggregate_fields_derived_not_observed" in entry["invariant_checks"]
+
+
+def test_game_count_aggregate_entries_document_dependencies_and_blank_behavior() -> None:
+    entries = _entries_by_id()
+    games_won = entries["tier1.match_aggregates.games_won"]
+    games_lost = entries["tier1.match_aggregates.games_lost"]
+    total_games = entries["tier1.match_aggregates.total_games"]
+
+    assert {signal["signal_id"] for signal in games_won["fallback_evidence"]} == {
+        "parser_state.match_summary.game_winner_dependencies",
+        "parser_state.match_summary.player_team_dependency",
+        "parser_state.match_summary.total_games_display_dependency",
+    }
+    assert {signal["signal_id"] for signal in games_lost["fallback_evidence"]} == {
+        "parser_state.match_summary.completed_game_dependencies",
+        "parser_state.match_summary.game_wins_dependency",
+        "parser_state.match_summary.player_team_dependency",
+    }
+    assert {signal["signal_id"] for signal in total_games["fallback_evidence"]} == {
+        "parser_state.match_summary.game_wins_dependency",
+        "parser_state.match_summary.game_losses_dependency",
+    }
+
+    assert "game_wins_not_greater_than_total_games" in games_won["invariant_checks"]
+    assert "game_losses_not_greater_than_total_games" in games_lost["invariant_checks"]
+    assert "games_won_plus_games_lost_equals_total_games" in total_games["invariant_checks"]
+    assert any("workbook-facing Games Won is blank" in item for item in games_won["degradation_behavior"])
+    assert any("workbook-facing Games Lost is blank" in item for item in games_lost["degradation_behavior"])
+    assert any(
+        "blank Total Games with no completed game evidence is expected" in item
+        for item in total_games["degradation_behavior"]
+    )
+
+
+def test_match_win_flag_and_game_win_rate_document_dependency_invariants() -> None:
+    entries = _entries_by_id()
+    match_win_flag = entries["tier1.match_aggregates.match_win_flag"]
+    game_win_rate = entries["tier1.match_aggregates.game_win_rate"]
+
+    assert {signal["signal_id"] for signal in match_win_flag["fallback_evidence"]} == {
+        "parser_state.match_summary.match_wl_dependency",
+        "ledger.tier1.match_result.match_result_dependency",
+    }
+    assert "match_win_flag_agrees_with_match_result" in match_win_flag["invariant_checks"]
+    assert "match_win_flag_blank_when_match_result_blank" in match_win_flag["invariant_checks"]
+    assert "match_win_flag_not_inferred_from_game_aggregates" in match_win_flag["invariant_checks"]
+    assert any("do not infer Match Win Flag" in item for item in match_win_flag["degradation_behavior"])
+
+    assert {signal["signal_id"] for signal in game_win_rate["fallback_evidence"]} == {
+        "parser_state.match_summary.game_wins_dependency",
+        "parser_state.match_summary.total_games_dependency",
+    }
+    assert "game_win_rate_equals_game_wins_div_total_games" in game_win_rate["invariant_checks"]
+    assert "game_win_rate_blank_when_total_games_zero" in game_win_rate["invariant_checks"]
+    assert "game_win_rate_within_zero_and_one" in game_win_rate["invariant_checks"]
+    assert any("no completed games is expected" in item for item in game_win_rate["degradation_behavior"])
 
 
 def test_builtin_ledger_and_entries_validate_cleanly() -> None:
