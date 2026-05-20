@@ -43,14 +43,55 @@ CONTRACTED_AGGREGATE_FIELDS = {
     "game_win_rate",
 }
 
+CONTRACTED_TIER3_FIELDS = [
+    "game_number",
+    "game1_winner_team",
+    "game2_winner_team",
+    "game3_winner_team",
+    "game1_result",
+    "game2_result",
+    "game3_result",
+]
+
+CONTRACTED_TIER3_ENTRY_IDS = {
+    "tier3.game_results.game_number",
+    "tier3.game_results.game1_winner_team",
+    "tier3.game_results.game2_winner_team",
+    "tier3.game_results.game3_winner_team",
+    "tier3.game_results.game1_result",
+    "tier3.game_results.game2_result",
+    "tier3.game_results.game3_result",
+}
+
+CONTRACTED_TIER3_DEFERRED_FIELDS = {
+    "play_draw",
+    "starting_player",
+    "mulligans",
+    "turn_count",
+    "opening_hand",
+    "game_timing",
+    "game_duration",
+    "pre_postboard",
+    "sideboarding",
+    "deck_state",
+}
+
 
 def _entries_by_id() -> dict[str, dict[str, object]]:
     return {entry["entry_id"]: entry for entry in evidence_ledger.iter_ledger_entries()}
 
 
-def _tier1_family() -> dict[str, object]:
+def _family(output_family: str) -> dict[str, object]:
     families = evidence_ledger.build_player_log_evidence_ledger()["output_families"]
-    return next(family for family in families if family["output_family"] == "match_identity_and_lifecycle")
+    return next(family for family in families if family["output_family"] == output_family)
+
+
+def _tier1_family() -> dict[str, object]:
+    return _family("match_identity_and_lifecycle")
+
+
+def _tier3_family() -> dict[str, object]:
+    return _family("game_level_facts")
 
 
 def test_vocabulary_constants_match_contract_slice() -> None:
@@ -122,7 +163,7 @@ def test_output_family_registry_contains_required_seven_families() -> None:
     assert [(family["tier"], family["output_family"], family["status"]) for family in families] == [
         (1, "match_identity_and_lifecycle", "seeded_sample"),
         (2, "queue_format_rank_event_context", "registered_future"),
-        (3, "game_level_facts", "registered_future"),
+        (3, "game_level_facts", "seeded_sample"),
         (4, "sideboarding_and_deck_state", "registered_future"),
         (5, "card_identity_and_gameplay_actions", "registered_future"),
         (6, "runtime_health_and_drift_detection", "registered_future"),
@@ -131,6 +172,11 @@ def test_output_family_registry_contains_required_seven_families() -> None:
     tier1 = _tier1_family()
     assert tier1["seed_fields"] == CONTRACTED_TIER1_FIELDS
     assert tier1["future_fields"] == []
+
+    tier3 = _tier3_family()
+    assert tier3["seed_fields"] == CONTRACTED_TIER3_FIELDS
+    assert set(tier3["future_fields"]) == CONTRACTED_TIER3_DEFERRED_FIELDS
+    assert any("match-scope results are not promoted" in item for item in tier3["notes"])
 
 
 def test_seed_entry_maps_match_id_evidence_signals() -> None:
@@ -165,10 +211,14 @@ def test_tier1_match_lifecycle_and_aggregate_entries_are_mapped() -> None:
     entries = _entries_by_id()
     output_fields = {entry["output_field"] for entry in entries.values()}
 
-    assert set(entries) == CONTRACTED_TIER1_ENTRY_IDS
-    assert all(entry["tier"] == 1 for entry in entries.values())
-    assert all(entry["output_family"] == "match_identity_and_lifecycle" for entry in entries.values())
-    assert output_fields == set(CONTRACTED_TIER1_FIELDS)
+    assert set(entries) == CONTRACTED_TIER1_ENTRY_IDS | CONTRACTED_TIER3_ENTRY_IDS
+    assert CONTRACTED_TIER1_ENTRY_IDS.issubset(entries)
+    assert all(entries[entry_id]["tier"] == 1 for entry_id in CONTRACTED_TIER1_ENTRY_IDS)
+    assert all(
+        entries[entry_id]["output_family"] == "match_identity_and_lifecycle"
+        for entry_id in CONTRACTED_TIER1_ENTRY_IDS
+    )
+    assert set(CONTRACTED_TIER1_FIELDS).issubset(output_fields)
     assert CONTRACTED_AGGREGATE_FIELDS.issubset(output_fields)
 
 
@@ -343,6 +393,102 @@ def test_match_win_flag_and_game_win_rate_document_dependency_invariants() -> No
     assert "game_win_rate_blank_when_total_games_zero" in game_win_rate["invariant_checks"]
     assert "game_win_rate_within_zero_and_one" in game_win_rate["invariant_checks"]
     assert any("no completed games is expected" in item for item in game_win_rate["degradation_behavior"])
+
+
+def test_aggregate_entries_reference_tier3_game_result_dependencies() -> None:
+    entries = _entries_by_id()
+    aggregate_ids = {
+        "tier1.match_aggregates.games_won",
+        "tier1.match_aggregates.games_lost",
+        "tier1.match_aggregates.total_games",
+        "tier1.match_aggregates.game_win_rate",
+    }
+
+    for entry_id in aggregate_ids:
+        assert any("tier3.game_results" in note for note in entries[entry_id]["notes"])
+
+
+def test_tier3_game_result_entries_are_mapped() -> None:
+    entries = _entries_by_id()
+
+    assert CONTRACTED_TIER3_ENTRY_IDS.issubset(entries)
+    for entry_id in CONTRACTED_TIER3_ENTRY_IDS:
+        entry = entries[entry_id]
+        assert entry["tier"] == 3
+        assert entry["output_family"] == "game_level_facts"
+        assert entry["coverage_status"] == "seeded_sample"
+        assert entry["parser_managed_truth"] is True
+
+
+def test_tier3_game_number_entry_documents_slot_identity_sources() -> None:
+    entry = _entries_by_id()["tier3.game_results.game_number"]
+
+    assert entry["display_name"] == "Game Number"
+    assert entry["model_surface"] == "GameSummary.to_game_log_row"
+    assert {signal["signal_id"] for signal in entry["direct_evidence"]} == {
+        "game_result.identity.game_number",
+        "game_result.game_info.game_number",
+        "game_state.identity.game_number",
+    }
+    assert {signal["signal_id"] for signal in entry["fallback_evidence"]} == {
+        "parser_context.current_game_number",
+        "match_state.game_results.list_order",
+    }
+    assert "game_number_must_be_slot_1_2_or_3" in entry["invariant_checks"]
+    assert "per_game_results_require_known_game_number" in entry["invariant_checks"]
+    assert any("does not create or guess a game slot" in item for item in entry["degradation_behavior"])
+
+
+def test_tier3_game_winner_entries_document_game_scope_sources_and_non_promotion() -> None:
+    entries = _entries_by_id()
+
+    for game_number in (1, 2, 3):
+        game_label = f"game{game_number}"
+        entry = entries[f"tier3.game_results.{game_label}_winner_team"]
+        direct_signals = {signal["signal_id"]: signal for signal in entry["direct_evidence"]}
+        fallback_signals = {signal["signal_id"]: signal for signal in entry["fallback_evidence"]}
+
+        assert entry["display_name"] == f"g{game_number}_winner_team"
+        assert entry["parser_owner"] == "src/mythic_edge_parser/app/state.py"
+        assert direct_signals[f"game_result.{game_label}.game_scope_winner"]["confidence_when_used"] == "high"
+        assert direct_signals[f"match_state.{game_label}.game_scope_winner"]["confidence_when_used"] == "medium"
+        assert direct_signals[f"game_result.{game_label}.game_scope_winner"]["raw_payload_path"] == (
+            "greToClientMessages[].gameStateMessage.gameInfo.results[].winningTeamId"
+        )
+        assert direct_signals[f"match_state.{game_label}.game_scope_winner"]["raw_payload_path"] == (
+            "matchGameRoomStateChangedEvent.gameRoomInfo.finalMatchResult.resultList[].winningTeamId"
+        )
+        assert fallback_signals[f"game_result.{game_label}.top_level_legacy_winner"]["confidence_when_used"] == "medium"
+        assert fallback_signals["tier3.game_results.game_number_dependency"]["required_for_final"] is True
+        assert f"{game_label}_winner_does_not_promote_match_scope_result" in entry["invariant_checks"]
+        assert "latest_valid_nested_game_scope_result_wins" in entry["invariant_checks"]
+        assert any("whitespace zero, and bool winners are unknown" in item for item in entry["degradation_behavior"])
+        assert any("match-scope results" in item for item in entry["degradation_behavior"])
+
+
+def test_tier3_game_result_entries_are_derived_from_winner_and_player_team() -> None:
+    entries = _entries_by_id()
+
+    for game_number in (1, 2, 3):
+        game_label = f"game{game_number}"
+        entry = entries[f"tier3.game_results.{game_label}_result"]
+        fallback_signals = {signal["signal_id"] for signal in entry["fallback_evidence"]}
+
+        assert entry["parser_owner"] == "src/mythic_edge_parser/app/models.py"
+        assert entry["value_source_policy"]["direct"] == "derived"
+        assert entry["direct_evidence"][0]["signal_id"] == f"parser_state.match_summary.{game_label}_result"
+        assert entry["direct_evidence"][0]["normalized_payload_path"] == (
+            f"MatchSummary._game_result_fields().g{game_number}_result"
+        )
+        assert fallback_signals == {
+            f"ledger.tier3.game_results.{game_label}_winner_team_dependency",
+            "parser_state.match_summary.player_team_dependency",
+        }
+        assert f"{game_label}_result_derived_from_winner_and_player_team" in entry["invariant_checks"]
+        assert f"{game_label}_result_missing_winner_not_inferred_loss" in entry["invariant_checks"]
+        assert f"{game_label}_result_not_inferred_from_match_result_or_aggregates" in entry["invariant_checks"]
+        assert any("unplayed game slot is expected" in item for item in entry["degradation_behavior"])
+        assert any("match result, match winner, aggregate counts" in item for item in entry["degradation_behavior"])
 
 
 def test_builtin_ledger_and_entries_validate_cleanly() -> None:

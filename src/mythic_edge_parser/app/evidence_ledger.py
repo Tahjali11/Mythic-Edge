@@ -214,15 +214,39 @@ _OUTPUT_FAMILIES: tuple[dict[str, Any], ...] = (
     {
         "tier": 3,
         "output_family": "game_level_facts",
-        "status": "registered_future",
+        "status": "seeded_sample",
         "description": "Game result, play/draw, mulligan, turn, and opening-hand parser outputs.",
-        "seed_fields": [],
-        "future_fields": ["game_result", "play_draw", "mulligans", "turn_count", "opening_hand"],
+        "seed_fields": [
+            "game_number",
+            "game1_winner_team",
+            "game2_winner_team",
+            "game3_winner_team",
+            "game1_result",
+            "game2_result",
+            "game3_result",
+        ],
+        "future_fields": [
+            "play_draw",
+            "starting_player",
+            "mulligans",
+            "turn_count",
+            "opening_hand",
+            "game_timing",
+            "game_duration",
+            "pre_postboard",
+            "sideboarding",
+            "deck_state",
+        ],
         "owner_modules": [
             "src/mythic_edge_parser/app/state.py",
             "src/mythic_edge_parser/app/models.py",
         ],
-        "notes": ["Registered for later field-level provenance mapping."],
+        "notes": [
+            "Issue #134 maps a seeded game-result provenance slice only.",
+            "Game-level winners come from game-scope evidence; match-scope results are not promoted.",
+            "Play/draw, mulligan, turn-count, opening-hand, timing, duration, "
+            "sideboarding, and deck-state provenance remain deferred.",
+        ],
     },
     {
         "tier": 4,
@@ -1043,7 +1067,7 @@ _GAMES_WON_ENTRY: dict[str, Any] = {
     ],
     "notes": [
         "Documents existing MatchSummary.game_wins math without computing field evidence at runtime.",
-        "Full per-game winner provenance remains deferred to Tier 3.",
+        "Issue #134 maps tier3.game_results game-winner dependencies for future field-evidence attachment.",
     ],
 }
 
@@ -1172,7 +1196,7 @@ _GAMES_LOST_ENTRY: dict[str, Any] = {
     ],
     "notes": [
         "Documents existing MatchSummary.game_losses math without computing field evidence at runtime.",
-        "Full per-game winner provenance remains deferred to Tier 3.",
+        "Issue #134 maps tier3.game_results game-winner dependencies for future field-evidence attachment.",
     ],
 }
 
@@ -1286,7 +1310,7 @@ _TOTAL_GAMES_ENTRY: dict[str, Any] = {
     ],
     "notes": [
         "Documents existing MatchSummary.total_games math without computing field evidence at runtime.",
-        "Full per-game result provenance remains deferred to Tier 3.",
+        "Issue #134 maps tier3.game_results game-result dependencies for future field-evidence attachment.",
     ],
 }
 
@@ -1513,9 +1537,432 @@ _GAME_WIN_RATE_ENTRY: dict[str, Any] = {
     ],
     "notes": [
         "The #128 allowed-type labels do not include float; invariants document numeric rate behavior.",
-        "Full game-result provenance remains deferred to Tier 3.",
+        "Issue #134 maps tier3.game_results game aggregate dependencies for future field-evidence attachment.",
     ],
 }
+
+
+def _game_number_entry() -> dict[str, Any]:
+    return {
+        "entry_id": "tier3.game_results.game_number",
+        "tier": 3,
+        "output_family": "game_level_facts",
+        "output_field": "game_number",
+        "display_name": "Game Number",
+        "parser_owner": "src/mythic_edge_parser/app/state.py",
+        "model_surface": "GameSummary.to_game_log_row",
+        "downstream_surfaces": ["GameLogRow", "MatchLogRow", "golden_replay"],
+        "parser_managed_truth": True,
+        "coverage_status": "seeded_sample",
+        "direct_evidence": [
+            {
+                "signal_id": "game_result.identity.game_number",
+                "parser_event_kind": "GameResult",
+                "parser_event_type": "game_result",
+                "raw_event_family": "greToClientEvent",
+                "raw_message_type": "GREMessageType_GameStateMessage",
+                "normalized_payload_path": "payload.identity.game_number",
+                "raw_payload_path": "greToClientMessages[].gameStateMessage.gameInfo.gameNumber",
+                "required_for_final": True,
+                "value_source_when_used": "observed",
+                "confidence_when_used": "high",
+                "finality_when_used": "final",
+                "allowed_types": ["int", "str-int"],
+                "missing_behavior": "game result cannot attach to a per-game slot without a known game number",
+                "privacy_class": "path_only_no_values",
+            },
+            {
+                "signal_id": "game_result.game_info.game_number",
+                "parser_event_kind": "GameResult",
+                "parser_event_type": "game_result",
+                "raw_event_family": "greToClientEvent",
+                "raw_message_type": "GREMessageType_GameStateMessage",
+                "normalized_payload_path": "payload.game_info.gameNumber",
+                "raw_payload_path": "greToClientMessages[].gameStateMessage.gameInfo.gameNumber",
+                "required_for_final": True,
+                "value_source_when_used": "observed",
+                "confidence_when_used": "high",
+                "finality_when_used": "final",
+                "allowed_types": ["int", "str-int"],
+                "missing_behavior": "fall back to parser context only while preserving degraded provenance",
+                "privacy_class": "path_only_no_values",
+            },
+            {
+                "signal_id": "game_state.identity.game_number",
+                "parser_event_kind": "GameState",
+                "parser_event_type": "game_state_message",
+                "raw_event_family": "greToClientEvent",
+                "raw_message_type": "GREMessageType_GameStateMessage",
+                "normalized_payload_path": "payload.identity.game_number",
+                "raw_payload_path": "greToClientMessages[].gameStateMessage.gameInfo.gameNumber",
+                "required_for_final": False,
+                "value_source_when_used": "observed",
+                "confidence_when_used": "high",
+                "finality_when_used": "live",
+                "allowed_types": ["int", "str-int"],
+                "missing_behavior": "do not synthesize a slot from unrelated game state",
+                "privacy_class": "path_only_no_values",
+            },
+        ],
+        "fallback_evidence": [
+            {
+                "signal_id": "parser_context.current_game_number",
+                "parser_event_kind": "parser_context",
+                "parser_event_type": "",
+                "raw_event_family": "parser_context",
+                "raw_message_type": "",
+                "normalized_payload_path": "state_context.current_game_number",
+                "raw_payload_path": "",
+                "required_for_final": False,
+                "value_source_when_used": "derived",
+                "confidence_when_used": "medium",
+                "finality_when_used": "provisional",
+                "allowed_types": ["int", "str-int"],
+                "missing_behavior": "leave game-level fields blank or degraded when context is unknown",
+                "privacy_class": "path_only_no_values",
+            },
+            {
+                "signal_id": "match_state.game_results.list_order",
+                "parser_event_kind": "MatchState",
+                "parser_event_type": "match_completed",
+                "raw_event_family": "matchGameRoomStateChangedEvent",
+                "raw_message_type": "",
+                "normalized_payload_path": "payload.game_results[]",
+                "raw_payload_path": "matchGameRoomStateChangedEvent.gameRoomInfo.finalMatchResult.resultList[]",
+                "required_for_final": False,
+                "value_source_when_used": "derived",
+                "confidence_when_used": "medium",
+                "finality_when_used": "final",
+                "allowed_types": ["list"],
+                "missing_behavior": "ordered MatchState game results remain review-worthy slot evidence",
+                "privacy_class": "path_only_no_values",
+            },
+        ],
+        "value_source_policy": {
+            "direct": "observed",
+            "fallback": "derived",
+            "missing": "unknown",
+            "contradiction": "conflict",
+        },
+        "confidence_policy": {
+            "direct": "high",
+            "fallback": "medium",
+            "weak_fallback": "low",
+            "missing": "unknown",
+            "contradiction": "low",
+        },
+        "finality_policy": {
+            "live": "live",
+            "provisional": "provisional",
+            "final": "final",
+            "corrected_by_later_evidence": "reconciled",
+        },
+        "invariant_checks": [
+            "game_number_must_be_slot_1_2_or_3",
+            "per_game_results_require_known_game_number",
+            "match_state_list_order_is_medium_confidence_slot_evidence",
+            "game_log_row_identity_match_id_and_game_number",
+        ],
+        "degradation_behavior": [
+            "missing game number does not create or guess a game slot",
+            "MatchState list-order mapping is usable only as medium confidence ordered slot evidence",
+            "out-of-range game numbers are degraded and should not populate game1 through game3 fields",
+        ],
+        "drift_flags": ["missing_expected_payload_path", "fallback_used", "conflicting_evidence", "invariant_failed"],
+        "recommended_review_modules": [
+            "src/mythic_edge_parser/app/state.py",
+            "src/mythic_edge_parser/parsers/gre/game_result.py",
+            "src/mythic_edge_parser/parsers/match_state.py",
+        ],
+        "tests": [
+            "tests/test_evidence_ledger.py",
+            "tests/test_state.py",
+            "tests/test_gre_game_result_parser.py",
+            "tests/test_match_summary_from_match_state.py",
+        ],
+        "fixture_refs": [
+            "tests/fixtures/golden_replay/bo1_match_win_basic.manifest.json",
+            "tests/fixtures/golden_replay/bo3_sideboard_match_loss.manifest.json",
+        ],
+        "notes": [
+            "This entry documents slot identity; it does not attach runtime field evidence.",
+            "Issue #134 keeps per-game slots limited to games 1 through 3.",
+        ],
+    }
+
+
+def _game_winner_entry(game_number: int) -> dict[str, Any]:
+    game_label = f"game{game_number}"
+    return {
+        "entry_id": f"tier3.game_results.{game_label}_winner_team",
+        "tier": 3,
+        "output_family": "game_level_facts",
+        "output_field": f"{game_label}_winner_team",
+        "display_name": f"g{game_number}_winner_team",
+        "parser_owner": "src/mythic_edge_parser/app/state.py",
+        "model_surface": "MatchSummary._game_winner_fields",
+        "downstream_surfaces": ["MatchLogRow", "GameLogRow", "match_history", "state_snapshots"],
+        "parser_managed_truth": True,
+        "coverage_status": "seeded_sample",
+        "direct_evidence": [
+            {
+                "signal_id": f"game_result.{game_label}.game_scope_winner",
+                "parser_event_kind": "GameResult",
+                "parser_event_type": "game_result",
+                "raw_event_family": "greToClientEvent",
+                "raw_message_type": "GREMessageType_GameStateMessage",
+                "normalized_payload_path": "payload.results[].winning_team_id",
+                "raw_payload_path": "greToClientMessages[].gameStateMessage.gameInfo.results[].winningTeamId",
+                "required_for_final": False,
+                "value_source_when_used": "observed",
+                "confidence_when_used": "high",
+                "finality_when_used": "final",
+                "allowed_types": ["int", "str-int"],
+                "missing_behavior": "game winner remains unknown when no valid nested MatchScope_Game result exists",
+                "privacy_class": "path_only_no_values",
+            },
+            {
+                "signal_id": f"match_state.{game_label}.game_scope_winner",
+                "parser_event_kind": "MatchState",
+                "parser_event_type": "match_completed",
+                "raw_event_family": "matchGameRoomStateChangedEvent",
+                "raw_message_type": "",
+                "normalized_payload_path": "payload.game_results[].winning_team_id",
+                "raw_payload_path": (
+                    "matchGameRoomStateChangedEvent.gameRoomInfo.finalMatchResult.resultList[].winningTeamId"
+                ),
+                "required_for_final": False,
+                "value_source_when_used": "observed",
+                "confidence_when_used": "medium",
+                "finality_when_used": "final",
+                "allowed_types": ["int", "str-int"],
+                "missing_behavior": "MatchState ordered game result maps only to its list-order game slot",
+                "privacy_class": "path_only_no_values",
+            },
+        ],
+        "fallback_evidence": [
+            {
+                "signal_id": f"game_result.{game_label}.top_level_legacy_winner",
+                "parser_event_kind": "GameResult",
+                "parser_event_type": "game_result",
+                "raw_event_family": "greToClientEvent",
+                "raw_message_type": "GREMessageType_GameStateMessage",
+                "normalized_payload_path": "payload.winning_team_id",
+                "raw_payload_path": "greToClientMessages[].gameStateMessage.gameInfo.results[].winningTeamId",
+                "required_for_final": False,
+                "value_source_when_used": "observed",
+                "confidence_when_used": "medium",
+                "finality_when_used": "provisional",
+                "allowed_types": ["int", "str-int"],
+                "missing_behavior": (
+                    "legacy top-level winner is used only when no nested results list exists "
+                    "and slot identity is known"
+                ),
+                "privacy_class": "path_only_no_values",
+            },
+            {
+                "signal_id": "tier3.game_results.game_number_dependency",
+                "parser_event_kind": "parser_context",
+                "parser_event_type": "",
+                "raw_event_family": "parser_context",
+                "raw_message_type": "",
+                "normalized_payload_path": "ledger.entries[tier3.game_results.game_number]",
+                "raw_payload_path": "",
+                "required_for_final": True,
+                "value_source_when_used": "derived",
+                "confidence_when_used": "medium",
+                "finality_when_used": "provisional",
+                "allowed_types": ["int", "str-int"],
+                "missing_behavior": "winner evidence is degraded when the game slot cannot be identified",
+                "privacy_class": "path_only_no_values",
+            },
+        ],
+        "value_source_policy": {
+            "direct": "observed",
+            "fallback": "observed",
+            "missing": "unknown",
+            "contradiction": "conflict",
+        },
+        "confidence_policy": {
+            "direct": "high",
+            "fallback": "medium",
+            "weak_fallback": "low",
+            "missing": "unknown",
+            "contradiction": "low",
+        },
+        "finality_policy": {
+            "live": "live",
+            "provisional": "provisional",
+            "final": "final",
+            "corrected_by_later_evidence": "reconciled",
+        },
+        "invariant_checks": [
+            f"{game_label}_winner_uses_game_scope_evidence",
+            f"{game_label}_winner_does_not_promote_match_scope_result",
+            f"{game_label}_winner_requires_valid_game_slot",
+            "latest_valid_nested_game_scope_result_wins",
+            "unknown_like_winners_do_not_become_high_confidence",
+        ],
+        "degradation_behavior": [
+            "None, empty string, zero, string zero, whitespace zero, and bool winners are unknown",
+            "match-scope results, match winner, aggregates, workbook formulas, "
+            "and AI output must not populate game winner",
+            "unknown winner evidence must not overwrite a known game winner",
+            "missing game-scope evidence for an unplayed slot is expected blank behavior",
+        ],
+        "drift_flags": ["missing_expected_payload_path", "fallback_used", "conflicting_evidence", "invariant_failed"],
+        "recommended_review_modules": [
+            "src/mythic_edge_parser/app/state.py",
+            "src/mythic_edge_parser/parsers/gre/game_result.py",
+            "src/mythic_edge_parser/parsers/match_state.py",
+        ],
+        "tests": [
+            "tests/test_evidence_ledger.py",
+            "tests/test_state.py",
+            "tests/test_gre_game_result_parser.py",
+            "tests/test_match_summary_from_match_state.py",
+        ],
+        "fixture_refs": [
+            "tests/fixtures/golden_replay/bo1_match_win_basic.manifest.json",
+            "tests/fixtures/golden_replay/bo3_sideboard_match_loss.manifest.json",
+        ],
+        "notes": [
+            "GameResult nested MatchScope_Game is the high-confidence game winner source.",
+            "MatchState finalMatchResult.resultList is medium-confidence ordered game-slot evidence.",
+            "MatchScope_Match and top-level match winners are not promoted into game winner fields.",
+        ],
+    }
+
+
+def _game_result_entry(game_number: int) -> dict[str, Any]:
+    game_label = f"game{game_number}"
+    return {
+        "entry_id": f"tier3.game_results.{game_label}_result",
+        "tier": 3,
+        "output_family": "game_level_facts",
+        "output_field": f"{game_label}_result",
+        "display_name": f"Game {game_number} Result",
+        "parser_owner": "src/mythic_edge_parser/app/models.py",
+        "model_surface": "MatchSummary._game_result_fields",
+        "downstream_surfaces": ["MatchLogRow", "GameLogRow", "match_history", "state_snapshots"],
+        "parser_managed_truth": True,
+        "coverage_status": "seeded_sample",
+        "direct_evidence": [
+            {
+                "signal_id": f"parser_state.match_summary.{game_label}_result",
+                "parser_event_kind": "parser_context",
+                "parser_event_type": "",
+                "raw_event_family": "parser_context",
+                "raw_message_type": "",
+                "normalized_payload_path": f"MatchSummary._game_result_fields().g{game_number}_result",
+                "raw_payload_path": "",
+                "required_for_final": False,
+                "value_source_when_used": "derived",
+                "confidence_when_used": "high",
+                "finality_when_used": "final",
+                "allowed_types": ["str", "unknown"],
+                "missing_behavior": "blank is expected when winner or local player team is unknown",
+                "privacy_class": "path_only_no_values",
+            },
+        ],
+        "fallback_evidence": [
+            {
+                "signal_id": f"ledger.tier3.game_results.{game_label}_winner_team_dependency",
+                "parser_event_kind": "parser_context",
+                "parser_event_type": "",
+                "raw_event_family": "parser_context",
+                "raw_message_type": "",
+                "normalized_payload_path": f"ledger.entries[tier3.game_results.{game_label}_winner_team]",
+                "raw_payload_path": "",
+                "required_for_final": False,
+                "value_source_when_used": "derived",
+                "confidence_when_used": "medium",
+                "finality_when_used": "provisional",
+                "allowed_types": ["int", "str-int", "unknown"],
+                "missing_behavior": "missing or degraded winner dependency yields blank or degraded game result",
+                "privacy_class": "path_only_no_values",
+            },
+            {
+                "signal_id": "parser_state.match_summary.player_team_dependency",
+                "parser_event_kind": "parser_context",
+                "parser_event_type": "",
+                "raw_event_family": "parser_context",
+                "raw_message_type": "",
+                "normalized_payload_path": "MatchSummary.player_team",
+                "raw_payload_path": "",
+                "required_for_final": False,
+                "value_source_when_used": "derived",
+                "confidence_when_used": "medium",
+                "finality_when_used": "provisional",
+                "allowed_types": ["int", "str-int", "unknown"],
+                "missing_behavior": "missing local player team leaves per-game result blank",
+                "privacy_class": "path_only_no_values",
+            },
+        ],
+        "value_source_policy": {
+            "direct": "derived",
+            "fallback": "derived",
+            "missing": "unknown",
+            "contradiction": "conflict",
+        },
+        "confidence_policy": {
+            "direct": "high",
+            "fallback": "medium",
+            "weak_fallback": "low",
+            "missing": "unknown",
+            "contradiction": "low",
+        },
+        "finality_policy": {
+            "live": "live",
+            "provisional": "provisional",
+            "final": "final",
+            "corrected_by_later_evidence": "reconciled",
+        },
+        "invariant_checks": [
+            f"{game_label}_result_derived_from_winner_and_player_team",
+            f"{game_label}_result_missing_winner_not_inferred_loss",
+            f"{game_label}_result_expected_blank_when_not_played",
+            f"{game_label}_result_not_inferred_from_match_result_or_aggregates",
+        ],
+        "degradation_behavior": [
+            "blank result for an unplayed game slot is expected",
+            "a played game with missing winner or local player team is degraded and review-worthy",
+            "do not infer game result from match result, match winner, aggregate counts, "
+            "workbook formulas, or AI output",
+        ],
+        "drift_flags": [
+            "missing_expected_payload_path",
+            "weak_fallback_used",
+            "conflicting_evidence",
+            "invariant_failed",
+        ],
+        "recommended_review_modules": [
+            "src/mythic_edge_parser/app/models.py",
+            "src/mythic_edge_parser/app/state.py",
+        ],
+        "tests": [
+            "tests/test_evidence_ledger.py",
+            "tests/test_state.py",
+            "tests/test_golden_replay_harness.py",
+        ],
+        "fixture_refs": [
+            "tests/fixtures/golden_replay/bo1_match_win_basic.manifest.json",
+            "tests/fixtures/golden_replay/bo3_sideboard_match_loss.manifest.json",
+        ],
+        "notes": [
+            "The result is player-relative and derived from winner_team plus MatchSummary.player_team.",
+            "Expected blank behavior separates unplayed game slots from degraded played slots.",
+        ],
+    }
+
+
+_GAME_NUMBER_ENTRY = _game_number_entry()
+_GAME1_WINNER_TEAM_ENTRY = _game_winner_entry(1)
+_GAME2_WINNER_TEAM_ENTRY = _game_winner_entry(2)
+_GAME3_WINNER_TEAM_ENTRY = _game_winner_entry(3)
+_GAME1_RESULT_ENTRY = _game_result_entry(1)
+_GAME2_RESULT_ENTRY = _game_result_entry(2)
+_GAME3_RESULT_ENTRY = _game_result_entry(3)
 
 _LEDGER_ENTRIES: tuple[dict[str, Any], ...] = (
     _MATCH_ID_ENTRY,
@@ -1529,6 +1976,13 @@ _LEDGER_ENTRIES: tuple[dict[str, Any], ...] = (
     _TOTAL_GAMES_ENTRY,
     _MATCH_WIN_FLAG_ENTRY,
     _GAME_WIN_RATE_ENTRY,
+    _GAME_NUMBER_ENTRY,
+    _GAME1_WINNER_TEAM_ENTRY,
+    _GAME2_WINNER_TEAM_ENTRY,
+    _GAME3_WINNER_TEAM_ENTRY,
+    _GAME1_RESULT_ENTRY,
+    _GAME2_RESULT_ENTRY,
+    _GAME3_RESULT_ENTRY,
 )
 
 
@@ -1710,7 +2164,7 @@ def _validate_output_families(value: Any) -> list[str]:
     required_statuses = {
         "match_identity_and_lifecycle": "seeded_sample",
         "queue_format_rank_event_context": "registered_future",
-        "game_level_facts": "registered_future",
+        "game_level_facts": "seeded_sample",
         "sideboarding_and_deck_state": "registered_future",
         "card_identity_and_gameplay_actions": "registered_future",
         "runtime_health_and_drift_detection": "registered_future",
