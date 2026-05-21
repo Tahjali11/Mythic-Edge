@@ -83,6 +83,15 @@ CONTRACTED_TIER3_FIELDS = [
     "game2_mulligans",
     "game3_mulligans",
     "total_mulligans",
+    "game1_opening_hand_size",
+    "game2_opening_hand_size",
+    "game3_opening_hand_size",
+    "game1_opening_hand",
+    "game2_opening_hand",
+    "game3_opening_hand",
+    "game1_mulliganed_away",
+    "game2_mulliganed_away",
+    "game3_mulliganed_away",
 ]
 
 CONTRACTED_TIER3_ENTRY_IDS = {
@@ -103,6 +112,15 @@ CONTRACTED_TIER3_ENTRY_IDS = {
     "tier3.mulligans.game2_mulligans",
     "tier3.mulligans.game3_mulligans",
     "tier3.mulligans.total_mulligans",
+    "tier3.opening_hand.game1_opening_hand_size",
+    "tier3.opening_hand.game2_opening_hand_size",
+    "tier3.opening_hand.game3_opening_hand_size",
+    "tier3.opening_hand.game1_opening_hand",
+    "tier3.opening_hand.game2_opening_hand",
+    "tier3.opening_hand.game3_opening_hand",
+    "tier3.opening_hand.game1_mulliganed_away",
+    "tier3.opening_hand.game2_mulliganed_away",
+    "tier3.opening_hand.game3_mulliganed_away",
 }
 
 CONTRACTED_PLAY_DRAW_ENTRY_IDS = {
@@ -137,9 +155,32 @@ CONTRACTED_MULLIGAN_FIELDS = {
     "total_mulligans",
 }
 
+CONTRACTED_OPENING_HAND_ENTRY_IDS = {
+    "tier3.opening_hand.game1_opening_hand_size",
+    "tier3.opening_hand.game2_opening_hand_size",
+    "tier3.opening_hand.game3_opening_hand_size",
+    "tier3.opening_hand.game1_opening_hand",
+    "tier3.opening_hand.game2_opening_hand",
+    "tier3.opening_hand.game3_opening_hand",
+    "tier3.opening_hand.game1_mulliganed_away",
+    "tier3.opening_hand.game2_mulliganed_away",
+    "tier3.opening_hand.game3_mulliganed_away",
+}
+
+CONTRACTED_OPENING_HAND_FIELDS = {
+    "game1_opening_hand_size",
+    "game2_opening_hand_size",
+    "game3_opening_hand_size",
+    "game1_opening_hand",
+    "game2_opening_hand",
+    "game3_opening_hand",
+    "game1_mulliganed_away",
+    "game2_mulliganed_away",
+    "game3_mulliganed_away",
+}
+
 CONTRACTED_TIER3_DEFERRED_FIELDS = {
     "turn_count",
-    "opening_hand",
     "game_timing",
     "game_duration",
     "pre_postboard",
@@ -262,9 +303,12 @@ def test_output_family_registry_contains_required_seven_families() -> None:
     assert "starting_player" not in tier3["future_fields"]
     assert CONTRACTED_MULLIGAN_FIELDS.issubset(tier3["seed_fields"])
     assert "mulligans" not in tier3["future_fields"]
+    assert CONTRACTED_OPENING_HAND_FIELDS.issubset(tier3["seed_fields"])
+    assert "opening_hand" not in tier3["future_fields"]
     assert any("match-scope results are not promoted" in item for item in tier3["notes"])
     assert any("Issue #139 maps starting-player and play/draw" in item for item in tier3["notes"])
     assert any("Issue #140 maps per-game and total mulligan" in item for item in tier3["notes"])
+    assert any("Issue #143 maps opening-hand size" in item for item in tier3["notes"])
 
 
 def test_seed_entry_maps_match_id_evidence_signals() -> None:
@@ -814,7 +858,6 @@ def test_tier3_play_draw_remains_independent_from_mulligan_entries() -> None:
     assert "starting_player" not in tier3["future_fields"]
     assert {
         "turn_count",
-        "opening_hand",
         "game_timing",
         "game_duration",
         "pre_postboard",
@@ -908,27 +951,174 @@ def test_total_mulligans_entry_is_derived_from_per_game_counts() -> None:
     assert any("opening-hand size, card analytics" in item for item in entry["degradation_behavior"])
 
 
-def test_tier3_mulligan_scope_defers_opening_hand_and_analytics() -> None:
+def test_tier3_mulligan_scope_documents_opening_hand_consumers_and_defers_analytics() -> None:
     tier3 = _tier3_family()
     entries = _entries_by_id()
 
     assert CONTRACTED_PLAY_DRAW_ENTRY_IDS.issubset(entries)
     assert CONTRACTED_MULLIGAN_ENTRY_IDS.issubset(entries)
     assert "mulligans" not in tier3["future_fields"]
+    assert CONTRACTED_OPENING_HAND_ENTRY_IDS.issubset(entries)
     assert {
         "turn_count",
-        "opening_hand",
         "game_timing",
         "game_duration",
         "pre_postboard",
         "sideboarding",
         "deck_state",
     }.issubset(tier3["future_fields"])
-    assert not any("opening_hand" in entry_id for entry_id in CONTRACTED_TIER3_ENTRY_IDS)
-    assert not any("mulliganed_away" in entry_id for entry_id in CONTRACTED_TIER3_ENTRY_IDS)
+    assert "opening_hand" not in tier3["future_fields"]
     for entry_id in CONTRACTED_MULLIGAN_ENTRY_IDS:
         entry = entries[entry_id]
         assert any("Opening-hand" in note or "opening-hand" in note for note in entry["notes"])
+
+
+def test_tier3_opening_hand_entries_are_mapped_and_validate() -> None:
+    entries = _entries_by_id()
+
+    assert CONTRACTED_OPENING_HAND_ENTRY_IDS.issubset(entries)
+    for entry_id in CONTRACTED_OPENING_HAND_ENTRY_IDS:
+        entry = entries[entry_id]
+        assert entry["tier"] == 3
+        assert entry["output_family"] == "game_level_facts"
+        assert entry["coverage_status"] == "seeded_sample"
+        assert entry["parser_managed_truth"] is True
+        assert evidence_ledger.validate_ledger_entry(entry) == []
+        assert all(
+            signal["privacy_class"] == "path_only_no_values"
+            for signal in (*entry["direct_evidence"], *entry["fallback_evidence"])
+        )
+
+
+def test_tier3_opening_hand_size_entries_document_exact_and_mulligan_fallback_sources() -> None:
+    entries = _entries_by_id()
+
+    for game_number in (1, 2, 3):
+        game_label = f"game{game_number}"
+        entry = entries[f"tier3.opening_hand.{game_label}_opening_hand_size"]
+        direct_signals = {signal["signal_id"]: signal for signal in entry["direct_evidence"]}
+        fallback_signals = _signal_ids(entry, "fallback_evidence")
+
+        assert entry["display_name"] == "Opening Hand Size"
+        assert entry["model_surface"] == f"MatchSummary.games[{game_number}].opening_hand_size()"
+        assert direct_signals[f"game_state.{game_label}.local_private_hand_snapshot"][
+            "value_source_when_used"
+        ] == "observed"
+        assert direct_signals[f"parser_state.match_summary.{game_label}_opening_hand_size"][
+            "normalized_payload_path"
+        ] == f"MatchSummary.games[{game_number}].opening_hand_size()"
+        assert f"ledger.tier3.opening_hand.{game_label}_opening_hand_dependency" in fallback_signals
+        assert f"ledger.tier3.mulligans.{game_label}_mulligans_dependency" in fallback_signals
+        assert "tier3.game_results.game_number_dependency" in fallback_signals
+        assert "ledger.tier1.participants.local_system_seat_id_dependency" in fallback_signals
+        assert f"{game_label}_opening_hand_size_exact_length_precedes_mulligan_fallback" in entry[
+            "invariant_checks"
+        ]
+        assert f"{game_label}_opening_hand_size_fallback_is_derived_not_observed" in entry[
+            "invariant_checks"
+        ]
+        assert f"{game_label}_opening_hand_size_blank_when_game_not_started" in entry[
+            "invariant_checks"
+        ]
+        assert any("fallback opening-hand size is derived" in item for item in entry["degradation_behavior"])
+        assert any("placeholder-containing exact lists" in item for item in entry["degradation_behavior"])
+        assert any("data loss, truncation" in item for item in entry["degradation_behavior"])
+
+
+def test_tier3_exact_opening_hand_entries_document_ownership_resolution_and_privacy() -> None:
+    entries = _entries_by_id()
+
+    for game_number in (1, 2, 3):
+        game_label = f"game{game_number}"
+        entry = entries[f"tier3.opening_hand.{game_label}_opening_hand"]
+        direct_signals = _signal_ids(entry, "direct_evidence")
+        fallback_signals = _signal_ids(entry, "fallback_evidence")
+
+        assert entry["display_name"] == "Opening Hand"
+        assert entry["model_surface"] == f"MatchSummary.games[{game_number}].opening_hand"
+        assert f"game_state.{game_label}.local_private_hand_zone" in direct_signals
+        assert f"game_state.{game_label}.local_private_hand_instance_ids" in direct_signals
+        assert f"game_state.{game_label}.instance_grp_lookup" in direct_signals
+        assert f"grp_id_catalog.{game_label}.card_name_resolution" in direct_signals
+        assert f"parser_state.hand_snapshot_history.{game_label}" in direct_signals
+        assert f"parser_state.match_summary.{game_label}_opening_hand" in direct_signals
+        assert "ledger.tier1.participants.local_system_seat_id_dependency" in fallback_signals
+        assert "ledger.tier1.participants.participant_team_mapping_dependency" in fallback_signals
+        assert f"ledger.tier3.mulligans.{game_label}_mulligans_dependency" in fallback_signals
+        assert f"{game_label}_opening_hand_requires_local_private_hand_ownership" in entry[
+            "invariant_checks"
+        ]
+        assert f"{game_label}_opening_hand_requires_turn_number_1" in entry["invariant_checks"]
+        assert f"{game_label}_opening_hand_requires_expected_size_when_known" in entry[
+            "invariant_checks"
+        ]
+        assert f"{game_label}_opening_hand_placeholder_lists_are_degraded_and_may_serialize_blank" in entry[
+            "invariant_checks"
+        ]
+        assert f"{game_label}_opening_hand_not_reconstructed_from_mulligans_or_ai" in entry[
+            "invariant_checks"
+        ]
+        assert any("malformed owner-seat evidence" in item for item in entry["degradation_behavior"])
+        assert any("missing GRP mapping" in item for item in entry["degradation_behavior"])
+        assert any("may serialize blank" in item for item in entry["degradation_behavior"])
+        assert any("AI must not populate exact opening hand" in item for item in entry["degradation_behavior"])
+
+
+def test_tier3_mulliganed_away_entries_document_discarded_and_bottomed_sources() -> None:
+    entries = _entries_by_id()
+
+    for game_number in (1, 2, 3):
+        game_label = f"game{game_number}"
+        entry = entries[f"tier3.opening_hand.{game_label}_mulliganed_away"]
+        direct_signals = _signal_ids(entry, "direct_evidence")
+        fallback_signals = _signal_ids(entry, "fallback_evidence")
+
+        assert entry["display_name"] == "Mulliganed Away"
+        assert entry["model_surface"] == f"MatchSummary.games[{game_number}].mulliganed_away"
+        assert f"parser_state.latest_hand_snapshot.{game_label}" in direct_signals
+        assert f"parser_state.hand_snapshot_history.{game_label}" in direct_signals
+        assert f"parser_state.bottomed_cards_capture.{game_label}" in direct_signals
+        assert f"parser_state.match_summary.{game_label}_mulliganed_away" in direct_signals
+        assert f"ledger.tier3.mulligans.{game_label}_mulligans_dependency" in fallback_signals
+        assert f"ledger.tier3.opening_hand.{game_label}_opening_hand_dependency" in fallback_signals
+        assert "ledger.tier1.participants.local_system_seat_id_dependency" in fallback_signals
+        assert f"{game_label}_mulliganed_away_not_evidence_for_mulligan_count" in entry[
+            "invariant_checks"
+        ]
+        assert (
+            f"{game_label}_mulliganed_away_bottomed_diff_requires_prior_longer_snapshot_and_final_hand"
+            in entry["invariant_checks"]
+        )
+        assert f"{game_label}_mulliganed_away_not_inferred_from_opening_hand_size" in entry[
+            "invariant_checks"
+        ]
+        assert any("not evidence for mulligan count" in item for item in entry["degradation_behavior"])
+        assert any("prior longer snapshot" in item for item in entry["degradation_behavior"])
+        assert any("non-keep mulligan flow" in item for item in entry["degradation_behavior"])
+        assert any("may serialize blank" in item for item in entry["degradation_behavior"])
+
+
+def test_tier3_opening_hand_scope_preserves_prior_entries_and_defers_remaining_game_facts() -> None:
+    tier3 = _tier3_family()
+    entries = _entries_by_id()
+
+    assert CONTRACTED_PLAY_DRAW_ENTRY_IDS.issubset(entries)
+    assert CONTRACTED_MULLIGAN_ENTRY_IDS.issubset(entries)
+    assert CONTRACTED_OPENING_HAND_ENTRY_IDS.issubset(entries)
+    assert CONTRACTED_OPENING_HAND_FIELDS.issubset(tier3["seed_fields"])
+    assert "opening_hand" not in tier3["future_fields"]
+    assert {
+        "turn_count",
+        "game_timing",
+        "game_duration",
+        "pre_postboard",
+        "sideboarding",
+        "deck_state",
+    }.issubset(tier3["future_fields"])
+    assert not any(entry_id.startswith("tier3.turn_count.") for entry_id in entries)
+    assert not any(entry_id.startswith("tier3.game_timing.") for entry_id in entries)
+    assert not any(entry_id.startswith("tier3.sideboarding.") for entry_id in entries)
+    assert not any(entry_id.startswith("tier3.deck_state.") for entry_id in entries)
 
 
 def test_builtin_ledger_and_entries_validate_cleanly() -> None:
