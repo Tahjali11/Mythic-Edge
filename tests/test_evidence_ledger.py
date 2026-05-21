@@ -92,6 +92,9 @@ CONTRACTED_TIER3_FIELDS = [
     "game1_mulliganed_away",
     "game2_mulliganed_away",
     "game3_mulliganed_away",
+    "game1_turn_count",
+    "game2_turn_count",
+    "game3_turn_count",
 ]
 
 CONTRACTED_TIER3_ENTRY_IDS = {
@@ -121,6 +124,9 @@ CONTRACTED_TIER3_ENTRY_IDS = {
     "tier3.opening_hand.game1_mulliganed_away",
     "tier3.opening_hand.game2_mulliganed_away",
     "tier3.opening_hand.game3_mulliganed_away",
+    "tier3.turn_count.game1_turn_count",
+    "tier3.turn_count.game2_turn_count",
+    "tier3.turn_count.game3_turn_count",
 }
 
 CONTRACTED_PLAY_DRAW_ENTRY_IDS = {
@@ -179,8 +185,19 @@ CONTRACTED_OPENING_HAND_FIELDS = {
     "game3_mulliganed_away",
 }
 
+CONTRACTED_TURN_COUNT_ENTRY_IDS = {
+    "tier3.turn_count.game1_turn_count",
+    "tier3.turn_count.game2_turn_count",
+    "tier3.turn_count.game3_turn_count",
+}
+
+CONTRACTED_TURN_COUNT_FIELDS = {
+    "game1_turn_count",
+    "game2_turn_count",
+    "game3_turn_count",
+}
+
 CONTRACTED_TIER3_DEFERRED_FIELDS = {
-    "turn_count",
     "game_timing",
     "game_duration",
     "pre_postboard",
@@ -305,10 +322,13 @@ def test_output_family_registry_contains_required_seven_families() -> None:
     assert "mulligans" not in tier3["future_fields"]
     assert CONTRACTED_OPENING_HAND_FIELDS.issubset(tier3["seed_fields"])
     assert "opening_hand" not in tier3["future_fields"]
+    assert CONTRACTED_TURN_COUNT_FIELDS.issubset(tier3["seed_fields"])
+    assert "turn_count" not in tier3["future_fields"]
     assert any("match-scope results are not promoted" in item for item in tier3["notes"])
     assert any("Issue #139 maps starting-player and play/draw" in item for item in tier3["notes"])
     assert any("Issue #140 maps per-game and total mulligan" in item for item in tier3["notes"])
     assert any("Issue #143 maps opening-hand size" in item for item in tier3["notes"])
+    assert any("Issue #145 maps turn-count provenance" in item for item in tier3["notes"])
 
 
 def test_seed_entry_maps_match_id_evidence_signals() -> None:
@@ -857,7 +877,6 @@ def test_tier3_play_draw_remains_independent_from_mulligan_entries() -> None:
     assert "play_draw" not in tier3["future_fields"]
     assert "starting_player" not in tier3["future_fields"]
     assert {
-        "turn_count",
         "game_timing",
         "game_duration",
         "pre_postboard",
@@ -959,8 +978,8 @@ def test_tier3_mulligan_scope_documents_opening_hand_consumers_and_defers_analyt
     assert CONTRACTED_MULLIGAN_ENTRY_IDS.issubset(entries)
     assert "mulligans" not in tier3["future_fields"]
     assert CONTRACTED_OPENING_HAND_ENTRY_IDS.issubset(entries)
+    assert CONTRACTED_TURN_COUNT_ENTRY_IDS.issubset(entries)
     assert {
-        "turn_count",
         "game_timing",
         "game_duration",
         "pre_postboard",
@@ -1105,20 +1124,142 @@ def test_tier3_opening_hand_scope_preserves_prior_entries_and_defers_remaining_g
     assert CONTRACTED_PLAY_DRAW_ENTRY_IDS.issubset(entries)
     assert CONTRACTED_MULLIGAN_ENTRY_IDS.issubset(entries)
     assert CONTRACTED_OPENING_HAND_ENTRY_IDS.issubset(entries)
+    assert CONTRACTED_TURN_COUNT_ENTRY_IDS.issubset(entries)
     assert CONTRACTED_OPENING_HAND_FIELDS.issubset(tier3["seed_fields"])
     assert "opening_hand" not in tier3["future_fields"]
     assert {
-        "turn_count",
         "game_timing",
         "game_duration",
         "pre_postboard",
         "sideboarding",
         "deck_state",
     }.issubset(tier3["future_fields"])
-    assert not any(entry_id.startswith("tier3.turn_count.") for entry_id in entries)
+    assert "turn_count" not in tier3["future_fields"]
     assert not any(entry_id.startswith("tier3.game_timing.") for entry_id in entries)
     assert not any(entry_id.startswith("tier3.sideboarding.") for entry_id in entries)
     assert not any(entry_id.startswith("tier3.deck_state.") for entry_id in entries)
+
+
+def test_tier3_turn_count_entries_are_mapped_and_validate() -> None:
+    entries = _entries_by_id()
+
+    assert CONTRACTED_TURN_COUNT_ENTRY_IDS.issubset(entries)
+    for entry_id in CONTRACTED_TURN_COUNT_ENTRY_IDS:
+        entry = entries[entry_id]
+        assert entry["tier"] == 3
+        assert entry["output_family"] == "game_level_facts"
+        assert entry["coverage_status"] == "seeded_sample"
+        assert entry["parser_managed_truth"] is True
+        assert evidence_ledger.validate_ledger_entry(entry) == []
+        assert all(
+            signal["privacy_class"] == "path_only_no_values"
+            for signal in (*entry["direct_evidence"], *entry["fallback_evidence"])
+        )
+
+
+def test_tier3_turn_count_entries_document_game_state_extractor_and_model_sources() -> None:
+    entries = _entries_by_id()
+
+    for game_number in (1, 2, 3):
+        game_label = f"game{game_number}"
+        entry = entries[f"tier3.turn_count.{game_label}_turn_count"]
+        direct_signals = {signal["signal_id"]: signal for signal in entry["direct_evidence"]}
+        fallback_signals = _signal_ids(entry, "fallback_evidence")
+
+        assert entry["display_name"] == f"G{game_number} Turn Count"
+        assert entry["parser_owner"] == "src/mythic_edge_parser/app/state.py"
+        assert entry["model_surface"] == f"MatchSummary.games[{game_number}].turn_count"
+        assert {"MatchLogRow", "GameLogRow", "match_history"}.issubset(entry["downstream_surfaces"])
+        assert direct_signals[f"game_state.{game_label}.turn_info_turn_number"][
+            "raw_payload_path"
+        ] == "greToClientMessages[].gameStateMessage.turnInfo.turnNumber"
+        assert direct_signals[f"game_state.{game_label}.turn_info_turn_number"][
+            "value_source_when_used"
+        ] == "observed"
+        assert direct_signals[f"game_state.{game_label}.identity_turn_number"][
+            "normalized_payload_path"
+        ] == "payload.identity.turn_number"
+        assert direct_signals[f"game_state.{game_label}.payload_turn_number"][
+            "normalized_payload_path"
+        ] == "payload.turn_number"
+        assert direct_signals[f"extractor.{game_label}.turn_number"][
+            "normalized_payload_path"
+        ] == "_extract_turn_info(payload, context).turn_number"
+        assert direct_signals[f"parser_state.match_summary.{game_label}_turn_count"][
+            "normalized_payload_path"
+        ] == f"MatchSummary.games[{game_number}].turn_count"
+        assert f"queued_game_state.{game_label}.turn_info_turn_number" in fallback_signals
+        assert f"ledger.tier3.game_results.{game_label}_game_number_dependency" in fallback_signals
+        assert f"ledger.tier3.turn_count.{game_label}_turn_count_prior_observation" in fallback_signals
+
+
+def test_tier3_turn_count_entries_document_max_observed_blank_and_degraded_inputs() -> None:
+    entries = _entries_by_id()
+
+    for game_number in (1, 2, 3):
+        game_label = f"game{game_number}"
+        entry = entries[f"tier3.turn_count.{game_label}_turn_count"]
+
+        assert entry["value_source_policy"] == {
+            "direct": "observed",
+            "fallback": "derived",
+            "missing": "unknown",
+            "contradiction": "conflict",
+        }
+        assert "inferred" not in entry["value_source_policy"].values()
+        assert "legacy_enriched" not in entry["value_source_policy"].values()
+        assert entry["confidence_policy"]["weak_fallback"] == "low"
+        assert f"{game_label}_turn_count_requires_game_slot_identity" in entry["invariant_checks"]
+        assert f"{game_label}_turn_count_uses_max_observed_positive_turn_number" in entry[
+            "invariant_checks"
+        ]
+        assert f"{game_label}_turn_count_blank_output_is_not_zero" in entry["invariant_checks"]
+        assert f"{game_label}_turn_count_zero_is_unknown_not_valid" in entry["invariant_checks"]
+        assert f"{game_label}_turn_count_negative_or_boolean_evidence_degraded" in entry[
+            "invariant_checks"
+        ]
+        assert f"{game_label}_turn_count_not_reconstructed_from_duration_or_actions" in entry[
+            "invariant_checks"
+        ]
+        assert (
+            f"{game_label}_turn_count_not_inferred_from_results_play_draw_mulligans_or_opening_hand"
+            in entry["invariant_checks"]
+        )
+        assert f"{game_label}_turn_count_queued_fallback_is_reviewable" in entry["invariant_checks"]
+        assert any("boolean-like or float-like values" in item for item in entry["degradation_behavior"])
+        assert any("negative or zero turn values" in item for item in entry["degradation_behavior"])
+        assert any("queued GameState fallback" in item for item in entry["degradation_behavior"])
+        assert any("later lower observations" in item for item in entry["degradation_behavior"])
+        assert any("truncation or data-loss" in item for item in entry["degradation_behavior"])
+        assert any("must not populate turn count" in item for item in entry["degradation_behavior"])
+        assert "fallback_used" in entry["drift_flags"]
+        assert "weak_fallback_used" in entry["drift_flags"]
+        assert "conflicting_evidence" in entry["drift_flags"]
+
+
+def test_tier3_turn_count_scope_preserves_prior_entries_and_defers_timing_analytics() -> None:
+    tier3 = _tier3_family()
+    entries = _entries_by_id()
+
+    assert CONTRACTED_PLAY_DRAW_ENTRY_IDS.issubset(entries)
+    assert CONTRACTED_MULLIGAN_ENTRY_IDS.issubset(entries)
+    assert CONTRACTED_OPENING_HAND_ENTRY_IDS.issubset(entries)
+    assert CONTRACTED_TURN_COUNT_ENTRY_IDS.issubset(entries)
+    assert CONTRACTED_TURN_COUNT_FIELDS.issubset(tier3["seed_fields"])
+    assert "turn_count" not in tier3["future_fields"]
+    assert {
+        "game_timing",
+        "game_duration",
+        "pre_postboard",
+        "sideboarding",
+        "deck_state",
+    }.issubset(tier3["future_fields"])
+    assert not any(entry_id.startswith("tier3.game_timing.") for entry_id in entries)
+    assert not any(entry_id.startswith("tier3.game_duration.") for entry_id in entries)
+    assert not any(entry_id.startswith("tier3.sideboarding.") for entry_id in entries)
+    assert not any(entry_id.startswith("tier3.deck_state.") for entry_id in entries)
+    for entry_id in CONTRACTED_TURN_COUNT_ENTRY_IDS:
+        assert any("without changing parsing or update behavior" in note for note in entries[entry_id]["notes"])
 
 
 def test_builtin_ledger_and_entries_validate_cleanly() -> None:
