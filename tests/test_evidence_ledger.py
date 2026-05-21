@@ -267,16 +267,20 @@ CONTRACTED_TIER3_DEFERRED_FIELDS = {
 CONTRACTED_TIER4_FIELDS = [
     "sideboarding_entered",
     "submit_deck_seen",
+    "submitted_deck_cards",
 ]
 
-CONTRACTED_TIER4_ENTRY_IDS = {
+CONTRACTED_TIER4_SIGNAL_ENTRY_IDS = {
     "tier4.sideboarding_submit_deck.sideboarding_entered",
     "tier4.sideboarding_submit_deck.submit_deck_seen",
 }
 
-CONTRACTED_TIER4_DEFERRED_FIELDS = {
-    "submitted_deck_cards",
+CONTRACTED_TIER4_ENTRY_IDS = {
+    *CONTRACTED_TIER4_SIGNAL_ENTRY_IDS,
+    "tier4.submitted_deck_cards.submitted_deck_cards",
 }
+
+CONTRACTED_TIER4_DEFERRED_FIELDS: set[str] = set()
 
 
 def _entries_by_id() -> dict[str, dict[str, object]]:
@@ -420,8 +424,11 @@ def test_output_family_registry_contains_required_seven_families() -> None:
     assert set(tier4["future_fields"]) == CONTRACTED_TIER4_DEFERRED_FIELDS
     assert "sideboarding_entered" not in tier4["future_fields"]
     assert "submit_deck_seen" not in tier4["future_fields"]
+    assert "submitted_deck_cards" not in tier4["future_fields"]
     assert any("Issue #151 maps sideboarding_entered" in item for item in tier4["notes"])
-    assert any("submitted_deck_cards" in item and "deferred" in item for item in tier4["notes"])
+    assert any("Issue #159 maps submitted_deck_cards" in item for item in tier4["notes"])
+    assert any("Counts and submitted-deck signature" in item for item in tier4["notes"])
+    assert any("Broader deck-state provenance remains deferred" in item for item in tier4["notes"])
 
 
 def test_seed_entry_maps_match_id_evidence_signals() -> None:
@@ -1645,7 +1652,7 @@ def test_tier4_sideboarding_submit_deck_entries_are_mapped_and_validate() -> Non
     assert "sideboarding_entered" not in tier4["future_fields"]
     assert "submit_deck_seen" not in tier4["future_fields"]
 
-    for entry_id in CONTRACTED_TIER4_ENTRY_IDS:
+    for entry_id in CONTRACTED_TIER4_SIGNAL_ENTRY_IDS:
         entry = entries[entry_id]
         assert entry["tier"] == 4
         assert entry["output_family"] == "sideboarding_and_deck_state"
@@ -1742,6 +1749,141 @@ def test_tier4_submit_deck_entry_documents_signal_row_and_boundaries() -> None:
     assert any("submitted deck card contents remain deferred" in note for note in entry["notes"])
 
 
+def test_tier4_submitted_deck_cards_entry_documents_card_content_sources() -> None:
+    entry = _entries_by_id()["tier4.submitted_deck_cards.submitted_deck_cards"]
+    direct_signals = {signal["signal_id"]: signal for signal in entry["direct_evidence"]}
+    fallback_signals = {signal["signal_id"]: signal for signal in entry["fallback_evidence"]}
+
+    assert entry["display_name"] == "Submitted Deck Cards"
+    assert entry["parser_owner"] == "src/mythic_edge_parser/parsers/client_actions.py"
+    assert entry["model_surface"] == "ClientActionEvent.payload.deck_cards + ClientActionEvent.payload.sideboard_cards"
+    assert {"active_submitted_deck_artifact", "runtime_active_deck_state", "grp_id_candidate_report"}.issubset(
+        entry["downstream_surfaces"]
+    )
+    assert direct_signals["client_action.submitted_deck_cards.specialized_submit_deck_resp"][
+        "parser_event_type"
+    ] == "submit_deck_resp"
+    assert direct_signals["client_action.submitted_deck_cards.specialized_submit_deck_resp"][
+        "raw_message_type"
+    ] == "ClientMessageType_SubmitDeckResp"
+    assert direct_signals["client_action.submitted_deck_cards.deck_cards"][
+        "normalized_payload_path"
+    ] == "payload.deck_cards"
+    assert direct_signals["client_action.submitted_deck_cards.sideboard_cards"][
+        "normalized_payload_path"
+    ] == "payload.sideboard_cards"
+    assert direct_signals["client_action.submitted_deck_cards.request_context"][
+        "normalized_payload_path"
+    ] == "payload.game_state_id + payload.resp_id + payload.request_id"
+    assert direct_signals["client_action.submitted_deck_cards.event_timestamp_context"][
+        "normalized_payload_path"
+    ] == "EventMetadata.timestamp"
+    assert fallback_signals["client_action.submitted_deck_cards.raw_mainboard_paths"][
+        "raw_payload_path"
+    ].startswith("raw_client_action.payload.submitDeckResp.deckCards")
+    assert fallback_signals["client_action.submitted_deck_cards.raw_sideboard_paths"][
+        "raw_payload_path"
+    ].startswith("raw_client_action.payload.submitDeckResp.sideboardCards")
+    assert "diagnostics.active_submitted_deck_artifact" in fallback_signals
+    assert "runtime_surfaces.active_deck_state" in fallback_signals
+    assert "grp_id_candidates.submitted_deck_snapshot" in fallback_signals
+    assert all(
+        signal["privacy_class"] == "path_only_no_values"
+        for signal in (*entry["direct_evidence"], *entry["fallback_evidence"])
+    )
+
+
+def test_tier4_submitted_deck_cards_entry_documents_policies_and_facets() -> None:
+    entry = _entries_by_id()["tier4.submitted_deck_cards.submitted_deck_cards"]
+    fallback_signals = {signal["signal_id"]: signal for signal in entry["fallback_evidence"]}
+
+    assert entry["value_source_policy"] == {
+        "direct": "observed",
+        "fallback": "derived",
+        "missing": "unknown",
+        "contradiction": "conflict",
+    }
+    assert entry["confidence_policy"] == {
+        "direct": "high",
+        "fallback": "medium",
+        "weak_fallback": "low",
+        "missing": "unknown",
+        "contradiction": "low",
+    }
+    assert entry["finality_policy"] == {
+        "live": "live",
+        "provisional": "provisional",
+        "final": "final",
+        "corrected_by_later_evidence": "reconciled",
+    }
+    assert fallback_signals["diagnostics.submitted_deck_counts_and_signature"][
+        "normalized_payload_path"
+    ] == (
+        "len(payload.deck_cards) + len(payload.sideboard_cards) + "
+        "submitted_deck_signature(payload.deck_cards, payload.sideboard_cards)"
+    )
+    assert fallback_signals["diagnostics.submitted_deck_counts_and_signature"][
+        "value_source_when_used"
+    ] == "derived"
+    assert "submitted_deck_cards_counts_and_signature_are_derived_facets_only" in entry["invariant_checks"]
+    assert any("Counts and submitted-deck signature are derived facets" in note for note in entry["notes"])
+    assert not any(entry["output_field"].endswith(suffix) for suffix in ("_count", "_signature", "_timestamp"))
+
+
+def test_tier4_submitted_deck_cards_entry_documents_degradation_and_repeated_payloads() -> None:
+    entry = _entries_by_id()["tier4.submitted_deck_cards.submitted_deck_cards"]
+
+    assert "submitted_deck_cards_requires_submit_deck_resp_event" in entry["invariant_checks"]
+    assert "submitted_deck_cards_requires_non_empty_normalized_card_list" in entry["invariant_checks"]
+    assert "submitted_deck_cards_empty_or_malformed_lists_are_unknown_or_degraded" in entry["invariant_checks"]
+    assert "submitted_deck_cards_not_submit_deck_seen_boolean_truth" in entry["invariant_checks"]
+    assert "submitted_deck_cards_not_sideboarding_or_pre_postboard_truth" in entry["invariant_checks"]
+    assert "submitted_deck_cards_not_deck_state_or_deck_identity_truth" in entry["invariant_checks"]
+    assert any("both deck_cards and sideboard_cards empty" in item for item in entry["degradation_behavior"])
+    assert any("truthy malformed direct sources" in item for item in entry["degradation_behavior"])
+    assert any(
+        "raw preserved payload paths with empty normalized lists" in item
+        for item in entry["degradation_behavior"]
+    )
+    assert any("repeated submit-deck payloads remain event-scoped" in item for item in entry["degradation_behavior"])
+    assert any("runtime state is latest-observed fallback" in note for note in entry["notes"])
+    assert any("preserve #151 submit_deck_seen" in note for note in entry["notes"])
+
+
+def test_tier4_submitted_deck_cards_entry_rejects_downstream_truth() -> None:
+    entry = _entries_by_id()["tier4.submitted_deck_cards.submitted_deck_cards"]
+    evidence_text = json.dumps(
+        {
+            "direct_evidence": entry["direct_evidence"],
+            "fallback_evidence": entry["fallback_evidence"],
+        },
+        sort_keys=True,
+    )
+
+    for forbidden in (
+        "MatchSummary.submit_deck_seen",
+        "MTGA Submit Deck Seen",
+        "sideboarding_entered",
+        "pre_postboard",
+        "deck_name",
+        "deck_id",
+        "decklist_identity",
+        "sideboard_delta",
+        "card_name",
+        "collection_ownership",
+        "candidate_score",
+        "workbook_formula",
+        "apps_script",
+        "model_provider",
+        "openai",
+    ):
+        assert forbidden not in evidence_text
+    assert any("deck names, deck IDs, sideboard deltas" in item for item in entry["degradation_behavior"])
+    assert any("model-provider output, and AI" in item for item in entry["degradation_behavior"])
+    assert any("not broad deck-state truth" in note for note in entry["notes"])
+    assert any("does not prove deck names" in note for note in entry["notes"])
+
+
 def test_tier4_entries_reject_downstream_truth_and_preserve_privacy() -> None:
     entries = _entries_by_id()
     forbidden_evidence_fragments = {
@@ -1755,7 +1897,7 @@ def test_tier4_entries_reject_downstream_truth_and_preserve_privacy() -> None:
         "deck_signature",
     }
 
-    for entry_id in CONTRACTED_TIER4_ENTRY_IDS:
+    for entry_id in CONTRACTED_TIER4_SIGNAL_ENTRY_IDS:
         entry = entries[entry_id]
         evidence_text = json.dumps(
             {
@@ -1789,8 +1931,8 @@ def test_tier4_scope_preserves_prior_entries_and_keeps_deck_contents_deferred() 
     assert set(tier3["future_fields"]) == CONTRACTED_TIER3_DEFERRED_FIELDS
     assert set(tier4["seed_fields"]) == set(CONTRACTED_TIER4_FIELDS)
     assert set(tier4["future_fields"]) == CONTRACTED_TIER4_DEFERRED_FIELDS
-    assert "submitted_deck_cards" in tier4["future_fields"]
-    assert not any(entry_id.startswith("tier4.submitted_deck_cards.") for entry_id in entries)
+    assert "submitted_deck_cards" not in tier4["future_fields"]
+    assert "tier4.submitted_deck_cards.submitted_deck_cards" in entries
     assert not any(entry_id.startswith("tier4.deck_state.") for entry_id in entries)
     assert any("Pre/postboard labels remain Tier 3" in note for note in tier4["notes"])
 
@@ -1957,7 +2099,8 @@ def test_ledger_data_omits_private_values_and_local_artifact_markers() -> None:
         "https://" + "hooks.",
         "script.google.com",
         "failed_posts",
-        "runtime_status",
+        "runtime_status_latest",
+        "runtime-status",
         "workbook_exports",
         "/" + "Users/",
         "C:" + "\\Users\\",
