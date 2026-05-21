@@ -261,8 +261,21 @@ CONTRACTED_PRE_POSTBOARD_FIELDS = {
 }
 
 CONTRACTED_TIER3_DEFERRED_FIELDS = {
-    "sideboarding",
     "deck_state",
+}
+
+CONTRACTED_TIER4_FIELDS = [
+    "sideboarding_entered",
+    "submit_deck_seen",
+]
+
+CONTRACTED_TIER4_ENTRY_IDS = {
+    "tier4.sideboarding_submit_deck.sideboarding_entered",
+    "tier4.sideboarding_submit_deck.submit_deck_seen",
+}
+
+CONTRACTED_TIER4_DEFERRED_FIELDS = {
+    "submitted_deck_cards",
 }
 
 
@@ -281,6 +294,10 @@ def _tier1_family() -> dict[str, object]:
 
 def _tier3_family() -> dict[str, object]:
     return _family("game_level_facts")
+
+
+def _tier4_family() -> dict[str, object]:
+    return _family("sideboarding_and_deck_state")
 
 
 def _signal_ids(entry: dict[str, object], key: str) -> set[str]:
@@ -361,7 +378,7 @@ def test_output_family_registry_contains_required_seven_families() -> None:
         (1, "match_identity_and_lifecycle", "seeded_sample"),
         (2, "queue_format_rank_event_context", "registered_future"),
         (3, "game_level_facts", "seeded_sample"),
-        (4, "sideboarding_and_deck_state", "registered_future"),
+        (4, "sideboarding_and_deck_state", "seeded_sample"),
         (5, "card_identity_and_gameplay_actions", "registered_future"),
         (6, "runtime_health_and_drift_detection", "registered_future"),
         (7, "derived_analytics_outputs", "registered_future"),
@@ -396,6 +413,15 @@ def test_output_family_registry_contains_required_seven_families() -> None:
     assert any("Issue #145 maps turn-count provenance" in item for item in tier3["notes"])
     assert any("Issue #147 maps game timing and duration" in item for item in tier3["notes"])
     assert any("Issue #149 maps pre/postboard provenance" in item for item in tier3["notes"])
+    assert "sideboarding" not in tier3["future_fields"]
+
+    tier4 = _tier4_family()
+    assert tier4["seed_fields"] == CONTRACTED_TIER4_FIELDS
+    assert set(tier4["future_fields"]) == CONTRACTED_TIER4_DEFERRED_FIELDS
+    assert "sideboarding_entered" not in tier4["future_fields"]
+    assert "submit_deck_seen" not in tier4["future_fields"]
+    assert any("Issue #151 maps sideboarding_entered" in item for item in tier4["notes"])
+    assert any("submitted_deck_cards" in item and "deferred" in item for item in tier4["notes"])
 
 
 def test_seed_entry_maps_match_id_evidence_signals() -> None:
@@ -430,7 +456,7 @@ def test_tier1_match_lifecycle_and_aggregate_entries_are_mapped() -> None:
     entries = _entries_by_id()
     output_fields = {entry["output_field"] for entry in entries.values()}
 
-    assert set(entries) == CONTRACTED_TIER1_ENTRY_IDS | CONTRACTED_TIER3_ENTRY_IDS
+    assert set(entries) == CONTRACTED_TIER1_ENTRY_IDS | CONTRACTED_TIER3_ENTRY_IDS | CONTRACTED_TIER4_ENTRY_IDS
     assert CONTRACTED_TIER1_ENTRY_IDS.issubset(entries)
     assert all(entries[entry_id]["tier"] == 1 for entry_id in CONTRACTED_TIER1_ENTRY_IDS)
     assert all(
@@ -943,10 +969,8 @@ def test_tier3_play_draw_remains_independent_from_mulligan_entries() -> None:
 
     assert "play_draw" not in tier3["future_fields"]
     assert "starting_player" not in tier3["future_fields"]
-    assert {
-        "sideboarding",
-        "deck_state",
-    }.issubset(tier3["future_fields"])
+    assert set(tier3["future_fields"]) == CONTRACTED_TIER3_DEFERRED_FIELDS
+    assert "sideboarding" not in tier3["future_fields"]
     assert "pre_postboard" not in tier3["future_fields"]
     assert not any("mulligan" in entry_id for entry_id in entries if entry_id.startswith("tier3.play_draw."))
     for entry_id in CONTRACTED_PLAY_DRAW_ENTRY_IDS:
@@ -1047,10 +1071,8 @@ def test_tier3_mulligan_scope_documents_opening_hand_consumers_and_defers_analyt
     assert CONTRACTED_GAME_TIMING_ENTRY_IDS.issubset(entries)
     assert CONTRACTED_GAME_DURATION_ENTRY_IDS.issubset(entries)
     assert CONTRACTED_PRE_POSTBOARD_ENTRY_IDS.issubset(entries)
-    assert {
-        "sideboarding",
-        "deck_state",
-    }.issubset(tier3["future_fields"])
+    assert set(tier3["future_fields"]) == CONTRACTED_TIER3_DEFERRED_FIELDS
+    assert "sideboarding" not in tier3["future_fields"]
     assert "opening_hand" not in tier3["future_fields"]
     assert "pre_postboard" not in tier3["future_fields"]
     for entry_id in CONTRACTED_MULLIGAN_ENTRY_IDS:
@@ -1196,10 +1218,8 @@ def test_tier3_opening_hand_scope_preserves_prior_entries_and_defers_remaining_g
     assert CONTRACTED_PRE_POSTBOARD_ENTRY_IDS.issubset(entries)
     assert CONTRACTED_OPENING_HAND_FIELDS.issubset(tier3["seed_fields"])
     assert "opening_hand" not in tier3["future_fields"]
-    assert {
-        "sideboarding",
-        "deck_state",
-    }.issubset(tier3["future_fields"])
+    assert set(tier3["future_fields"]) == CONTRACTED_TIER3_DEFERRED_FIELDS
+    assert "sideboarding" not in tier3["future_fields"]
     assert "turn_count" not in tier3["future_fields"]
     assert "game_timing" not in tier3["future_fields"]
     assert "game_duration" not in tier3["future_fields"]
@@ -1318,10 +1338,8 @@ def test_tier3_turn_count_scope_preserves_prior_entries_and_defers_timing_analyt
     assert CONTRACTED_PRE_POSTBOARD_ENTRY_IDS.issubset(entries)
     assert CONTRACTED_TURN_COUNT_FIELDS.issubset(tier3["seed_fields"])
     assert "turn_count" not in tier3["future_fields"]
-    assert {
-        "sideboarding",
-        "deck_state",
-    }.issubset(tier3["future_fields"])
+    assert set(tier3["future_fields"]) == CONTRACTED_TIER3_DEFERRED_FIELDS
+    assert "sideboarding" not in tier3["future_fields"]
     assert "game_timing" not in tier3["future_fields"]
     assert "game_duration" not in tier3["future_fields"]
     assert "pre_postboard" not in tier3["future_fields"]
@@ -1486,10 +1504,8 @@ def test_tier3_timing_duration_scope_preserves_prior_entries_and_defers_remainin
     assert CONTRACTED_TIMING_DURATION_FIELDS.issubset(tier3["seed_fields"])
     assert "game_timing" not in tier3["future_fields"]
     assert "game_duration" not in tier3["future_fields"]
-    assert {
-        "sideboarding",
-        "deck_state",
-    }.issubset(tier3["future_fields"])
+    assert set(tier3["future_fields"]) == CONTRACTED_TIER3_DEFERRED_FIELDS
+    assert "sideboarding" not in tier3["future_fields"]
     assert "pre_postboard" not in tier3["future_fields"]
     assert not any(entry_id.startswith("tier3.sideboarding.") for entry_id in entries)
     assert not any(entry_id.startswith("tier3.deck_state.") for entry_id in entries)
@@ -1611,13 +1627,172 @@ def test_tier3_pre_postboard_scope_preserves_prior_entries_and_defers_deck_state
     assert CONTRACTED_PRE_POSTBOARD_ENTRY_IDS.issubset(entries)
     assert CONTRACTED_PRE_POSTBOARD_FIELDS.issubset(tier3["seed_fields"])
     assert "pre_postboard" not in tier3["future_fields"]
-    assert {
-        "sideboarding",
-        "deck_state",
-    }.issubset(tier3["future_fields"])
+    assert set(tier3["future_fields"]) == CONTRACTED_TIER3_DEFERRED_FIELDS
+    assert "sideboarding" not in tier3["future_fields"]
     assert not any(entry_id.startswith("tier3.sideboarding.") for entry_id in entries)
     assert not any(entry_id.startswith("tier3.deck_state.") for entry_id in entries)
     assert any("Issue #149 maps pre/postboard provenance" in note for note in tier3["notes"])
+
+
+def test_tier4_sideboarding_submit_deck_entries_are_mapped_and_validate() -> None:
+    entries = _entries_by_id()
+    tier4 = _tier4_family()
+
+    assert CONTRACTED_TIER4_ENTRY_IDS.issubset(entries)
+    assert tier4["status"] == "seeded_sample"
+    assert tier4["seed_fields"] == CONTRACTED_TIER4_FIELDS
+    assert set(tier4["future_fields"]) == CONTRACTED_TIER4_DEFERRED_FIELDS
+    assert "sideboarding_entered" not in tier4["future_fields"]
+    assert "submit_deck_seen" not in tier4["future_fields"]
+
+    for entry_id in CONTRACTED_TIER4_ENTRY_IDS:
+        entry = entries[entry_id]
+        assert entry["tier"] == 4
+        assert entry["output_family"] == "sideboarding_and_deck_state"
+        assert entry["coverage_status"] == "seeded_sample"
+        assert entry["parser_managed_truth"] is True
+        assert {"MatchLogRow", "match_history", "state_snapshots", "MATCH_LOG_SYNC_FIELDS"}.issubset(
+            entry["downstream_surfaces"]
+        )
+        assert entry["value_source_policy"] == {
+            "direct": "observed",
+            "fallback": "derived",
+            "missing": "unknown",
+            "contradiction": "conflict",
+        }
+        assert evidence_ledger.validate_ledger_entry(entry) == []
+        assert all(
+            signal["privacy_class"] == "path_only_no_values"
+            for signal in (*entry["direct_evidence"], *entry["fallback_evidence"])
+        )
+
+
+def test_tier4_sideboarding_entry_documents_signal_row_and_boundaries() -> None:
+    entry = _entries_by_id()["tier4.sideboarding_submit_deck.sideboarding_entered"]
+    direct_signals = {signal["signal_id"]: signal for signal in entry["direct_evidence"]}
+    fallback_signals = {signal["signal_id"]: signal for signal in entry["fallback_evidence"]}
+
+    assert entry["display_name"] == "MTGA Sideboard Entered"
+    assert entry["parser_owner"] == "src/mythic_edge_parser/app/state.py"
+    assert entry["model_surface"] == "MatchSummary.sideboarding_entered"
+    assert direct_signals["client_action.sideboarding_entered.enter_sideboarding_req"]["raw_message_type"] == (
+        "ClientMessageType_EnterSideboardingReq"
+    )
+    assert direct_signals["client_action.sideboarding_entered.raw_message_type_path"]["raw_payload_path"] == (
+        "raw_client_action.payload.type"
+    )
+    assert direct_signals["parser_state.match_summary.sideboarding_entered"][
+        "normalized_payload_path"
+    ] == "MatchSummary.sideboarding_entered"
+    assert direct_signals["match_log_row.mtga_sideboard_entered_yes"]["normalized_payload_path"] == (
+        'MatchSummary.to_match_log_row()["MTGA Sideboard Entered"]'
+    )
+    assert "model.match_summary.sideboarding_entered_surfaces" in direct_signals
+    assert fallback_signals["parser_context.current_match_id"]["missing_behavior"].startswith("state.py ignores")
+    assert fallback_signals["match_log_row.mtga_sideboard_entered_no_or_blank"]["missing_behavior"] == (
+        "final No is derived parser-state absence, not absolute source-log absence proof"
+    )
+    assert "sideboarding_entered_requires_current_match_context" in entry["invariant_checks"]
+    assert "sideboarding_entered_not_pre_postboard_truth" in entry["invariant_checks"]
+    assert "sideboarding_entered_not_submit_deck_truth" in entry["invariant_checks"]
+    assert "sideboarding_entered_not_submitted_deck_contents" in entry["invariant_checks"]
+    assert any("duplicate sideboarding signals collapse" in item for item in entry["degradation_behavior"])
+    assert any("live blank represents provisional absence" in item for item in entry["degradation_behavior"])
+    assert any("must not populate sideboarding_entered truth" in item for item in entry["degradation_behavior"])
+    assert any("submitted deck card contents remain deferred" in note for note in entry["notes"])
+
+
+def test_tier4_submit_deck_entry_documents_signal_row_and_boundaries() -> None:
+    entry = _entries_by_id()["tier4.sideboarding_submit_deck.submit_deck_seen"]
+    direct_signals = {signal["signal_id"]: signal for signal in entry["direct_evidence"]}
+    fallback_signals = {signal["signal_id"]: signal for signal in entry["fallback_evidence"]}
+
+    assert entry["display_name"] == "MTGA Submit Deck Seen"
+    assert entry["parser_owner"] == "src/mythic_edge_parser/app/state.py"
+    assert entry["model_surface"] == "MatchSummary.submit_deck_seen"
+    assert direct_signals["client_action.submit_deck_seen.specialized_submit_deck_resp"][
+        "parser_event_type"
+    ] == "submit_deck_resp"
+    assert direct_signals["client_action.submit_deck_seen.specialized_submit_deck_resp"]["raw_message_type"] == (
+        "ClientMessageType_SubmitDeckResp"
+    )
+    assert direct_signals["client_action.submit_deck_seen.generic_submit_deck_resp"]["raw_message_type"] == (
+        "ClientMessageType_SubmitDeckResp"
+    )
+    assert direct_signals["parser_state.match_summary.submit_deck_seen"][
+        "normalized_payload_path"
+    ] == "MatchSummary.submit_deck_seen"
+    assert direct_signals["match_log_row.mtga_submit_deck_seen_yes"]["normalized_payload_path"] == (
+        'MatchSummary.to_match_log_row()["MTGA Submit Deck Seen"]'
+    )
+    assert "model.match_summary.submit_deck_seen_surfaces" in direct_signals
+    assert fallback_signals["client_action.submit_deck_seen.empty_or_malformed_card_lists"][
+        "normalized_payload_path"
+    ] == "payload.deck_cards + payload.sideboard_cards"
+    assert fallback_signals["match_log_row.mtga_submit_deck_seen_no_or_blank"]["missing_behavior"] == (
+        "final No is derived parser-state absence, not absolute source-log absence proof"
+    )
+    assert "submit_deck_seen_requires_current_match_context" in entry["invariant_checks"]
+    assert "submit_deck_seen_not_sideboarding_entered_truth" in entry["invariant_checks"]
+    assert "submit_deck_seen_not_submitted_deck_contents" in entry["invariant_checks"]
+    assert "submit_deck_seen_allows_empty_or_malformed_card_lists" in entry["invariant_checks"]
+    assert any("empty normalized deck_cards or sideboard_cards" in item for item in entry["degradation_behavior"])
+    assert any("without prior sideboarding-entered signal" in item for item in entry["degradation_behavior"])
+    assert any("must not populate submit_deck_seen truth" in item for item in entry["degradation_behavior"])
+    assert any("submitted deck card contents remain deferred" in note for note in entry["notes"])
+
+
+def test_tier4_entries_reject_downstream_truth_and_preserve_privacy() -> None:
+    entries = _entries_by_id()
+    forbidden_evidence_fragments = {
+        "pre_postboard",
+        "queue_type",
+        "workbook_formula",
+        "apps_script",
+        "analytics",
+        "archetype",
+        "sideboard_delta",
+        "deck_signature",
+    }
+
+    for entry_id in CONTRACTED_TIER4_ENTRY_IDS:
+        entry = entries[entry_id]
+        evidence_text = json.dumps(
+            {
+                "direct_evidence": entry["direct_evidence"],
+                "fallback_evidence": entry["fallback_evidence"],
+            },
+            sort_keys=True,
+        )
+        assert all(fragment not in evidence_text for fragment in forbidden_evidence_fragments)
+        assert any("Apps Script" in item for item in entry["degradation_behavior"])
+        assert any("analytics" in item and "AI" in item for item in entry["degradation_behavior"])
+        assert any("sideboard" in item for item in entry["degradation_behavior"])
+        assert any("path_only_no_values" == signal["privacy_class"] for signal in entry["direct_evidence"])
+        assert all(
+            signal["privacy_class"] == "path_only_no_values"
+            for signal in (*entry["direct_evidence"], *entry["fallback_evidence"])
+        )
+        assert any("submitted_deck_cards" in note for note in entry["notes"])
+
+
+def test_tier4_scope_preserves_prior_entries_and_keeps_deck_contents_deferred() -> None:
+    tier3 = _tier3_family()
+    tier4 = _tier4_family()
+    entries = _entries_by_id()
+
+    assert CONTRACTED_TIER1_ENTRY_IDS.issubset(entries)
+    assert CONTRACTED_TIER3_ENTRY_IDS.issubset(entries)
+    assert CONTRACTED_PRE_POSTBOARD_ENTRY_IDS.issubset(entries)
+    assert CONTRACTED_TIER4_ENTRY_IDS.issubset(entries)
+    assert "sideboarding" not in tier3["future_fields"]
+    assert set(tier3["future_fields"]) == CONTRACTED_TIER3_DEFERRED_FIELDS
+    assert set(tier4["seed_fields"]) == set(CONTRACTED_TIER4_FIELDS)
+    assert set(tier4["future_fields"]) == CONTRACTED_TIER4_DEFERRED_FIELDS
+    assert "submitted_deck_cards" in tier4["future_fields"]
+    assert not any(entry_id.startswith("tier4.submitted_deck_cards.") for entry_id in entries)
+    assert not any(entry_id.startswith("tier4.deck_state.") for entry_id in entries)
+    assert any("Pre/postboard labels remain Tier 3" in note for note in tier4["notes"])
 
 
 def test_builtin_ledger_and_entries_validate_cleanly() -> None:
