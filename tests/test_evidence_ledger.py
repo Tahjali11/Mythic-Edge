@@ -95,6 +95,15 @@ CONTRACTED_TIER3_FIELDS = [
     "game1_turn_count",
     "game2_turn_count",
     "game3_turn_count",
+    "game1_first_event_time",
+    "game2_first_event_time",
+    "game3_first_event_time",
+    "game1_last_event_time",
+    "game2_last_event_time",
+    "game3_last_event_time",
+    "game1_duration_seconds",
+    "game2_duration_seconds",
+    "game3_duration_seconds",
 ]
 
 CONTRACTED_TIER3_ENTRY_IDS = {
@@ -127,6 +136,15 @@ CONTRACTED_TIER3_ENTRY_IDS = {
     "tier3.turn_count.game1_turn_count",
     "tier3.turn_count.game2_turn_count",
     "tier3.turn_count.game3_turn_count",
+    "tier3.game_timing.game1_first_event_time",
+    "tier3.game_timing.game2_first_event_time",
+    "tier3.game_timing.game3_first_event_time",
+    "tier3.game_timing.game1_last_event_time",
+    "tier3.game_timing.game2_last_event_time",
+    "tier3.game_timing.game3_last_event_time",
+    "tier3.game_duration.game1_duration_seconds",
+    "tier3.game_duration.game2_duration_seconds",
+    "tier3.game_duration.game3_duration_seconds",
 }
 
 CONTRACTED_PLAY_DRAW_ENTRY_IDS = {
@@ -197,9 +215,34 @@ CONTRACTED_TURN_COUNT_FIELDS = {
     "game3_turn_count",
 }
 
+CONTRACTED_GAME_TIMING_ENTRY_IDS = {
+    "tier3.game_timing.game1_first_event_time",
+    "tier3.game_timing.game2_first_event_time",
+    "tier3.game_timing.game3_first_event_time",
+    "tier3.game_timing.game1_last_event_time",
+    "tier3.game_timing.game2_last_event_time",
+    "tier3.game_timing.game3_last_event_time",
+}
+
+CONTRACTED_GAME_DURATION_ENTRY_IDS = {
+    "tier3.game_duration.game1_duration_seconds",
+    "tier3.game_duration.game2_duration_seconds",
+    "tier3.game_duration.game3_duration_seconds",
+}
+
+CONTRACTED_TIMING_DURATION_FIELDS = {
+    "game1_first_event_time",
+    "game2_first_event_time",
+    "game3_first_event_time",
+    "game1_last_event_time",
+    "game2_last_event_time",
+    "game3_last_event_time",
+    "game1_duration_seconds",
+    "game2_duration_seconds",
+    "game3_duration_seconds",
+}
+
 CONTRACTED_TIER3_DEFERRED_FIELDS = {
-    "game_timing",
-    "game_duration",
     "pre_postboard",
     "sideboarding",
     "deck_state",
@@ -324,11 +367,15 @@ def test_output_family_registry_contains_required_seven_families() -> None:
     assert "opening_hand" not in tier3["future_fields"]
     assert CONTRACTED_TURN_COUNT_FIELDS.issubset(tier3["seed_fields"])
     assert "turn_count" not in tier3["future_fields"]
+    assert CONTRACTED_TIMING_DURATION_FIELDS.issubset(tier3["seed_fields"])
+    assert "game_timing" not in tier3["future_fields"]
+    assert "game_duration" not in tier3["future_fields"]
     assert any("match-scope results are not promoted" in item for item in tier3["notes"])
     assert any("Issue #139 maps starting-player and play/draw" in item for item in tier3["notes"])
     assert any("Issue #140 maps per-game and total mulligan" in item for item in tier3["notes"])
     assert any("Issue #143 maps opening-hand size" in item for item in tier3["notes"])
     assert any("Issue #145 maps turn-count provenance" in item for item in tier3["notes"])
+    assert any("Issue #147 maps game timing and duration" in item for item in tier3["notes"])
 
 
 def test_seed_entry_maps_match_id_evidence_signals() -> None:
@@ -877,8 +924,6 @@ def test_tier3_play_draw_remains_independent_from_mulligan_entries() -> None:
     assert "play_draw" not in tier3["future_fields"]
     assert "starting_player" not in tier3["future_fields"]
     assert {
-        "game_timing",
-        "game_duration",
         "pre_postboard",
         "sideboarding",
         "deck_state",
@@ -979,9 +1024,9 @@ def test_tier3_mulligan_scope_documents_opening_hand_consumers_and_defers_analyt
     assert "mulligans" not in tier3["future_fields"]
     assert CONTRACTED_OPENING_HAND_ENTRY_IDS.issubset(entries)
     assert CONTRACTED_TURN_COUNT_ENTRY_IDS.issubset(entries)
+    assert CONTRACTED_GAME_TIMING_ENTRY_IDS.issubset(entries)
+    assert CONTRACTED_GAME_DURATION_ENTRY_IDS.issubset(entries)
     assert {
-        "game_timing",
-        "game_duration",
         "pre_postboard",
         "sideboarding",
         "deck_state",
@@ -1125,17 +1170,18 @@ def test_tier3_opening_hand_scope_preserves_prior_entries_and_defers_remaining_g
     assert CONTRACTED_MULLIGAN_ENTRY_IDS.issubset(entries)
     assert CONTRACTED_OPENING_HAND_ENTRY_IDS.issubset(entries)
     assert CONTRACTED_TURN_COUNT_ENTRY_IDS.issubset(entries)
+    assert CONTRACTED_GAME_TIMING_ENTRY_IDS.issubset(entries)
+    assert CONTRACTED_GAME_DURATION_ENTRY_IDS.issubset(entries)
     assert CONTRACTED_OPENING_HAND_FIELDS.issubset(tier3["seed_fields"])
     assert "opening_hand" not in tier3["future_fields"]
     assert {
-        "game_timing",
-        "game_duration",
         "pre_postboard",
         "sideboarding",
         "deck_state",
     }.issubset(tier3["future_fields"])
     assert "turn_count" not in tier3["future_fields"]
-    assert not any(entry_id.startswith("tier3.game_timing.") for entry_id in entries)
+    assert "game_timing" not in tier3["future_fields"]
+    assert "game_duration" not in tier3["future_fields"]
     assert not any(entry_id.startswith("tier3.sideboarding.") for entry_id in entries)
     assert not any(entry_id.startswith("tier3.deck_state.") for entry_id in entries)
 
@@ -1245,21 +1291,185 @@ def test_tier3_turn_count_scope_preserves_prior_entries_and_defers_timing_analyt
     assert CONTRACTED_MULLIGAN_ENTRY_IDS.issubset(entries)
     assert CONTRACTED_OPENING_HAND_ENTRY_IDS.issubset(entries)
     assert CONTRACTED_TURN_COUNT_ENTRY_IDS.issubset(entries)
+    assert CONTRACTED_GAME_TIMING_ENTRY_IDS.issubset(entries)
+    assert CONTRACTED_GAME_DURATION_ENTRY_IDS.issubset(entries)
     assert CONTRACTED_TURN_COUNT_FIELDS.issubset(tier3["seed_fields"])
     assert "turn_count" not in tier3["future_fields"]
     assert {
-        "game_timing",
-        "game_duration",
         "pre_postboard",
         "sideboarding",
         "deck_state",
     }.issubset(tier3["future_fields"])
-    assert not any(entry_id.startswith("tier3.game_timing.") for entry_id in entries)
-    assert not any(entry_id.startswith("tier3.game_duration.") for entry_id in entries)
+    assert "game_timing" not in tier3["future_fields"]
+    assert "game_duration" not in tier3["future_fields"]
     assert not any(entry_id.startswith("tier3.sideboarding.") for entry_id in entries)
     assert not any(entry_id.startswith("tier3.deck_state.") for entry_id in entries)
     for entry_id in CONTRACTED_TURN_COUNT_ENTRY_IDS:
         assert any("without changing parsing or update behavior" in note for note in entries[entry_id]["notes"])
+
+
+def test_tier3_timing_entries_are_mapped_and_validate() -> None:
+    entries = _entries_by_id()
+
+    assert CONTRACTED_GAME_TIMING_ENTRY_IDS.issubset(entries)
+    for entry_id in CONTRACTED_GAME_TIMING_ENTRY_IDS:
+        entry = entries[entry_id]
+        assert entry["tier"] == 3
+        assert entry["output_family"] == "game_level_facts"
+        assert entry["coverage_status"] == "seeded_sample"
+        assert entry["parser_managed_truth"] is True
+        assert evidence_ledger.validate_ledger_entry(entry) == []
+        assert all(
+            signal["privacy_class"] == "path_only_no_values"
+            for signal in (*entry["direct_evidence"], *entry["fallback_evidence"])
+        )
+
+
+def test_tier3_timing_entries_document_timestamps_state_endpoints_and_fallbacks() -> None:
+    entries = _entries_by_id()
+
+    for game_number in (1, 2, 3):
+        game_label = f"game{game_number}"
+        first_entry = entries[f"tier3.game_timing.{game_label}_first_event_time"]
+        last_entry = entries[f"tier3.game_timing.{game_label}_last_event_time"]
+
+        for entry, endpoint in ((first_entry, "first"), (last_entry, "last")):
+            direct_signals = _signal_ids(entry, "direct_evidence")
+            fallback_signals = _signal_ids(entry, "fallback_evidence")
+
+            assert entry["display_name"] == (
+                f"Game {game_number} {'First' if endpoint == 'first' else 'Last'} Observed Event Time"
+            )
+            assert entry["parser_owner"] == "src/mythic_edge_parser/app/state.py"
+            assert entry["model_surface"] == f"MatchSummary.games[{game_number}].{endpoint}_event_time"
+            assert {
+                f"game_state.{game_label}.event_timestamp",
+                f"client_action.{game_label}.event_timestamp",
+                f"game_result.{game_label}.event_timestamp",
+                f"parser_state.match_summary.{game_label}_first_event_time",
+                f"parser_state.match_summary.{game_label}_last_event_time",
+            }.issubset(direct_signals)
+            assert {
+                "router.timestamp_missing",
+                "router.timestamp_parse_failure",
+                "extractor.safe_iso.runtime_clock_fallback",
+                f"ledger.tier3.game_results.{game_label}_game_number_dependency",
+            }.issubset(fallback_signals)
+            assert entry["value_source_policy"] == {
+                "direct": "observed",
+                "fallback": "derived",
+                "missing": "unknown",
+                "contradiction": "conflict",
+            }
+            assert "inferred" not in entry["value_source_policy"].values()
+            assert "legacy_enriched" not in entry["value_source_policy"].values()
+            assert f"{game_label}_{endpoint}_event_time_requires_game_slot_identity" in entry[
+                "invariant_checks"
+            ]
+            observed_label = "first" if endpoint == "first" else "latest"
+            assert (
+                f"{game_label}_{endpoint}_event_time_is_{observed_label}_observed_parser_event_for_slot"
+                in entry["invariant_checks"]
+            )
+            assert f"{game_label}_{endpoint}_event_time_not_inferred_from_results_or_turn_count" in entry[
+                "invariant_checks"
+            ]
+            assert any("_safe_iso runtime-clock fallback" in item for item in entry["degradation_behavior"])
+            assert any(
+                "truncation, summarization, rotation, or data loss" in item
+                for item in entry["degradation_behavior"]
+            )
+            assert any("must not populate game timing" in item for item in entry["degradation_behavior"])
+
+        assert "game1_first_event_time_not_arena_internal_start_time".replace("game1", game_label) in first_entry[
+            "invariant_checks"
+        ]
+        assert f"{game_label}_last_event_time_not_arena_internal_end_time" in last_entry["invariant_checks"]
+        assert (
+            f"{game_label}_last_event_time_row_timestamp_fallback_is_reviewable"
+            in last_entry["invariant_checks"]
+        )
+        assert any("row timestamp fallback" in item for item in last_entry["degradation_behavior"])
+
+
+def test_tier3_duration_entries_document_endpoint_dependencies_and_clamp_behavior() -> None:
+    entries = _entries_by_id()
+
+    assert CONTRACTED_GAME_DURATION_ENTRY_IDS.issubset(entries)
+    for game_number in (1, 2, 3):
+        game_label = f"game{game_number}"
+        entry = entries[f"tier3.game_duration.{game_label}_duration_seconds"]
+        direct_signals = _signal_ids(entry, "direct_evidence")
+        fallback_signals = _signal_ids(entry, "fallback_evidence")
+
+        assert entry["display_name"] == "Game Duration"
+        assert entry["parser_owner"] == "src/mythic_edge_parser/app/models.py"
+        assert entry["model_surface"] == f"MatchSummary.games[{game_number}].duration_seconds()"
+        assert {
+            f"parser_state.match_summary.{game_label}_duration_seconds",
+            f"model.game_summary.{game_label}_duration_seconds",
+        }.issubset(direct_signals)
+        assert {
+            f"ledger.tier3.game_timing.{game_label}_first_event_time_dependency",
+            f"ledger.tier3.game_timing.{game_label}_last_event_time_dependency",
+            f"model.duration_seconds.{game_label}_clamp_behavior",
+            "router.timestamp_missing",
+            "router.timestamp_parse_failure",
+        }.issubset(fallback_signals)
+        assert entry["value_source_policy"] == {
+            "direct": "derived",
+            "fallback": "derived",
+            "missing": "unknown",
+            "contradiction": "conflict",
+        }
+        assert "inferred" not in entry["value_source_policy"].values()
+        assert "legacy_enriched" not in entry["value_source_policy"].values()
+        assert entry["confidence_policy"]["direct"] == "medium"
+        assert entry["confidence_policy"]["weak_fallback"] == "low"
+        assert f"{game_label}_duration_requires_first_and_last_event_times" in entry["invariant_checks"]
+        assert f"{game_label}_duration_seconds_uses_model_duration_seconds" in entry["invariant_checks"]
+        assert f"{game_label}_duration_blank_is_unknown_not_zero" in entry["invariant_checks"]
+        assert f"{game_label}_duration_zero_is_reviewable_clamped_or_equal_endpoint" in entry[
+            "invariant_checks"
+        ]
+        assert f"{game_label}_duration_not_arena_clock_rope_or_clock_pressure" in entry[
+            "invariant_checks"
+        ]
+        assert f"{game_label}_duration_not_reconstructed_from_turn_count_results_actions_or_ai" in entry[
+            "invariant_checks"
+        ]
+        assert any("blank first or last endpoint" in item for item in entry["degradation_behavior"])
+        assert any("invalid ISO endpoint strings" in item for item in entry["degradation_behavior"])
+        assert any("clamped to zero" in item for item in entry["degradation_behavior"])
+        assert any("not Arena clock, rope timer" in item for item in entry["degradation_behavior"])
+        assert any("must not populate duration" in item for item in entry["degradation_behavior"])
+        assert all(
+            signal["privacy_class"] == "path_only_no_values"
+            for signal in (*entry["direct_evidence"], *entry["fallback_evidence"])
+        )
+
+
+def test_tier3_timing_duration_scope_preserves_prior_entries_and_defers_remaining_game_facts() -> None:
+    tier3 = _tier3_family()
+    entries = _entries_by_id()
+
+    assert CONTRACTED_PLAY_DRAW_ENTRY_IDS.issubset(entries)
+    assert CONTRACTED_MULLIGAN_ENTRY_IDS.issubset(entries)
+    assert CONTRACTED_OPENING_HAND_ENTRY_IDS.issubset(entries)
+    assert CONTRACTED_TURN_COUNT_ENTRY_IDS.issubset(entries)
+    assert CONTRACTED_GAME_TIMING_ENTRY_IDS.issubset(entries)
+    assert CONTRACTED_GAME_DURATION_ENTRY_IDS.issubset(entries)
+    assert CONTRACTED_TIMING_DURATION_FIELDS.issubset(tier3["seed_fields"])
+    assert "game_timing" not in tier3["future_fields"]
+    assert "game_duration" not in tier3["future_fields"]
+    assert {
+        "pre_postboard",
+        "sideboarding",
+        "deck_state",
+    }.issubset(tier3["future_fields"])
+    assert not any(entry_id.startswith("tier3.sideboarding.") for entry_id in entries)
+    assert not any(entry_id.startswith("tier3.deck_state.") for entry_id in entries)
+    assert any("Issue #147 maps game timing and duration provenance" in note for note in tier3["notes"])
 
 
 def test_builtin_ledger_and_entries_validate_cleanly() -> None:
