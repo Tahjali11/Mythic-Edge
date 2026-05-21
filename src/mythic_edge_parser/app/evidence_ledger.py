@@ -260,9 +260,11 @@ _OUTPUT_FAMILIES: tuple[dict[str, Any], ...] = (
             "game1_duration_seconds",
             "game2_duration_seconds",
             "game3_duration_seconds",
+            "game1_pre_postboard",
+            "game2_pre_postboard",
+            "game3_pre_postboard",
         ],
         "future_fields": [
-            "pre_postboard",
             "sideboarding",
             "deck_state",
         ],
@@ -283,7 +285,9 @@ _OUTPUT_FAMILIES: tuple[dict[str, Any], ...] = (
             "without changing turn-info parsing or turn-count update behavior.",
             "Issue #147 maps game timing and duration provenance without changing timestamp parsing, "
             "_safe_iso fallback, state touch behavior, or model duration behavior.",
-            "Pre/postboard, sideboarding, and deck-state provenance remain deferred.",
+            "Issue #149 maps pre/postboard provenance without changing game-number assignment, "
+            "GameSummary.to_game_log_row behavior, sideboarding behavior, or deck-state behavior.",
+            "Sideboarding and deck-state provenance remain deferred.",
         ],
     },
     {
@@ -4484,6 +4488,194 @@ def _game_duration_entry(game_number: int) -> dict[str, Any]:
     }
 
 
+def _pre_postboard_entry(game_number: int) -> dict[str, Any]:
+    game_label = f"game{game_number}"
+    expected_label = "Preboard" if game_number == 1 else "Postboard"
+    return {
+        "entry_id": f"tier3.pre_postboard.{game_label}_pre_postboard",
+        "tier": 3,
+        "output_family": "game_level_facts",
+        "output_field": f"{game_label}_pre_postboard",
+        "display_name": "Pre / Postboard",
+        "parser_owner": "src/mythic_edge_parser/app/models.py",
+        "model_surface": 'GameSummary.to_game_log_row()["Pre / Postboard"]',
+        "downstream_surfaces": ["GameLogRow", "match_history", "state_snapshots"],
+        "parser_managed_truth": True,
+        "coverage_status": "seeded_sample",
+        "direct_evidence": [
+            {
+                "signal_id": f"parser_state.match_summary.{game_label}_game_number",
+                "parser_event_kind": "parser_context",
+                "parser_event_type": "",
+                "raw_event_family": "parser_context",
+                "raw_message_type": "",
+                "normalized_payload_path": f"MatchSummary.games[{game_number}].game_number",
+                "raw_payload_path": "",
+                "required_for_final": True,
+                "value_source_when_used": "derived",
+                "confidence_when_used": "high",
+                "finality_when_used": "provisional",
+                "allowed_types": ["int"],
+                "missing_behavior": "missing or invalid fixed game slot makes pre/postboard unknown",
+                "privacy_class": "path_only_no_values",
+            },
+            {
+                "signal_id": f"model.game_summary.{game_label}_pre_postboard_label",
+                "parser_event_kind": "parser_context",
+                "parser_event_type": "",
+                "raw_event_family": "parser_context",
+                "raw_message_type": "",
+                "normalized_payload_path": 'GameSummary.to_game_log_row()["Pre / Postboard"]',
+                "raw_payload_path": "",
+                "required_for_final": False,
+                "value_source_when_used": "derived",
+                "confidence_when_used": "high",
+                "finality_when_used": "provisional",
+                "allowed_types": ["str"],
+                "missing_behavior": f"expected {expected_label} only when the game slot emits a game-log row",
+                "privacy_class": "path_only_no_values",
+            },
+            {
+                "signal_id": f"game_log_row.{game_label}_pre_postboard",
+                "parser_event_kind": "parser_context",
+                "parser_event_type": "",
+                "raw_event_family": "parser_context",
+                "raw_message_type": "",
+                "normalized_payload_path": 'GameLogRow["Pre / Postboard"]',
+                "raw_payload_path": "",
+                "required_for_final": False,
+                "value_source_when_used": "derived",
+                "confidence_when_used": "high",
+                "finality_when_used": "final",
+                "allowed_types": ["str"],
+                "missing_behavior": "unplayed slots do not emit standalone pre/postboard rows",
+                "privacy_class": "path_only_no_values",
+            },
+        ],
+        "fallback_evidence": [
+            {
+                "signal_id": f"ledger.tier3.game_results.{game_label}_game_number_dependency",
+                "parser_event_kind": "parser_context",
+                "parser_event_type": "",
+                "raw_event_family": "parser_context",
+                "raw_message_type": "",
+                "normalized_payload_path": "ledger.entries[tier3.game_results.game_number]",
+                "raw_payload_path": "",
+                "required_for_final": True,
+                "value_source_when_used": "derived",
+                "confidence_when_used": "medium",
+                "finality_when_used": "provisional",
+                "allowed_types": ["dict"],
+                "missing_behavior": "missing game-number provenance makes pre/postboard degraded or unknown",
+                "privacy_class": "path_only_no_values",
+            },
+            {
+                "signal_id": "parser_context.current_game_number",
+                "parser_event_kind": "parser_context",
+                "parser_event_type": "",
+                "raw_event_family": "parser_context",
+                "raw_message_type": "",
+                "normalized_payload_path": "state_context.current_game_number",
+                "raw_payload_path": "",
+                "required_for_final": False,
+                "value_source_when_used": "derived",
+                "confidence_when_used": "low",
+                "finality_when_used": "provisional",
+                "allowed_types": ["int", "str-int", "unknown"],
+                "missing_behavior": "context-only game-number fallback is reviewable",
+                "privacy_class": "path_only_no_values",
+            },
+            {
+                "signal_id": f"game_summary.{game_label}_has_summary_data",
+                "parser_event_kind": "parser_context",
+                "parser_event_type": "",
+                "raw_event_family": "parser_context",
+                "raw_message_type": "",
+                "normalized_payload_path": f"MatchSummary.games[{game_number}].has_summary_data()",
+                "raw_payload_path": "",
+                "required_for_final": False,
+                "value_source_when_used": "derived",
+                "confidence_when_used": "low",
+                "finality_when_used": "live",
+                "allowed_types": ["bool"],
+                "missing_behavior": "no summary data means the unplayed slot should not emit row truth",
+                "privacy_class": "path_only_no_values",
+            },
+        ],
+        "value_source_policy": {
+            "direct": "derived",
+            "fallback": "derived",
+            "missing": "unknown",
+            "contradiction": "conflict",
+        },
+        "confidence_policy": {
+            "direct": "high",
+            "fallback": "medium",
+            "weak_fallback": "low",
+            "missing": "unknown",
+            "contradiction": "low",
+        },
+        "finality_policy": {
+            "live": "live",
+            "provisional": "provisional",
+            "final": "final",
+            "corrected_by_later_evidence": "reconciled",
+        },
+        "invariant_checks": [
+            f"{game_label}_pre_postboard_requires_game_slot_identity",
+            f"{game_label}_pre_postboard_derived_from_game_number",
+            f"{game_label}_pre_postboard_game1_preboard_game2_game3_postboard",
+            f"{game_label}_pre_postboard_postboard_not_sideboarding_proof",
+            f"{game_label}_pre_postboard_not_submitted_deck_or_deck_state_evidence",
+            f"{game_label}_pre_postboard_not_inferred_from_format_queue_results_turn_count_timing_or_ai",
+            f"{game_label}_pre_postboard_unplayed_slot_unknown_not_standalone_truth",
+        ],
+        "degradation_behavior": [
+            "missing or invalid game-number evidence yields unknown or degraded pre/postboard provenance",
+            "context-only game-number fallback is reviewable and must not create stronger claims",
+            "conflicting game-number evidence or row-label disagreement carries conflicting_evidence",
+            "missing row emission because the game slot has no summary data leaves the slot unknown",
+            f"{expected_label} is expected only from fixed game slot {game_number} mapping",
+            "Postboard without sideboarding-entered evidence remains a valid slot-derived label, not proof",
+            "Postboard without submit-deck evidence remains a valid slot-derived label, not deck-state proof",
+            "Best-of-One or unknown-format matches with only game 1 played do not create postboard rows",
+            "truncated, summarized, rotated, or partial logs near game-slot evidence lower confidence",
+            "sideboarding flags, submit-deck flags, submitted deck contents, match format, queue type, "
+            "results, turn count, timing, duration, workbook formulas, dashboards, Apps Script, webhook "
+            "transport, analytics, and AI must not populate pre/postboard truth",
+        ],
+        "drift_flags": [
+            "missing_expected_payload_path",
+            "fallback_used",
+            "weak_fallback_used",
+            "conflicting_evidence",
+            "invariant_failed",
+            "sensitive_evidence_redacted",
+        ],
+        "recommended_review_modules": [
+            "src/mythic_edge_parser/app/models.py",
+            "src/mythic_edge_parser/app/state.py",
+            "src/mythic_edge_parser/app/extractors.py",
+            "src/mythic_edge_parser/app/sheet_schema.py",
+        ],
+        "tests": [
+            "tests/test_evidence_ledger.py",
+            "tests/test_app_models.py",
+            "tests/test_state.py",
+            "tests/test_sheet_schema.py",
+        ],
+        "fixture_refs": [],
+        "notes": [
+            "Issue #149 documents pre/postboard provenance without changing GameSummary.to_game_log_row.",
+            f"Game {game_number} maps to {expected_label} from game slot identity only.",
+            "Postboard is not proof that sideboarding happened, a deck was submitted, or deck contents changed.",
+            "match_summary.sideboarding_entered_not_pre_postboard_evidence",
+            "match_summary.submit_deck_seen_not_pre_postboard_evidence",
+            "submitted_deck_contents_not_pre_postboard_evidence",
+        ],
+    }
+
+
 _TOTAL_MULLIGANS_ENTRY: dict[str, Any] = {
     "entry_id": "tier3.mulligans.total_mulligans",
     "tier": 3,
@@ -4660,6 +4852,9 @@ _GAME3_LAST_EVENT_TIME_ENTRY = _game_timing_entry(3, "last")
 _GAME1_DURATION_SECONDS_ENTRY = _game_duration_entry(1)
 _GAME2_DURATION_SECONDS_ENTRY = _game_duration_entry(2)
 _GAME3_DURATION_SECONDS_ENTRY = _game_duration_entry(3)
+_GAME1_PRE_POSTBOARD_ENTRY = _pre_postboard_entry(1)
+_GAME2_PRE_POSTBOARD_ENTRY = _pre_postboard_entry(2)
+_GAME3_PRE_POSTBOARD_ENTRY = _pre_postboard_entry(3)
 
 _LEDGER_ENTRIES: tuple[dict[str, Any], ...] = (
     _MATCH_ID_ENTRY,
@@ -4715,6 +4910,9 @@ _LEDGER_ENTRIES: tuple[dict[str, Any], ...] = (
     _GAME1_DURATION_SECONDS_ENTRY,
     _GAME2_DURATION_SECONDS_ENTRY,
     _GAME3_DURATION_SECONDS_ENTRY,
+    _GAME1_PRE_POSTBOARD_ENTRY,
+    _GAME2_PRE_POSTBOARD_ENTRY,
+    _GAME3_PRE_POSTBOARD_ENTRY,
 )
 
 

@@ -104,6 +104,9 @@ CONTRACTED_TIER3_FIELDS = [
     "game1_duration_seconds",
     "game2_duration_seconds",
     "game3_duration_seconds",
+    "game1_pre_postboard",
+    "game2_pre_postboard",
+    "game3_pre_postboard",
 ]
 
 CONTRACTED_TIER3_ENTRY_IDS = {
@@ -145,6 +148,9 @@ CONTRACTED_TIER3_ENTRY_IDS = {
     "tier3.game_duration.game1_duration_seconds",
     "tier3.game_duration.game2_duration_seconds",
     "tier3.game_duration.game3_duration_seconds",
+    "tier3.pre_postboard.game1_pre_postboard",
+    "tier3.pre_postboard.game2_pre_postboard",
+    "tier3.pre_postboard.game3_pre_postboard",
 }
 
 CONTRACTED_PLAY_DRAW_ENTRY_IDS = {
@@ -242,8 +248,19 @@ CONTRACTED_TIMING_DURATION_FIELDS = {
     "game3_duration_seconds",
 }
 
+CONTRACTED_PRE_POSTBOARD_ENTRY_IDS = {
+    "tier3.pre_postboard.game1_pre_postboard",
+    "tier3.pre_postboard.game2_pre_postboard",
+    "tier3.pre_postboard.game3_pre_postboard",
+}
+
+CONTRACTED_PRE_POSTBOARD_FIELDS = {
+    "game1_pre_postboard",
+    "game2_pre_postboard",
+    "game3_pre_postboard",
+}
+
 CONTRACTED_TIER3_DEFERRED_FIELDS = {
-    "pre_postboard",
     "sideboarding",
     "deck_state",
 }
@@ -370,12 +387,15 @@ def test_output_family_registry_contains_required_seven_families() -> None:
     assert CONTRACTED_TIMING_DURATION_FIELDS.issubset(tier3["seed_fields"])
     assert "game_timing" not in tier3["future_fields"]
     assert "game_duration" not in tier3["future_fields"]
+    assert CONTRACTED_PRE_POSTBOARD_FIELDS.issubset(tier3["seed_fields"])
+    assert "pre_postboard" not in tier3["future_fields"]
     assert any("match-scope results are not promoted" in item for item in tier3["notes"])
     assert any("Issue #139 maps starting-player and play/draw" in item for item in tier3["notes"])
     assert any("Issue #140 maps per-game and total mulligan" in item for item in tier3["notes"])
     assert any("Issue #143 maps opening-hand size" in item for item in tier3["notes"])
     assert any("Issue #145 maps turn-count provenance" in item for item in tier3["notes"])
     assert any("Issue #147 maps game timing and duration" in item for item in tier3["notes"])
+    assert any("Issue #149 maps pre/postboard provenance" in item for item in tier3["notes"])
 
 
 def test_seed_entry_maps_match_id_evidence_signals() -> None:
@@ -924,10 +944,10 @@ def test_tier3_play_draw_remains_independent_from_mulligan_entries() -> None:
     assert "play_draw" not in tier3["future_fields"]
     assert "starting_player" not in tier3["future_fields"]
     assert {
-        "pre_postboard",
         "sideboarding",
         "deck_state",
     }.issubset(tier3["future_fields"])
+    assert "pre_postboard" not in tier3["future_fields"]
     assert not any("mulligan" in entry_id for entry_id in entries if entry_id.startswith("tier3.play_draw."))
     for entry_id in CONTRACTED_PLAY_DRAW_ENTRY_IDS:
         assert any("Issue #140 mulligan provenance remains deferred" in note for note in entries[entry_id]["notes"])
@@ -1026,12 +1046,13 @@ def test_tier3_mulligan_scope_documents_opening_hand_consumers_and_defers_analyt
     assert CONTRACTED_TURN_COUNT_ENTRY_IDS.issubset(entries)
     assert CONTRACTED_GAME_TIMING_ENTRY_IDS.issubset(entries)
     assert CONTRACTED_GAME_DURATION_ENTRY_IDS.issubset(entries)
+    assert CONTRACTED_PRE_POSTBOARD_ENTRY_IDS.issubset(entries)
     assert {
-        "pre_postboard",
         "sideboarding",
         "deck_state",
     }.issubset(tier3["future_fields"])
     assert "opening_hand" not in tier3["future_fields"]
+    assert "pre_postboard" not in tier3["future_fields"]
     for entry_id in CONTRACTED_MULLIGAN_ENTRY_IDS:
         entry = entries[entry_id]
         assert any("Opening-hand" in note or "opening-hand" in note for note in entry["notes"])
@@ -1172,16 +1193,17 @@ def test_tier3_opening_hand_scope_preserves_prior_entries_and_defers_remaining_g
     assert CONTRACTED_TURN_COUNT_ENTRY_IDS.issubset(entries)
     assert CONTRACTED_GAME_TIMING_ENTRY_IDS.issubset(entries)
     assert CONTRACTED_GAME_DURATION_ENTRY_IDS.issubset(entries)
+    assert CONTRACTED_PRE_POSTBOARD_ENTRY_IDS.issubset(entries)
     assert CONTRACTED_OPENING_HAND_FIELDS.issubset(tier3["seed_fields"])
     assert "opening_hand" not in tier3["future_fields"]
     assert {
-        "pre_postboard",
         "sideboarding",
         "deck_state",
     }.issubset(tier3["future_fields"])
     assert "turn_count" not in tier3["future_fields"]
     assert "game_timing" not in tier3["future_fields"]
     assert "game_duration" not in tier3["future_fields"]
+    assert "pre_postboard" not in tier3["future_fields"]
     assert not any(entry_id.startswith("tier3.sideboarding.") for entry_id in entries)
     assert not any(entry_id.startswith("tier3.deck_state.") for entry_id in entries)
 
@@ -1293,15 +1315,16 @@ def test_tier3_turn_count_scope_preserves_prior_entries_and_defers_timing_analyt
     assert CONTRACTED_TURN_COUNT_ENTRY_IDS.issubset(entries)
     assert CONTRACTED_GAME_TIMING_ENTRY_IDS.issubset(entries)
     assert CONTRACTED_GAME_DURATION_ENTRY_IDS.issubset(entries)
+    assert CONTRACTED_PRE_POSTBOARD_ENTRY_IDS.issubset(entries)
     assert CONTRACTED_TURN_COUNT_FIELDS.issubset(tier3["seed_fields"])
     assert "turn_count" not in tier3["future_fields"]
     assert {
-        "pre_postboard",
         "sideboarding",
         "deck_state",
     }.issubset(tier3["future_fields"])
     assert "game_timing" not in tier3["future_fields"]
     assert "game_duration" not in tier3["future_fields"]
+    assert "pre_postboard" not in tier3["future_fields"]
     assert not any(entry_id.startswith("tier3.sideboarding.") for entry_id in entries)
     assert not any(entry_id.startswith("tier3.deck_state.") for entry_id in entries)
     for entry_id in CONTRACTED_TURN_COUNT_ENTRY_IDS:
@@ -1459,17 +1482,142 @@ def test_tier3_timing_duration_scope_preserves_prior_entries_and_defers_remainin
     assert CONTRACTED_TURN_COUNT_ENTRY_IDS.issubset(entries)
     assert CONTRACTED_GAME_TIMING_ENTRY_IDS.issubset(entries)
     assert CONTRACTED_GAME_DURATION_ENTRY_IDS.issubset(entries)
+    assert CONTRACTED_PRE_POSTBOARD_ENTRY_IDS.issubset(entries)
     assert CONTRACTED_TIMING_DURATION_FIELDS.issubset(tier3["seed_fields"])
     assert "game_timing" not in tier3["future_fields"]
     assert "game_duration" not in tier3["future_fields"]
     assert {
-        "pre_postboard",
+        "sideboarding",
+        "deck_state",
+    }.issubset(tier3["future_fields"])
+    assert "pre_postboard" not in tier3["future_fields"]
+    assert not any(entry_id.startswith("tier3.sideboarding.") for entry_id in entries)
+    assert not any(entry_id.startswith("tier3.deck_state.") for entry_id in entries)
+    assert any("Issue #147 maps game timing and duration provenance" in note for note in tier3["notes"])
+
+
+def test_tier3_pre_postboard_entries_are_mapped_and_validate() -> None:
+    entries = _entries_by_id()
+
+    assert CONTRACTED_PRE_POSTBOARD_ENTRY_IDS.issubset(entries)
+    for entry_id in CONTRACTED_PRE_POSTBOARD_ENTRY_IDS:
+        entry = entries[entry_id]
+        assert entry["tier"] == 3
+        assert entry["output_family"] == "game_level_facts"
+        assert entry["coverage_status"] == "seeded_sample"
+        assert entry["parser_managed_truth"] is True
+        assert evidence_ledger.validate_ledger_entry(entry) == []
+        assert all(
+            signal["privacy_class"] == "path_only_no_values"
+            for signal in (*entry["direct_evidence"], *entry["fallback_evidence"])
+        )
+
+
+def test_tier3_pre_postboard_entries_document_slot_mapping_and_row_sources() -> None:
+    entries = _entries_by_id()
+
+    for game_number in (1, 2, 3):
+        game_label = f"game{game_number}"
+        expected_label = "Preboard" if game_number == 1 else "Postboard"
+        entry = entries[f"tier3.pre_postboard.{game_label}_pre_postboard"]
+        direct_signals = {signal["signal_id"]: signal for signal in entry["direct_evidence"]}
+        fallback_signals = {signal["signal_id"]: signal for signal in entry["fallback_evidence"]}
+
+        assert entry["display_name"] == "Pre / Postboard"
+        assert entry["parser_owner"] == "src/mythic_edge_parser/app/models.py"
+        assert entry["model_surface"] == 'GameSummary.to_game_log_row()["Pre / Postboard"]'
+        assert {"GameLogRow", "match_history", "state_snapshots"}.issubset(entry["downstream_surfaces"])
+        assert direct_signals[f"parser_state.match_summary.{game_label}_game_number"][
+            "normalized_payload_path"
+        ] == f"MatchSummary.games[{game_number}].game_number"
+        assert direct_signals[f"parser_state.match_summary.{game_label}_game_number"][
+            "value_source_when_used"
+        ] == "derived"
+        assert direct_signals[f"model.game_summary.{game_label}_pre_postboard_label"][
+            "normalized_payload_path"
+        ] == 'GameSummary.to_game_log_row()["Pre / Postboard"]'
+        assert direct_signals[f"game_log_row.{game_label}_pre_postboard"][
+            "normalized_payload_path"
+        ] == 'GameLogRow["Pre / Postboard"]'
+        assert f"expected {expected_label}" in direct_signals[
+            f"model.game_summary.{game_label}_pre_postboard_label"
+        ]["missing_behavior"]
+        assert f"ledger.tier3.game_results.{game_label}_game_number_dependency" in fallback_signals
+        assert "parser_context.current_game_number" in fallback_signals
+        assert f"game_summary.{game_label}_has_summary_data" in fallback_signals
+        assert fallback_signals["parser_context.current_game_number"][
+            "confidence_when_used"
+        ] == "low"
+        assert fallback_signals[f"game_summary.{game_label}_has_summary_data"][
+            "allowed_types"
+        ] == ["bool"]
+
+
+def test_tier3_pre_postboard_entries_reject_sideboarding_and_downstream_truth() -> None:
+    entries = _entries_by_id()
+
+    for game_number in (1, 2, 3):
+        game_label = f"game{game_number}"
+        entry = entries[f"tier3.pre_postboard.{game_label}_pre_postboard"]
+
+        assert entry["value_source_policy"] == {
+            "direct": "derived",
+            "fallback": "derived",
+            "missing": "unknown",
+            "contradiction": "conflict",
+        }
+        assert "observed" not in entry["value_source_policy"].values()
+        assert "inferred" not in entry["value_source_policy"].values()
+        assert "legacy_enriched" not in entry["value_source_policy"].values()
+        assert entry["confidence_policy"]["direct"] == "high"
+        assert entry["confidence_policy"]["weak_fallback"] == "low"
+        assert f"{game_label}_pre_postboard_requires_game_slot_identity" in entry["invariant_checks"]
+        assert f"{game_label}_pre_postboard_derived_from_game_number" in entry["invariant_checks"]
+        assert f"{game_label}_pre_postboard_game1_preboard_game2_game3_postboard" in entry[
+            "invariant_checks"
+        ]
+        assert f"{game_label}_pre_postboard_postboard_not_sideboarding_proof" in entry[
+            "invariant_checks"
+        ]
+        assert f"{game_label}_pre_postboard_not_submitted_deck_or_deck_state_evidence" in entry[
+            "invariant_checks"
+        ]
+        assert (
+            f"{game_label}_pre_postboard_not_inferred_from_format_queue_results_turn_count_timing_or_ai"
+            in entry["invariant_checks"]
+        )
+        assert f"{game_label}_pre_postboard_unplayed_slot_unknown_not_standalone_truth" in entry[
+            "invariant_checks"
+        ]
+        assert any("Postboard without sideboarding-entered evidence" in item for item in entry["degradation_behavior"])
+        assert any("Postboard without submit-deck evidence" in item for item in entry["degradation_behavior"])
+        assert any("Best-of-One or unknown-format" in item for item in entry["degradation_behavior"])
+        assert any("must not populate pre/postboard truth" in item for item in entry["degradation_behavior"])
+        assert "match_summary.sideboarding_entered_not_pre_postboard_evidence" in entry["notes"]
+        assert "match_summary.submit_deck_seen_not_pre_postboard_evidence" in entry["notes"]
+        assert "submitted_deck_contents_not_pre_postboard_evidence" in entry["notes"]
+
+
+def test_tier3_pre_postboard_scope_preserves_prior_entries_and_defers_deck_state() -> None:
+    tier3 = _tier3_family()
+    entries = _entries_by_id()
+
+    assert CONTRACTED_PLAY_DRAW_ENTRY_IDS.issubset(entries)
+    assert CONTRACTED_MULLIGAN_ENTRY_IDS.issubset(entries)
+    assert CONTRACTED_OPENING_HAND_ENTRY_IDS.issubset(entries)
+    assert CONTRACTED_TURN_COUNT_ENTRY_IDS.issubset(entries)
+    assert CONTRACTED_GAME_TIMING_ENTRY_IDS.issubset(entries)
+    assert CONTRACTED_GAME_DURATION_ENTRY_IDS.issubset(entries)
+    assert CONTRACTED_PRE_POSTBOARD_ENTRY_IDS.issubset(entries)
+    assert CONTRACTED_PRE_POSTBOARD_FIELDS.issubset(tier3["seed_fields"])
+    assert "pre_postboard" not in tier3["future_fields"]
+    assert {
         "sideboarding",
         "deck_state",
     }.issubset(tier3["future_fields"])
     assert not any(entry_id.startswith("tier3.sideboarding.") for entry_id in entries)
     assert not any(entry_id.startswith("tier3.deck_state.") for entry_id in entries)
-    assert any("Issue #147 maps game timing and duration provenance" in note for note in tier3["notes"])
+    assert any("Issue #149 maps pre/postboard provenance" in note for note in tier3["notes"])
 
 
 def test_builtin_ledger_and_entries_validate_cleanly() -> None:
