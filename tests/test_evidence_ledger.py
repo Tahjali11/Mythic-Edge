@@ -315,6 +315,39 @@ CONTRACTED_TIER4_DECK_STATE_BOUNDARY_NOTE_FRAGMENTS = (
     "model-provider output, and AI remain outside parser truth",
 )
 
+CONTRACTED_TIER5_FIELDS = ["grp_id"]
+
+CONTRACTED_TIER5_ENTRY_IDS = {
+    "tier5.card_identity.grp_id",
+}
+
+CONTRACTED_TIER5_DEFERRED_FIELDS = {
+    "gameplay_action",
+    "opponent_card_observation",
+}
+
+CONTRACTED_TIER5_FORBIDDEN_SEED_FIELDS = {
+    "observed_grp_id",
+    "overlay_grp_id",
+    "object_source_grp_id",
+    "parent_id",
+    "instance_id",
+    "identity_hint_source",
+    "card_name",
+    "display_name",
+    "resolution_status",
+    "layout",
+    "card_faces",
+    "name_resolution_source",
+    "candidate_names",
+    "deck_name",
+    "deck_id",
+    "decklist_identity",
+    "collection_ownership",
+    "gameplay_action",
+    "opponent_card_observation",
+}
+
 
 def _entries_by_id() -> dict[str, dict[str, object]]:
     return {entry["entry_id"]: entry for entry in evidence_ledger.iter_ledger_entries()}
@@ -335,6 +368,10 @@ def _tier3_family() -> dict[str, object]:
 
 def _tier4_family() -> dict[str, object]:
     return _family("sideboarding_and_deck_state")
+
+
+def _tier5_family() -> dict[str, object]:
+    return _family("card_identity_and_gameplay_actions")
 
 
 def _signal_ids(entry: dict[str, object], key: str) -> set[str]:
@@ -416,7 +453,7 @@ def test_output_family_registry_contains_required_seven_families() -> None:
         (2, "queue_format_rank_event_context", "registered_future"),
         (3, "game_level_facts", "seeded_sample"),
         (4, "sideboarding_and_deck_state", "seeded_sample"),
-        (5, "card_identity_and_gameplay_actions", "registered_future"),
+        (5, "card_identity_and_gameplay_actions", "seeded_sample"),
         (6, "runtime_health_and_drift_detection", "registered_future"),
         (7, "derived_analytics_outputs", "registered_future"),
     ]
@@ -463,6 +500,15 @@ def test_output_family_registry_contains_required_seven_families() -> None:
     assert any("Counts and submitted-deck signature" in item for item in tier4["notes"])
     assert any("Issue #161 keeps broader deck_state deferred" in item for item in tier4["notes"])
 
+    tier5 = _tier5_family()
+    assert tier5["seed_fields"] == CONTRACTED_TIER5_FIELDS
+    assert set(tier5["future_fields"]) == CONTRACTED_TIER5_DEFERRED_FIELDS
+    assert "grp_id" not in tier5["future_fields"]
+    assert CONTRACTED_TIER5_FORBIDDEN_SEED_FIELDS.isdisjoint(tier5["seed_fields"])
+    assert any("Issue #163 maps card identity grp_id" in item for item in tier5["notes"])
+    assert any("remain future work" in item for item in tier5["notes"])
+    assert any("AI remain enrichment or downstream surfaces" in item for item in tier5["notes"])
+
 
 def test_seed_entry_maps_match_id_evidence_signals() -> None:
     entry = _entries_by_id()["tier1.match_identity.match_id"]
@@ -496,7 +542,12 @@ def test_tier1_match_lifecycle_and_aggregate_entries_are_mapped() -> None:
     entries = _entries_by_id()
     output_fields = {entry["output_field"] for entry in entries.values()}
 
-    assert set(entries) == CONTRACTED_TIER1_ENTRY_IDS | CONTRACTED_TIER3_ENTRY_IDS | CONTRACTED_TIER4_ENTRY_IDS
+    assert set(entries) == (
+        CONTRACTED_TIER1_ENTRY_IDS
+        | CONTRACTED_TIER3_ENTRY_IDS
+        | CONTRACTED_TIER4_ENTRY_IDS
+        | CONTRACTED_TIER5_ENTRY_IDS
+    )
     assert CONTRACTED_TIER1_ENTRY_IDS.issubset(entries)
     assert all(entries[entry_id]["tier"] == 1 for entry_id in CONTRACTED_TIER1_ENTRY_IDS)
     assert all(
@@ -2031,6 +2082,248 @@ def test_tier4_scope_preserves_prior_entries_and_keeps_deck_contents_deferred() 
     assert "tier4.submitted_deck_cards.submitted_deck_cards" in entries
     assert not any(entry_id.startswith("tier4.deck_state.") for entry_id in entries)
     assert any("Pre/postboard labels remain Tier 3" in note for note in tier4["notes"])
+
+
+def test_tier5_card_identity_family_seeds_only_grp_id() -> None:
+    tier5 = _tier5_family()
+    entries = _entries_by_id()
+
+    assert tier5["status"] == "seeded_sample"
+    assert tier5["seed_fields"] == CONTRACTED_TIER5_FIELDS
+    assert set(tier5["future_fields"]) == CONTRACTED_TIER5_DEFERRED_FIELDS
+    assert "grp_id" not in tier5["future_fields"]
+    assert CONTRACTED_TIER5_FORBIDDEN_SEED_FIELDS.isdisjoint(tier5["seed_fields"])
+    assert CONTRACTED_TIER5_ENTRY_IDS.issubset(entries)
+    assert not any(
+        entry_id.startswith("tier5.card_identity.") and entry_id not in CONTRACTED_TIER5_ENTRY_IDS
+        for entry_id in entries
+    )
+    assert any("Gameplay-action provenance" in note for note in tier5["notes"])
+    assert any("opponent-card-observation provenance remain future work" in note for note in tier5["notes"])
+
+
+def test_tier5_grp_id_entry_documents_direct_and_fallback_sources() -> None:
+    entry = _entries_by_id()["tier5.card_identity.grp_id"]
+    direct_signals = {signal["signal_id"]: signal for signal in entry["direct_evidence"]}
+    fallback_signals = {signal["signal_id"]: signal for signal in entry["fallback_evidence"]}
+
+    assert entry["tier"] == 5
+    assert entry["output_family"] == "card_identity_and_gameplay_actions"
+    assert entry["output_field"] == "grp_id"
+    assert entry["display_name"] == "Card GRP ID"
+    assert entry["parser_owner"] == "src/mythic_edge_parser/app/gameplay_actions.py"
+    assert entry["model_surface"] == "gameplay_action_entry.grp_id / opponent_card_observation.grp_id"
+    assert {
+        "gameplay_actions",
+        "opponent_card_observations",
+        "submitted_deck_cards",
+        "opening_hand",
+        "grp_id_catalog",
+        "future_card_performance",
+        "future_analytics_consumers",
+    }.issubset(entry["downstream_surfaces"])
+    assert entry["coverage_status"] == "seeded_sample"
+    assert set(direct_signals) == {
+        "game_state.game_object.grp_id",
+        "gameplay_action.canonical_grp_id_direct",
+        "opponent_card_observation.grp_id",
+        "opponent_card_observation.grp_id_derived_from_visible_action",
+    }
+    assert direct_signals["game_state.game_object.grp_id"]["value_source_when_used"] == "observed"
+    assert direct_signals["game_state.game_object.grp_id"]["confidence_when_used"] == "high"
+    assert direct_signals["game_state.game_object.grp_id"]["raw_payload_path"] == (
+        "greToClientMessages[].gameStateMessage.gameObjects[].grpId"
+    )
+    assert direct_signals["gameplay_action.canonical_grp_id_direct"]["normalized_payload_path"] == (
+        "gameplay_action_entry.grp_id + gameplay_action_entry.identity_hint_source"
+    )
+    assert direct_signals["opponent_card_observation.grp_id"]["raw_event_family"] == (
+        "derived_from_gameplay_action"
+    )
+    assert {
+        "game_state.game_object.object_source_grp_id",
+        "game_state.game_object.overlay_grp_id",
+        "game_state.game_object.parent_chain_grp_id",
+        "game_state.game_object.prior_instance_grp_id",
+        "game_state.game_object.replacement_chain_grp_id",
+        "tier4.submitted_deck_cards.submitted_grp_ids",
+        "tier3.opening_hand.grp_id_resolution_path",
+        "grp_id_catalog.name_resolution_context",
+        "active_deck_profile.display_name_context",
+        "grp_id_candidate_report.review_context",
+    }.issubset(fallback_signals)
+    assert fallback_signals["game_state.game_object.object_source_grp_id"][
+        "value_source_when_used"
+    ] == "derived"
+    assert fallback_signals["game_state.game_object.overlay_grp_id"]["confidence_when_used"] == "low"
+    assert fallback_signals["tier4.submitted_deck_cards.submitted_grp_ids"][
+        "value_source_when_used"
+    ] == "observed"
+    assert fallback_signals["grp_id_catalog.name_resolution_context"][
+        "value_source_when_used"
+    ] == "legacy_enriched"
+    assert fallback_signals["active_deck_profile.display_name_context"][
+        "value_source_when_used"
+    ] == "legacy_enriched"
+    assert fallback_signals["grp_id_candidate_report.review_context"][
+        "value_source_when_used"
+    ] == "legacy_enriched"
+    assert all(
+        signal["privacy_class"] == "path_only_no_values"
+        for signal in (*entry["direct_evidence"], *entry["fallback_evidence"])
+    )
+    assert evidence_ledger.validate_ledger_entry(entry) == []
+
+
+def test_tier5_grp_id_opponent_observation_preserves_source_confidence_mirroring() -> None:
+    entry = _entries_by_id()["tier5.card_identity.grp_id"]
+    direct_signals = {signal["signal_id"]: signal for signal in entry["direct_evidence"]}
+
+    observed = direct_signals["opponent_card_observation.grp_id"]
+    derived = direct_signals["opponent_card_observation.grp_id_derived_from_visible_action"]
+
+    assert observed["value_source_when_used"] == "observed"
+    assert observed["confidence_when_used"] == "high"
+    assert "opponent_card_observation.value_source" in observed["normalized_payload_path"]
+    assert "opponent_card_observation.confidence" in observed["normalized_payload_path"]
+    assert "observed gameplay-action source" in observed["missing_behavior"]
+
+    assert derived["value_source_when_used"] == "derived"
+    assert derived["confidence_when_used"] == "medium"
+    assert "opponent_card_observation.value_source" in derived["normalized_payload_path"]
+    assert "opponent_card_observation.confidence" in derived["normalized_payload_path"]
+    assert "opponent_card_observation.visibility" in derived["normalized_payload_path"]
+    assert "opponent_card_observation.degradation_flags" in derived["normalized_payload_path"]
+    assert "seat mapping" in derived["missing_behavior"]
+    assert "degradation evidence" in derived["missing_behavior"]
+
+    opponent_values = {
+        signal["value_source_when_used"]
+        for signal in direct_signals.values()
+        if signal["signal_id"].startswith("opponent_card_observation.grp_id")
+    }
+    opponent_confidences = {
+        signal["confidence_when_used"]
+        for signal in direct_signals.values()
+        if signal["signal_id"].startswith("opponent_card_observation.grp_id")
+    }
+    assert {"observed", "derived"}.issubset(opponent_values)
+    assert {"high", "medium"}.issubset(opponent_confidences)
+    assert not (
+        observed["value_source_when_used"] == "derived"
+        and observed["confidence_when_used"] == "medium"
+    )
+
+
+def test_tier5_grp_id_entry_documents_policies_and_degradation() -> None:
+    entry = _entries_by_id()["tier5.card_identity.grp_id"]
+
+    assert entry["value_source_policy"] == {
+        "direct": "observed",
+        "fallback": "derived",
+        "legacy_enrichment": "legacy_enriched",
+        "missing": "unknown",
+        "contradiction": "conflict",
+    }
+    assert entry["confidence_policy"] == {
+        "direct": "high",
+        "fallback": "medium",
+        "weak_fallback": "low",
+        "missing": "unknown",
+        "contradiction": "low",
+    }
+    assert entry["finality_policy"] == {
+        "live": "live",
+        "provisional": "provisional",
+        "final": "final",
+        "corrected_by_later_evidence": "reconciled",
+    }
+    for invariant in (
+        "grp_id_tier5_seeds_exactly_grp_id",
+        "grp_id_distinguishes_direct_observed_id_from_fallback_identity_hints",
+        "grp_id_instance_id_is_game_local_object_identity_not_durable_card_identity",
+        "grp_id_identity_hint_source_is_context_not_separate_truth",
+        "grp_id_catalog_names_display_labels_layouts_and_faces_are_enrichment_context_only",
+        "grp_id_candidate_and_active_deck_names_are_review_display_context_only",
+        "grp_id_does_not_infer_hidden_cards_decklists_archetypes_gameplay_advice_or_ai_truth",
+        "grp_id_workbook_dashboard_webhook_apps_script_analytics_and_ai_are_not_source_truth",
+        "grp_id_privacy_path_only_no_values",
+    ):
+        assert invariant in entry["invariant_checks"]
+    for fragment in (
+        "missing direct grpId",
+        "malformed, boolean, empty, or non-normalizable",
+        "conflicting direct, source, overlay, parent, replacement, or prior-instance IDs",
+        "canonical ID selected from fallback",
+        "missing parent object",
+        "missing replacement source",
+        "stale prior-instance context",
+        "unresolved, candidate-only, inferred-confirmed, legacy auto-promoted, or contradicted catalog",
+        "active deck profile or local decklist mismatch",
+        "GRP candidate report disagreement",
+        "opponent observation missing seat mapping or ambiguous visibility",
+        "truncation or data-loss evidence",
+        "model-provider output, and AI must not populate",
+    ):
+        assert any(fragment in item for item in entry["degradation_behavior"])
+    assert set(entry["drift_flags"]) == {
+        "missing_expected_payload_path",
+        "fallback_used",
+        "weak_fallback_used",
+        "conflicting_evidence",
+        "schema_snapshot_missing",
+        "fixture_gap",
+        "sensitive_evidence_redacted",
+    }
+
+
+def test_tier5_grp_id_preserves_protected_truth_boundaries() -> None:
+    tier5 = _tier5_family()
+    entries = _entries_by_id()
+    entry = entries["tier5.card_identity.grp_id"]
+    output_fields = {ledger_entry["output_field"] for ledger_entry in entries.values()}
+    entry_text = json.dumps(entry, sort_keys=True)
+
+    assert CONTRACTED_TIER1_ENTRY_IDS.issubset(entries)
+    assert CONTRACTED_TIER3_ENTRY_IDS.issubset(entries)
+    assert CONTRACTED_TIER4_ENTRY_IDS.issubset(entries)
+    assert CONTRACTED_TIER5_ENTRY_IDS.issubset(entries)
+    assert output_fields.isdisjoint(CONTRACTED_TIER5_FORBIDDEN_SEED_FIELDS)
+    assert CONTRACTED_TIER5_FORBIDDEN_SEED_FIELDS.isdisjoint(tier5["seed_fields"])
+    assert set(tier5["future_fields"]) == CONTRACTED_TIER5_DEFERRED_FIELDS
+    assert any("object_source_grp_id" in note and "not separate Tier 5 seed fields" in note for note in entry["notes"])
+    assert any("enrichment or degradation context only" in note for note in entry["notes"])
+    assert any(
+        "gameplay_action and opponent_card_observation remain Tier 5 future fields" in note
+        for note in entry["notes"]
+    )
+    assert any("does not prove deck names" in note for note in entry["notes"])
+    assert "workbook schema" not in entry_text
+    assert "webhook payload" not in entry_text
+    assert "Apps Script behavior" not in entry_text
+
+
+def test_tier5_grp_id_keeps_tier4_and_opening_hand_boundaries_intact() -> None:
+    tier3 = _tier3_family()
+    tier4 = _tier4_family()
+    tier5 = _tier5_family()
+    entries = _entries_by_id()
+    submitted_deck_entry = entries["tier4.submitted_deck_cards.submitted_deck_cards"]
+    grp_id_entry = entries["tier5.card_identity.grp_id"]
+
+    assert tier3["future_fields"] == ["deck_state"]
+    assert tier4["seed_fields"] == CONTRACTED_TIER4_FIELDS
+    assert tier4["future_fields"] == []
+    assert tier5["seed_fields"] == ["grp_id"]
+    assert submitted_deck_entry["output_field"] == "submitted_deck_cards"
+    assert any("not broad deck-state truth" in note for note in submitted_deck_entry["notes"])
+    assert "tier4.submitted_deck_cards.submitted_grp_ids" in _all_signal_ids(grp_id_entry)
+    assert "tier3.opening_hand.grp_id_resolution_path" in _all_signal_ids(grp_id_entry)
+    fallback_signals = {signal["signal_id"]: signal for signal in grp_id_entry["fallback_evidence"]}
+    assert fallback_signals["tier3.opening_hand.grp_id_resolution_path"]["missing_behavior"] == (
+        "opening-hand card-name references remain path-only provenance context"
+    )
+    assert any("Issue #161 keeps broader deck_state deferred" in note for note in tier4["notes"])
 
 
 def test_builtin_ledger_and_entries_validate_cleanly() -> None:
