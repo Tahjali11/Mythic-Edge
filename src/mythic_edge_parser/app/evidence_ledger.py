@@ -310,7 +310,15 @@ _OUTPUT_FAMILIES: tuple[dict[str, Any], ...] = (
             "Issue #159 maps submitted_deck_cards as submitted grpId list-content provenance only.",
             "Counts and submitted-deck signature remain derived facets inside submitted_deck_cards, not separate "
             "ledger fields.",
-            "Broader deck-state provenance remains deferred.",
+            "Issue #161 keeps broader deck_state deferred; there is no tier4.deck_state entry and no deck_state "
+            "seed field.",
+            "Runtime active submitted-deck artifacts, runtime active deck state, active deck profiles, "
+            "collection/deck matching, card catalog lookup, local decklists, and GRP candidate reports are "
+            "derived, enrichment, reference, or review surfaces, not parser truth for broad deck state.",
+            "Disagreement between submitted payloads, runtime artifacts, collection matches, decklists, card catalog, "
+            "and GRP candidates requires review or degraded provenance, not stronger truth.",
+            "Deck names, deck IDs, sideboard deltas, card names, collection ownership, archetypes, matchup plans, "
+            "gameplay advice, player mistake labels, model-provider output, and AI remain outside parser truth.",
             "Pre/postboard labels remain Tier 3 game-slot-derived labels, not sideboarding proof.",
         ],
     },

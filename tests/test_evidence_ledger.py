@@ -282,6 +282,39 @@ CONTRACTED_TIER4_ENTRY_IDS = {
 
 CONTRACTED_TIER4_DEFERRED_FIELDS: set[str] = set()
 
+CONTRACTED_TIER4_DECK_STATE_BOUNDARY_FORBIDDEN_OUTPUT_FIELDS = {
+    "deck_state",
+    "active_deck_state",
+    "deck_identity",
+    "deck_name",
+    "deck_id",
+    "sideboard_delta",
+    "card_name",
+    "collection_ownership",
+    "archetype",
+    "matchup_plan",
+    "gameplay_advice",
+    "player_mistake_label",
+}
+
+CONTRACTED_TIER4_DECK_STATE_BOUNDARY_NOTE_FRAGMENTS = (
+    "Issue #161 keeps broader deck_state deferred",
+    "there is no tier4.deck_state entry",
+    "no deck_state seed field",
+    "Runtime active submitted-deck artifacts",
+    "runtime active deck state",
+    "active deck profiles",
+    "collection/deck matching",
+    "card catalog lookup",
+    "local decklists",
+    "GRP candidate reports",
+    "not parser truth for broad deck state",
+    "requires review or degraded provenance",
+    "Deck names, deck IDs, sideboard deltas",
+    "card names, collection ownership",
+    "model-provider output, and AI remain outside parser truth",
+)
+
 
 def _entries_by_id() -> dict[str, dict[str, object]]:
     return {entry["entry_id"]: entry for entry in evidence_ledger.iter_ledger_entries()}
@@ -428,7 +461,7 @@ def test_output_family_registry_contains_required_seven_families() -> None:
     assert any("Issue #151 maps sideboarding_entered" in item for item in tier4["notes"])
     assert any("Issue #159 maps submitted_deck_cards" in item for item in tier4["notes"])
     assert any("Counts and submitted-deck signature" in item for item in tier4["notes"])
-    assert any("Broader deck-state provenance remains deferred" in item for item in tier4["notes"])
+    assert any("Issue #161 keeps broader deck_state deferred" in item for item in tier4["notes"])
 
 
 def test_seed_entry_maps_match_id_evidence_signals() -> None:
@@ -1672,6 +1705,69 @@ def test_tier4_sideboarding_submit_deck_entries_are_mapped_and_validate() -> Non
             signal["privacy_class"] == "path_only_no_values"
             for signal in (*entry["direct_evidence"], *entry["fallback_evidence"])
         )
+
+
+def test_tier4_deck_state_boundary_keeps_broad_deck_state_deferred() -> None:
+    tier3 = _tier3_family()
+    tier4 = _tier4_family()
+    entries = _entries_by_id()
+    output_fields = {entry["output_field"] for entry in entries.values()}
+
+    assert set(tier3["future_fields"]) == CONTRACTED_TIER3_DEFERRED_FIELDS
+    assert "deck_state" in tier3["future_fields"]
+    assert tier4["seed_fields"] == CONTRACTED_TIER4_FIELDS
+    assert set(tier4["future_fields"]) == CONTRACTED_TIER4_DEFERRED_FIELDS
+    assert "deck_state" not in tier4["seed_fields"]
+    assert "deck_state" not in tier4["future_fields"]
+    assert not any(entry_id.startswith("tier4.deck_state.") for entry_id in entries)
+    assert output_fields.isdisjoint(CONTRACTED_TIER4_DECK_STATE_BOUNDARY_FORBIDDEN_OUTPUT_FIELDS)
+
+
+def test_tier4_deck_state_boundary_family_notes_document_downstream_surfaces() -> None:
+    tier4_notes = " ".join(_tier4_family()["notes"])
+
+    for fragment in CONTRACTED_TIER4_DECK_STATE_BOUNDARY_NOTE_FRAGMENTS:
+        assert fragment in tier4_notes
+
+
+def test_tier4_deck_state_boundary_keeps_runtime_and_enrichment_bounded() -> None:
+    entry = _entries_by_id()["tier4.submitted_deck_cards.submitted_deck_cards"]
+    direct_signals = {signal["signal_id"]: signal for signal in entry["direct_evidence"]}
+    fallback_signals = {signal["signal_id"]: signal for signal in entry["fallback_evidence"]}
+
+    assert set(direct_signals) == {
+        "client_action.submitted_deck_cards.specialized_submit_deck_resp",
+        "client_action.submitted_deck_cards.deck_cards",
+        "client_action.submitted_deck_cards.sideboard_cards",
+        "client_action.submitted_deck_cards.request_context",
+        "client_action.submitted_deck_cards.event_timestamp_context",
+    }
+    assert {
+        "active_submitted_deck_artifact",
+        "runtime_active_deck_state",
+        "active_deck_profile",
+        "grp_id_candidate_report",
+    }.issubset(entry["downstream_surfaces"])
+
+    bounded_fallbacks = {
+        "diagnostics.active_submitted_deck_artifact",
+        "diagnostics.submitted_deck_counts_and_signature",
+        "runtime_surfaces.active_deck_state",
+        "grp_id_candidates.submitted_deck_snapshot",
+    }
+    assert bounded_fallbacks.issubset(fallback_signals)
+    for signal_id in bounded_fallbacks:
+        assert fallback_signals[signal_id]["required_for_final"] is False
+        assert fallback_signals[signal_id]["value_source_when_used"] == "derived"
+        assert fallback_signals[signal_id]["finality_when_used"] == "provisional"
+        assert fallback_signals[signal_id]["privacy_class"] == "path_only_no_values"
+
+    assert any("mismatch between parser event lists" in item for item in entry["degradation_behavior"])
+    assert any(
+        "downstream decklist matching or GRP scoring disagreement" in item
+        for item in entry["degradation_behavior"]
+    )
+    assert any("not broad deck-state truth" in note for note in entry["notes"])
 
 
 def test_tier4_sideboarding_entry_documents_signal_row_and_boundaries() -> None:
