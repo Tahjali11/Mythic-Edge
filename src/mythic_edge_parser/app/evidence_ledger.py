@@ -327,15 +327,16 @@ _OUTPUT_FAMILIES: tuple[dict[str, Any], ...] = (
         "output_family": "card_identity_and_gameplay_actions",
         "status": "seeded_sample",
         "description": "Card identity, gameplay-action, and visible-card parser outputs.",
-        "seed_fields": ["grp_id"],
-        "future_fields": ["gameplay_action", "opponent_card_observation"],
+        "seed_fields": ["grp_id", "gameplay_action"],
+        "future_fields": ["opponent_card_observation"],
         "owner_modules": [
             "src/mythic_edge_parser/app/gameplay_actions.py",
             "src/mythic_edge_parser/app/opponent_card_observations.py",
         ],
         "notes": [
             "Issue #163 maps card identity grp_id provenance only.",
-            "Gameplay-action provenance and opponent-card-observation provenance remain future work.",
+            "Issue #165 maps gameplay_action provenance as one broad seed field with documented facets.",
+            "Opponent-card-observation provenance remains future work.",
             "Card names, display labels, catalog lookup, deck identity, collection ownership, archetypes, "
             "gameplay advice, model-provider output, and AI remain enrichment or downstream surfaces, not "
             "parser truth.",
@@ -5846,9 +5847,318 @@ _GRP_ID_ENTRY: dict[str, Any] = {
         "identity_hint_source are context inside this entry, not separate Tier 5 seed fields.",
         "card_name, display_name, resolution_status, layout, card_faces, candidate names, active deck profile "
         "names, and catalog resolution are enrichment or degradation context only.",
-        "gameplay_action and opponent_card_observation remain Tier 5 future fields until later contracts map them.",
+        "gameplay_action is mapped separately by issue #165 and does not redefine grp_id truth.",
+        "opponent_card_observation remains a Tier 5 future field until a later contract maps it.",
         "This entry does not prove deck names, deck IDs, decklist identity, collection ownership, sideboard deltas, "
         "archetypes, matchup plans, gameplay advice, player mistakes, model-provider output, or AI truth.",
+    ],
+}
+
+
+_GAMEPLAY_ACTION_ENTRY: dict[str, Any] = {
+    "entry_id": "tier5.gameplay_action.gameplay_action",
+    "tier": 5,
+    "output_family": "card_identity_and_gameplay_actions",
+    "output_field": "gameplay_action",
+    "display_name": "Gameplay Action",
+    "parser_owner": "src/mythic_edge_parser/app/gameplay_actions.py",
+    "model_surface": "gameplay_action_entry",
+    "downstream_surfaces": [
+        "gameplay_actions",
+        "opponent_card_observations",
+        "runtime_action_reports",
+        "future_card_performance",
+        "future_analytics_consumers",
+    ],
+    "parser_managed_truth": True,
+    "coverage_status": "seeded_sample",
+    "direct_evidence": [
+        {
+            "signal_id": "game_state.gameplay_action.event_context",
+            "parser_event_kind": "GameState",
+            "parser_event_type": "GREMessageType_GameStateMessage",
+            "raw_event_family": "greToClientEvent",
+            "raw_message_type": "GREMessageType_GameStateMessage",
+            "normalized_payload_path": (
+                "gameplay_action_entry.timestamp + gameplay_action_entry.match_id + "
+                "gameplay_action_entry.game_number + gameplay_action_entry.game_state_id"
+            ),
+            "raw_payload_path": "greToClientMessages[].gameStateMessage + EventMetadata.timestamp",
+            "required_for_final": False,
+            "value_source_when_used": "observed",
+            "confidence_when_used": "high",
+            "finality_when_used": "live",
+            "allowed_types": ["dict", "str", "int"],
+            "missing_behavior": "missing event context leaves action timing or association unknown",
+            "privacy_class": "path_only_no_values",
+        },
+        {
+            "signal_id": "game_state.gameplay_action.action_array",
+            "parser_event_kind": "GameState",
+            "parser_event_type": "GREMessageType_GameStateMessage",
+            "raw_event_family": "greToClientEvent",
+            "raw_message_type": "GREMessageType_GameStateMessage",
+            "normalized_payload_path": "gameplay_action_entry.raw_action_types + gameplay_action_entry.action_type",
+            "raw_payload_path": (
+                "greToClientMessages[].gameStateMessage.actions[].action.actionType"
+            ),
+            "required_for_final": False,
+            "value_source_when_used": "observed",
+            "confidence_when_used": "high",
+            "finality_when_used": "live",
+            "allowed_types": ["list", "str"],
+            "missing_behavior": "missing raw action labels requires zone, annotation, or partial-diff support",
+            "privacy_class": "path_only_no_values",
+        },
+        {
+            "signal_id": "game_state.gameplay_action.turn_context",
+            "parser_event_kind": "GameState",
+            "parser_event_type": "GREMessageType_GameStateMessage",
+            "raw_event_family": "greToClientEvent",
+            "raw_message_type": "GREMessageType_GameStateMessage",
+            "normalized_payload_path": "gameplay_action_entry.turn_number",
+            "raw_payload_path": "greToClientMessages[].gameStateMessage.turnInfo",
+            "required_for_final": False,
+            "value_source_when_used": "observed",
+            "confidence_when_used": "high",
+            "finality_when_used": "live",
+            "allowed_types": ["int"],
+            "missing_behavior": "missing turn data leaves turn context unknown without erasing action evidence",
+            "privacy_class": "path_only_no_values",
+        },
+        {
+            "signal_id": "game_state.gameplay_action.object_zone_context",
+            "parser_event_kind": "GameState",
+            "parser_event_type": "GREMessageType_GameStateMessage",
+            "raw_event_family": "greToClientEvent",
+            "raw_message_type": "GREMessageType_GameStateMessage",
+            "normalized_payload_path": (
+                "gameplay_action_entry.instance_id + gameplay_action_entry.from_zone_type + "
+                "gameplay_action_entry.to_zone_type"
+            ),
+            "raw_payload_path": (
+                "greToClientMessages[].gameStateMessage.gameObjects[] + "
+                "greToClientMessages[].gameStateMessage.zones[]"
+            ),
+            "required_for_final": False,
+            "value_source_when_used": "observed",
+            "confidence_when_used": "high",
+            "finality_when_used": "live",
+            "allowed_types": ["int", "str"],
+            "missing_behavior": "missing object or zone state degrades zone-transition context",
+            "privacy_class": "path_only_no_values",
+        },
+        {
+            "signal_id": "game_state.gameplay_action.actor_context",
+            "parser_event_kind": "GameState",
+            "parser_event_type": "GREMessageType_GameStateMessage",
+            "raw_event_family": "greToClientEvent",
+            "raw_message_type": "GREMessageType_GameStateMessage",
+            "normalized_payload_path": "gameplay_action_entry.actor_relation + gameplay_action_entry.actor_seat_id",
+            "raw_payload_path": (
+                "greToClientMessages[].gameStateMessage.actions[].seatId + "
+                "greToClientMessages[].gameStateMessage.gameObjects[].controllerSeatId"
+            ),
+            "required_for_final": False,
+            "value_source_when_used": "derived",
+            "confidence_when_used": "medium",
+            "finality_when_used": "live",
+            "allowed_types": ["int", "str"],
+            "missing_behavior": "missing or conflicting seat mapping degrades actor relation confidence",
+            "privacy_class": "path_only_no_values",
+        },
+    ],
+    "fallback_evidence": [
+        {
+            "signal_id": "gameplay_action.zone_transition_diff",
+            "parser_event_kind": "GameState",
+            "parser_event_type": "GREMessageType_GameStateMessage",
+            "raw_event_family": "greToClientEvent",
+            "raw_message_type": "GREMessageType_GameStateMessage",
+            "normalized_payload_path": (
+                "gameplay_state.objects_by_instance + gameplay_action_entry.from_zone_type + "
+                "gameplay_action_entry.to_zone_type + gameplay_action_entry.action_type"
+            ),
+            "raw_payload_path": (
+                "prior and current greToClientMessages[].gameStateMessage.gameObjects[] + zones[]"
+            ),
+            "required_for_final": False,
+            "value_source_when_used": "derived",
+            "confidence_when_used": "medium",
+            "finality_when_used": "provisional",
+            "allowed_types": ["dict", "str"],
+            "missing_behavior": (
+                "action may be omitted or downgraded when previous or current zone evidence is missing"
+            ),
+            "privacy_class": "path_only_no_values",
+        },
+        {
+            "signal_id": "gameplay_action.partial_diff_inference",
+            "parser_event_kind": "GameState",
+            "parser_event_type": "GREMessageType_GameStateMessage",
+            "raw_event_family": "greToClientEvent",
+            "raw_message_type": "GREMessageType_GameStateMessage",
+            "normalized_payload_path": (
+                "gameplay_action_entry.action_type + gameplay_action_entry.to_zone_type"
+            ),
+            "raw_payload_path": "partial current gameObjects[] + actions[] + annotations[]",
+            "required_for_final": False,
+            "value_source_when_used": "inferred",
+            "confidence_when_used": "low",
+            "finality_when_used": "provisional",
+            "allowed_types": ["dict", "str"],
+            "missing_behavior": "partial-diff support must not be promoted to high confidence by itself",
+            "privacy_class": "path_only_no_values",
+        },
+        {
+            "signal_id": "gameplay_action.annotation_context",
+            "parser_event_kind": "GameState",
+            "parser_event_type": "GREMessageType_GameStateMessage",
+            "raw_event_family": "greToClientEvent",
+            "raw_message_type": "GREMessageType_GameStateMessage",
+            "normalized_payload_path": (
+                "gameplay_action_entry.annotation_types + gameplay_action_entry.annotation_categories"
+            ),
+            "raw_payload_path": "greToClientMessages[].gameStateMessage.annotations[]",
+            "required_for_final": False,
+            "value_source_when_used": "derived",
+            "confidence_when_used": "medium",
+            "finality_when_used": "provisional",
+            "allowed_types": ["list", "str"],
+            "missing_behavior": "annotation-only support remains uncertain and review oriented",
+            "privacy_class": "path_only_no_values",
+        },
+        {
+            "signal_id": "tier5.card_identity.grp_id_dependency",
+            "parser_event_kind": "GameState",
+            "parser_event_type": "GREMessageType_GameStateMessage",
+            "raw_event_family": "greToClientEvent",
+            "raw_message_type": "GREMessageType_GameStateMessage",
+            "normalized_payload_path": (
+                "gameplay_action_entry.grp_id + gameplay_action_entry.identity_hint_source + "
+                "ledger.entries[tier5.card_identity.grp_id]"
+            ),
+            "raw_payload_path": (
+                "greToClientMessages[].gameStateMessage.gameObjects[].grpId + "
+                "objectSourceGrpId + overlayGrpId"
+            ),
+            "required_for_final": False,
+            "value_source_when_used": "derived",
+            "confidence_when_used": "medium",
+            "finality_when_used": "provisional",
+            "allowed_types": ["int", "str-int", "dict"],
+            "missing_behavior": (
+                "action may still exist without card identity, but card identity confidence must degrade"
+            ),
+            "privacy_class": "path_only_no_values",
+        },
+        {
+            "signal_id": "gameplay_action.rendered_display_context",
+            "parser_event_kind": "runtime_surface",
+            "parser_event_type": "rendered_gameplay_action",
+            "raw_event_family": "local_enrichment_surface",
+            "raw_message_type": "",
+            "normalized_payload_path": (
+                "gameplay_action_entry.card_name + gameplay_action_entry.display_name + "
+                "gameplay_action_entry.resolution_status + gameplay_action_entry.summary"
+            ),
+            "raw_payload_path": "grp id catalog, active deck profile, and rendered action text",
+            "required_for_final": False,
+            "value_source_when_used": "legacy_enriched",
+            "confidence_when_used": "low",
+            "finality_when_used": "provisional",
+            "allowed_types": ["str", "dict", "list"],
+            "missing_behavior": "missing display context must not erase the underlying parser-owned action",
+            "privacy_class": "path_only_no_values",
+        },
+    ],
+    "value_source_policy": {
+        "direct": "observed",
+        "fallback": "derived",
+        "inferred": "inferred",
+        "unavailable": "unknown",
+        "contradiction": "conflict",
+        "historical": "legacy_enriched",
+    },
+    "confidence_policy": {
+        "direct": "high",
+        "fallback": "medium",
+        "inferred": "low",
+        "unavailable": "unknown",
+        "contradiction": "low",
+    },
+    "finality_policy": {
+        "live": "live",
+        "provisional": "provisional",
+        "final": "final",
+        "reconciled": "reconciled",
+    },
+    "invariant_checks": [
+        "tier5_seeds_exactly_grp_id_and_gameplay_action",
+        "opponent_card_observation_remains_future_field",
+        "gameplay_action_is_single_seed_with_facets_not_many_seed_fields",
+        "gameplay_action_action_type_is_parser_owned_classification",
+        "gameplay_action_raw_action_types_preserve_observed_labels_when_available",
+        "gameplay_action_actor_relation_depends_on_seat_mapping",
+        "gameplay_action_zone_context_distinguishes_observed_state_from_inference",
+        "gameplay_action_card_identity_depends_on_tier5_grp_id",
+        "gameplay_action_display_fields_are_enrichment_only",
+        "gameplay_action_does_not_infer_hidden_cards_or_complete_decklists",
+        "gameplay_action_does_not_prove_player_mistakes_or_strategy",
+        "gameplay_action_workbook_webhook_apps_script_analytics_and_ai_are_not_source_truth",
+        "gameplay_action_privacy_path_only_no_values",
+    ],
+    "degradation_behavior": [
+        "missing GameState payload leaves gameplay_action unknown or omitted",
+        "missing event timestamp degrades action timing context",
+        "missing match or game association leaves action association unknown",
+        "missing turn data leaves turn context unknown without erasing safer action evidence",
+        "missing raw action-array labels requires zone, annotation, or partial-diff fallback support",
+        "missing prior or current object state degrades zone-transition action evidence",
+        "missing zone maps or zone IDs degrades from_zone_type and to_zone_type confidence",
+        "missing seat mapping or conflicting local/opponent actor relation lowers actor confidence",
+        "missing grp_id or conflicting card identity hints degrades card-specific action confidence",
+        "action-array evidence that disagrees with zone-diff evidence requires conflict or review",
+        "annotation-only or partial-diff-only action evidence remains low or medium confidence",
+        "catalog, display, card-name, deck-name, layout, card-face, resolution-status, and summary "
+        "context is enrichment only",
+        "opponent-card-observation dependency remains deferred and must not become source truth",
+        "hidden cards, complete decklists, archetypes, matchup plans, gameplay advice, player mistake "
+        "labels, model-provider output, and AI must not populate gameplay_action truth",
+    ],
+    "drift_flags": [
+        "missing_expected_payload_path",
+        "fallback_used",
+        "weak_fallback_used",
+        "conflicting_evidence",
+        "schema_snapshot_missing",
+        "fixture_gap",
+        "sensitive_evidence_redacted",
+    ],
+    "recommended_review_modules": [
+        "src/mythic_edge_parser/app/gameplay_actions.py",
+        "src/mythic_edge_parser/app/opponent_card_observations.py",
+        "src/mythic_edge_parser/app/evidence_ledger.py",
+    ],
+    "tests": [
+        "tests/test_evidence_ledger.py",
+        "tests/test_gameplay_actions.py",
+        "tests/test_opponent_card_observations.py",
+    ],
+    "fixture_refs": [],
+    "notes": [
+        "Issue #165 documents gameplay_action provenance without changing gameplay-action extraction or "
+        "classification behavior.",
+        "gameplay_action is one broad Tier 5 seed field; timestamp, match_id, game_number, game_state_id, "
+        "turn_number, action_type, raw_action_types, cast_mode, actor_relation, actor_seat_id, "
+        "from_zone_type, to_zone_type, annotations, replacement IDs, and display fields are facets, "
+        "signals, dependencies, or enrichment context.",
+        "grp_id references depend on tier5.card_identity.grp_id and do not redefine card identity truth.",
+        "opponent_card_observation remains a future Tier 5 field and downstream consumer.",
+        "card_name, display_name, resolution_status, layout, card_faces, active deck names, catalog names, "
+        "candidate names, markdown summaries, and rendered action text are enrichment or display context only.",
+        "This entry does not infer hidden cards, complete decklists, archetypes, matchup plans, gameplay advice, "
+        "player mistakes, model-provider output, or AI truth.",
     ],
 }
 
@@ -6096,6 +6406,7 @@ _LEDGER_ENTRIES: tuple[dict[str, Any], ...] = (
     _SUBMIT_DECK_SEEN_ENTRY,
     _SUBMITTED_DECK_CARDS_ENTRY,
     _GRP_ID_ENTRY,
+    _GAMEPLAY_ACTION_ENTRY,
 )
 
 
