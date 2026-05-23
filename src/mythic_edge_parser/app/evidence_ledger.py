@@ -327,8 +327,8 @@ _OUTPUT_FAMILIES: tuple[dict[str, Any], ...] = (
         "output_family": "card_identity_and_gameplay_actions",
         "status": "seeded_sample",
         "description": "Card identity, gameplay-action, and visible-card parser outputs.",
-        "seed_fields": ["grp_id", "gameplay_action"],
-        "future_fields": ["opponent_card_observation"],
+        "seed_fields": ["grp_id", "gameplay_action", "opponent_card_observation"],
+        "future_fields": [],
         "owner_modules": [
             "src/mythic_edge_parser/app/gameplay_actions.py",
             "src/mythic_edge_parser/app/opponent_card_observations.py",
@@ -336,7 +336,7 @@ _OUTPUT_FAMILIES: tuple[dict[str, Any], ...] = (
         "notes": [
             "Issue #163 maps card identity grp_id provenance only.",
             "Issue #165 maps gameplay_action provenance as one broad seed field with documented facets.",
-            "Opponent-card-observation provenance remains future work.",
+            "Issue #166 maps opponent_card_observation provenance as one broad seed field with documented facets.",
             "Card names, display labels, catalog lookup, deck identity, collection ownership, archetypes, "
             "gameplay advice, model-provider output, and AI remain enrichment or downstream surfaces, not "
             "parser truth.",
@@ -5848,7 +5848,7 @@ _GRP_ID_ENTRY: dict[str, Any] = {
         "card_name, display_name, resolution_status, layout, card_faces, candidate names, active deck profile "
         "names, and catalog resolution are enrichment or degradation context only.",
         "gameplay_action is mapped separately by issue #165 and does not redefine grp_id truth.",
-        "opponent_card_observation remains a Tier 5 future field until a later contract maps it.",
+        "opponent_card_observation is mapped separately by issue #166 and does not redefine grp_id truth.",
         "This entry does not prove deck names, deck IDs, decklist identity, collection ownership, sideboard deltas, "
         "archetypes, matchup plans, gameplay advice, player mistakes, model-provider output, or AI truth.",
     ],
@@ -6094,8 +6094,8 @@ _GAMEPLAY_ACTION_ENTRY: dict[str, Any] = {
         "reconciled": "reconciled",
     },
     "invariant_checks": [
-        "tier5_seeds_exactly_grp_id_and_gameplay_action",
-        "opponent_card_observation_remains_future_field",
+        "tier5_seeds_exactly_grp_id_gameplay_action_and_opponent_card_observation",
+        "tier5_future_fields_empty_after_opponent_card_observation_seed",
         "gameplay_action_is_single_seed_with_facets_not_many_seed_fields",
         "gameplay_action_action_type_is_parser_owned_classification",
         "gameplay_action_raw_action_types_preserve_observed_labels_when_available",
@@ -6122,7 +6122,8 @@ _GAMEPLAY_ACTION_ENTRY: dict[str, Any] = {
         "annotation-only or partial-diff-only action evidence remains low or medium confidence",
         "catalog, display, card-name, deck-name, layout, card-face, resolution-status, and summary "
         "context is enrichment only",
-        "opponent-card-observation dependency remains deferred and must not become source truth",
+        "opponent-card-observation is mapped separately by issue #166 and must not become source truth for "
+        "gameplay_action",
         "hidden cards, complete decklists, archetypes, matchup plans, gameplay advice, player mistake "
         "labels, model-provider output, and AI must not populate gameplay_action truth",
     ],
@@ -6154,11 +6155,363 @@ _GAMEPLAY_ACTION_ENTRY: dict[str, Any] = {
         "from_zone_type, to_zone_type, annotations, replacement IDs, and display fields are facets, "
         "signals, dependencies, or enrichment context.",
         "grp_id references depend on tier5.card_identity.grp_id and do not redefine card identity truth.",
-        "opponent_card_observation remains a future Tier 5 field and downstream consumer.",
+        "opponent_card_observation is mapped separately by issue #166 and remains a downstream consumer, "
+        "not source truth for gameplay_action.",
         "card_name, display_name, resolution_status, layout, card_faces, active deck names, catalog names, "
         "candidate names, markdown summaries, and rendered action text are enrichment or display context only.",
         "This entry does not infer hidden cards, complete decklists, archetypes, matchup plans, gameplay advice, "
         "player mistakes, model-provider output, or AI truth.",
+    ],
+}
+
+
+_OPPONENT_CARD_OBSERVATION_ENTRY: dict[str, Any] = {
+    "entry_id": "tier5.opponent_card_observation.opponent_card_observation",
+    "tier": 5,
+    "output_family": "card_identity_and_gameplay_actions",
+    "output_field": "opponent_card_observation",
+    "display_name": "Opponent Card Observation",
+    "parser_owner": "src/mythic_edge_parser/app/opponent_card_observations.py",
+    "model_surface": "opponent_card_observation / opponent_card_observations_payload",
+    "downstream_surfaces": [
+        "opponent_card_observations",
+        "future_card_performance",
+        "future_analytics_consumers",
+    ],
+    "parser_managed_truth": True,
+    "coverage_status": "seeded_sample",
+    "direct_evidence": [
+        {
+            "signal_id": "opponent_card_observation.visible_action_source",
+            "parser_event_kind": "opponent_card_observation",
+            "parser_event_type": "parser_opponent_card_observations.v1",
+            "raw_event_family": "derived_from_gameplay_action",
+            "raw_message_type": "",
+            "normalized_payload_path": (
+                "opponent_card_observation.action_type + opponent_card_observation.source_evidence + "
+                "opponent_card_observation.raw_action_types"
+            ),
+            "raw_payload_path": "gameplay_action_entry.action_type + gameplay_action_entry.raw_action_types",
+            "required_for_final": False,
+            "value_source_when_used": "observed",
+            "confidence_when_used": "high",
+            "finality_when_used": "provisional",
+            "allowed_types": ["str", "list"],
+            "missing_behavior": "missing or unsupported visible action evidence omits or degrades the observation",
+            "privacy_class": "path_only_no_values",
+        },
+        {
+            "signal_id": "opponent_card_observation.visibility_context",
+            "parser_event_kind": "opponent_card_observation",
+            "parser_event_type": "parser_opponent_card_observations.v1",
+            "raw_event_family": "derived_from_gameplay_action",
+            "raw_message_type": "",
+            "normalized_payload_path": (
+                "opponent_card_observation.visibility + opponent_card_observation.from_zone_type + "
+                "opponent_card_observation.to_zone_type"
+            ),
+            "raw_payload_path": (
+                "gameplay_action_entry.action_type + gameplay_action_entry.from_zone_type + "
+                "gameplay_action_entry.to_zone_type + gameplay_action_entry.annotation_types + "
+                "gameplay_action_entry.annotation_categories"
+            ),
+            "required_for_final": False,
+            "value_source_when_used": "observed",
+            "confidence_when_used": "high",
+            "finality_when_used": "provisional",
+            "allowed_types": ["str", "list"],
+            "missing_behavior": "hidden or ambiguous visibility must omit, lower confidence, or require review",
+            "privacy_class": "path_only_no_values",
+        },
+        {
+            "signal_id": "opponent_card_observation.actor_seat_context",
+            "parser_event_kind": "opponent_card_observation",
+            "parser_event_type": "parser_opponent_card_observations.v1",
+            "raw_event_family": "derived_from_gameplay_action",
+            "raw_message_type": "",
+            "normalized_payload_path": (
+                "opponent_card_observation.actor_relation + opponent_card_observation.actor_seat_id + "
+                "opponent_card_observation.local_seat_id"
+            ),
+            "raw_payload_path": (
+                "gameplay_action_entry.actor_relation + gameplay_action_entry.actor_seat_id + "
+                "gameplay_action_entry.local_seat_id + gameplay_action_entry.raw_action_types"
+            ),
+            "required_for_final": False,
+            "value_source_when_used": "derived",
+            "confidence_when_used": "medium",
+            "finality_when_used": "provisional",
+            "allowed_types": ["int", "str"],
+            "missing_behavior": "missing or conflicting seat mapping degrades observation confidence",
+            "privacy_class": "path_only_no_values",
+        },
+        {
+            "signal_id": "opponent_card_observation.card_identity_context",
+            "parser_event_kind": "opponent_card_observation",
+            "parser_event_type": "parser_opponent_card_observations.v1",
+            "raw_event_family": "derived_from_gameplay_action",
+            "raw_message_type": "",
+            "normalized_payload_path": (
+                "opponent_card_observation.grp_id + opponent_card_observation.observed_grp_id + "
+                "opponent_card_observation.overlay_grp_id + opponent_card_observation.object_source_grp_id + "
+                "opponent_card_observation.parent_id + opponent_card_observation.identity_hint_source"
+            ),
+            "raw_payload_path": (
+                "gameplay_action_entry.grp_id + gameplay_action_entry.observed_grp_id + "
+                "gameplay_action_entry.overlay_grp_id + gameplay_action_entry.object_source_grp_id + "
+                "gameplay_action_entry.parent_id + gameplay_action_entry.identity_hint_source"
+            ),
+            "required_for_final": False,
+            "value_source_when_used": "observed",
+            "confidence_when_used": "high",
+            "finality_when_used": "provisional",
+            "allowed_types": ["int", "str-int", "str"],
+            "missing_behavior": "missing card identity leaves visible action support degraded or review-required",
+            "privacy_class": "path_only_no_values",
+        },
+        {
+            "signal_id": "opponent_card_observation.status_context",
+            "parser_event_kind": "opponent_card_observation",
+            "parser_event_type": "parser_opponent_card_observations.v1",
+            "raw_event_family": "derived_from_gameplay_action",
+            "raw_message_type": "",
+            "normalized_payload_path": (
+                "opponent_card_observation.evidence_status + opponent_card_observation.value_source + "
+                "opponent_card_observation.confidence + opponent_card_observation.degradation_flags + "
+                "opponent_card_observation.review_required"
+            ),
+            "raw_payload_path": "gameplay_action_entry + opponent_card_observation computed status labels",
+            "required_for_final": False,
+            "value_source_when_used": "derived",
+            "confidence_when_used": "medium",
+            "finality_when_used": "provisional",
+            "allowed_types": ["str", "list", "bool"],
+            "missing_behavior": "missing or conflicting status context must preserve uncertainty labels",
+            "privacy_class": "path_only_no_values",
+        },
+    ],
+    "fallback_evidence": [
+        {
+            "signal_id": "opponent_card_observation.revealed_annotation_context",
+            "parser_event_kind": "opponent_card_observation",
+            "parser_event_type": "parser_opponent_card_observations.v1",
+            "raw_event_family": "derived_from_gameplay_action",
+            "raw_message_type": "",
+            "normalized_payload_path": (
+                "opponent_card_observation.annotation_types + "
+                "opponent_card_observation.annotation_categories + opponent_card_observation.visibility"
+            ),
+            "raw_payload_path": (
+                "gameplay_action_entry.annotation_types + gameplay_action_entry.annotation_categories"
+            ),
+            "required_for_final": False,
+            "value_source_when_used": "observed",
+            "confidence_when_used": "high",
+            "finality_when_used": "provisional",
+            "allowed_types": ["list", "str"],
+            "missing_behavior": "missing reveal context falls back to other visible action or public-zone evidence",
+            "privacy_class": "path_only_no_values",
+        },
+        {
+            "signal_id": "opponent_card_observation.public_zone_presence",
+            "parser_event_kind": "opponent_card_observation",
+            "parser_event_type": "parser_opponent_card_observations.v1",
+            "raw_event_family": "derived_from_gameplay_action",
+            "raw_message_type": "",
+            "normalized_payload_path": (
+                "opponent_card_observation.visibility + opponent_card_observation.to_zone_type"
+            ),
+            "raw_payload_path": "gameplay_action_entry.to_zone_type + gameplay_action_entry.action_type",
+            "required_for_final": False,
+            "value_source_when_used": "observed",
+            "confidence_when_used": "high",
+            "finality_when_used": "provisional",
+            "allowed_types": ["str"],
+            "missing_behavior": "missing public-zone presence leaves observation dependent on direct visible action",
+            "privacy_class": "path_only_no_values",
+        },
+        {
+            "signal_id": "opponent_card_observation.derived_zone_transition",
+            "parser_event_kind": "opponent_card_observation",
+            "parser_event_type": "parser_opponent_card_observations.v1",
+            "raw_event_family": "derived_from_gameplay_action",
+            "raw_message_type": "",
+            "normalized_payload_path": (
+                "opponent_card_observation.visibility + opponent_card_observation.from_zone_type + "
+                "opponent_card_observation.to_zone_type"
+            ),
+            "raw_payload_path": (
+                "gameplay_action_entry.from_zone_type + gameplay_action_entry.to_zone_type"
+            ),
+            "required_for_final": False,
+            "value_source_when_used": "derived",
+            "confidence_when_used": "medium",
+            "finality_when_used": "provisional",
+            "allowed_types": ["str"],
+            "missing_behavior": "zone-transition support remains medium confidence and reviewable when weak",
+            "privacy_class": "path_only_no_values",
+        },
+        {
+            "signal_id": "tier5.gameplay_action.gameplay_action_dependency",
+            "parser_event_kind": "opponent_card_observation",
+            "parser_event_type": "parser_opponent_card_observations.v1",
+            "raw_event_family": "derived_from_gameplay_action",
+            "raw_message_type": "",
+            "normalized_payload_path": "ledger.entries[tier5.gameplay_action.gameplay_action]",
+            "raw_payload_path": "gameplay_action_entry",
+            "required_for_final": False,
+            "value_source_when_used": "derived",
+            "confidence_when_used": "medium",
+            "finality_when_used": "provisional",
+            "allowed_types": ["dict"],
+            "missing_behavior": "missing or degraded gameplay-action provenance degrades observation provenance",
+            "privacy_class": "path_only_no_values",
+        },
+        {
+            "signal_id": "tier5.card_identity.grp_id_dependency",
+            "parser_event_kind": "opponent_card_observation",
+            "parser_event_type": "parser_opponent_card_observations.v1",
+            "raw_event_family": "derived_from_gameplay_action",
+            "raw_message_type": "",
+            "normalized_payload_path": "ledger.entries[tier5.card_identity.grp_id]",
+            "raw_payload_path": "gameplay_action_entry.grp_id + gameplay_action_entry.identity_hint_source",
+            "required_for_final": False,
+            "value_source_when_used": "derived",
+            "confidence_when_used": "medium",
+            "finality_when_used": "provisional",
+            "allowed_types": ["dict", "int", "str-int"],
+            "missing_behavior": "missing card identity leaves the observation degraded or review-required, not guessed",
+            "privacy_class": "path_only_no_values",
+        },
+        {
+            "signal_id": "opponent_card_observation.name_resolution_enrichment",
+            "parser_event_kind": "opponent_card_observation",
+            "parser_event_type": "parser_opponent_card_observations.v1",
+            "raw_event_family": "local_enrichment_surface",
+            "raw_message_type": "",
+            "normalized_payload_path": (
+                "opponent_card_observation.card_name + opponent_card_observation.display_name + "
+                "opponent_card_observation.resolution_status + "
+                "opponent_card_observation.name_resolution_source + opponent_card_observation.layout + "
+                "opponent_card_observation.card_faces"
+            ),
+            "raw_payload_path": "grp id catalog and gameplay action display enrichment",
+            "required_for_final": False,
+            "value_source_when_used": "legacy_enriched",
+            "confidence_when_used": "low",
+            "finality_when_used": "provisional",
+            "allowed_types": ["str", "list"],
+            "missing_behavior": "display or name gaps must not erase visible-card evidence or become log truth",
+            "privacy_class": "path_only_no_values",
+        },
+        {
+            "signal_id": "opponent_card_observation.degraded_or_conflicting_status",
+            "parser_event_kind": "opponent_card_observation",
+            "parser_event_type": "parser_opponent_card_observations.v1",
+            "raw_event_family": "derived_from_gameplay_action",
+            "raw_message_type": "",
+            "normalized_payload_path": (
+                "opponent_card_observation.degradation_flags + "
+                "opponent_card_observation.evidence_status + opponent_card_observation.review_required"
+            ),
+            "raw_payload_path": "gameplay_action_entry + computed degradation labels",
+            "required_for_final": False,
+            "value_source_when_used": "unknown",
+            "confidence_when_used": "low",
+            "finality_when_used": "provisional",
+            "allowed_types": ["list", "str", "bool"],
+            "missing_behavior": "conflicts, ambiguity, missing identity, and data-loss require lower confidence",
+            "privacy_class": "path_only_no_values",
+        },
+    ],
+    "value_source_policy": {
+        "direct": "observed",
+        "fallback": "derived",
+        "inferred": "inferred",
+        "unavailable": "unknown",
+        "contradiction": "conflict",
+        "historical": "legacy_enriched",
+    },
+    "confidence_policy": {
+        "direct": "high",
+        "fallback": "medium",
+        "inferred": "low",
+        "unavailable": "unknown",
+        "contradiction": "low",
+    },
+    "finality_policy": {
+        "live": "live",
+        "provisional": "provisional",
+        "final": "final",
+        "reconciled": "reconciled",
+    },
+    "invariant_checks": [
+        "tier5_seeds_exactly_grp_id_gameplay_action_and_opponent_card_observation",
+        "tier5_future_fields_empty_after_opponent_card_observation_seed",
+        "opponent_card_observation_is_single_seed_with_facets_not_many_seed_fields",
+        "opponent_card_observation_depends_on_tier5_grp_id",
+        "opponent_card_observation_depends_on_tier5_gameplay_action",
+        "opponent_card_observation_requires_opponent_actor_relation",
+        "opponent_card_observation_hidden_draws_are_not_recorded",
+        "opponent_card_observation_visibility_labels_preserve_public_evidence_boundary",
+        "opponent_card_observation_source_confidence_and_degradation_travel_together",
+        "opponent_card_observation_name_resolution_is_enrichment_context_only",
+        "opponent_card_observation_does_not_infer_hidden_cards_or_complete_decklists",
+        "opponent_card_observation_does_not_prove_sideboard_archetype_advice_line_tracer_ai_or_model_truth",
+        "opponent_card_observation_workbook_webhook_apps_script_analytics_and_ai_are_not_source_truth",
+        "opponent_card_observation_privacy_path_only_no_values",
+    ],
+    "degradation_behavior": [
+        "non-mapping action input produces neutral omission, not guessed observation truth",
+        "non-opponent action input produces neutral omission",
+        "unsupported or missing action type produces neutral omission or degraded review context",
+        "hidden draw from library to hand without reveal or public-zone evidence is not recorded as a clean fact",
+        "missing local or actor seat mapping lowers confidence and requires review when emitted",
+        "actor relation conflict and action-seat conflict require conflict labels or review",
+        "missing grp_id and observed_grp_id leaves card identity degraded rather than guessed",
+        "candidate, ambiguous, contradicted, name-only, or unresolved name resolution lowers confidence",
+        "ambiguous visibility lowers confidence and preserves review context",
+        "data-loss or truncation evidence lowers confidence and preserves degradation flags",
+        "missing or degraded gameplay-action provenance degrades observation provenance",
+        "missing card-identity dependency leaves the observation degraded or review-required",
+        "display or catalog enrichment being unavailable or contradicted must not erase visible-card evidence",
+        "workbook formulas, dashboards, transport, scripts, AI, archetype labels, card-performance analytics, "
+        "or model-provider output must not reconstruct missing observation facts",
+    ],
+    "drift_flags": [
+        "missing_expected_payload_path",
+        "fallback_used",
+        "weak_fallback_used",
+        "conflicting_evidence",
+        "invariant_failed",
+        "schema_snapshot_missing",
+        "fixture_gap",
+        "sensitive_evidence_redacted",
+    ],
+    "recommended_review_modules": [
+        "src/mythic_edge_parser/app/opponent_card_observations.py",
+        "src/mythic_edge_parser/app/gameplay_actions.py",
+        "src/mythic_edge_parser/app/evidence_ledger.py",
+    ],
+    "tests": [
+        "tests/test_evidence_ledger.py",
+        "tests/test_opponent_card_observations.py",
+        "tests/test_gameplay_actions.py",
+    ],
+    "fixture_refs": [],
+    "notes": [
+        "Issue #166 documents opponent_card_observation provenance without changing observation behavior.",
+        "opponent_card_observation is one broad Tier 5 seed field; object, schema_version, match_id, "
+        "game_number, game_state_id, timestamp, turn_number, actor relation, seat IDs, instance ID, "
+        "card identity hints, names, display labels, resolution labels, action context, source evidence, "
+        "visibility, zone context, annotations, degradation flags, and review flags are facets, signals, "
+        "dependencies, or enrichment context.",
+        "opponent_card_observation depends on tier5.gameplay_action.gameplay_action and "
+        "tier5.card_identity.grp_id; those dependencies do not become independent truth for this entry.",
+        "card_name, display_name, resolution_status, name_resolution_source, layout, and card_faces are "
+        "enrichment or display context only.",
+        "This entry does not infer hidden cards, complete decklists, sideboard deltas, archetypes, matchup "
+        "plans, gameplay advice, player mistakes, Line Tracer output, model-provider output, or AI truth.",
     ],
 }
 
@@ -6407,6 +6760,7 @@ _LEDGER_ENTRIES: tuple[dict[str, Any], ...] = (
     _SUBMITTED_DECK_CARDS_ENTRY,
     _GRP_ID_ENTRY,
     _GAMEPLAY_ACTION_ENTRY,
+    _OPPONENT_CARD_OBSERVATION_ENTRY,
 )
 
 

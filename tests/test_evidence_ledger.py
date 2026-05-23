@@ -315,16 +315,15 @@ CONTRACTED_TIER4_DECK_STATE_BOUNDARY_NOTE_FRAGMENTS = (
     "model-provider output, and AI remain outside parser truth",
 )
 
-CONTRACTED_TIER5_FIELDS = ["grp_id", "gameplay_action"]
+CONTRACTED_TIER5_FIELDS = ["grp_id", "gameplay_action", "opponent_card_observation"]
 
 CONTRACTED_TIER5_ENTRY_IDS = {
     "tier5.card_identity.grp_id",
     "tier5.gameplay_action.gameplay_action",
+    "tier5.opponent_card_observation.opponent_card_observation",
 }
 
-CONTRACTED_TIER5_DEFERRED_FIELDS = {
-    "opponent_card_observation",
-}
+CONTRACTED_TIER5_DEFERRED_FIELDS: set[str] = set()
 
 CONTRACTED_TIER5_FORBIDDEN_SEED_FIELDS = {
     "observed_grp_id",
@@ -344,7 +343,6 @@ CONTRACTED_TIER5_FORBIDDEN_SEED_FIELDS = {
     "deck_id",
     "decklist_identity",
     "collection_ownership",
-    "opponent_card_observation",
 }
 
 CONTRACTED_TIER5_GAMEPLAY_ACTION_FORBIDDEN_SEED_FIELDS = {
@@ -368,13 +366,61 @@ CONTRACTED_TIER5_GAMEPLAY_ACTION_FORBIDDEN_SEED_FIELDS = {
     "display_name",
     "resolution_status",
     "summary",
-    "opponent_card_observation",
     "hidden_card",
     "complete_decklist",
     "archetype",
     "gameplay_advice",
     "player_mistake_label",
     "ai_truth",
+}
+
+CONTRACTED_TIER5_OPPONENT_CARD_OBSERVATION_FORBIDDEN_SEED_FIELDS = {
+    "object",
+    "schema_version",
+    "match_id",
+    "game_number",
+    "game_state_id",
+    "timestamp",
+    "turn_number",
+    "actor_relation",
+    "actor_seat_id",
+    "local_seat_id",
+    "instance_id",
+    "grp_id",
+    "observed_grp_id",
+    "overlay_grp_id",
+    "object_source_grp_id",
+    "parent_id",
+    "identity_hint_source",
+    "card_name",
+    "display_name",
+    "resolution_status",
+    "name_resolution_source",
+    "layout",
+    "card_faces",
+    "action_type",
+    "cast_mode",
+    "source_evidence",
+    "evidence_status",
+    "value_source",
+    "confidence",
+    "visibility",
+    "from_zone_type",
+    "to_zone_type",
+    "raw_action_types",
+    "annotation_types",
+    "annotation_categories",
+    "degradation_flags",
+    "review_required",
+    "hidden_card",
+    "complete_decklist",
+    "sideboard_delta",
+    "archetype",
+    "gameplay_advice",
+    "player_mistake_label",
+    "line_tracer_truth",
+    "ai_truth",
+    "model_provider_truth",
 }
 
 
@@ -533,9 +579,12 @@ def test_output_family_registry_contains_required_seven_families() -> None:
     assert tier5["seed_fields"] == CONTRACTED_TIER5_FIELDS
     assert set(tier5["future_fields"]) == CONTRACTED_TIER5_DEFERRED_FIELDS
     assert "grp_id" not in tier5["future_fields"]
+    assert "gameplay_action" not in tier5["future_fields"]
+    assert "opponent_card_observation" not in tier5["future_fields"]
     assert CONTRACTED_TIER5_FORBIDDEN_SEED_FIELDS.isdisjoint(tier5["seed_fields"])
     assert any("Issue #163 maps card identity grp_id" in item for item in tier5["notes"])
-    assert any("Opponent-card-observation provenance remains future work" in item for item in tier5["notes"])
+    assert any("Issue #165 maps gameplay_action provenance" in item for item in tier5["notes"])
+    assert any("Issue #166 maps opponent_card_observation provenance" in item for item in tier5["notes"])
     assert any("AI remain enrichment or downstream surfaces" in item for item in tier5["notes"])
 
 
@@ -2113,7 +2162,7 @@ def test_tier4_scope_preserves_prior_entries_and_keeps_deck_contents_deferred() 
     assert any("Pre/postboard labels remain Tier 3" in note for note in tier4["notes"])
 
 
-def test_tier5_family_seeds_grp_id_and_gameplay_action_only() -> None:
+def test_tier5_family_seeds_current_card_identity_gameplay_and_observation_fields() -> None:
     tier5 = _tier5_family()
     entries = _entries_by_id()
 
@@ -2122,15 +2171,30 @@ def test_tier5_family_seeds_grp_id_and_gameplay_action_only() -> None:
     assert set(tier5["future_fields"]) == CONTRACTED_TIER5_DEFERRED_FIELDS
     assert "grp_id" not in tier5["future_fields"]
     assert "gameplay_action" not in tier5["future_fields"]
+    assert "opponent_card_observation" not in tier5["future_fields"]
     assert CONTRACTED_TIER5_FORBIDDEN_SEED_FIELDS.isdisjoint(tier5["seed_fields"])
     assert CONTRACTED_TIER5_GAMEPLAY_ACTION_FORBIDDEN_SEED_FIELDS.isdisjoint(tier5["seed_fields"])
+    assert (
+        CONTRACTED_TIER5_OPPONENT_CARD_OBSERVATION_FORBIDDEN_SEED_FIELDS
+        - set(CONTRACTED_TIER5_FIELDS)
+    ).isdisjoint(tier5["seed_fields"])
     assert CONTRACTED_TIER5_ENTRY_IDS.issubset(entries)
     assert not any(
         entry_id.startswith("tier5.card_identity.") and entry_id not in CONTRACTED_TIER5_ENTRY_IDS
         for entry_id in entries
     )
+    assert not any(
+        entry_id.startswith("tier5.gameplay_action.")
+        and entry_id != "tier5.gameplay_action.gameplay_action"
+        for entry_id in entries
+    )
+    assert not any(
+        entry_id.startswith("tier5.opponent_card_observation.")
+        and entry_id != "tier5.opponent_card_observation.opponent_card_observation"
+        for entry_id in entries
+    )
     assert any("Issue #165 maps gameplay_action provenance" in note for note in tier5["notes"])
-    assert any("Opponent-card-observation provenance remains future work" in note for note in tier5["notes"])
+    assert any("Issue #166 maps opponent_card_observation provenance" in note for note in tier5["notes"])
 
 
 def test_tier5_grp_id_entry_documents_direct_and_fallback_sources() -> None:
@@ -2325,7 +2389,7 @@ def test_tier5_grp_id_preserves_protected_truth_boundaries() -> None:
     assert any("object_source_grp_id" in note and "not separate Tier 5 seed fields" in note for note in entry["notes"])
     assert any("enrichment or degradation context only" in note for note in entry["notes"])
     assert any("gameplay_action is mapped separately by issue #165" in note for note in entry["notes"])
-    assert any("opponent_card_observation remains a Tier 5 future field" in note for note in entry["notes"])
+    assert any("opponent_card_observation is mapped separately by issue #166" in note for note in entry["notes"])
     assert any("does not prove deck names" in note for note in entry["notes"])
     assert "workbook schema" not in entry_text
     assert "webhook payload" not in entry_text
@@ -2343,7 +2407,7 @@ def test_tier5_grp_id_keeps_tier4_and_opening_hand_boundaries_intact() -> None:
     assert tier3["future_fields"] == ["deck_state"]
     assert tier4["seed_fields"] == CONTRACTED_TIER4_FIELDS
     assert tier4["future_fields"] == []
-    assert tier5["seed_fields"] == ["grp_id", "gameplay_action"]
+    assert tier5["seed_fields"] == ["grp_id", "gameplay_action", "opponent_card_observation"]
     assert submitted_deck_entry["output_field"] == "submitted_deck_cards"
     assert any("not broad deck-state truth" in note for note in submitted_deck_entry["notes"])
     assert "tier4.submitted_deck_cards.submitted_grp_ids" in _all_signal_ids(grp_id_entry)
@@ -2432,8 +2496,8 @@ def test_tier5_gameplay_action_entry_documents_policies_and_degradation() -> Non
         "reconciled": "reconciled",
     }
     for invariant in (
-        "tier5_seeds_exactly_grp_id_and_gameplay_action",
-        "opponent_card_observation_remains_future_field",
+        "tier5_seeds_exactly_grp_id_gameplay_action_and_opponent_card_observation",
+        "tier5_future_fields_empty_after_opponent_card_observation_seed",
         "gameplay_action_is_single_seed_with_facets_not_many_seed_fields",
         "gameplay_action_action_type_is_parser_owned_classification",
         "gameplay_action_raw_action_types_preserve_observed_labels_when_available",
@@ -2460,7 +2524,7 @@ def test_tier5_gameplay_action_entry_documents_policies_and_degradation() -> Non
         "action-array evidence that disagrees with zone-diff evidence",
         "annotation-only or partial-diff-only action evidence",
         "enrichment only",
-        "opponent-card-observation dependency remains deferred",
+        "opponent-card-observation is mapped separately by issue #166",
         "hidden cards, complete decklists, archetypes",
     ):
         assert any(fragment in item for item in entry["degradation_behavior"])
@@ -2485,16 +2549,222 @@ def test_tier5_gameplay_action_keeps_facets_and_downstream_claims_out_of_seed_fi
         if ledger_entry["output_family"] == "card_identity_and_gameplay_actions"
     }
 
-    assert tier5["seed_fields"] == ["grp_id", "gameplay_action"]
-    assert set(tier5["future_fields"]) == {"opponent_card_observation"}
+    assert tier5["seed_fields"] == ["grp_id", "gameplay_action", "opponent_card_observation"]
+    assert set(tier5["future_fields"]) == set()
     assert CONTRACTED_TIER5_GAMEPLAY_ACTION_FORBIDDEN_SEED_FIELDS.isdisjoint(tier5["seed_fields"])
     assert tier5_output_fields.isdisjoint(CONTRACTED_TIER5_GAMEPLAY_ACTION_FORBIDDEN_SEED_FIELDS)
-    assert not any(entry_id.startswith("tier5.opponent_card_observation.") for entry_id in entries)
+    assert {
+        entry_id
+        for entry_id in entries
+        if entry_id.startswith("tier5.gameplay_action.")
+    } == {"tier5.gameplay_action.gameplay_action"}
+    assert {
+        entry_id
+        for entry_id in entries
+        if entry_id.startswith("tier5.opponent_card_observation.")
+    } == {"tier5.opponent_card_observation.opponent_card_observation"}
     assert any("one broad Tier 5 seed field" in note for note in entry["notes"])
     assert any("grp_id references depend on tier5.card_identity.grp_id" in note for note in entry["notes"])
-    assert any("opponent_card_observation remains a future Tier 5 field" in note for note in entry["notes"])
+    assert any("opponent_card_observation is mapped separately by issue #166" in note for note in entry["notes"])
     assert any("enrichment or display context only" in note for note in entry["notes"])
     assert any("does not infer hidden cards" in note for note in entry["notes"])
+
+
+def test_tier5_opponent_card_observation_entry_documents_direct_and_fallback_sources() -> None:
+    entry = _entries_by_id()["tier5.opponent_card_observation.opponent_card_observation"]
+    direct_signals = {signal["signal_id"]: signal for signal in entry["direct_evidence"]}
+    fallback_signals = {signal["signal_id"]: signal for signal in entry["fallback_evidence"]}
+
+    assert entry["tier"] == 5
+    assert entry["output_family"] == "card_identity_and_gameplay_actions"
+    assert entry["output_field"] == "opponent_card_observation"
+    assert entry["display_name"] == "Opponent Card Observation"
+    assert entry["parser_owner"] == "src/mythic_edge_parser/app/opponent_card_observations.py"
+    assert entry["model_surface"] == "opponent_card_observation / opponent_card_observations_payload"
+    assert entry["downstream_surfaces"] == [
+        "opponent_card_observations",
+        "future_card_performance",
+        "future_analytics_consumers",
+    ]
+    assert set(direct_signals) == {
+        "opponent_card_observation.visible_action_source",
+        "opponent_card_observation.visibility_context",
+        "opponent_card_observation.actor_seat_context",
+        "opponent_card_observation.card_identity_context",
+        "opponent_card_observation.status_context",
+    }
+    assert direct_signals["opponent_card_observation.visible_action_source"][
+        "value_source_when_used"
+    ] == "observed"
+    assert direct_signals["opponent_card_observation.visible_action_source"][
+        "confidence_when_used"
+    ] == "high"
+    assert direct_signals["opponent_card_observation.visibility_context"]["confidence_when_used"] == "high"
+    assert direct_signals["opponent_card_observation.actor_seat_context"][
+        "value_source_when_used"
+    ] == "derived"
+    assert direct_signals["opponent_card_observation.actor_seat_context"][
+        "confidence_when_used"
+    ] == "medium"
+    assert direct_signals["opponent_card_observation.card_identity_context"][
+        "raw_payload_path"
+    ] == (
+        "gameplay_action_entry.grp_id + gameplay_action_entry.observed_grp_id + "
+        "gameplay_action_entry.overlay_grp_id + gameplay_action_entry.object_source_grp_id + "
+        "gameplay_action_entry.parent_id + gameplay_action_entry.identity_hint_source"
+    )
+    assert set(fallback_signals) == {
+        "opponent_card_observation.revealed_annotation_context",
+        "opponent_card_observation.public_zone_presence",
+        "opponent_card_observation.derived_zone_transition",
+        "tier5.gameplay_action.gameplay_action_dependency",
+        "tier5.card_identity.grp_id_dependency",
+        "opponent_card_observation.name_resolution_enrichment",
+        "opponent_card_observation.degraded_or_conflicting_status",
+    }
+    assert fallback_signals["opponent_card_observation.revealed_annotation_context"][
+        "value_source_when_used"
+    ] == "observed"
+    assert fallback_signals["opponent_card_observation.public_zone_presence"][
+        "confidence_when_used"
+    ] == "high"
+    assert fallback_signals["opponent_card_observation.derived_zone_transition"][
+        "value_source_when_used"
+    ] == "derived"
+    assert fallback_signals["tier5.gameplay_action.gameplay_action_dependency"][
+        "confidence_when_used"
+    ] == "medium"
+    assert fallback_signals["tier5.card_identity.grp_id_dependency"]["value_source_when_used"] == "derived"
+    assert fallback_signals["opponent_card_observation.name_resolution_enrichment"][
+        "value_source_when_used"
+    ] == "legacy_enriched"
+    assert fallback_signals["opponent_card_observation.name_resolution_enrichment"][
+        "confidence_when_used"
+    ] == "low"
+    assert fallback_signals["opponent_card_observation.degraded_or_conflicting_status"][
+        "value_source_when_used"
+    ] == "unknown"
+    assert fallback_signals["opponent_card_observation.degraded_or_conflicting_status"][
+        "confidence_when_used"
+    ] == "low"
+    assert all(
+        signal["finality_when_used"] == "provisional"
+        for signal in (*entry["direct_evidence"], *entry["fallback_evidence"])
+    )
+    assert all(
+        signal["privacy_class"] == "path_only_no_values"
+        for signal in (*entry["direct_evidence"], *entry["fallback_evidence"])
+    )
+    assert evidence_ledger.validate_ledger_entry(entry) == []
+
+
+def test_tier5_opponent_card_observation_entry_documents_policies_and_degradation() -> None:
+    entry = _entries_by_id()["tier5.opponent_card_observation.opponent_card_observation"]
+
+    assert entry["value_source_policy"] == {
+        "direct": "observed",
+        "fallback": "derived",
+        "inferred": "inferred",
+        "unavailable": "unknown",
+        "contradiction": "conflict",
+        "historical": "legacy_enriched",
+    }
+    assert entry["confidence_policy"] == {
+        "direct": "high",
+        "fallback": "medium",
+        "inferred": "low",
+        "unavailable": "unknown",
+        "contradiction": "low",
+    }
+    assert entry["finality_policy"] == {
+        "live": "live",
+        "provisional": "provisional",
+        "final": "final",
+        "reconciled": "reconciled",
+    }
+    for invariant in (
+        "tier5_seeds_exactly_grp_id_gameplay_action_and_opponent_card_observation",
+        "tier5_future_fields_empty_after_opponent_card_observation_seed",
+        "opponent_card_observation_is_single_seed_with_facets_not_many_seed_fields",
+        "opponent_card_observation_depends_on_tier5_grp_id",
+        "opponent_card_observation_depends_on_tier5_gameplay_action",
+        "opponent_card_observation_requires_opponent_actor_relation",
+        "opponent_card_observation_hidden_draws_are_not_recorded",
+        "opponent_card_observation_visibility_labels_preserve_public_evidence_boundary",
+        "opponent_card_observation_source_confidence_and_degradation_travel_together",
+        "opponent_card_observation_name_resolution_is_enrichment_context_only",
+        "opponent_card_observation_does_not_infer_hidden_cards_or_complete_decklists",
+        "opponent_card_observation_does_not_prove_sideboard_archetype_advice_line_tracer_ai_or_model_truth",
+        "opponent_card_observation_workbook_webhook_apps_script_analytics_and_ai_are_not_source_truth",
+        "opponent_card_observation_privacy_path_only_no_values",
+    ):
+        assert invariant in entry["invariant_checks"]
+    for fragment in (
+        "non-mapping action input",
+        "non-opponent action input",
+        "unsupported or missing action type",
+        "hidden draw from library to hand",
+        "missing local or actor seat mapping",
+        "actor relation conflict and action-seat conflict",
+        "missing grp_id and observed_grp_id",
+        "candidate, ambiguous, contradicted, name-only, or unresolved",
+        "ambiguous visibility",
+        "data-loss or truncation",
+        "missing or degraded gameplay-action provenance",
+        "missing card-identity dependency",
+        "display or catalog enrichment",
+        "AI, archetype labels, card-performance analytics",
+    ):
+        assert any(fragment in item for item in entry["degradation_behavior"])
+    assert set(entry["drift_flags"]) == {
+        "missing_expected_payload_path",
+        "fallback_used",
+        "weak_fallback_used",
+        "conflicting_evidence",
+        "invariant_failed",
+        "schema_snapshot_missing",
+        "fixture_gap",
+        "sensitive_evidence_redacted",
+    }
+
+
+def test_tier5_opponent_card_observation_keeps_facets_and_hidden_claims_out_of_seed_fields() -> None:
+    tier5 = _tier5_family()
+    entries = _entries_by_id()
+    entry = entries["tier5.opponent_card_observation.opponent_card_observation"]
+    tier5_output_fields = {
+        ledger_entry["output_field"]
+        for ledger_entry in entries.values()
+        if ledger_entry["output_family"] == "card_identity_and_gameplay_actions"
+    }
+
+    assert tier5["seed_fields"] == ["grp_id", "gameplay_action", "opponent_card_observation"]
+    assert tier5["future_fields"] == []
+    assert (
+        CONTRACTED_TIER5_OPPONENT_CARD_OBSERVATION_FORBIDDEN_SEED_FIELDS
+        - set(CONTRACTED_TIER5_FIELDS)
+    ).isdisjoint(tier5["seed_fields"])
+    assert (
+        CONTRACTED_TIER5_OPPONENT_CARD_OBSERVATION_FORBIDDEN_SEED_FIELDS
+        - set(CONTRACTED_TIER5_FIELDS)
+    ).isdisjoint(tier5_output_fields)
+    assert {
+        entry_id
+        for entry_id in entries
+        if entry_id.startswith("tier5.gameplay_action.")
+    } == {"tier5.gameplay_action.gameplay_action"}
+    assert {
+        entry_id
+        for entry_id in entries
+        if entry_id.startswith("tier5.opponent_card_observation.")
+    } == {"tier5.opponent_card_observation.opponent_card_observation"}
+    assert any("one broad Tier 5 seed field" in note for note in entry["notes"])
+    assert any("depends on tier5.gameplay_action.gameplay_action" in note for note in entry["notes"])
+    assert any("tier5.card_identity.grp_id" in note for note in entry["notes"])
+    assert any("enrichment or display context only" in note for note in entry["notes"])
+    assert any("does not infer hidden cards" in note for note in entry["notes"])
+    assert any("Line Tracer output" in note for note in entry["notes"])
+    assert any("model-provider output, or AI truth" in note for note in entry["notes"])
 
 
 def test_builtin_ledger_and_entries_validate_cleanly() -> None:
