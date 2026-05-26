@@ -65,6 +65,61 @@ CONTRACTED_PARTICIPANT_ENTRY_IDS = {
     "tier1.participants.participant_team_mapping",
 }
 
+CONTRACTED_TIER2_FIELDS = [
+    "event_id",
+    "super_format",
+    "constructed_rank",
+    "queue_type",
+]
+
+CONTRACTED_TIER2_ENTRY_IDS = {
+    "tier2.queue_format_rank_event_context.event_id",
+    "tier2.queue_format_rank_event_context.super_format",
+    "tier2.queue_format_rank_event_context.constructed_rank",
+    "tier2.queue_format_rank_event_context.queue_type",
+}
+
+CONTRACTED_TIER2_FORBIDDEN_SEED_FIELDS = {
+    "mtga_format",
+    "mtga_queue_type",
+    "match_win_condition",
+    "my_rank",
+    "rank_bucket",
+    "constructed_class",
+    "constructed_level",
+    "constructed_percentile",
+    "constructed_rank_source",
+    "limited_class",
+    "limited_level",
+    "limited_percentile",
+    "rank_match_type",
+    "play_mode_family",
+    "event_family",
+    "queue_subtype",
+    "rank_eligible",
+    "is_ranked_match",
+    "is_unranked_match",
+    "is_constructed_match",
+    "is_limited_match",
+    "is_draft_match",
+    "is_sealed_match",
+    "is_ladder_match",
+    "is_special_event_match",
+    "is_event_match",
+    "format",
+    "queue",
+    "rankedness",
+    "archetype",
+    "matchup",
+    "analytics_segment",
+    "match_journal",
+    "overlay",
+    "sqlite",
+    "google_sheets_sync",
+    "ai_truth",
+    "model_provider_truth",
+}
+
 CONTRACTED_TIER3_FIELDS = [
     "game_number",
     "game1_winner_team",
@@ -437,6 +492,10 @@ def _tier1_family() -> dict[str, object]:
     return _family("match_identity_and_lifecycle")
 
 
+def _tier2_family() -> dict[str, object]:
+    return _family("queue_format_rank_event_context")
+
+
 def _tier3_family() -> dict[str, object]:
     return _family("game_level_facts")
 
@@ -525,7 +584,7 @@ def test_output_family_registry_contains_required_seven_families() -> None:
 
     assert [(family["tier"], family["output_family"], family["status"]) for family in families] == [
         (1, "match_identity_and_lifecycle", "seeded_sample"),
-        (2, "queue_format_rank_event_context", "registered_future"),
+        (2, "queue_format_rank_event_context", "seeded_sample"),
         (3, "game_level_facts", "seeded_sample"),
         (4, "sideboarding_and_deck_state", "seeded_sample"),
         (5, "card_identity_and_gameplay_actions", "seeded_sample"),
@@ -537,6 +596,14 @@ def test_output_family_registry_contains_required_seven_families() -> None:
     assert tier1["future_fields"] == []
     assert CONTRACTED_PARTICIPANT_FIELDS.issubset(tier1["seed_fields"])
     assert any("Issue #137 maps participant" in item for item in tier1["notes"])
+
+    tier2 = _tier2_family()
+    assert tier2["seed_fields"] == CONTRACTED_TIER2_FIELDS
+    assert tier2["future_fields"] == []
+    assert CONTRACTED_TIER2_FORBIDDEN_SEED_FIELDS.isdisjoint(tier2["seed_fields"])
+    assert any("Issue #167 maps queue, format, rank, and event-context" in item for item in tier2["notes"])
+    assert any("does not change parser behavior" in item for item in tier2["notes"])
+    assert any("downstream consumers, not separate Tier 2 seed fields" in item for item in tier2["notes"])
 
     tier3 = _tier3_family()
     assert tier3["seed_fields"] == CONTRACTED_TIER3_FIELDS
@@ -622,6 +689,7 @@ def test_tier1_match_lifecycle_and_aggregate_entries_are_mapped() -> None:
 
     assert set(entries) == (
         CONTRACTED_TIER1_ENTRY_IDS
+        | CONTRACTED_TIER2_ENTRY_IDS
         | CONTRACTED_TIER3_ENTRY_IDS
         | CONTRACTED_TIER4_ENTRY_IDS
         | CONTRACTED_TIER5_ENTRY_IDS
@@ -634,6 +702,179 @@ def test_tier1_match_lifecycle_and_aggregate_entries_are_mapped() -> None:
     )
     assert set(CONTRACTED_TIER1_FIELDS).issubset(output_fields)
     assert CONTRACTED_AGGREGATE_FIELDS.issubset(output_fields)
+
+
+def test_tier2_queue_format_rank_event_context_entries_are_mapped_and_validate() -> None:
+    entries = _entries_by_id()
+    tier2 = _tier2_family()
+    output_fields = {entry["output_field"] for entry in entries.values()}
+
+    assert tier2["status"] == "seeded_sample"
+    assert tier2["seed_fields"] == CONTRACTED_TIER2_FIELDS
+    assert tier2["future_fields"] == []
+    assert CONTRACTED_TIER2_FORBIDDEN_SEED_FIELDS.isdisjoint(tier2["seed_fields"])
+    assert CONTRACTED_TIER2_ENTRY_IDS.issubset(entries)
+    assert set(CONTRACTED_TIER2_FIELDS).issubset(output_fields)
+    assert not any(
+        entry_id.startswith("tier2.queue_format_rank_event_context.")
+        and entry_id not in CONTRACTED_TIER2_ENTRY_IDS
+        for entry_id in entries
+    )
+    for entry_id in CONTRACTED_TIER2_ENTRY_IDS:
+        entry = entries[entry_id]
+        assert entry["tier"] == 2
+        assert entry["output_family"] == "queue_format_rank_event_context"
+        assert entry["coverage_status"] == "seeded_sample"
+        assert entry["parser_managed_truth"] is True
+        assert evidence_ledger.validate_ledger_entry(entry) == []
+        assert all(
+            signal["privacy_class"] == "path_only_no_values"
+            for signal in (*entry["direct_evidence"], *entry["fallback_evidence"])
+        )
+
+
+def test_tier2_event_id_entry_documents_match_state_sources() -> None:
+    entry = _entries_by_id()["tier2.queue_format_rank_event_context.event_id"]
+    direct_signals = {signal["signal_id"]: signal for signal in entry["direct_evidence"]}
+    fallback_signals = {signal["signal_id"]: signal for signal in entry["fallback_evidence"]}
+
+    assert entry["display_name"] == "MTGA Event ID"
+    assert entry["parser_owner"] == "src/mythic_edge_parser/app/state.py"
+    assert entry["model_surface"] == "MatchSummary.event_id / MatchSummary.to_match_log_row"
+    assert {"MatchLogRow", "GameLogRow", "match_history", "EventIdentity", "runtime_surfaces"}.issubset(
+        entry["downstream_surfaces"]
+    )
+    assert direct_signals["match_state.event_id.game_room_config"]["raw_payload_path"] == (
+        "matchGameRoomStateChangedEvent.gameRoomInfo.gameRoomConfig.eventId"
+    )
+    assert direct_signals["match_state.event_id.game_room_config"]["value_source_when_used"] == "observed"
+    assert direct_signals["match_state.event_id.game_room_config"]["confidence_when_used"] == "high"
+    assert fallback_signals["match_state.event_id.player_fallback"]["raw_payload_path"] == (
+        "matchGameRoomStateChangedEvent.gameRoomInfo.gameRoomConfig.reservedPlayers[].eventId + "
+        "matchGameRoomStateChangedEvent.gameRoomInfo.players[].eventId"
+    )
+    assert fallback_signals["match_state.event_id.player_fallback"]["confidence_when_used"] == "medium"
+    assert fallback_signals["parser_state.match_summary.event_id"]["value_source_when_used"] == "derived"
+    assert fallback_signals["event_identity.event_id_classifier_context"][
+        "normalized_payload_path"
+    ] == "classify_event_identity(event_id, super_format, match_win_condition)"
+    assert "event_id_distinguishes_game_room_config_from_player_level_fallback" in entry["invariant_checks"]
+    assert any("stored Play event ID" in item for item in entry["degradation_behavior"])
+
+
+def test_tier2_super_format_entry_documents_format_fallback_boundary() -> None:
+    entry = _entries_by_id()["tier2.queue_format_rank_event_context.super_format"]
+    direct_signals = {signal["signal_id"]: signal for signal in entry["direct_evidence"]}
+    fallback_signals = {signal["signal_id"]: signal for signal in entry["fallback_evidence"]}
+
+    assert entry["display_name"] == "MTGA Format"
+    assert entry["parser_owner"] == "src/mythic_edge_parser/app/models.py"
+    assert entry["model_surface"] == "MatchSummary.super_format / MatchSummary.mtga_format()"
+    assert direct_signals["game_state.game_info.super_format"]["raw_payload_path"] == (
+        "greToClientMessages[].gameStateMessage.gameInfo.superFormat"
+    )
+    assert direct_signals["game_state.game_info.super_format"]["value_source_when_used"] == "observed"
+    assert fallback_signals["model.match_summary.mtga_format_event_id_fallback"][
+        "normalized_payload_path"
+    ] == "MatchSummary.mtga_format() + MatchSummary.event_id"
+    assert fallback_signals["model.match_summary.mtga_format_event_id_fallback"][
+        "value_source_when_used"
+    ] == "derived"
+    assert fallback_signals["event_identity.super_format_classifier_context"][
+        "normalized_payload_path"
+    ] == "classify_event_identity(event_id, super_format, match_win_condition)"
+    assert "super_format_distinguishes_raw_super_format_from_mtga_format_fallback_label" in entry[
+        "invariant_checks"
+    ]
+    assert any("MTGA Format derived from event-id fallback" in item for item in entry["degradation_behavior"])
+
+
+def test_tier2_constructed_rank_entry_documents_payload_and_carry_forward() -> None:
+    entry = _entries_by_id()["tier2.queue_format_rank_event_context.constructed_rank"]
+    direct_signals = {signal["signal_id"]: signal for signal in entry["direct_evidence"]}
+    fallback_signals = {signal["signal_id"]: signal for signal in entry["fallback_evidence"]}
+
+    assert entry["display_name"] == "MTGA Rank Raw"
+    assert entry["parser_owner"] == "src/mythic_edge_parser/app/state.py"
+    assert entry["model_surface"] == "MatchSummary.constructed_rank / MatchSummary.rank_bucket()"
+    assert direct_signals["rank.constructed_rank.payload"]["parser_event_type"] == "RankGetCombinedRankInfo"
+    assert direct_signals["rank.constructed_rank.payload"]["normalized_payload_path"] == (
+        "payload.constructed_class + payload.constructed_level + payload.constructed_percentile"
+    )
+    assert direct_signals["rank.constructed_rank.payload"]["value_source_when_used"] == "observed"
+    assert fallback_signals["rank.constructed_rank.latest_pre_match_snapshot"][
+        "normalized_payload_path"
+    ] == "state.latest_rank_snapshot -> MatchSummary.constructed_rank"
+    assert fallback_signals["rank.constructed_rank.latest_pre_match_snapshot"][
+        "value_source_when_used"
+    ] == "derived"
+    assert fallback_signals["model.match_summary.rank_bucket"]["normalized_payload_path"] == (
+        "MatchSummary.rank_bucket() + MatchSummary.constructed_rank_source"
+    )
+    assert fallback_signals["rank.limited_rank_ignored_for_constructed_rank"][
+        "value_source_when_used"
+    ] == "unknown"
+    assert "constructed_rank_distinguishes_direct_rank_payload_from_carried_forward_snapshot" in entry[
+        "invariant_checks"
+    ]
+    assert any("carried forward from a pre-match snapshot" in item for item in entry["degradation_behavior"])
+    assert any("limited rank fields" in item for item in entry["degradation_behavior"])
+
+
+def test_tier2_queue_type_entry_documents_derived_queue_label() -> None:
+    entry = _entries_by_id()["tier2.queue_format_rank_event_context.queue_type"]
+    direct_signals = {signal["signal_id"]: signal for signal in entry["direct_evidence"]}
+    fallback_signals = {signal["signal_id"]: signal for signal in entry["fallback_evidence"]}
+
+    assert entry["display_name"] == "MTGA Queue Type"
+    assert entry["parser_owner"] == "src/mythic_edge_parser/app/models.py"
+    assert entry["model_surface"] == "MatchSummary.mtga_queue_type()"
+    assert direct_signals["game_state.game_info.match_win_condition"]["raw_payload_path"] == (
+        "greToClientMessages[].gameStateMessage.gameInfo.matchWinCondition"
+    )
+    assert direct_signals["game_state.game_info.match_win_condition"][
+        "value_source_when_used"
+    ] == "observed"
+    assert fallback_signals["model.match_summary.queue_type.event_id_markers"][
+        "confidence_when_used"
+    ] == "medium"
+    assert fallback_signals["model.match_summary.queue_type.sideboarding_or_games_fallback"][
+        "confidence_when_used"
+    ] == "low"
+    assert fallback_signals["model.match_summary.queue_type.raw_condition_passthrough"][
+        "normalized_payload_path"
+    ] == "MatchSummary.match_win_condition"
+    assert fallback_signals["event_identity.queue_classifier_context"][
+        "normalized_payload_path"
+    ] == "classify_event_identity(event_id, super_format, match_win_condition)"
+    assert entry["value_source_policy"]["direct_dependency"] == "observed"
+    assert entry["value_source_policy"]["direct"] == "derived"
+    assert "queue_type_is_parser_derived_row_label_not_raw_mtga_field" in entry["invariant_checks"]
+    assert any("sideboarding or total-games fallback" in item for item in entry["degradation_behavior"])
+    assert any("unknown rankedness remain unknown" in item for item in entry["degradation_behavior"])
+
+
+def test_tier2_entries_preserve_downstream_and_classifier_boundaries() -> None:
+    tier2 = _tier2_family()
+    entries = _entries_by_id()
+    output_fields = {entry["output_field"] for entry in entries.values()}
+    tier2_entries = [entries[entry_id] for entry_id in CONTRACTED_TIER2_ENTRY_IDS]
+
+    assert tier2["seed_fields"] == CONTRACTED_TIER2_FIELDS
+    assert tier2["future_fields"] == []
+    assert output_fields.isdisjoint(CONTRACTED_TIER2_FORBIDDEN_SEED_FIELDS)
+    assert CONTRACTED_TIER2_FORBIDDEN_SEED_FIELDS.isdisjoint(tier2["seed_fields"])
+    for entry in tier2_entries:
+        entry_text = json.dumps(entry, sort_keys=True)
+        assert "workbook schema" not in entry_text
+        assert "webhook payload" not in entry_text
+        assert "Apps Script behavior" not in entry_text
+        assert any("not populate" in item for item in entry["degradation_behavior"])
+        assert any("truth" in item or "not separate" in item or "not a raw" in item for item in entry["notes"])
+    assert CONTRACTED_TIER1_ENTRY_IDS.issubset(entries)
+    assert CONTRACTED_TIER3_ENTRY_IDS.issubset(entries)
+    assert CONTRACTED_TIER4_ENTRY_IDS.issubset(entries)
+    assert CONTRACTED_TIER5_ENTRY_IDS.issubset(entries)
 
 
 def test_participant_entries_are_mapped_and_validate() -> None:
