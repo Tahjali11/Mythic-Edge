@@ -319,6 +319,51 @@ CONTRACTED_TIER3_DEFERRED_FIELDS = {
     "deck_state",
 }
 
+CONTRACTED_TIER3_DECK_STATE_BOUNDARY_FORBIDDEN_SEED_FIELDS = {
+    "deck_state",
+    "game1_deck_state",
+    "game2_deck_state",
+    "game3_deck_state",
+    "active_deck_state",
+    "submitted_deck_by_game",
+}
+
+CONTRACTED_TIER3_DECK_STATE_BOUNDARY_FORBIDDEN_OUTPUT_FIELDS = {
+    "deck_state",
+    "game1_deck_state",
+    "game2_deck_state",
+    "game3_deck_state",
+    "active_deck_state",
+    "submitted_deck_by_game",
+    "deck_identity",
+    "deck_name",
+    "deck_id",
+    "decklist_identity",
+    "sideboard_delta",
+    "card_name",
+    "collection_ownership",
+    "archetype",
+    "matchup_plan",
+    "gameplay_advice",
+    "player_mistake_label",
+    "ai_truth",
+    "model_provider_truth",
+}
+
+CONTRACTED_TIER3_DECK_STATE_BOUNDARY_NOTE_FRAGMENTS = (
+    "Issue #169 keeps Tier 3 deck_state deferred",
+    "current parser models do not expose parser-owned per-game deck-state truth",
+    "Tier 4 sideboarding and submitted-deck evidence",
+    "runtime active-deck state",
+    "deck profiles",
+    "collection matching",
+    "local decklists",
+    "card catalog lookup",
+    "GRP candidate reports",
+    "exports, analytics, Match Journal, overlays, and AI",
+    "surfaces only",
+)
+
 CONTRACTED_TIER4_FIELDS = [
     "sideboarding_entered",
     "submit_deck_seen",
@@ -629,6 +674,7 @@ def test_output_family_registry_contains_required_seven_families() -> None:
     assert any("Issue #145 maps turn-count provenance" in item for item in tier3["notes"])
     assert any("Issue #147 maps game timing and duration" in item for item in tier3["notes"])
     assert any("Issue #149 maps pre/postboard provenance" in item for item in tier3["notes"])
+    assert any("Issue #169 keeps Tier 3 deck_state deferred" in item for item in tier3["notes"])
     assert "sideboarding" not in tier3["future_fields"]
 
     tier4 = _tier4_family()
@@ -2075,6 +2121,29 @@ def test_tier4_sideboarding_submit_deck_entries_are_mapped_and_validate() -> Non
             signal["privacy_class"] == "path_only_no_values"
             for signal in (*entry["direct_evidence"], *entry["fallback_evidence"])
         )
+
+
+def test_tier3_deck_state_boundary_keeps_game_level_deck_state_deferred() -> None:
+    tier3 = _tier3_family()
+    tier4 = _tier4_family()
+    entries = _entries_by_id()
+    output_fields = {entry["output_field"] for entry in entries.values()}
+
+    assert tier3["future_fields"] == ["deck_state"]
+    assert CONTRACTED_TIER3_DECK_STATE_BOUNDARY_FORBIDDEN_SEED_FIELDS.isdisjoint(tier3["seed_fields"])
+    assert not any(entry_id.startswith("tier3.deck_state.") for entry_id in entries)
+    assert not any(entry_id.startswith("tier4.deck_state.") for entry_id in entries)
+    assert CONTRACTED_TIER3_DECK_STATE_BOUNDARY_FORBIDDEN_OUTPUT_FIELDS.isdisjoint(output_fields)
+    assert tier4["seed_fields"] == CONTRACTED_TIER4_FIELDS
+    assert tier4["future_fields"] == []
+    assert any("Issue #169 keeps Tier 3 deck_state deferred" in note for note in tier3["notes"])
+
+
+def test_tier3_deck_state_boundary_family_notes_document_downstream_surfaces() -> None:
+    tier3_notes = " ".join(_tier3_family()["notes"])
+
+    for fragment in CONTRACTED_TIER3_DECK_STATE_BOUNDARY_NOTE_FRAGMENTS:
+        assert fragment in tier3_notes
 
 
 def test_tier4_deck_state_boundary_keeps_broad_deck_state_deferred() -> None:

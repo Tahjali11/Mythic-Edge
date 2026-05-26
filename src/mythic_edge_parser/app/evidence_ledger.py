@@ -295,6 +295,12 @@ _OUTPUT_FAMILIES: tuple[dict[str, Any], ...] = (
             "GameSummary.to_game_log_row behavior, sideboarding behavior, or deck-state behavior.",
             "Issue #151 moves sideboarding-entered signal provenance to Tier 4 while leaving "
             "deck-state provenance deferred.",
+            "Issue #169 keeps Tier 3 deck_state deferred because current parser models do not expose "
+            "parser-owned per-game deck-state truth.",
+            "Tier 4 sideboarding and submitted-deck evidence, runtime active-deck state, deck profiles, "
+            "collection matching, local decklists, card catalog lookup, GRP candidate reports, exports, "
+            "analytics, Match Journal, overlays, and AI remain evidence, enrichment, review, or downstream "
+            "surfaces only.",
         ],
     },
     {
