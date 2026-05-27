@@ -523,6 +523,43 @@ CONTRACTED_TIER5_OPPONENT_CARD_OBSERVATION_FORBIDDEN_SEED_FIELDS = {
     "model_provider_truth",
 }
 
+CONTRACTED_TIER6_FIELDS = [
+    "diagnostics_status",
+    "unknown_entry_count",
+    "truncation_count",
+]
+
+CONTRACTED_TIER6_ENTRY_IDS = {
+    "tier6.runtime_health_and_drift_detection.diagnostics_status",
+    "tier6.runtime_health_and_drift_detection.unknown_entry_count",
+    "tier6.runtime_health_and_drift_detection.truncation_count",
+}
+
+CONTRACTED_TIER6_FORBIDDEN_SEED_FIELDS = {
+    "parser_status",
+    "transport_status",
+    "event_families_seen",
+    "routed_entry_count",
+    "unknown_rate_pct",
+    "unknown_signatures",
+    "unmatched_api_names",
+    "unmatched_request_api_names",
+    "timestamp_missing_count",
+    "timestamp_parse_failure_count",
+    "parser_failure_count",
+    "transport_failure_count",
+    "webhook_failure_count",
+    "runtime_status",
+    "workbook_status",
+    "appscript_status",
+    "merge_readiness",
+    "deploy_readiness",
+    "ci_status",
+    "fixture_pass_rate",
+    "analytics_confidence",
+    "ai_confidence",
+}
+
 
 def _entries_by_id() -> dict[str, dict[str, object]]:
     return {entry["entry_id"]: entry for entry in evidence_ledger.iter_ledger_entries()}
@@ -551,6 +588,14 @@ def _tier4_family() -> dict[str, object]:
 
 def _tier5_family() -> dict[str, object]:
     return _family("card_identity_and_gameplay_actions")
+
+
+def _tier6_family() -> dict[str, object]:
+    return _family("runtime_health_and_drift_detection")
+
+
+def _tier7_family() -> dict[str, object]:
+    return _family("derived_analytics_outputs")
 
 
 def _signal_ids(entry: dict[str, object], key: str) -> set[str]:
@@ -633,7 +678,7 @@ def test_output_family_registry_contains_required_seven_families() -> None:
         (3, "game_level_facts", "seeded_sample"),
         (4, "sideboarding_and_deck_state", "seeded_sample"),
         (5, "card_identity_and_gameplay_actions", "seeded_sample"),
-        (6, "runtime_health_and_drift_detection", "registered_future"),
+        (6, "runtime_health_and_drift_detection", "seeded_sample"),
         (7, "derived_analytics_outputs", "registered_future"),
     ]
     tier1 = _tier1_family()
@@ -700,6 +745,22 @@ def test_output_family_registry_contains_required_seven_families() -> None:
     assert any("Issue #166 maps opponent_card_observation provenance" in item for item in tier5["notes"])
     assert any("AI remain enrichment or downstream surfaces" in item for item in tier5["notes"])
 
+    tier6 = _tier6_family()
+    assert tier6["seed_fields"] == CONTRACTED_TIER6_FIELDS
+    assert tier6["future_fields"] == []
+    assert CONTRACTED_TIER6_FORBIDDEN_SEED_FIELDS.isdisjoint(tier6["seed_fields"])
+    assert any("Issue #171 maps diagnostics_status" in item for item in tier6["notes"])
+    assert any("advisory local report evidence" in item for item in tier6["notes"])
+    assert any("unknown signatures and unmatched API names" in item for item in tier6["notes"])
+    assert any("do not reconstruct missing GameState payloads" in item for item in tier6["notes"])
+    assert any("validation/report consumers only" in item for item in tier6["notes"])
+    assert any("does not change diagnostics behavior" in item for item in tier6["notes"])
+
+    tier7 = _tier7_family()
+    assert tier7["status"] == "registered_future"
+    assert tier7["seed_fields"] == []
+    assert tier7["future_fields"] == ["card_performance", "feature_equity_counts"]
+
 
 def test_seed_entry_maps_match_id_evidence_signals() -> None:
     entry = _entries_by_id()["tier1.match_identity.match_id"]
@@ -739,6 +800,7 @@ def test_tier1_match_lifecycle_and_aggregate_entries_are_mapped() -> None:
         | CONTRACTED_TIER3_ENTRY_IDS
         | CONTRACTED_TIER4_ENTRY_IDS
         | CONTRACTED_TIER5_ENTRY_IDS
+        | CONTRACTED_TIER6_ENTRY_IDS
     )
     assert CONTRACTED_TIER1_ENTRY_IDS.issubset(entries)
     assert all(entries[entry_id]["tier"] == 1 for entry_id in CONTRACTED_TIER1_ENTRY_IDS)
@@ -3075,6 +3137,140 @@ def test_tier5_opponent_card_observation_keeps_facets_and_hidden_claims_out_of_s
     assert any("does not infer hidden cards" in note for note in entry["notes"])
     assert any("Line Tracer output" in note for note in entry["notes"])
     assert any("model-provider output, or AI truth" in note for note in entry["notes"])
+
+
+def test_tier6_runtime_health_entries_are_seeded_and_validate() -> None:
+    tier6 = _tier6_family()
+    entries = _entries_by_id()
+
+    assert tier6["status"] == "seeded_sample"
+    assert tier6["seed_fields"] == CONTRACTED_TIER6_FIELDS
+    assert tier6["future_fields"] == []
+    assert CONTRACTED_TIER6_ENTRY_IDS.issubset(entries)
+    assert {
+        entry_id
+        for entry_id, entry in entries.items()
+        if entry["output_family"] == "runtime_health_and_drift_detection"
+    } == CONTRACTED_TIER6_ENTRY_IDS
+
+    for entry_id in CONTRACTED_TIER6_ENTRY_IDS:
+        entry = entries[entry_id]
+        assert entry["tier"] == 6
+        assert entry["output_family"] == "runtime_health_and_drift_detection"
+        assert entry["coverage_status"] == "seeded_sample"
+        assert entry["parser_managed_truth"] is True
+        assert entry["output_field"] in CONTRACTED_TIER6_FIELDS
+        assert entry["value_source_policy"]["direct"] == "derived"
+        assert entry["confidence_policy"]["direct"] == "high"
+        assert entry["finality_policy"]["report_snapshot"] == "final"
+        assert evidence_ledger.validate_ledger_entry(entry) == []
+        assert all(
+            signal["privacy_class"] == "path_only_no_values"
+            for signal in (*entry["direct_evidence"], *entry["fallback_evidence"])
+        )
+
+
+def test_tier6_diagnostics_status_entry_documents_advisory_boundaries() -> None:
+    entry = _entries_by_id()["tier6.runtime_health_and_drift_detection.diagnostics_status"]
+    signal_ids = _all_signal_ids(entry)
+    entry_text = json.dumps(entry, sort_keys=True)
+
+    assert {
+        "parser_diagnostics.diagnostics_status.overall_status",
+        "parser_diagnostics.diagnostics_status.summary_parser_status",
+        "parser_diagnostics.diagnostics_status.parser_health_status",
+        "parser_diagnostics.diagnostics_status.section_statuses",
+    }.issubset(signal_ids)
+    assert entry["output_field"] == "diagnostics_status"
+    assert "tier6_diagnostics_status_is_advisory_report_status" in entry["invariant_checks"]
+    assert "tier6_diagnostics_status_not_merge_deploy_ci_or_ai_truth" in entry["invariant_checks"]
+    assert "tier6_transport_workbook_deployment_ai_are_downstream_only" in entry["invariant_checks"]
+    for fragment in (
+        "unreadable source log",
+        "diagnostics replay failure",
+        "unknown-heavy evidence",
+        "malformed optional runtime status",
+        "transport, workbook, Apps Script, deployment, merge, CI, analytics",
+    ):
+        assert any(fragment in item for item in entry["degradation_behavior"])
+    assert any("advisory" in note for note in entry["notes"])
+    assert "merge readiness" in entry_text
+    assert "deploy readiness" in entry_text
+    assert "CI truth" in entry_text
+    assert "AI truth" in entry_text
+
+
+def test_tier6_unknown_entry_count_entry_documents_run_scoped_counts() -> None:
+    entry = _entries_by_id()["tier6.runtime_health_and_drift_detection.unknown_entry_count"]
+    signal_ids = _all_signal_ids(entry)
+
+    assert {
+        "parser_diagnostics.unknown_entry_count.summary_unknown_entries",
+        "parser_diagnostics.unknown_entry_count.parser_health_entry_counts_unknown",
+        "log_drift_sensor.unknown_entry_count.entry_counts_unknown",
+        "router_stats.unknown_entry_count.unknown",
+        "log_drift_sensor.unknown_entry_count.review_samples",
+        "golden_replay.unknown_entry_count.validation_consumer",
+        "feature_equity.unknown_entry_count.validation_consumer",
+    }.issubset(signal_ids)
+    assert entry["output_field"] == "unknown_entry_count"
+    assert "tier6_unknown_entry_count_is_run_scoped" in entry["invariant_checks"]
+    assert "tier6_unknown_entries_are_review_samples_not_parser_truth" in entry["invariant_checks"]
+    assert "tier6_golden_replay_and_feature_equity_are_validation_consumers" in entry["invariant_checks"]
+    assert any("numeric zero applies only to the analyzed input" in item for item in entry["degradation_behavior"])
+    assert any("review samples, not trusted parser inputs" in item for item in entry["degradation_behavior"])
+    assert any("A zero count is not global proof" in note for note in entry["notes"])
+    assert any("must not become parser truth" in note for note in entry["notes"])
+
+
+def test_tier6_truncation_count_entry_documents_data_loss_boundary() -> None:
+    entry = _entries_by_id()["tier6.runtime_health_and_drift_detection.truncation_count"]
+    signal_ids = _all_signal_ids(entry)
+
+    assert {
+        "parser_diagnostics.truncation_count.summary_truncation_events",
+        "parser_diagnostics.truncation_count.data_loss_section_count",
+        "truncation_event.truncation_count.observed_marker",
+        "truncation_event.truncation_count.marker_metadata",
+        "golden_replay.truncation_count.validation_consumer",
+        "feature_equity.truncation_count.validation_consumer",
+    }.issubset(signal_ids)
+    assert entry["output_field"] == "truncation_count"
+    assert entry["value_source_policy"]["observed_marker"] == "observed"
+    assert "tier6_truncation_count_is_data_loss_marker_count" in entry["invariant_checks"]
+    assert "tier6_truncation_count_does_not_reconstruct_game_state" in entry["invariant_checks"]
+    assert "tier6_golden_replay_and_feature_equity_are_validation_consumers" in entry["invariant_checks"]
+    assert any("does not prove no GameState data loss elsewhere" in item for item in entry["degradation_behavior"])
+    assert any("not that omitted GameState data recovered" in item for item in entry["degradation_behavior"])
+    assert any("do not reconstruct omitted objects" in item for item in entry["degradation_behavior"])
+    assert any("does not implement field-evidence attachment" in item for item in entry["degradation_behavior"])
+    assert any("observed parser-owned data-loss evidence" in note for note in entry["notes"])
+    assert any("does not reconstruct missing GameState payloads" in note for note in entry["notes"])
+
+
+def test_tier6_runtime_health_keeps_forbidden_fields_and_truth_gates_out() -> None:
+    tier6 = _tier6_family()
+    tier7 = _tier7_family()
+    entries = _entries_by_id()
+    tier6_output_fields = {
+        entry["output_field"]
+        for entry in entries.values()
+        if entry["output_family"] == "runtime_health_and_drift_detection"
+    }
+
+    assert CONTRACTED_TIER6_FORBIDDEN_SEED_FIELDS.isdisjoint(tier6["seed_fields"])
+    assert CONTRACTED_TIER6_FORBIDDEN_SEED_FIELDS.isdisjoint(tier6_output_fields)
+    assert tier7["status"] == "registered_future"
+    assert tier7["seed_fields"] == []
+    assert tier7["future_fields"] == ["card_performance", "feature_equity_counts"]
+
+    for entry_id in CONTRACTED_TIER6_ENTRY_IDS:
+        entry = entries[entry_id]
+        assert "tier6_privacy_path_only_no_values" in entry["invariant_checks"]
+        assert any(
+            "model-provider output" in item or "AI" in item
+            for item in (*entry["degradation_behavior"], *entry["notes"])
+        )
 
 
 def test_builtin_ledger_and_entries_validate_cleanly() -> None:
