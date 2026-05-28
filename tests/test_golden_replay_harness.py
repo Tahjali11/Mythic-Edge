@@ -44,6 +44,9 @@ def test_committed_golden_manifests_replay_through_normal_parser_path() -> None:
         "bo3_sideboard_match_loss",
         "draft_parser_family",
     ]
+    assert report["evidence_ledger_review"]["status"] == "not_supplied"
+    assert report["evidence_ledger_review"]["status_affects_parent"] is False
+    assert report["metadata"]["evidence_ledger_review_status_affects_suite"] is False
     assert report["metadata"]["normal_parser_path"] == [
         "LineBuffer",
         "Router",

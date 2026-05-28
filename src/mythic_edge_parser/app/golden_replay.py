@@ -4,6 +4,7 @@ import argparse
 import json
 import re
 from collections import Counter
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -11,7 +12,7 @@ from typing import Any, Sequence
 
 from ..log.entry import LineBuffer
 from ..router import Router
-from . import parser_diagnostics, state
+from . import evidence_validation_report_wiring, parser_diagnostics, state
 from .config import PROJECT_ROOT
 from .diagnostics import sanitize_sensitive_text
 from .transforms import include_event, to_sheet_rows
@@ -128,7 +129,11 @@ class GoldenReplayFixtureResult:
         return _sanitize_report_value(payload)
 
 
-def build_golden_replay_report(manifest_paths: Sequence[Path]) -> dict[str, Any]:
+def build_golden_replay_report(
+    manifest_paths: Sequence[Path],
+    *,
+    evidence_ledger_review: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
     results = [run_golden_replay(Path(manifest_path)) for manifest_path in manifest_paths]
     status = _suite_status(results)
     summary = {
@@ -151,10 +156,15 @@ def build_golden_replay_report(manifest_paths: Sequence[Path]) -> dict[str, Any]
             "results": [result.to_report_result() for result in results],
             "metadata": {
                 "degraded_cli_exit_code": 0,
+                "evidence_ledger_review_status_affects_suite": False,
                 "explicit_inputs_required": True,
                 "normal_parser_path": ["LineBuffer", "Router", "parser modules", "transforms", "parser state"],
                 "truth_boundary": "Golden replay compares parser-owned outputs; it does not infer missing facts.",
             },
+            "evidence_ledger_review": evidence_validation_report_wiring.evidence_review_section_from_inputs(
+                evidence_ledger_review,
+                report_context="golden_replay",
+            ),
         }
     )
 
@@ -801,6 +811,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="Manifest file paths, or directories containing *.manifest.json files.",
     )
     parser.add_argument("--out", dest="report_path", default="", help="Optional local JSON report output path.")
+    evidence_validation_report_wiring.evidence_review_cli_arguments(parser)
     return parser
 
 
@@ -808,7 +819,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = build_arg_parser()
     args = parser.parse_args(list(argv) if argv is not None else None)
     manifest_paths = _expand_manifest_paths([Path(path) for path in args.manifests])
-    report = build_golden_replay_report(manifest_paths)
+    report = build_golden_replay_report(
+        manifest_paths,
+        evidence_ledger_review=evidence_validation_report_wiring.evidence_review_inputs_from_args(args),
+    )
     summary = report["summary"]
     print(
         "Golden replay: "
