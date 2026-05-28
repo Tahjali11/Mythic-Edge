@@ -1,6 +1,6 @@
 import json
 
-from mythic_edge_parser.app import status_api
+from mythic_edge_parser.app import evidence_runtime_status, status_api
 
 
 def test_start_and_stop_status_api_server_reuses_server_info(monkeypatch) -> None:
@@ -93,3 +93,42 @@ def test_request_query_normalizes_root_and_query_values() -> None:
 
     assert route == "/match-history"
     assert query == {"deck_name": "Deck A", "result": "W"}
+
+
+def test_status_exposes_evidence_ledger_health_but_health_shape_is_unchanged(tmp_path, monkeypatch) -> None:
+    status_root = tmp_path / "status"
+    status_root.mkdir(parents=True, exist_ok=True)
+    health = evidence_runtime_status.build_evidence_ledger_health_status()
+    (status_root / "manasight_status_latest.json").write_text(
+        json.dumps(
+            {
+                "status": "running",
+                "updated_at": "2026-05-28T00:00:00+00:00",
+                "current_match_id": "match-1",
+                "webhook_failures": 0,
+                "event_failures": 0,
+                "router_failures": 0,
+                "evidence_ledger_health": health,
+            },
+            sort_keys=True,
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(status_api, "STATUS_ROOT", status_root)
+
+    status_code, status_payload = status_api._api_payload_for_request("/status", {})
+    health_code, health_payload = status_api._api_payload_for_request("/health", {})
+
+    assert status_code == 200
+    assert status_payload["evidence_ledger_health"]["status"] == "unavailable"
+    assert health_code == 200
+    assert health_payload == {
+        "object": "manasight_health",
+        "status": "running",
+        "updated_at": "2026-05-28T00:00:00+00:00",
+        "current_match_id": "match-1",
+        "webhook_failures": 0,
+        "event_failures": 0,
+        "router_failures": 0,
+    }
+    assert "evidence_ledger_health" not in health_payload
