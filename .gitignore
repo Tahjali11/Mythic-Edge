@@ -11,6 +11,7 @@ data/runtime_logs/
 data/status/
 data/failed_posts/
 data/bad_events/
+data/analytics/
 data/oracle_data/
 data/tier_sources/latest_tier_snapshot.json
 
