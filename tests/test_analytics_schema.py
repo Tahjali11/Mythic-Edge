@@ -1,14 +1,20 @@
 from __future__ import annotations
 
-import hashlib
 import re
 import sqlite3
 from pathlib import Path
 
 import pytest
 
-SCHEMA_VERSION = "analytics_local_sqlite_schema.v1"
-MIGRATION_PATH = Path("src/mythic_edge_parser/app/analytics_migrations/0001_initial_analytics_schema.sql")
+from mythic_edge_parser.app.analytics_migration_loader import (
+    ANALYTICS_SCHEMA_VERSION as SCHEMA_VERSION,
+)
+from mythic_edge_parser.app.analytics_migration_loader import (
+    apply_analytics_migrations,
+    load_analytics_migration_sql,
+)
+
+MIGRATION_FILENAME = "0001_initial_analytics_schema.sql"
 DATABASE_IGNORE_PATH = "data/analytics/"
 
 REQUIRED_TABLES = {
@@ -95,28 +101,13 @@ AVAILABILITY_LABELS = {
 def _connect_schema() -> sqlite3.Connection:
     connection = sqlite3.connect(":memory:")
     connection.row_factory = sqlite3.Row
-    connection.execute("PRAGMA foreign_keys = ON")
     _apply_migration(connection)
     return connection
 
 
 def _apply_migration(connection: sqlite3.Connection) -> str:
-    sql = MIGRATION_PATH.read_text(encoding="utf-8")
-    connection.executescript(sql)
-    checksum = hashlib.sha256(sql.encode("utf-8")).hexdigest()
-    connection.execute(
-        """
-        INSERT INTO schema_migrations (
-            migration_id,
-            migration_filename,
-            checksum_sha256,
-            applied_at,
-            schema_version_after
-        ) VALUES (?, ?, ?, ?, ?)
-        """,
-        ("0001_initial_analytics_schema", MIGRATION_PATH.name, checksum, "test-applied", SCHEMA_VERSION),
-    )
-    return checksum
+    migrations = apply_analytics_migrations(connection, applied_at="test-applied")
+    return migrations[0].checksum_sha256
 
 
 def _names(connection: sqlite3.Connection, object_type: str) -> set[str]:
@@ -241,7 +232,7 @@ def test_migration_applies_and_records_schema_identity() -> None:
     parser_version = connection.execute("SELECT * FROM parser_schema_versions").fetchone()
 
     assert migration["migration_id"] == "0001_initial_analytics_schema"
-    assert migration["migration_filename"] == MIGRATION_PATH.name
+    assert migration["migration_filename"] == MIGRATION_FILENAME
     assert re.fullmatch(r"[0-9a-f]{64}", migration["checksum_sha256"])
     assert migration["schema_version_after"] == SCHEMA_VERSION
     assert parser_version["parser_schema_version_id"] == SCHEMA_VERSION
@@ -275,7 +266,7 @@ def test_fact_tables_include_core_provenance_columns() -> None:
 
 
 def test_schema_constrains_required_status_vocabularies() -> None:
-    sql = MIGRATION_PATH.read_text(encoding="utf-8")
+    sql = load_analytics_migration_sql(MIGRATION_FILENAME)
 
     for label in VALUE_SOURCE_LABELS | CONFIDENCE_LABELS | FINALITY_LABELS | DRIFT_STATUS_LABELS:
         assert f"'{label}'" in sql
