@@ -4,7 +4,7 @@ import json
 import logging
 from types import SimpleNamespace
 
-from mythic_edge_parser.app import diagnostics
+from mythic_edge_parser.app import diagnostics, evidence_runtime_status
 
 
 def test_normalize_int_list_ignores_bools_and_bad_values() -> None:
@@ -78,3 +78,18 @@ def test_mark_webhook_failure_redacts_secret_webhook_url_in_status(tmp_path, mon
     assert status_payload["last_webhook_error"] == (
         "404 Client Error: Not Found for url: https://script.google.com/.../exec"
     )
+
+
+def test_update_runtime_status_can_write_evidence_ledger_health_without_status_promotion(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(diagnostics, "STATUS_ROOT", tmp_path / "status")
+    diagnostics.reset_diagnostics_runtime_state()
+    diagnostics.update_runtime_status(status="running", router_failures=0)
+    health = evidence_runtime_status.build_evidence_ledger_health_status()
+
+    diagnostics.update_runtime_status(evidence_ledger_health=health)
+
+    status_path = tmp_path / "status" / "manasight_status_latest.json"
+    status_payload = json.loads(status_path.read_text(encoding="utf-8"))
+    assert status_payload["status"] == "running"
+    assert status_payload["router_failures"] == 0
+    assert status_payload["evidence_ledger_health"]["status"] == "unavailable"
