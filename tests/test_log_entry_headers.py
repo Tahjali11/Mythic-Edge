@@ -46,3 +46,14 @@ def test_header_classification_knows_connection_manager_and_matchmaking() -> Non
     assert is_single_line_header("Matchmaking: GRE connection lost") is True
     assert is_single_line_header("[UnityCrossThreadLogger]Client.SceneChange {}") is True
     assert is_single_line_header("[UnityCrossThreadLogger]3/11/2026 6:08:26 PM") is False
+
+
+def test_truncation_marker_header_is_multiline_and_exact() -> None:
+    marker_line = "[Message summarized - GREMessageType_GameStateMessage payload omitted]"
+
+    assert classify_line_header(marker_line) == EntryHeader.TRUNCATION_MARKER
+    assert classify_line_header(f"[85] {marker_line}") == EntryHeader.TRUNCATION_MARKER
+    assert is_single_line_header(marker_line) is False
+    assert classify_line_header("GameObject Count: 2") is None
+    assert classify_line_header("This summary mentions GameObject Count: 2") is None
+    assert classify_line_header("[Summary] GameObject Count: 2") == EntryHeader.UNKNOWN

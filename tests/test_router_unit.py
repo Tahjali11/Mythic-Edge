@@ -7,10 +7,14 @@ from mythic_edge_parser.log.entry import EntryHeader, LogEntry
 DISPATCH_MODULE_NAMES = (
     "metadata",
     "gre",
+    "truncation",
     "client_actions",
     "match_state",
     "session",
     "event_lifecycle",
+    "draft_bot",
+    "draft_human",
+    "draft_complete",
     "rank",
     "collection",
     "inventory",
@@ -105,6 +109,53 @@ def test_route_updates_timestamp_parse_failure_for_invalid_timestamp(monkeypatch
     assert stats.timestamp_anomalies == 1
 
 
+def test_route_counts_truncation_marker_as_routed_with_valid_timestamp() -> None:
+    test_router = router.Router()
+
+    result = test_router.route(
+        _make_entry(
+            "[Message summarized]5/8/2026 1:02:03 PM GREMessageType_GameStateMessage payload omitted\n"
+            "GameObject Count: 1",
+            header=EntryHeader.TRUNCATION_MARKER,
+        )
+    )
+
+    stats = test_router.stats
+    assert [event.kind for event in result] == ["Truncation"]
+    assert result[0].metadata.timestamp == datetime(2026, 5, 8, 13, 2, 3, tzinfo=UTC)
+    assert stats.routed == 1
+    assert stats.unknown == 0
+    assert stats.timestamp_missing == 0
+    assert stats.timestamp_parse_failure == 0
+
+
+def test_route_counts_truncation_marker_timestamp_anomalies_without_unknown() -> None:
+    missing_timestamp_router = router.Router()
+    malformed_timestamp_router = router.Router()
+
+    missing_timestamp_router.route(
+        _make_entry(
+            "[Message summarized - GREMessageType_GameStateMessage payload omitted]",
+            header=EntryHeader.TRUNCATION_MARKER,
+        )
+    )
+    malformed_timestamp_router.route(
+        _make_entry(
+            "[Message summarized]13/40/2026 25:99:99 PM GREMessageType_GameStateMessage payload omitted",
+            header=EntryHeader.TRUNCATION_MARKER,
+        )
+    )
+
+    missing_stats = missing_timestamp_router.stats
+    malformed_stats = malformed_timestamp_router.stats
+    assert missing_stats.routed == 1
+    assert missing_stats.unknown == 0
+    assert missing_stats.timestamp_missing == 1
+    assert malformed_stats.routed == 1
+    assert malformed_stats.unknown == 0
+    assert malformed_stats.timestamp_parse_failure == 1
+
+
 def test_stats_property_returns_snapshot_copy() -> None:
     test_router = router.Router()
 
@@ -136,6 +187,30 @@ def test_dispatch_to_parsers_uses_metadata_bucket_only(monkeypatch) -> None:
 
     assert result == [expected_event]
     assert call_order == ["metadata"]
+
+
+def test_dispatch_to_parsers_uses_truncation_bucket_only(monkeypatch) -> None:
+    call_order: list[str] = []
+    expected_event = _make_event()
+
+    for module_name in DISPATCH_MODULE_NAMES:
+        parser_module = getattr(router.parsers, module_name)
+
+        def _make_parser(name: str):
+            def _parser(entry, timestamp):
+                call_order.append(name)
+                if name == "truncation":
+                    return expected_event
+                return None
+
+            return _parser
+
+        monkeypatch.setattr(parser_module, "try_parse", _make_parser(module_name))
+
+    result = router.dispatch_to_parsers(_make_entry("body", header=EntryHeader.TRUNCATION_MARKER), None)
+
+    assert result == [expected_event]
+    assert call_order == ["truncation"]
 
 
 def test_dispatch_to_parsers_uses_unknown_header_fallback_order(monkeypatch) -> None:
@@ -189,6 +264,9 @@ def test_dispatch_to_parsers_uses_unknown_header_lifecycle_position(monkeypatch)
         "match_state",
         "session",
         "event_lifecycle",
+        "draft_bot",
+        "draft_human",
+        "draft_complete",
         "rank",
     ]
 
@@ -223,6 +301,9 @@ def test_dispatch_to_parsers_uses_unity_bucket_order(monkeypatch) -> None:
         "match_state",
         "session",
         "event_lifecycle",
+        "draft_bot",
+        "draft_human",
+        "draft_complete",
         "rank",
         "collection",
         "inventory",

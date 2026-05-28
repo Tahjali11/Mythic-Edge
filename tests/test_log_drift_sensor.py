@@ -176,3 +176,21 @@ def test_entry_signature_prefers_prefix_label_for_privacy() -> None:
     )
 
     assert log_drift_sensor._entry_signature(entry) == "AuthPatch"
+
+
+def test_build_player_log_drift_report_routes_truncation_marker_without_unknown_signature(tmp_path: Path) -> None:
+    source_log = tmp_path / "Player.log"
+    source_log.write_text(
+        "[Message summarized - GREMessageType_GameStateMessage payload omitted]\n"
+        "GameObject Count: 1\n"
+        "Annotation Count: 0\n",
+        encoding="utf-8",
+    )
+
+    report = log_drift_sensor.build_player_log_drift_report(source_log)
+
+    assert report["entry_counts"]["routed"] == 1
+    assert report["entry_counts"]["unknown"] == 0
+    assert report["headers"]["TruncationMarker"] == 1
+    assert report["routed_event_kinds"]["Truncation"] == 1
+    assert report["top_unknown_signatures"] == []

@@ -21,6 +21,7 @@ from .events import (
     RankEvent,
     SessionEvent,
     TcpConnectionCloseEvent,
+    TruncationEvent,
     WebSocketClosedEvent,
 )
 from .sanitize import scrub_raw_log
@@ -50,6 +51,7 @@ __all__ = [
     "RankEvent",
     "SessionEvent",
     "TcpConnectionCloseEvent",
+    "TruncationEvent",
     "WebSocketClosedEvent",
     "scrub_raw_log",
     "MtgaEventStream",

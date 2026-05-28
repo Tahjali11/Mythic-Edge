@@ -20,6 +20,9 @@ from mythic_edge_parser.parsers import (
     connection_close,
     connection_error,
     connection_state,
+    draft_bot,
+    draft_complete,
+    draft_human,
     event_lifecycle,
     gre,
     inventory,
@@ -27,6 +30,7 @@ from mythic_edge_parser.parsers import (
     metadata,
     rank,
     session,
+    truncation,
 )
 
 SNAPSHOT_VERSION = 1
@@ -222,7 +226,11 @@ def _parser_payload_sample_events() -> list[tuple[str, events.BaseEvent]]:
     samples.extend(_client_action_sample_events())
     samples.extend(_match_state_sample_events())
     samples.extend(_gre_sample_events())
+    samples.extend(_truncation_sample_events())
     samples.extend(_collection_sample_events())
+    samples.extend(_draft_bot_sample_events())
+    samples.extend(_draft_human_sample_events())
+    samples.extend(_draft_complete_sample_events())
     samples.extend(_small_parser_sample_events())
     samples.extend(_connection_sample_events())
     samples.append(
@@ -501,6 +509,25 @@ def _gre_sample_events() -> list[tuple[str, events.BaseEvent]]:
     ]
 
 
+def _truncation_sample_events() -> list[tuple[str, events.BaseEvent]]:
+    return [
+        (
+            "game_state_message_truncation",
+            _expect_one_event(
+                truncation.try_parse(
+                    LogEntry(
+                        EntryHeader.TRUNCATION_MARKER,
+                        "[Message summarized - GREMessageType_GameStateMessage payload omitted]\n"
+                        "GameObject Count: 12\n"
+                        "Annotation Count: 3",
+                    ),
+                    TS,
+                )
+            ),
+        )
+    ]
+
+
 def _collection_sample_events() -> list[tuple[str, events.BaseEvent]]:
     parsed = collection.try_parse(
         _api_response_entry(
@@ -522,6 +549,138 @@ def _collection_sample_events() -> list[tuple[str, events.BaseEvent]]:
         (
             "deck_collection_snapshot",
             _expect_one_event([event for event in collection_events if event.kind == "DeckCollection"]),
+        ),
+    ]
+
+
+def _draft_bot_sample_events() -> list[tuple[str, events.BaseEvent]]:
+    return [
+        (
+            "bot_draft_status",
+            _expect_one_event(
+                draft_bot.try_parse(
+                    _api_response_entry(
+                        "BotDraftDraftStatus",
+                        {
+                            "draftId": "schema-draft",
+                            "eventName": "QuickDraft_Schema",
+                            "draftStatus": "PackOpen",
+                            "packNumber": 1,
+                            "pickNumber": 2,
+                            "packCards": [1001, 1002],
+                        },
+                    ),
+                    TS,
+                )
+            ),
+        ),
+        (
+            "bot_draft_pick",
+            _expect_one_event(
+                draft_bot.try_parse(
+                    _api_request_entry(
+                        "BotDraftDraftPick",
+                        {
+                            "BotDraftDraftPick": {
+                                "draftId": "schema-draft",
+                                "pickNumber": 2,
+                                "pickedCardId": 1001,
+                            }
+                        },
+                    ),
+                    TS,
+                )
+            ),
+        ),
+    ]
+
+
+def _draft_human_sample_events() -> list[tuple[str, events.BaseEvent]]:
+    return [
+        (
+            "human_draft_notify",
+            _expect_one_event(
+                draft_human.try_parse(
+                    _api_response_entry(
+                        "Draft.Notify",
+                        {
+                            "draftId": "schema-draft",
+                            "eventName": "PremierDraft_Schema",
+                            "draftStatus": "PackOpen",
+                            "packNumber": 1,
+                            "pickNumber": 2,
+                            "packCards": [1001, 1002],
+                        },
+                    ),
+                    TS,
+                )
+            ),
+        ),
+        (
+            "human_draft_make_pick",
+            _expect_one_event(
+                draft_human.try_parse(
+                    _api_request_entry(
+                        "EventPlayerDraftMakePick",
+                        {
+                            "EventPlayerDraftMakePick": {
+                                "draftId": "schema-draft",
+                                "pickNumber": 2,
+                                "pickedCardId": 1001,
+                            }
+                        },
+                    ),
+                    TS,
+                )
+            ),
+        ),
+        (
+            "human_draft_business_pick",
+            _expect_one_event(
+                draft_human.try_parse(
+                    _api_request_entry(
+                        "LogBusinessEvents",
+                        {
+                            "LogBusinessEvents": [
+                                {
+                                    "EventName": "DraftPick",
+                                    "PickGrpId": 1001,
+                                    "PackNumber": 1,
+                                    "PickNumber": 2,
+                                }
+                            ]
+                        },
+                    ),
+                    TS,
+                )
+            ),
+        ),
+    ]
+
+
+def _draft_complete_sample_events() -> list[tuple[str, events.BaseEvent]]:
+    return [
+        (
+            "draft_complete_draft",
+            _expect_one_event(
+                draft_complete.try_parse(
+                    _api_response_entry(
+                        "DraftCompleteDraft",
+                        {
+                            "DraftCompleteDraft": {
+                                "draftId": "schema-draft",
+                                "eventName": "PremierDraft_Schema",
+                                "queueId": "PremierDraft",
+                                "completionStatus": "Complete",
+                                "draftType": "HumanDraft",
+                                "draftMode": "Premier",
+                                "isHumanDraft": True,
+                            }
+                        },
+                    ),
+                    TS,
+                )
+            ),
         ),
     ]
 
@@ -720,6 +879,13 @@ def _api_response_entry(name: str, payload: dict[str, Any]) -> LogEntry:
     return LogEntry(
         EntryHeader.UNITY_CROSS_THREAD_LOGGER,
         f"[UnityCrossThreadLogger]<== {name}\n{json.dumps(payload, sort_keys=True)}",
+    )
+
+
+def _api_request_entry(name: str, payload: dict[str, Any]) -> LogEntry:
+    return LogEntry(
+        EntryHeader.UNITY_CROSS_THREAD_LOGGER,
+        f"[UnityCrossThreadLogger]==> {name}\n{json.dumps(payload, sort_keys=True)}",
     )
 
 

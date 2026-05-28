@@ -5,6 +5,9 @@ from . import (
     connection_close,
     connection_error,
     connection_state,
+    draft_bot,
+    draft_complete,
+    draft_human,
     event_lifecycle,
     gre,
     inventory,
@@ -12,6 +15,7 @@ from . import (
     metadata,
     rank,
     session,
+    truncation,
 )
 
 __all__ = [
@@ -21,6 +25,9 @@ __all__ = [
     "connection_close",
     "connection_error",
     "connection_state",
+    "draft_bot",
+    "draft_complete",
+    "draft_human",
     "event_lifecycle",
     "gre",
     "inventory",
@@ -28,4 +35,5 @@ __all__ = [
     "metadata",
     "rank",
     "session",
+    "truncation",
 ]

@@ -112,6 +112,119 @@
         "enabled"
       ]
     },
+    "DraftBot.bot_draft_pick": {
+      "discriminator": "bot_draft_pick",
+      "event_kind": "DraftBot",
+      "keys": [
+        "type",
+        "source_method",
+        "api_direction",
+        "draft_id",
+        "event_id",
+        "draft_status",
+        "pack_number",
+        "pick_number",
+        "pack_card_ids",
+        "picked_card_id",
+        "picked_card_ids",
+        "raw_draft_bot"
+      ]
+    },
+    "DraftBot.bot_draft_status": {
+      "discriminator": "bot_draft_status",
+      "event_kind": "DraftBot",
+      "keys": [
+        "type",
+        "source_method",
+        "api_direction",
+        "draft_id",
+        "event_id",
+        "draft_status",
+        "pack_number",
+        "pick_number",
+        "pack_card_ids",
+        "picked_card_id",
+        "picked_card_ids",
+        "raw_draft_bot"
+      ]
+    },
+    "DraftComplete.draft_complete_draft": {
+      "discriminator": "draft_complete_draft",
+      "event_kind": "DraftComplete",
+      "keys": [
+        "type",
+        "source_method",
+        "api_direction",
+        "draft_id",
+        "event_id",
+        "queue_id",
+        "draft_status",
+        "completion_status",
+        "draft_type",
+        "draft_mode",
+        "completion_source",
+        "is_bot_draft",
+        "is_human_draft",
+        "raw_draft_complete"
+      ]
+    },
+    "DraftHuman.human_draft_business_pick": {
+      "discriminator": "human_draft_business_pick",
+      "event_kind": "DraftHuman",
+      "keys": [
+        "type",
+        "source_method",
+        "api_direction",
+        "draft_id",
+        "event_id",
+        "draft_status",
+        "pack_number",
+        "pick_number",
+        "pack_card_ids",
+        "picked_card_id",
+        "picked_card_ids",
+        "business_event_type",
+        "raw_draft_human"
+      ]
+    },
+    "DraftHuman.human_draft_make_pick": {
+      "discriminator": "human_draft_make_pick",
+      "event_kind": "DraftHuman",
+      "keys": [
+        "type",
+        "source_method",
+        "api_direction",
+        "draft_id",
+        "event_id",
+        "draft_status",
+        "pack_number",
+        "pick_number",
+        "pack_card_ids",
+        "picked_card_id",
+        "picked_card_ids",
+        "business_event_type",
+        "raw_draft_human"
+      ]
+    },
+    "DraftHuman.human_draft_notify": {
+      "discriminator": "human_draft_notify",
+      "event_kind": "DraftHuman",
+      "keys": [
+        "type",
+        "source_method",
+        "api_direction",
+        "draft_id",
+        "event_id",
+        "draft_status",
+        "pack_number",
+        "pick_number",
+        "pack_card_ids",
+        "picked_card_id",
+        "picked_card_ids",
+        "business_event_type",
+        "raw_draft_human"
+      ]
+    },
     "EventLifecycle.event_claim_prize": {
       "discriminator": "event_claim_prize",
       "event_kind": "EventLifecycle",
@@ -190,13 +303,16 @@
         "game_objects",
         "annotations",
         "persistent_annotations",
+        "normalized_annotations",
         "timers",
+        "normalized_timers",
         "actions",
         "update",
         "pending_message_count",
         "prev_game_state_id",
         "diff_deleted_instance_ids",
         "diff_deleted_persistent_annotation_ids",
+        "game_state_diff_mechanics",
         "raw_game_state"
       ]
     },
@@ -221,13 +337,16 @@
         "game_objects",
         "annotations",
         "persistent_annotations",
+        "normalized_annotations",
         "timers",
+        "normalized_timers",
         "actions",
         "update",
         "pending_message_count",
         "prev_game_state_id",
         "diff_deleted_instance_ids",
         "diff_deleted_persistent_annotation_ids",
+        "game_state_diff_mechanics",
         "raw_game_state"
       ]
     },
@@ -345,6 +464,27 @@
         "port",
         "reason",
         "status"
+      ]
+    },
+    "Truncation.game_state_message_truncation": {
+      "discriminator": "game_state_message_truncation",
+      "event_kind": "Truncation",
+      "keys": [
+        "type",
+        "marker_family",
+        "affected_event_family",
+        "affected_message_type",
+        "data_loss",
+        "recoverable",
+        "parser_confidence",
+        "value_source",
+        "confidence",
+        "finality",
+        "drift_flag",
+        "source_header",
+        "game_object_count",
+        "annotation_count",
+        "raw_marker_summary"
       ]
     },
     "WebSocketClosed.websocket_closed": {

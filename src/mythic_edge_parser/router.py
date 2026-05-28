@@ -28,6 +28,9 @@ HEADER_PARSER_DISPATCH_ORDER: dict[EntryHeader, tuple[ParserModule, ...]] = {
     EntryHeader.CLIENT_GRE: (
         parsers.gre,
     ),
+    EntryHeader.TRUNCATION_MARKER: (
+        parsers.truncation,
+    ),
     EntryHeader.CONNECTION_MANAGER: (
         parsers.connection_error,
     ),
@@ -40,6 +43,9 @@ HEADER_PARSER_DISPATCH_ORDER: dict[EntryHeader, tuple[ParserModule, ...]] = {
         parsers.match_state,
         parsers.session,
         parsers.event_lifecycle,
+        parsers.draft_bot,
+        parsers.draft_human,
+        parsers.draft_complete,
         parsers.rank,
         parsers.collection,
         parsers.inventory,
@@ -53,6 +59,9 @@ HEADER_PARSER_DISPATCH_ORDER: dict[EntryHeader, tuple[ParserModule, ...]] = {
         parsers.match_state,
         parsers.session,
         parsers.event_lifecycle,
+        parsers.draft_bot,
+        parsers.draft_human,
+        parsers.draft_complete,
         parsers.rank,
         parsers.collection,
         parsers.inventory,
