@@ -35,6 +35,56 @@ This role is required for high-risk implementation and recommended for medium-ri
 - fix code silently when the task is verification-only
 - ignore workbook, deployment, or local-data drift
 
+## Report Lifecycle Labels
+
+Use `report_lifecycle` when a contract-test report participates in a C -> E ->
+D -> E -> F loopback.
+
+Allowed values:
+
+- `initial_contract_test`: first Codex E contract-test report for a package
+- `followup_after_fixer`: Codex E follow-up after Codex D or Codex C changes
+- `contract_clarification_review`: Codex E follow-up after Codex B clarifies
+  or amends the contract
+- `final_approval`: no blocking findings remain, focused validation passed or
+  skipped validation is justified, and the next route may be Codex F or `none`
+
+Do not use `final_approval` while any `remaining_blocker` finding exists.
+Final approval does not authorize production merge, deployment, live workbook
+changes, Apps Script changes, tracker closure, or issue closure unless the
+current workflow role and user prompt separately authorize those actions.
+
+## Finding Lifecycle Labels
+
+Use `finding_lifecycle` for each active or historical finding in a loopback-
+aware report.
+
+Allowed values:
+
+- `original_finding`: finding first recorded in the initial review pass
+- `fixed_state_followup`: later Codex E status update after a fix attempt has
+  verification evidence
+- `superseded`: no longer applies because the contract, scope, or source
+  artifact changed
+- `remaining_blocker`: still blocks Codex F/G submission or closure
+- `remaining_non_blocking`: still present but does not block the next workflow
+  role
+- `deferred_followup`: routed to a separate issue or later contract
+
+Optional value:
+
+- `not_reproduced`: investigated but not reproduced in the current review pass
+
+Each finding should include a stable `finding_id`, severity or priority when
+applicable, `finding_lifecycle`, current `finding_status`, current
+`blocking_status`, original evidence or source report, current
+`verification_evidence`, and `next_route`.
+
+Preserve original finding evidence unless the wording is actively misleading.
+If a finding is superseded, cite the superseding artifact or decision. A Codex
+D handoff may describe a fix attempt, but verified fixed-state labels belong to
+Codex E after validation.
+
 ## Required Output
 
 Create a contract test report under `docs/contract_test_reports/` or add the report to the pull request.
