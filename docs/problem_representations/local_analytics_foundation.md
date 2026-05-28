@@ -217,14 +217,27 @@ Additional expected validation:
 ## Open Questions
 
 - Which existing parser-normalized artifact should be the first replay input?
-- Should schema migrations use plain SQL files, a lightweight Python migration
-  runner, or a third-party migration tool?
 - Which card-movement and life-total facts are already normalized enough for
   the first schema contract?
 - Should the first implementation include only schema and replay ingest, or
   also initial SQL views?
-- What should the default local database path be, and how should it be ignored
-  by Git?
+
+## Resolved Schema Decisions
+
+- Default generated database path: `data/analytics/mythic_edge.sqlite3`.
+- Store schema definitions as plain versioned SQL migrations.
+- A small Python migration runner may be added later, but it should apply
+  inspectable SQL files rather than hiding schema definitions in Python code.
+- Use deterministic text IDs for primary analytic identities where possible.
+- Duplicate core provenance columns on each fact table.
+- Keep a more detailed `fact_provenance` table for expanded provenance.
+- Store card lists as one card per row canonically.
+- Optional display JSON may be added later as a convenience cache, but not as
+  canonical truth.
+- Use SQL views before stored derived summary tables.
+- Initial human annotations are limited to matchup/archetype labels and game
+  notes.
+- Replay idempotency is a hard requirement.
 
 ## Recommended Workflow
 
@@ -233,6 +246,8 @@ Recommended first suite:
 1. Analytics Schema Contract
    - Defines SQLite tables, stable IDs, provenance columns, schema versioning,
      and ownership boundaries.
+   - Problem representation:
+     `docs/problem_representations/analytics_schema_contract.md`
 2. Analytics Ingest Contract
    - Defines how parser-normalized outputs become database rows through live
      ingest or replay.
