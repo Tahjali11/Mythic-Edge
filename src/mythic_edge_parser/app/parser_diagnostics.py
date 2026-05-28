@@ -3,13 +3,14 @@ from __future__ import annotations
 import argparse
 import json
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from ..router import Router
-from . import log_drift_sensor
+from . import evidence_validation_report_wiring, log_drift_sensor
 from .config import LOG_PATH, PROJECT_ROOT, STATUS_ROOT
 from .diagnostics import sanitize_sensitive_text
 
@@ -47,6 +48,7 @@ def build_parser_diagnostics_report(
     profile: str = DEFAULT_PROFILE,
     runtime_status: dict[str, Any] | None = None,
     drift_baseline: dict[str, Any] | None = None,
+    evidence_ledger_review: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     return _build_parser_diagnostics_report(
         source_log=source_log,
@@ -54,6 +56,7 @@ def build_parser_diagnostics_report(
         runtime_status=runtime_status,
         drift_baseline=drift_baseline,
         input_warnings=[],
+        evidence_ledger_review=evidence_ledger_review,
     )
 
 
@@ -63,6 +66,7 @@ def write_parser_diagnostics_report(
     report_path: Path | None = None,
     profile: str = DEFAULT_PROFILE,
     drift_baseline_path: Path | None = None,
+    evidence_ledger_review: Mapping[str, Any] | None = None,
 ) -> ParserDiagnosticsResult:
     drift_baseline, input_warnings = _load_drift_baseline(drift_baseline_path)
     report = _build_parser_diagnostics_report(
@@ -71,6 +75,7 @@ def write_parser_diagnostics_report(
         runtime_status=None,
         drift_baseline=drift_baseline,
         input_warnings=input_warnings,
+        evidence_ledger_review=evidence_ledger_review,
     )
     output_path = report_path or DEFAULT_REPORT_PATH
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -85,6 +90,7 @@ def _build_parser_diagnostics_report(
     runtime_status: dict[str, Any] | None,
     drift_baseline: dict[str, Any] | None,
     input_warnings: list[str],
+    evidence_ledger_review: Mapping[str, Any] | None,
 ) -> dict[str, Any]:
     source_path = Path(source_log)
     normalized_profile = str(profile or "").strip() or DEFAULT_PROFILE
@@ -92,11 +98,11 @@ def _build_parser_diagnostics_report(
 
     if normalized_profile not in ALLOWED_PROFILES:
         _apply_input_failure(report, f"unknown_profile:{normalized_profile}")
-        return _finalize_report(report, source_path)
+        return _finalize_report(report, source_path, evidence_ledger_review=evidence_ledger_review)
 
     if not source_path.is_file():
         _apply_input_failure(report, "source_log_unreadable")
-        return _finalize_report(report, source_path)
+        return _finalize_report(report, source_path, evidence_ledger_review=evidence_ledger_review)
 
     drift_report: dict[str, Any]
     event_evidence: dict[str, Any]
@@ -117,7 +123,7 @@ def _build_parser_diagnostics_report(
         runtime_status=runtime_status,
         input_warnings=input_warnings,
     )
-    return _finalize_report(report, source_path)
+    return _finalize_report(report, source_path, evidence_ledger_review=evidence_ledger_review)
 
 
 def _empty_report(source_log: Path, *, profile: str) -> dict[str, Any]:
@@ -273,7 +279,16 @@ def _apply_input_failure(report: dict[str, Any], reason: str) -> None:
     report["overall_status"] = STATUS_FAIL
 
 
-def _finalize_report(report: dict[str, Any], source_log: Path) -> dict[str, Any]:
+def _finalize_report(
+    report: dict[str, Any],
+    source_log: Path,
+    *,
+    evidence_ledger_review: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    report["evidence_ledger_review"] = evidence_validation_report_wiring.evidence_review_section_from_inputs(
+        evidence_ledger_review,
+        report_context="parser_diagnostics",
+    )
     return _sanitize_report_value(report, redactions=_path_redactions(source_log))
 
 
@@ -676,6 +691,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--profile", choices=sorted(ALLOWED_PROFILES), default=DEFAULT_PROFILE)
     parser.add_argument("--out", dest="report_path", default=str(DEFAULT_REPORT_PATH))
     parser.add_argument("--drift-baseline", dest="drift_baseline_path", default="")
+    evidence_validation_report_wiring.evidence_review_cli_arguments(parser)
     return parser
 
 
@@ -687,6 +703,7 @@ def main(argv: list[str] | None = None) -> int:
         report_path=Path(args.report_path),
         profile=args.profile,
         drift_baseline_path=Path(args.drift_baseline_path) if args.drift_baseline_path else None,
+        evidence_ledger_review=evidence_validation_report_wiring.evidence_review_inputs_from_args(args),
     )
     print(result.summary_line())
     print(f"Report written: {_safe_report_path(result.report_path)}")

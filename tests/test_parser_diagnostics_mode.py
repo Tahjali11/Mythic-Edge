@@ -56,6 +56,8 @@ def test_healthy_completed_game_fixture_report_returns_pass(tmp_path: Path) -> N
     assert report["event_family_coverage"]["counts_by_kind"]["GameResult"] == 1
     assert report["final_reconciliation"]["status"] == "pass"
     assert report["transport_health"]["status"] == "unknown"
+    assert report["evidence_ledger_review"]["status"] == "not_supplied"
+    assert report["evidence_ledger_review"]["status_affects_parent"] is False
 
 
 def test_unknown_signatures_produce_review_and_are_sanitized(tmp_path: Path) -> None:
@@ -193,6 +195,7 @@ def test_report_schema_has_stable_v1_top_level_keys(tmp_path: Path) -> None:
         "workbook_and_appscript",
         "manual_checklist",
         "validation_evidence",
+        "evidence_ledger_review",
     ]
 
 

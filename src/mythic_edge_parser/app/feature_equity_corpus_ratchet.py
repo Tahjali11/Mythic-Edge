@@ -11,7 +11,7 @@ from typing import Any
 from .. import events as event_models
 from ..log.entry import LineBuffer
 from ..router import Router
-from . import golden_replay, state
+from . import evidence_validation_report_wiring, golden_replay, state
 from .config import PROJECT_ROOT
 from .diagnostics import sanitize_sensitive_text
 
@@ -50,6 +50,7 @@ def build_feature_equity_corpus_report(
     manifest_paths: Sequence[Path],
     *,
     baseline_path: Path | None = None,
+    evidence_ledger_review: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     expanded_manifest_paths, expanded_from_directories = _expand_manifest_paths(manifest_paths)
     manifest_records = [_manifest_record(path) for path in expanded_manifest_paths]
@@ -128,6 +129,10 @@ def build_feature_equity_corpus_report(
             "privacy": _sorted_value(privacy),
             "protected_surfaces": _protected_surfaces_section(),
             "limitations": _limitations_section(),
+            "evidence_ledger_review": evidence_validation_report_wiring.evidence_review_section_from_inputs(
+                evidence_ledger_review,
+                report_context="feature_equity_corpus_ratchet",
+            ),
         }
     )
 
@@ -137,8 +142,13 @@ def write_feature_equity_corpus_report(
     *,
     baseline_path: Path | None = None,
     report_path: Path | None = None,
+    evidence_ledger_review: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    report = build_feature_equity_corpus_report(manifest_paths, baseline_path=baseline_path)
+    report = build_feature_equity_corpus_report(
+        manifest_paths,
+        baseline_path=baseline_path,
+        evidence_ledger_review=evidence_ledger_review,
+    )
     if report_path is not None:
         output_path = Path(report_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -153,6 +163,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         [Path(path) for path in args.manifests],
         baseline_path=Path(args.baseline_path) if args.baseline_path else None,
         report_path=Path(args.report_path) if args.report_path else None,
+        evidence_ledger_review=evidence_validation_report_wiring.evidence_review_inputs_from_args(args),
     )
     summary = report["inputs"]
     print(
@@ -176,6 +187,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--baseline", dest="baseline_path", default="", help="Optional count-only baseline JSON.")
     parser.add_argument("--out", dest="report_path", default="", help="Optional local JSON report output path.")
+    evidence_validation_report_wiring.evidence_review_cli_arguments(parser)
     return parser
 
 

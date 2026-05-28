@@ -76,6 +76,8 @@ def test_committed_corpus_matches_initial_count_only_baseline() -> None:
         "raw_log_lines_in_report": False,
         "raw_private_log_committed": False,
     }
+    assert report["evidence_ledger_review"]["status"] == "not_supplied"
+    assert report["evidence_ledger_review"]["status_affects_parent"] is False
     assert all(value is False for value in report["protected_surfaces"].values())
 
 
