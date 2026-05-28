@@ -386,15 +386,22 @@ _OUTPUT_FAMILIES: tuple[dict[str, Any], ...] = (
     {
         "tier": 7,
         "output_family": "derived_analytics_outputs",
-        "status": "registered_future",
+        "status": "seeded_sample",
         "description": "Derived parser-adjacent analytics outputs that must remain downstream consumers.",
-        "seed_fields": [],
-        "future_fields": ["card_performance", "feature_equity_counts"],
+        "seed_fields": ["card_performance", "feature_equity_counts"],
+        "future_fields": [],
         "owner_modules": [
             "src/mythic_edge_parser/app/card_performance.py",
             "src/mythic_edge_parser/app/feature_equity_corpus_ratchet.py",
         ],
-        "notes": ["Registered only as future consumer metadata; this family is not parser truth."],
+        "notes": [
+            "Issue #173 maps derived analytics provenance for card_performance and feature_equity_counts only.",
+            "Tier 7 parser_managed_truth means local code/report provenance ownership, not parser-owned "
+            "match, game, card identity, gameplay-action, analytics, model-provider, or AI fact truth.",
+            "This does not change card-performance calculations, feature-equity behavior, golden replay behavior, "
+            "diagnostics behavior, drift behavior, parser behavior, runtime artifacts, workbook sync, analytics truth, "
+            "AI, CI gates, merge/deploy policy, or field-evidence attachment behavior.",
+        ],
     },
 )
 
@@ -7752,6 +7759,507 @@ _TRUNCATION_COUNT_ENTRY: dict[str, Any] = {
 }
 
 
+_CARD_PERFORMANCE_ENTRY: dict[str, Any] = {
+    "entry_id": "tier7.derived_analytics_outputs.card_performance",
+    "tier": 7,
+    "output_family": "derived_analytics_outputs",
+    "output_field": "card_performance",
+    "display_name": "Card Performance",
+    "parser_owner": "src/mythic_edge_parser/app/card_performance.py",
+    "model_surface": "manasight_card_performance local report",
+    "downstream_surfaces": [
+        "card_performance_report",
+        "local_match_history",
+        "gameplay_action_artifacts",
+        "future_analytics_consumers",
+    ],
+    "parser_managed_truth": True,
+    "coverage_status": "seeded_sample",
+    "direct_evidence": [
+        {
+            "signal_id": "card_performance.card_performance.report_metadata",
+            "parser_event_kind": "card_performance_report",
+            "parser_event_type": "manasight_card_performance",
+            "raw_event_family": "local_card_performance_report",
+            "raw_message_type": "",
+            "normalized_payload_path": (
+                "object + generated_at + total_cards + total_games + baseline_game_win_rate"
+            ),
+            "raw_payload_path": "card performance report metadata paths",
+            "required_for_final": True,
+            "value_source_when_used": "derived",
+            "confidence_when_used": "high",
+            "finality_when_used": "final",
+            "allowed_types": ["str", "int", "unknown"],
+            "missing_behavior": (
+                "missing report metadata leaves card_performance unknown; baseline_game_win_rate is a "
+                "float-or-empty report value but the ledger type vocabulary has no float label"
+            ),
+            "privacy_class": "path_only_no_values",
+        },
+        {
+            "signal_id": "card_performance.card_performance.card_identity_display_facets",
+            "parser_event_kind": "card_performance_report",
+            "parser_event_type": "manasight_card_performance",
+            "raw_event_family": "local_card_performance_report",
+            "raw_message_type": "",
+            "normalized_payload_path": (
+                "cards[].card_key + cards[].grp_id + cards[].card_name + cards[].display_name + "
+                "cards[].resolution_status + cards[].layout + cards[].card_faces"
+            ),
+            "raw_payload_path": "card performance card identity and display facet paths",
+            "required_for_final": True,
+            "value_source_when_used": "derived",
+            "confidence_when_used": "high",
+            "finality_when_used": "final",
+            "allowed_types": ["str", "int", "list", "unknown"],
+            "missing_behavior": (
+                "missing card identity or display facets leaves card_performance degraded; names and display "
+                "labels remain enrichment context"
+            ),
+            "privacy_class": "path_only_no_values",
+        },
+        {
+            "signal_id": "card_performance.card_performance.metric_facets",
+            "parser_event_kind": "card_performance_report",
+            "parser_event_type": "manasight_card_performance",
+            "raw_event_family": "local_card_performance_report",
+            "raw_message_type": "",
+            "normalized_payload_path": (
+                "cards[].games_seen + cards[].seen_in_game_games + cards[].seen_in_game_win_rate + "
+                "cards[].opening_hand_games + cards[].opening_hand_win_rate + cards[].cast_games + "
+                "cards[].cast_win_rate + cards[].postboard_cast_games + cards[].postboard_cast_win_rate + "
+                "cards[].mulliganed_away_games + cards[].mulliganed_away_win_rate + cards[].mulligan_tax"
+            ),
+            "raw_payload_path": "card performance count and rate facet paths",
+            "required_for_final": True,
+            "value_source_when_used": "derived",
+            "confidence_when_used": "high",
+            "finality_when_used": "final",
+            "allowed_types": ["int", "str", "unknown"],
+            "missing_behavior": (
+                "missing metric facets leaves card_performance unknown or degraded; rate and mulligan-tax "
+                "facets are float-or-empty report values but the ledger type vocabulary has no float label"
+            ),
+            "privacy_class": "path_only_no_values",
+        },
+        {
+            "signal_id": "card_performance.card_performance.cooccurrence_display_facets",
+            "parser_event_kind": "card_performance_report",
+            "parser_event_type": "manasight_card_performance",
+            "raw_event_family": "local_card_performance_report",
+            "raw_message_type": "",
+            "normalized_payload_path": (
+                "cards[].top_matchups[].label + cards[].top_matchups[].games + "
+                "cards[].top_matchups[].win_rate + cards[].top_packages[].card_key + "
+                "cards[].top_packages[].display_name + cards[].top_packages[].games + "
+                "cards[].top_packages[].win_rate"
+            ),
+            "raw_payload_path": "card performance local matchup and package co-occurrence facet paths",
+            "required_for_final": False,
+            "value_source_when_used": "derived",
+            "confidence_when_used": "medium",
+            "finality_when_used": "final",
+            "allowed_types": ["list", "dict", "str", "int", "unknown"],
+            "missing_behavior": (
+                "missing co-occurrence facets leaves local display context incomplete; top_matchups and "
+                "top_packages are not archetype truth, matchup plans, deckbuilding truth, or gameplay advice"
+            ),
+            "privacy_class": "path_only_no_values",
+        },
+        {
+            "signal_id": "card_performance.card_performance.local_input_artifacts",
+            "parser_event_kind": "card_performance_report",
+            "parser_event_type": "manasight_card_performance",
+            "raw_event_family": "local_match_history_and_actions",
+            "raw_message_type": "",
+            "normalized_payload_path": "match_history_rows + gameplay_action_artifacts + action_artifact_root",
+            "raw_payload_path": "local match-history and gameplay-action artifact paths",
+            "required_for_final": False,
+            "value_source_when_used": "derived",
+            "confidence_when_used": "high",
+            "finality_when_used": "final",
+            "allowed_types": ["list", "dict"],
+            "missing_behavior": "missing or invalid local input artifacts lowers confidence",
+            "privacy_class": "path_only_no_values",
+        },
+    ],
+    "fallback_evidence": [
+        {
+            "signal_id": "grp_id_catalog.card_performance.card_identity_lookup",
+            "parser_event_kind": "grp_id_catalog",
+            "parser_event_type": "card_identity_lookup",
+            "raw_event_family": "local_catalog_lookup",
+            "raw_message_type": "",
+            "normalized_payload_path": "card_key + grp_id + card_name + display_name + resolution_status",
+            "raw_payload_path": "catalog lookup and display fallback paths",
+            "required_for_final": False,
+            "value_source_when_used": "derived",
+            "confidence_when_used": "medium",
+            "finality_when_used": "provisional",
+            "allowed_types": ["str", "unknown"],
+            "missing_behavior": "name-only or unresolved display fallback lowers card_performance confidence",
+            "privacy_class": "path_only_no_values",
+        },
+        {
+            "signal_id": "ledger.tier3.game_level_facts.card_performance_dependency",
+            "parser_event_kind": "parser_context",
+            "parser_event_type": "",
+            "raw_event_family": "parser_context",
+            "raw_message_type": "",
+            "normalized_payload_path": (
+                "ledger.entries[tier3.game_results] + ledger.entries[tier3.opening_hand] + "
+                "ledger.entries[tier3.mulligans] + ledger.entries[tier3.pre_postboard]"
+            ),
+            "raw_payload_path": "",
+            "required_for_final": False,
+            "value_source_when_used": "derived",
+            "confidence_when_used": "medium",
+            "finality_when_used": "provisional",
+            "allowed_types": ["dict"],
+            "missing_behavior": "missing or degraded Tier 3 ingredient provenance degrades report confidence",
+            "privacy_class": "path_only_no_values",
+        },
+        {
+            "signal_id": "ledger.tier5.card_identity_and_actions.card_performance_dependency",
+            "parser_event_kind": "parser_context",
+            "parser_event_type": "",
+            "raw_event_family": "parser_context",
+            "raw_message_type": "",
+            "normalized_payload_path": (
+                "ledger.entries[tier5.card_identity.grp_id] + ledger.entries[tier5.gameplay_action] + "
+                "ledger.entries[tier5.opponent_card_observation]"
+            ),
+            "raw_payload_path": "",
+            "required_for_final": False,
+            "value_source_when_used": "derived",
+            "confidence_when_used": "medium",
+            "finality_when_used": "provisional",
+            "allowed_types": ["dict"],
+            "missing_behavior": "missing or degraded Tier 5 ingredient provenance degrades report confidence",
+            "privacy_class": "path_only_no_values",
+        },
+        {
+            "signal_id": "ledger.tier6.runtime_health.card_performance_degradation_context",
+            "parser_event_kind": "parser_context",
+            "parser_event_type": "",
+            "raw_event_family": "parser_context",
+            "raw_message_type": "",
+            "normalized_payload_path": (
+                "ledger.entries[tier6.diagnostics_status] + ledger.entries[tier6.unknown_entry_count] + "
+                "ledger.entries[tier6.truncation_count]"
+            ),
+            "raw_payload_path": "",
+            "required_for_final": False,
+            "value_source_when_used": "derived",
+            "confidence_when_used": "low",
+            "finality_when_used": "provisional",
+            "allowed_types": ["dict"],
+            "missing_behavior": "unknown-entry, diagnostics, or truncation context can require review",
+            "privacy_class": "path_only_no_values",
+        },
+    ],
+    "value_source_policy": {
+        "direct": "derived",
+        "fallback": "derived",
+        "missing": "unknown",
+        "contradiction": "conflict",
+    },
+    "confidence_policy": {
+        "direct": "high",
+        "fallback": "medium",
+        "weak_fallback": "low",
+        "missing": "unknown",
+        "contradiction": "low",
+    },
+    "finality_policy": {
+        "local_report_snapshot": "final",
+        "provisional": "provisional",
+        "corrected_by_later_evidence": "reconciled",
+    },
+    "invariant_checks": [
+        "tier7_derived_analytics_status_is_seeded_sample",
+        "tier7_seed_fields_are_broad_analytics_entries",
+        "tier7_no_metric_subfields_seeded",
+        "tier7_parser_managed_truth_means_report_metadata_not_parser_fact_truth",
+        "tier7_card_performance_is_local_derived_analytics",
+        "tier7_card_performance_metrics_are_input_scoped",
+        "tier7_card_performance_top_matchups_are_not_archetype_truth",
+        "tier7_card_performance_top_packages_are_not_deckbuilding_advice",
+        "tier7_ai_and_model_provider_output_are_downstream_only",
+        "tier7_privacy_path_only_no_values",
+    ],
+    "degradation_behavior": [
+        "missing or invalid match-history input, gameplay-action artifacts, or local runtime artifacts degrades output",
+        "name-only identity fallback, unresolved display fallback, degraded actor relation, or unresolved card "
+        "identity "
+        "lowers confidence",
+        "diagnostics review, unknown-entry context, parser exception, or truncation/data-loss context can require "
+        "review",
+        "zero counts and empty rates are scoped to the local analyzed input set and are not global performance truth",
+        "top_matchups and top_packages are local display facets, not archetype truth, deckbuilding truth, sideboarding "
+        "advice, matchup plans, gameplay advice, player-mistake labels, model-provider output, or AI truth",
+        "card-performance output must not overwrite parser-owned match, game, result, card identity, or "
+        "gameplay-action "
+        "facts",
+    ],
+    "drift_flags": [
+        "missing_expected_payload_path",
+        "changed_signal_type",
+        "weak_fallback_used",
+        "conflicting_evidence",
+        "parser_exception",
+        "fixture_gap",
+        "sensitive_evidence_redacted",
+    ],
+    "recommended_review_modules": [
+        "src/mythic_edge_parser/app/card_performance.py",
+        "src/mythic_edge_parser/app/gameplay_actions.py",
+        "src/mythic_edge_parser/app/grp_id_catalog.py",
+        "src/mythic_edge_parser/app/evidence_ledger.py",
+    ],
+    "tests": [
+        "tests/test_evidence_ledger.py",
+        "tests/test_card_performance.py",
+        "tests/test_gameplay_actions.py",
+        "tests/test_opponent_card_observations.py",
+    ],
+    "fixture_refs": [],
+    "notes": [
+        "Issue #173 documents card_performance provenance without changing card-performance calculations.",
+        "parser_managed_truth means local report metadata provenance ownership only for this Tier 7 entry.",
+        "Card-performance metrics, top matchups, and top packages are local derived analytics facets, not parser truth "
+        "or strategic recommendations.",
+        "card_performance is not parser-owned match, game, result, card identity, gameplay-action, analytics, "
+        "model-provider, or AI fact truth.",
+    ],
+}
+
+
+_FEATURE_EQUITY_COUNTS_ENTRY: dict[str, Any] = {
+    "entry_id": "tier7.derived_analytics_outputs.feature_equity_counts",
+    "tier": 7,
+    "output_family": "derived_analytics_outputs",
+    "output_field": "feature_equity_counts",
+    "display_name": "Feature-Equity Counts",
+    "parser_owner": "src/mythic_edge_parser/app/feature_equity_corpus_ratchet.py",
+    "model_surface": "parser_feature_equity_corpus_ratchet_report.v1",
+    "downstream_surfaces": [
+        "feature_equity_corpus_report",
+        "golden_replay_report",
+        "sanitized_fixture_corpus",
+        "future_contract_review_consumers",
+    ],
+    "parser_managed_truth": True,
+    "coverage_status": "seeded_sample",
+    "direct_evidence": [
+        {
+            "signal_id": "feature_equity.feature_equity_counts.report_metadata",
+            "parser_event_kind": "feature_equity_corpus",
+            "parser_event_type": "parser_feature_equity_corpus_ratchet_report.v1",
+            "raw_event_family": "fixture_corpus_report",
+            "raw_message_type": "",
+            "normalized_payload_path": "object + schema_version + status + status_reasons",
+            "raw_payload_path": "feature-equity report metadata paths",
+            "required_for_final": True,
+            "value_source_when_used": "derived",
+            "confidence_when_used": "high",
+            "finality_when_used": "final",
+            "allowed_types": ["str", "list"],
+            "missing_behavior": "missing feature-equity report metadata leaves feature_equity_counts unknown",
+            "privacy_class": "path_only_no_values",
+        },
+        {
+            "signal_id": "feature_equity.feature_equity_counts.input_manifest_metadata",
+            "parser_event_kind": "feature_equity_corpus",
+            "parser_event_type": "parser_feature_equity_corpus_ratchet_report.v1",
+            "raw_event_family": "fixture_corpus_report",
+            "raw_message_type": "",
+            "normalized_payload_path": (
+                "inputs.manifest_paths + inputs.manifest_count + inputs.source_file_count + "
+                "inputs.source_file_paths"
+            ),
+            "raw_payload_path": "feature-equity manifest and fixture path metadata",
+            "required_for_final": True,
+            "value_source_when_used": "derived",
+            "confidence_when_used": "high",
+            "finality_when_used": "final",
+            "allowed_types": ["list", "int"],
+            "missing_behavior": "missing committed manifest metadata leaves corpus scope unknown",
+            "privacy_class": "path_only_no_values",
+        },
+        {
+            "signal_id": "feature_equity.feature_equity_counts.count_sections",
+            "parser_event_kind": "feature_equity_corpus",
+            "parser_event_type": "parser_feature_equity_corpus_ratchet_report.v1",
+            "raw_event_family": "fixture_corpus_report",
+            "raw_message_type": "",
+            "normalized_payload_path": (
+                "input_counts + router_stats + event_family_counts + event_kind_counts + payload_type_counts + "
+                "parser_claim_counts + game_state_evidence_counts"
+            ),
+            "raw_payload_path": "feature-equity count section paths",
+            "required_for_final": True,
+            "value_source_when_used": "derived",
+            "confidence_when_used": "high",
+            "finality_when_used": "final",
+            "allowed_types": ["dict", "int"],
+            "missing_behavior": "missing count sections leaves feature_equity_counts degraded",
+            "privacy_class": "path_only_no_values",
+        },
+        {
+            "signal_id": "golden_replay.feature_equity_counts.fixture_reports",
+            "parser_event_kind": "golden_replay",
+            "parser_event_type": "golden_replay_report.v1",
+            "raw_event_family": "fixture_validation_report",
+            "raw_message_type": "",
+            "normalized_payload_path": "fixture_reports + router_stats + parser_event_counts",
+            "raw_payload_path": "golden replay fixture report paths",
+            "required_for_final": False,
+            "value_source_when_used": "derived",
+            "confidence_when_used": "medium",
+            "finality_when_used": "final",
+            "allowed_types": ["list", "dict"],
+            "missing_behavior": "missing golden replay report context lowers corpus-count confidence",
+            "privacy_class": "path_only_no_values",
+        },
+    ],
+    "fallback_evidence": [
+        {
+            "signal_id": "feature_equity.feature_equity_counts.baseline_comparison",
+            "parser_event_kind": "feature_equity_corpus",
+            "parser_event_type": "parser_feature_equity_corpus_ratchet_report.v1",
+            "raw_event_family": "fixture_corpus_report",
+            "raw_message_type": "",
+            "normalized_payload_path": (
+                "baseline + comparison.matching_sections + comparison.diff_sections + "
+                "comparison.review_sections + comparison.count_diffs"
+            ),
+            "raw_payload_path": "feature-equity baseline and comparison paths",
+            "required_for_final": False,
+            "value_source_when_used": "derived",
+            "confidence_when_used": "medium",
+            "finality_when_used": "final",
+            "allowed_types": ["dict", "list"],
+            "missing_behavior": "missing, malformed, unreadable, or diffing baseline requires review",
+            "privacy_class": "path_only_no_values",
+        },
+        {
+            "signal_id": "feature_equity.feature_equity_counts.privacy_and_protection",
+            "parser_event_kind": "feature_equity_corpus",
+            "parser_event_type": "parser_feature_equity_corpus_ratchet_report.v1",
+            "raw_event_family": "fixture_corpus_report",
+            "raw_message_type": "",
+            "normalized_payload_path": "privacy + protected_surfaces + limitations",
+            "raw_payload_path": "feature-equity privacy and protected-surface section paths",
+            "required_for_final": False,
+            "value_source_when_used": "derived",
+            "confidence_when_used": "medium",
+            "finality_when_used": "final",
+            "allowed_types": ["dict", "list"],
+            "missing_behavior": "privacy findings, protected-surface findings, or missing limitations require review",
+            "privacy_class": "path_only_no_values",
+        },
+        {
+            "signal_id": "ledger.tier6.runtime_health.feature_equity_counts_context",
+            "parser_event_kind": "parser_context",
+            "parser_event_type": "",
+            "raw_event_family": "parser_context",
+            "raw_message_type": "",
+            "normalized_payload_path": (
+                "ledger.entries[tier6.diagnostics_status] + ledger.entries[tier6.unknown_entry_count] + "
+                "ledger.entries[tier6.truncation_count]"
+            ),
+            "raw_payload_path": "",
+            "required_for_final": False,
+            "value_source_when_used": "derived",
+            "confidence_when_used": "low",
+            "finality_when_used": "provisional",
+            "allowed_types": ["dict"],
+            "missing_behavior": "unknowns, degradation, and truncation/data-loss context can require review",
+            "privacy_class": "path_only_no_values",
+        },
+    ],
+    "value_source_policy": {
+        "direct": "derived",
+        "fallback": "derived",
+        "missing": "unknown",
+        "contradiction": "conflict",
+    },
+    "confidence_policy": {
+        "direct": "high",
+        "fallback": "medium",
+        "weak_fallback": "low",
+        "missing": "unknown",
+        "contradiction": "low",
+    },
+    "finality_policy": {
+        "local_report_snapshot": "final",
+        "provisional": "provisional",
+        "corrected_by_later_evidence": "reconciled",
+    },
+    "invariant_checks": [
+        "tier7_derived_analytics_status_is_seeded_sample",
+        "tier7_seed_fields_are_broad_analytics_entries",
+        "tier7_no_metric_subfields_seeded",
+        "tier7_parser_managed_truth_means_report_metadata_not_parser_fact_truth",
+        "tier7_feature_equity_counts_are_report_only",
+        "tier7_feature_equity_ok_is_not_semantic_correctness_or_merge_readiness",
+        "tier7_feature_equity_counts_are_corpus_scoped",
+        "tier7_ai_and_model_provider_output_are_downstream_only",
+        "tier7_privacy_path_only_no_values",
+    ],
+    "degradation_behavior": [
+        "missing baseline status is review, malformed or unreadable baseline status is fail, and count diffs require "
+        "review",
+        "golden replay review, degraded, diff, or fail status lowers feature-equity count confidence",
+        "unknown entries, timestamp anomalies, truncation/data-loss markers, degraded parser outputs, missing expected "
+        "sections, unexpected observed sections, or privacy findings can require review",
+        "ok status is not semantic correctness, no-drift proof, CI truth, merge readiness, deploy readiness, workbook "
+        "truth, Apps Script truth, analytics truth, model-provider output, or AI truth",
+        "zero counts are scoped to the analyzed committed sanitized or synthetic corpus and reviewed baseline only",
+        "feature-equity counts must not overwrite parser-owned match, game, event, card identity, or gameplay-action "
+        "facts",
+    ],
+    "drift_flags": [
+        "missing_expected_event_family",
+        "missing_expected_payload_path",
+        "changed_signal_type",
+        "new_unknown_event_family",
+        "new_unknown_payload_path",
+        "weak_fallback_used",
+        "conflicting_evidence",
+        "invariant_failed",
+        "fixture_gap",
+        "parser_exception",
+        "sensitive_evidence_redacted",
+    ],
+    "recommended_review_modules": [
+        "src/mythic_edge_parser/app/feature_equity_corpus_ratchet.py",
+        "src/mythic_edge_parser/app/golden_replay.py",
+        "src/mythic_edge_parser/app/parser_diagnostics.py",
+        "src/mythic_edge_parser/app/log_drift_sensor.py",
+        "src/mythic_edge_parser/app/evidence_ledger.py",
+    ],
+    "tests": [
+        "tests/test_evidence_ledger.py",
+        "tests/test_feature_equity_corpus_ratchet.py",
+        "tests/test_golden_replay_harness.py",
+        "tests/test_parser_diagnostics_mode.py",
+        "tests/test_log_drift_sensor.py",
+    ],
+    "fixture_refs": ["tests/fixtures/feature_equity_corpus"],
+    "notes": [
+        "Issue #173 documents feature_equity_counts provenance without changing feature-equity report behavior.",
+        "parser_managed_truth means local report-count provenance ownership only for this Tier 7 entry.",
+        "Feature-equity status and count sections are report-only corpus evidence, not parser semantic correctness, "
+        "merge readiness, deploy readiness, workbook truth, analytics truth, model-provider output, or AI truth.",
+        "feature_equity_counts is not parser-owned match, game, event, card identity, gameplay-action, analytics, "
+        "model-provider, or AI fact truth.",
+    ],
+}
+
+
 _TOTAL_MULLIGANS_ENTRY: dict[str, Any] = {
     "entry_id": "tier3.mulligans.total_mulligans",
     "tier": 3,
@@ -8004,6 +8512,8 @@ _LEDGER_ENTRIES: tuple[dict[str, Any], ...] = (
     _DIAGNOSTICS_STATUS_ENTRY,
     _UNKNOWN_ENTRY_COUNT_ENTRY,
     _TRUNCATION_COUNT_ENTRY,
+    _CARD_PERFORMANCE_ENTRY,
+    _FEATURE_EQUITY_COUNTS_ENTRY,
 )
 
 
@@ -8189,7 +8699,7 @@ def _validate_output_families(value: Any) -> list[str]:
         "sideboarding_and_deck_state": "seeded_sample",
         "card_identity_and_gameplay_actions": "seeded_sample",
         "runtime_health_and_drift_detection": "seeded_sample",
-        "derived_analytics_outputs": "registered_future",
+        "derived_analytics_outputs": "seeded_sample",
     }
     for family_name, expected_status in required_statuses.items():
         family = families.get(family_name)

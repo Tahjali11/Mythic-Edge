@@ -560,6 +560,88 @@ CONTRACTED_TIER6_FORBIDDEN_SEED_FIELDS = {
     "ai_confidence",
 }
 
+CONTRACTED_TIER7_FIELDS = [
+    "card_performance",
+    "feature_equity_counts",
+]
+
+CONTRACTED_TIER7_ENTRY_IDS = {
+    "tier7.derived_analytics_outputs.card_performance",
+    "tier7.derived_analytics_outputs.feature_equity_counts",
+}
+
+CONTRACTED_TIER7_FORBIDDEN_SEED_FIELDS = {
+    "seen_win_rate",
+    "opening_hand_win_rate",
+    "cast_win_rate",
+    "postboard_cast_win_rate",
+    "mulligan_tax",
+    "top_matchups",
+    "top_packages",
+    "baseline_game_win_rate",
+    "total_cards",
+    "total_games",
+    "feature_equity_status",
+    "feature_equity_status_reasons",
+    "feature_equity_baseline_status",
+    "fixture_pass_rate",
+    "event_family_counts",
+    "parser_claim_counts",
+    "semantic_correctness",
+    "merge_readiness",
+    "deploy_readiness",
+    "ci_status",
+    "workbook_status",
+    "ai_confidence",
+    "sideboarding_recommendations",
+    "matchup_notes",
+    "gameplay_advice",
+    "player_mistake_labels",
+}
+
+CONTRACTED_CARD_PERFORMANCE_REPORT_METADATA_FACETS = {
+    "object",
+    "generated_at",
+    "total_cards",
+    "total_games",
+    "baseline_game_win_rate",
+}
+
+CONTRACTED_CARD_PERFORMANCE_IDENTITY_DISPLAY_FACETS = {
+    "cards[].card_key",
+    "cards[].grp_id",
+    "cards[].card_name",
+    "cards[].display_name",
+    "cards[].resolution_status",
+    "cards[].layout",
+    "cards[].card_faces",
+}
+
+CONTRACTED_CARD_PERFORMANCE_COUNT_RATE_FACETS = {
+    "cards[].games_seen",
+    "cards[].seen_in_game_games",
+    "cards[].seen_in_game_win_rate",
+    "cards[].opening_hand_games",
+    "cards[].opening_hand_win_rate",
+    "cards[].cast_games",
+    "cards[].cast_win_rate",
+    "cards[].postboard_cast_games",
+    "cards[].postboard_cast_win_rate",
+    "cards[].mulliganed_away_games",
+    "cards[].mulliganed_away_win_rate",
+    "cards[].mulligan_tax",
+}
+
+CONTRACTED_CARD_PERFORMANCE_COOCCURRENCE_DISPLAY_FACETS = {
+    "cards[].top_matchups[].label",
+    "cards[].top_matchups[].games",
+    "cards[].top_matchups[].win_rate",
+    "cards[].top_packages[].card_key",
+    "cards[].top_packages[].display_name",
+    "cards[].top_packages[].games",
+    "cards[].top_packages[].win_rate",
+}
+
 
 def _entries_by_id() -> dict[str, dict[str, object]]:
     return {entry["entry_id"]: entry for entry in evidence_ledger.iter_ledger_entries()}
@@ -604,6 +686,11 @@ def _signal_ids(entry: dict[str, object], key: str) -> set[str]:
 
 def _all_signal_ids(entry: dict[str, object]) -> set[str]:
     return _signal_ids(entry, "direct_evidence") | _signal_ids(entry, "fallback_evidence")
+
+
+def _assert_path_mentions(path: str, facets: set[str]) -> None:
+    for facet in facets:
+        assert facet in path
 
 
 def test_vocabulary_constants_match_contract_slice() -> None:
@@ -679,7 +766,7 @@ def test_output_family_registry_contains_required_seven_families() -> None:
         (4, "sideboarding_and_deck_state", "seeded_sample"),
         (5, "card_identity_and_gameplay_actions", "seeded_sample"),
         (6, "runtime_health_and_drift_detection", "seeded_sample"),
-        (7, "derived_analytics_outputs", "registered_future"),
+        (7, "derived_analytics_outputs", "seeded_sample"),
     ]
     tier1 = _tier1_family()
     assert tier1["seed_fields"] == CONTRACTED_TIER1_FIELDS
@@ -757,9 +844,13 @@ def test_output_family_registry_contains_required_seven_families() -> None:
     assert any("does not change diagnostics behavior" in item for item in tier6["notes"])
 
     tier7 = _tier7_family()
-    assert tier7["status"] == "registered_future"
-    assert tier7["seed_fields"] == []
-    assert tier7["future_fields"] == ["card_performance", "feature_equity_counts"]
+    assert tier7["status"] == "seeded_sample"
+    assert tier7["seed_fields"] == CONTRACTED_TIER7_FIELDS
+    assert tier7["future_fields"] == []
+    assert CONTRACTED_TIER7_FORBIDDEN_SEED_FIELDS.isdisjoint(tier7["seed_fields"])
+    assert any("Issue #173 maps derived analytics provenance" in item for item in tier7["notes"])
+    assert any("not parser-owned match, game, card identity" in item for item in tier7["notes"])
+    assert any("does not change card-performance calculations" in item for item in tier7["notes"])
 
 
 def test_seed_entry_maps_match_id_evidence_signals() -> None:
@@ -801,6 +892,7 @@ def test_tier1_match_lifecycle_and_aggregate_entries_are_mapped() -> None:
         | CONTRACTED_TIER4_ENTRY_IDS
         | CONTRACTED_TIER5_ENTRY_IDS
         | CONTRACTED_TIER6_ENTRY_IDS
+        | CONTRACTED_TIER7_ENTRY_IDS
     )
     assert CONTRACTED_TIER1_ENTRY_IDS.issubset(entries)
     assert all(entries[entry_id]["tier"] == 1 for entry_id in CONTRACTED_TIER1_ENTRY_IDS)
@@ -3260,9 +3352,9 @@ def test_tier6_runtime_health_keeps_forbidden_fields_and_truth_gates_out() -> No
 
     assert CONTRACTED_TIER6_FORBIDDEN_SEED_FIELDS.isdisjoint(tier6["seed_fields"])
     assert CONTRACTED_TIER6_FORBIDDEN_SEED_FIELDS.isdisjoint(tier6_output_fields)
-    assert tier7["status"] == "registered_future"
-    assert tier7["seed_fields"] == []
-    assert tier7["future_fields"] == ["card_performance", "feature_equity_counts"]
+    assert tier7["status"] == "seeded_sample"
+    assert tier7["seed_fields"] == CONTRACTED_TIER7_FIELDS
+    assert tier7["future_fields"] == []
 
     for entry_id in CONTRACTED_TIER6_ENTRY_IDS:
         entry = entries[entry_id]
@@ -3271,6 +3363,159 @@ def test_tier6_runtime_health_keeps_forbidden_fields_and_truth_gates_out() -> No
             "model-provider output" in item or "AI" in item
             for item in (*entry["degradation_behavior"], *entry["notes"])
         )
+
+
+def test_tier7_derived_analytics_entries_are_seeded_and_validate() -> None:
+    entries = _entries_by_id()
+    tier7 = _tier7_family()
+    tier7_entry_ids = {
+        entry_id
+        for entry_id, entry in entries.items()
+        if entry["output_family"] == "derived_analytics_outputs"
+    }
+
+    assert tier7["status"] == "seeded_sample"
+    assert tier7["seed_fields"] == CONTRACTED_TIER7_FIELDS
+    assert tier7["future_fields"] == []
+    assert tier7_entry_ids == CONTRACTED_TIER7_ENTRY_IDS
+
+    for entry_id in CONTRACTED_TIER7_ENTRY_IDS:
+        entry = entries[entry_id]
+        assert evidence_ledger.validate_ledger_entry(entry) == []
+        assert entry["tier"] == 7
+        assert entry["output_family"] == "derived_analytics_outputs"
+        assert entry["output_field"] in CONTRACTED_TIER7_FIELDS
+        assert entry["coverage_status"] == "seeded_sample"
+        assert entry["parser_managed_truth"] is True
+        assert entry["value_source_policy"]["direct"] == "derived"
+        assert entry["value_source_policy"]["fallback"] == "derived"
+        assert "tier7_parser_managed_truth_means_report_metadata_not_parser_fact_truth" in entry["invariant_checks"]
+        assert "tier7_no_metric_subfields_seeded" in entry["invariant_checks"]
+        assert "tier7_privacy_path_only_no_values" in entry["invariant_checks"]
+
+
+def test_tier7_card_performance_entry_documents_local_analytics_boundary() -> None:
+    entry = _entries_by_id()["tier7.derived_analytics_outputs.card_performance"]
+    signal_ids = _all_signal_ids(entry)
+    entry_text = json.dumps(entry, sort_keys=True)
+
+    assert {
+        "card_performance.card_performance.report_metadata",
+        "card_performance.card_performance.card_identity_display_facets",
+        "card_performance.card_performance.metric_facets",
+        "card_performance.card_performance.cooccurrence_display_facets",
+        "card_performance.card_performance.local_input_artifacts",
+        "grp_id_catalog.card_performance.card_identity_lookup",
+        "ledger.tier3.game_level_facts.card_performance_dependency",
+        "ledger.tier5.card_identity_and_actions.card_performance_dependency",
+        "ledger.tier6.runtime_health.card_performance_degradation_context",
+    }.issubset(signal_ids)
+    assert entry["parser_owner"] == "src/mythic_edge_parser/app/card_performance.py"
+    assert entry["display_name"] == "Card Performance"
+    assert "tier7_card_performance_is_local_derived_analytics" in entry["invariant_checks"]
+    assert "tier7_card_performance_metrics_are_input_scoped" in entry["invariant_checks"]
+    assert "tier7_card_performance_top_matchups_are_not_archetype_truth" in entry["invariant_checks"]
+    assert "tier7_card_performance_top_packages_are_not_deckbuilding_advice" in entry["invariant_checks"]
+    assert "top_matchups" in entry_text
+    assert "top_packages" in entry_text
+    assert "local analyzed input set" in entry_text
+    assert "not global performance truth" in entry_text
+    assert "not archetype truth" in entry_text
+    assert "deckbuilding truth" in entry_text
+    assert "sideboarding advice" in entry_text
+    assert "gameplay advice" in entry_text
+    assert "player-mistake labels" in entry_text
+    assert "must not overwrite parser-owned match" in entry_text
+
+
+def test_tier7_card_performance_evidence_paths_cover_contracted_report_facets() -> None:
+    entry = _entries_by_id()["tier7.derived_analytics_outputs.card_performance"]
+    direct_signals = {signal["signal_id"]: signal for signal in entry["direct_evidence"]}
+
+    metadata = direct_signals["card_performance.card_performance.report_metadata"]
+    identity = direct_signals["card_performance.card_performance.card_identity_display_facets"]
+    metrics = direct_signals["card_performance.card_performance.metric_facets"]
+    cooccurrence = direct_signals["card_performance.card_performance.cooccurrence_display_facets"]
+
+    _assert_path_mentions(metadata["normalized_payload_path"], CONTRACTED_CARD_PERFORMANCE_REPORT_METADATA_FACETS)
+    _assert_path_mentions(identity["normalized_payload_path"], CONTRACTED_CARD_PERFORMANCE_IDENTITY_DISPLAY_FACETS)
+    _assert_path_mentions(metrics["normalized_payload_path"], CONTRACTED_CARD_PERFORMANCE_COUNT_RATE_FACETS)
+    _assert_path_mentions(
+        cooccurrence["normalized_payload_path"],
+        CONTRACTED_CARD_PERFORMANCE_COOCCURRENCE_DISPLAY_FACETS,
+    )
+
+    assert "float" not in metadata["allowed_types"]
+    assert "float" not in metrics["allowed_types"]
+    assert "float" not in cooccurrence["allowed_types"]
+    assert "float-or-empty report value" in metadata["missing_behavior"]
+    assert "float-or-empty report values" in metrics["missing_behavior"]
+    assert {"list", "dict", "str", "int", "unknown"}.issubset(cooccurrence["allowed_types"])
+    assert cooccurrence["required_for_final"] is False
+    assert cooccurrence["confidence_when_used"] == "medium"
+    assert "not archetype truth" in cooccurrence["missing_behavior"]
+    assert "not a global performance truth" not in cooccurrence["missing_behavior"]
+
+
+def test_tier7_feature_equity_counts_entry_documents_report_only_boundary() -> None:
+    entry = _entries_by_id()["tier7.derived_analytics_outputs.feature_equity_counts"]
+    signal_ids = _all_signal_ids(entry)
+    entry_text = json.dumps(entry, sort_keys=True)
+
+    assert {
+        "feature_equity.feature_equity_counts.report_metadata",
+        "feature_equity.feature_equity_counts.input_manifest_metadata",
+        "feature_equity.feature_equity_counts.count_sections",
+        "golden_replay.feature_equity_counts.fixture_reports",
+        "feature_equity.feature_equity_counts.baseline_comparison",
+        "feature_equity.feature_equity_counts.privacy_and_protection",
+        "ledger.tier6.runtime_health.feature_equity_counts_context",
+    }.issubset(signal_ids)
+    assert entry["parser_owner"] == "src/mythic_edge_parser/app/feature_equity_corpus_ratchet.py"
+    assert entry["display_name"] == "Feature-Equity Counts"
+    assert "tier7_feature_equity_counts_are_report_only" in entry["invariant_checks"]
+    assert "tier7_feature_equity_ok_is_not_semantic_correctness_or_merge_readiness" in entry["invariant_checks"]
+    assert "tier7_feature_equity_counts_are_corpus_scoped" in entry["invariant_checks"]
+    assert "parser_feature_equity_corpus_ratchet_report.v1" in entry_text
+    assert "golden replay" in entry_text
+    assert "manifest" in entry_text
+    assert "baseline" in entry_text
+    assert "privacy" in entry_text
+    assert "ok status is not semantic correctness" in entry_text
+    assert "no-drift proof" in entry_text
+    assert "merge readiness" in entry_text
+    assert "deploy readiness" in entry_text
+    assert "workbook truth" in entry_text
+    assert "AI truth" in entry_text
+
+
+def test_tier7_derived_analytics_keeps_forbidden_fields_and_truth_gates_out() -> None:
+    tier7 = _tier7_family()
+    entries = _entries_by_id()
+    tier7_output_fields = {
+        entry["output_field"]
+        for entry in entries.values()
+        if entry["output_family"] == "derived_analytics_outputs"
+    }
+
+    assert CONTRACTED_TIER7_FORBIDDEN_SEED_FIELDS.isdisjoint(tier7["seed_fields"])
+    assert CONTRACTED_TIER7_FORBIDDEN_SEED_FIELDS.isdisjoint(tier7_output_fields)
+    assert set(tier7["seed_fields"]) == tier7_output_fields
+    assert not any(
+        entry_id.startswith("tier7.derived_analytics_outputs.")
+        and entry_id not in CONTRACTED_TIER7_ENTRY_IDS
+        for entry_id in entries
+    )
+
+    for entry_id in CONTRACTED_TIER7_ENTRY_IDS:
+        entry = entries[entry_id]
+        entry_text = json.dumps(entry, sort_keys=True)
+        assert "tier7_ai_and_model_provider_output_are_downstream_only" in entry["invariant_checks"]
+        assert "tier7_privacy_path_only_no_values" in entry["invariant_checks"]
+        assert "model-provider" in entry_text
+        assert "AI truth" in entry_text
+        assert "not parser truth" in entry_text or "not parser-owned" in entry_text
+        assert "path_only_no_values" in entry_text
 
 
 def test_builtin_ledger_and_entries_validate_cleanly() -> None:
