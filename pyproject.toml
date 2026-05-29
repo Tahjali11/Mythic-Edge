@@ -9,7 +9,7 @@ description = "Python reimplementation of the core Mythic Edge MTG Arena log par
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [{name = "OpenAI"}]
-license = {text = "MIT"}
+license = "MIT"
 dependencies = [
   "beautifulsoup4>=4.14,<5",
   "requests>=2,<3",
@@ -18,7 +18,6 @@ keywords = ["mtg", "mtga", "parser", "logs", "arena"]
 classifiers = [
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
-  "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent"
 ]
 
