@@ -8,6 +8,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
+from . import evidence_ledger
 from .analytics_migration_loader import ANALYTICS_SCHEMA_VERSION, apply_analytics_migrations
 from .opponent_card_observations import (
     OPPONENT_CARD_OBSERVATION_OBJECT,
@@ -78,6 +79,54 @@ _ALLOWED_OBSERVATION_DRIFT_STATUS = {
     "missing_expected_evidence",
     "redacted",
 }
+_FIELD_EVIDENCE_FACT_TABLE_PRIMARY_KEYS = {
+    "matches": "match_id",
+    "games": "game_id",
+    "match_results": "match_result_id",
+    "game_results": "game_result_id",
+    "match_context": "match_context_id",
+    "rank_snapshots": "rank_snapshot_id",
+    "opening_hands": "opening_hand_id",
+    "opening_hand_cards": "opening_hand_card_id",
+    "mulligan_events": "mulligan_event_id",
+    "mulligan_bottomed_or_discarded_cards": "mulligan_card_id",
+    "gameplay_actions": "gameplay_action_id",
+    "gameplay_action_cards": "gameplay_action_card_id",
+    "opponent_card_observations": "opponent_card_observation_id",
+    "opponent_card_observation_cards": "opponent_card_observation_card_id",
+}
+_SAFE_FIELD_EVIDENCE_LABEL_RE = re.compile(r"^[A-Za-z0-9_./:+ -]+$")
+_PRIVATE_FIELD_EVIDENCE_MARKERS = (
+    "player.log",
+    "[unitycrossthreadlogger]",
+    "[client gre]",
+    "detailed logs:",
+    "script.google.com",
+    "https://hooks.",
+    "http://hooks.",
+    "failed_" + "posts",
+    "runtime_" + "status",
+    "webhook",
+    "api_" + "key",
+    "apikey",
+    "access_" + "token",
+    "bearer ",
+    "secret",
+    "password",
+)
+_LOCAL_ABSOLUTE_PATH_ROOTS = (
+    "/applications",
+    "/etc",
+    "/home",
+    "/mnt",
+    "/opt",
+    "/private",
+    "/tmp",
+    "/users",
+    "/var",
+    "/volumes",
+)
+_SLASH_PREFIXED_DRIVE_PATH_RE = re.compile(r"^/[a-z]:($|/)")
 
 
 class AnalyticsReplayIngestError(ValueError):
@@ -217,6 +266,12 @@ def ingest_parser_normalized_replay(
             ingest_run_id=ingest_run_id,
             now=timestamp,
             warnings=warnings,
+        )
+        _ingest_field_evidence_entries(
+            connection,
+            normalized.field_evidence_entries,
+            ingest_run_id=ingest_run_id,
+            now=timestamp,
         )
         row_counts = _table_counts(connection, _TOUCHED_TABLES)
         _upsert_ingest_run(
@@ -1249,6 +1304,206 @@ def _gameplay_action_exists(connection: sqlite3.Connection, gameplay_action_id: 
     return row is not None
 
 
+def _ingest_field_evidence_entries(
+    connection: sqlite3.Connection,
+    field_evidence_entries: tuple[dict[str, object], ...],
+    *,
+    ingest_run_id: str,
+    now: str,
+) -> None:
+    for index, entry in enumerate(field_evidence_entries):
+        normalized = _normalize_field_evidence_entry(entry, index)
+        _require_target_fact_row(
+            connection,
+            fact_table=str(normalized["fact_table"]),
+            fact_id=str(normalized["fact_id"]),
+            context=f"field_evidence_entries[{index}]",
+        )
+        _upsert_fact_provenance(
+            connection,
+            fact_table=str(normalized["fact_table"]),
+            fact_id=str(normalized["fact_id"]),
+            fact_field=str(normalized["fact_field"]),
+            source_parser_surface=str(normalized["source_parser_surface"]),
+            source_fact_key=str(normalized["source_fact_key"]),
+            ingest_run_id=ingest_run_id,
+            finality=str(normalized["finality"]),
+            now=now,
+            fact_provenance_id=str(normalized["fact_provenance_id"]),
+            ledger_entry_id=str(normalized["entry_id"]),
+            source_event_kind=_optional_text(normalized["source_event_kind"]),
+            source_event_type=_optional_text(normalized["source_event_type"]),
+            source_payload_paths=normalized["source_payload_paths"],  # type: ignore[arg-type]
+            source_event_timestamp=_optional_text(normalized["source_event_timestamp"]),
+            value_source=str(normalized["value_source"]),
+            confidence=str(normalized["confidence"]),
+            drift_flags=normalized["drift_flags"],  # type: ignore[arg-type]
+            invariant_status=str(normalized["invariant_status"]),
+            degraded_reason=_optional_text(normalized["degraded_reason"]),
+            review_required=int(normalized["review_required"]),
+        )
+
+
+def _normalize_field_evidence_entry(entry: Mapping[str, object], index: int) -> dict[str, object]:
+    context = f"field_evidence_entries[{index}]"
+    canonical = {
+        field_name: entry[field_name]
+        for field_name in evidence_ledger.REQUIRED_FIELD_EVIDENCE_FIELDS
+        if field_name in entry
+    }
+    validation_errors = [
+        error
+        for error in evidence_ledger.validate_field_evidence(canonical)
+        if not error.startswith("privacy:absolute_path:field_evidence.source_payload_paths[")
+    ]
+    if validation_errors:
+        raise AnalyticsReplayIngestError(f"{context} invalid field evidence: {', '.join(validation_errors)}")
+
+    fact_table = _required_field_evidence_label(entry.get("fact_table"), f"{context}.fact_table")
+    if fact_table not in _FIELD_EVIDENCE_FACT_TABLE_PRIMARY_KEYS:
+        raise AnalyticsReplayIngestError(f"{context}.fact_table must be an existing analytics fact table")
+
+    source_payload_paths = _required_safe_string_list(
+        entry.get("source_payload_paths"),
+        f"{context}.source_payload_paths",
+        allow_json_pointers=True,
+    )
+    drift_flags = _required_safe_string_list(
+        entry.get("drift_flags"),
+        f"{context}.drift_flags",
+        allow_json_pointers=False,
+    )
+    normalized = {
+        "entry_id": _required_field_evidence_label(entry.get("entry_id"), f"{context}.entry_id"),
+        "fact_table": fact_table,
+        "fact_id": _required_field_evidence_label(entry.get("fact_id"), f"{context}.fact_id"),
+        "fact_field": _required_field_evidence_label(entry.get("fact_field"), f"{context}.fact_field"),
+        "source_parser_surface": _required_field_evidence_label(
+            entry.get("source_parser_surface"),
+            f"{context}.source_parser_surface",
+        ),
+        "source_fact_key": _required_field_evidence_label(
+            entry.get("source_fact_key"),
+            f"{context}.source_fact_key",
+        ),
+        "source_event_kind": _optional_field_evidence_label(
+            entry.get("source_event_kind"),
+            f"{context}.source_event_kind",
+        ),
+        "source_event_type": _optional_field_evidence_label(
+            entry.get("source_event_type"),
+            f"{context}.source_event_type",
+        ),
+        "source_payload_paths": source_payload_paths,
+        "source_event_timestamp": _optional_field_evidence_label(
+            entry.get("source_event_timestamp"),
+            f"{context}.source_event_timestamp",
+        ),
+        "value_source": str(entry["value_source"]),
+        "confidence": str(entry["confidence"]),
+        "finality": str(entry["finality"]),
+        "drift_flags": drift_flags,
+        "invariant_status": str(entry["invariant_status"]),
+        "degraded_reason": _optional_field_evidence_label(
+            entry.get("degraded_reason"),
+            f"{context}.degraded_reason",
+        ),
+        "review_required": int(bool(entry["review_required"])),
+    }
+    normalized["fact_provenance_id"] = _field_evidence_provenance_id(normalized)
+    return normalized
+
+
+def _field_evidence_provenance_id(normalized: Mapping[str, object]) -> str:
+    id_payload = {
+        "fact_table": normalized["fact_table"],
+        "fact_id": normalized["fact_id"],
+        "fact_field": normalized["fact_field"],
+        "entry_id": normalized["entry_id"],
+        "source_parser_surface": normalized["source_parser_surface"],
+        "source_fact_key": normalized["source_fact_key"],
+        "source_event_kind": normalized["source_event_kind"],
+        "source_event_type": normalized["source_event_type"],
+        "source_payload_paths": normalized["source_payload_paths"],
+    }
+    digest = hashlib.sha256(_canonical_json(id_payload).encode("utf-8")).hexdigest()
+    return f"field_evidence:{digest}"
+
+
+def _require_target_fact_row(
+    connection: sqlite3.Connection,
+    *,
+    fact_table: str,
+    fact_id: str,
+    context: str,
+) -> None:
+    primary_key = _FIELD_EVIDENCE_FACT_TABLE_PRIMARY_KEYS[fact_table]
+    row = connection.execute(
+        f"SELECT 1 FROM {fact_table} WHERE {primary_key} = ? LIMIT 1",
+        (fact_id,),
+    ).fetchone()
+    if row is None:
+        raise AnalyticsReplayIngestError(f"{context} references missing target fact row: {fact_table}.{fact_id}")
+
+
+def _required_field_evidence_label(value: object, field_name: str) -> str:
+    text = _required_text(value, field_name)
+    _validate_safe_field_evidence_label(text, field_name, allow_json_pointer=False)
+    return text
+
+
+def _optional_field_evidence_label(value: object, field_name: str) -> str | None:
+    text = _optional_text(value)
+    if text is None:
+        return None
+    _validate_safe_field_evidence_label(text, field_name, allow_json_pointer=False)
+    return text
+
+
+def _required_safe_string_list(
+    value: object,
+    field_name: str,
+    *,
+    allow_json_pointers: bool,
+) -> list[str]:
+    if not isinstance(value, list):
+        raise AnalyticsReplayIngestError(f"{field_name} must be a list of strings")
+    values: list[str] = []
+    for index, item in enumerate(value):
+        if not isinstance(item, str):
+            raise AnalyticsReplayIngestError(f"{field_name}[{index}] must be a string")
+        text = item.strip()
+        if not text:
+            raise AnalyticsReplayIngestError(f"{field_name}[{index}] must be a non-empty safe label")
+        _validate_safe_field_evidence_label(
+            text,
+            f"{field_name}[{index}]",
+            allow_json_pointer=allow_json_pointers,
+        )
+        values.append(text)
+    return values
+
+
+def _validate_safe_field_evidence_label(value: str, field_name: str, *, allow_json_pointer: bool) -> None:
+    normalized = value.lower().replace("\\", "/")
+    if (
+        any(normalized == root or normalized.startswith(f"{root}/") for root in _LOCAL_ABSOLUTE_PATH_ROOTS)
+        or _SLASH_PREFIXED_DRIVE_PATH_RE.match(normalized) is not None
+    ):
+        raise AnalyticsReplayIngestError(f"{field_name} must be a safe field-evidence label")
+    private_shape = _PRIVATE_LABEL_RE.search(value) is not None
+    allowed_json_pointer = allow_json_pointer and value.startswith("/") and not normalized.startswith("//")
+    if (private_shape and not allowed_json_pointer) or normalized.startswith("//"):
+        raise AnalyticsReplayIngestError(f"{field_name} must be a safe field-evidence label")
+    if not allow_json_pointer and value.startswith("/"):
+        raise AnalyticsReplayIngestError(f"{field_name} must be a safe field-evidence label")
+    if not _SAFE_FIELD_EVIDENCE_LABEL_RE.fullmatch(value):
+        raise AnalyticsReplayIngestError(f"{field_name} must be a safe field-evidence label")
+    marker_text = normalized.replace("-", "_").replace(" ", "")
+    if any(marker in marker_text for marker in _PRIVATE_FIELD_EVIDENCE_MARKERS):
+        raise AnalyticsReplayIngestError(f"{field_name} must be a safe field-evidence label")
+
+
 def _required_enum(value: object, field_name: str, allowed_values: set[str]) -> str:
     text = _required_text(value, field_name)
     if text not in allowed_values:
@@ -1594,17 +1849,20 @@ def _upsert_fact_provenance(
     value_source: str = "derived",
     confidence: str = "unknown",
     drift_flags: Sequence[str] | None = None,
+    invariant_status: str | None = None,
     degraded_reason: str | None = None,
     review_required: int = 0,
+    fact_provenance_id: str | None = None,
 ) -> None:
     payload_paths = list(source_payload_paths) if source_payload_paths is not None else [f"/{source_fact_key}"]
     drift_flag_values = list(drift_flags) if drift_flags is not None else []
+    provenance_id = fact_provenance_id or f"{fact_table}:{fact_id}:{fact_field}:provenance"
     _upsert(
         connection,
         "fact_provenance",
         "fact_provenance_id",
         {
-            "fact_provenance_id": f"{fact_table}:{fact_id}:{fact_field}:provenance",
+            "fact_provenance_id": provenance_id,
             "fact_table": fact_table,
             "fact_id": fact_id,
             "fact_field": fact_field,
@@ -1619,7 +1877,7 @@ def _upsert_fact_provenance(
             "confidence": confidence,
             "finality": finality,
             "drift_flags": json.dumps(drift_flag_values, separators=(",", ":")),
-            "invariant_status": None,
+            "invariant_status": invariant_status,
             "degraded_reason": degraded_reason,
             "review_required": review_required,
             "ingest_run_id": ingest_run_id,
@@ -1820,17 +2078,13 @@ def _ingest_timestamp(started_at: str | None, generated_at: str) -> str:
 
 
 def _deferred_optional_warnings(replay: ParserNormalizedReplayInput) -> list[str]:
-    warnings: list[str] = []
-    if replay.field_evidence_entries:
-        warnings.append("field_evidence_entries are accepted but deferred by the first ingest pass")
-    return warnings
+    _ = replay
+    return []
 
 
 def _deferred_optional_skips(replay: ParserNormalizedReplayInput) -> dict[str, int]:
-    skipped: dict[str, int] = {}
-    if replay.field_evidence_entries:
-        skipped["field_evidence_entries"] = len(replay.field_evidence_entries)
-    return skipped
+    _ = replay
+    return {}
 
 
 def _jsonable(value: object) -> object:

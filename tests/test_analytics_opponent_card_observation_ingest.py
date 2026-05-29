@@ -404,15 +404,14 @@ def test_unsafe_degradation_flags_fail_without_persisting_private_text() -> None
         _assert_no_partial_fact_rows(connection)
 
 
-def test_field_evidence_still_remains_deferred_after_observation_ingest() -> None:
+def test_observation_ingest_has_no_optional_deferred_warning() -> None:
     connection = _connect()
     replay = _with_observations(_observation())
-    replay["field_evidence_entries"] = [{"source_fact_key": "opponent_card_observation"}]
 
     result = ingest_parser_normalized_replay(connection, replay, started_at="now", finished_at="done")
 
-    assert result.skipped == {"field_evidence_entries": 1}
-    assert result.warnings == ["field_evidence_entries are accepted but deferred by the first ingest pass"]
+    assert result.skipped == {}
+    assert result.warnings == []
     assert _count(connection, "opponent_card_observations") == 1
 
 

@@ -349,17 +349,14 @@ def test_unsupported_source_kind_and_unsafe_label_fail_clearly() -> None:
         normalize_parser_normalized_replay(replay)
 
 
-def test_deferred_optional_payloads_are_reported_as_skipped() -> None:
+def test_no_optional_payloads_are_reported_as_deferred_after_accepted_slices() -> None:
     replay = _base_replay()
-    replay["field_evidence_entries"] = [{"source_fact_key": "match_id"}]
     connection = _connect()
 
     result = ingest_parser_normalized_replay(connection, replay, started_at="now", finished_at="done")
 
-    assert result.skipped == {
-        "field_evidence_entries": 1,
-    }
-    assert len(result.warnings) == 1
+    assert result.skipped == {}
+    assert result.warnings == []
 
 
 def test_ingest_does_not_create_generated_sqlite_files() -> None:
