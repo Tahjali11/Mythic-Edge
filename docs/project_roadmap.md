@@ -71,21 +71,27 @@ contract, or explicit user instruction, follow the current artifact and record t
 
 ## Current Strategic Recommendation
 
-After the code hardening suite is complete and integrated, prioritize the Player.log evidence ledger / drift protection
-suite before building major analytics tools.
+After the Player.log evidence ledger / drift protection suite is complete and integrated, prioritize the local
+analytics foundation before building AI-assisted coaching or UI-heavy product layers.
 
-Reason: analytics and coaching are only as trustworthy as the parser facts they consume. The ledger gives future
-analytics a way to know not only what happened, but how the project knows it and how confident downstream tools should
-be.
+Reason: analytics and coaching become useful only when normalized parser facts, provenance labels, and replayable
+history can be queried consistently. The local analytics foundation should turn parser-normalized outputs into durable
+SQLite facts and deterministic views without making analytics, Google Sheets, or AI the owner of parser truth.
 
-Expected next tracker after code hardening:
+Expected next tracker:
 
 ```text
-Player.log Evidence Ledger / Drift Protection Suite
+Local Analytics Foundation
 ```
 
 Expected first child issue:
 
 ```text
-Codex A: Problem representation for Player.log evidence ledger and parser drift protection
+Codex A: Problem representation for local gameplay fact warehouse foundation
+```
+
+Current problem representation:
+
+```text
+docs/problem_representations/local_analytics_foundation.md
 ```
