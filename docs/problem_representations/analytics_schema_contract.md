@@ -335,8 +335,8 @@ Expected implementation validation:
 - card lists are queryable one card per row
 - matchup/archetype labels and game notes remain downstream annotations
 - generated database files are ignored by Git
-- no raw Player.log payloads, raw logs, generated data, failed posts, workbook
-  exports, secrets, or local runtime artifacts are committed
+- no raw Player.log payloads, raw logs, generated data, local retry artifacts,
+  workbook exports, secrets, or local runtime artifacts are committed
 
 ## Open Questions For Codex B
 

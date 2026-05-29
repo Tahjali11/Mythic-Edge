@@ -211,8 +211,8 @@ Additional expected validation:
 - low-confidence or inferred facts remain labeled
 - SQL views derive opening lines from stored actions
 - human annotations do not overwrite parser-managed facts
-- no raw Player.log payloads, generated data, failed posts, workbook exports,
-  or local-only artifacts are committed
+- no raw Player.log payloads, generated data, local retry artifacts, workbook
+  exports, or local-only artifacts are committed
 
 ## Open Questions
 
