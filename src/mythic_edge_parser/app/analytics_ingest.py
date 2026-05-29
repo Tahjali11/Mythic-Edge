@@ -25,11 +25,15 @@ _TOUCHED_TABLES = (
     "opening_hand_cards",
     "mulligan_events",
     "mulligan_bottomed_or_discarded_cards",
+    "gameplay_actions",
+    "gameplay_action_cards",
     "fact_provenance",
 )
 _UNAVAILABLE_CARD_VALUES = {"", "[]", "{}", "n/a", "na", "none", "unknown", "unavailable", "not available"}
 _PRIVATE_LABEL_RE = re.compile(r"(^[a-zA-Z]:[\\/]|^[\\/]|://)")
 _INTEGER_TEXT_RE = re.compile(r"[+-]?\d+")
+_ALLOWED_GAMEPLAY_ACTOR_RELATIONS = {"local", "opponent", "unknown", ""}
+_GAMEPLAY_ACTION_LEDGER_ENTRY_ID = "tier5.gameplay_action.gameplay_action"
 
 
 class AnalyticsReplayIngestError(ValueError):
@@ -147,13 +151,20 @@ def ingest_parser_normalized_replay(
             ingest_run_id=ingest_run_id,
             now=timestamp,
         )
-        _ingest_game_log_rows(
+        known_game_ids = _ingest_game_log_rows(
             connection,
             normalized.game_log_rows,
             known_match_ids=known_match_ids,
             ingest_run_id=ingest_run_id,
             now=timestamp,
             warnings=warnings,
+        )
+        _ingest_gameplay_action_entries(
+            connection,
+            normalized.gameplay_action_entries,
+            known_game_ids=known_game_ids,
+            ingest_run_id=ingest_run_id,
+            now=timestamp,
         )
         row_counts = _table_counts(connection, _TOUCHED_TABLES)
         _upsert_ingest_run(
@@ -321,13 +332,15 @@ def _ingest_game_log_rows(
     ingest_run_id: str,
     now: str,
     warnings: list[str],
-) -> None:
+) -> set[str]:
+    known_game_ids: set[str] = set()
     for index, row in enumerate(game_log_rows):
         match_id = _match_id(row, f"game_log_rows[{index}]")
         if match_id not in known_match_ids:
             raise AnalyticsReplayIngestError(f"game_log_rows[{index}] references unknown match_id: {match_id}")
         game_number = _required_positive_int(row.get("Game Number"), f"game_log_rows[{index}].Game Number")
         game_id = f"{match_id}:g{game_number}"
+        known_game_ids.add(game_id)
 
         _upsert(
             connection,
@@ -405,6 +418,431 @@ def _ingest_game_log_rows(
             now=now,
             warnings=warnings,
         )
+    return known_game_ids
+
+
+def _ingest_gameplay_action_entries(
+    connection: sqlite3.Connection,
+    action_entries: tuple[dict[str, object], ...],
+    *,
+    known_game_ids: set[str],
+    ingest_run_id: str,
+    now: str,
+) -> None:
+    for index, entry in enumerate(action_entries):
+        normalized = _normalize_gameplay_action_entry(entry, index)
+        if normalized["game_id"] not in known_game_ids and not _game_exists(connection, str(normalized["game_id"])):
+            raise AnalyticsReplayIngestError(
+                f"gameplay_action_entries[{index}] references unknown game parent: {normalized['game_id']}"
+            )
+
+        action_id = _gameplay_action_id(normalized)
+        source_fact_key = action_id
+        _upsert(
+            connection,
+            "gameplay_actions",
+            "gameplay_action_id",
+            {
+                "gameplay_action_id": action_id,
+                "game_id": normalized["game_id"],
+                "match_id": normalized["match_id"],
+                "game_number": normalized["game_number"],
+                "timestamp": normalized["timestamp"],
+                "game_state_id": normalized["game_state_id"],
+                "turn_number": normalized["turn_number"],
+                "action_type": normalized["action_type"],
+                "actor_relation": normalized["actor_relation"],
+                "from_zone_type": normalized["from_zone_type"],
+                "to_zone_type": normalized["to_zone_type"],
+                "source_status": "parser_normalized",
+                "annotation_context_label": normalized["annotation_context_label"],
+                "raw_action_type_labels": normalized["raw_action_type_labels"],
+                "annotation_type_labels": normalized["annotation_type_labels"],
+                "visible_in_log": normalized["visible_in_log"],
+                **_core_columns(
+                    ingest_run_id=ingest_run_id,
+                    source_parser_surface="gameplay_actions.py",
+                    source_fact_key=source_fact_key,
+                    finality="reconciled",
+                    now=now,
+                ),
+            },
+        )
+        _upsert_gameplay_action_provenance(
+            connection,
+            action_id=action_id,
+            index=index,
+            fact_field="action_type",
+            source_fact_key=source_fact_key,
+            ingest_run_id=ingest_run_id,
+            now=now,
+            event_timestamp=normalized["timestamp"],
+            has_game_state_id=normalized["game_state_id"] is not None,
+        )
+        _upsert_gameplay_action_provenance(
+            connection,
+            action_id=action_id,
+            index=index,
+            fact_field="actor_relation",
+            source_fact_key=source_fact_key,
+            ingest_run_id=ingest_run_id,
+            now=now,
+            event_timestamp=normalized["timestamp"],
+            has_game_state_id=normalized["game_state_id"] is not None,
+        )
+        for zone_field in ("from_zone_type", "to_zone_type"):
+            if normalized[zone_field] is not None:
+                _upsert_gameplay_action_provenance(
+                    connection,
+                    action_id=action_id,
+                    index=index,
+                    fact_field=zone_field,
+                    source_fact_key=source_fact_key,
+                    ingest_run_id=ingest_run_id,
+                    now=now,
+                    event_timestamp=normalized["timestamp"],
+                    has_game_state_id=normalized["game_state_id"] is not None,
+                )
+
+        for card in _gameplay_action_card_rows(
+            entry,
+            action_id=action_id,
+            game_id=str(normalized["game_id"]),
+            action_index=index,
+        ):
+            _upsert(
+                connection,
+                "gameplay_action_cards",
+                "gameplay_action_card_id",
+                {
+                    "gameplay_action_card_id": card["gameplay_action_card_id"],
+                    "gameplay_action_id": action_id,
+                    "game_id": normalized["game_id"],
+                    "card_ordinal": card["card_ordinal"],
+                    "instance_id": card["instance_id"],
+                    "grp_id": card["grp_id"],
+                    "observed_grp_id": card["observed_grp_id"],
+                    "overlay_grp_id": card["overlay_grp_id"],
+                    "object_source_grp_id": card["object_source_grp_id"],
+                    "identity_hint_source": card["identity_hint_source"],
+                    "card_name": card["card_name"],
+                    "display_name": card["display_name"],
+                    "name_resolution_status": card["name_resolution_status"],
+                    "enrichment_status": card["enrichment_status"],
+                    **_core_columns(
+                        ingest_run_id=ingest_run_id,
+                        source_parser_surface="gameplay_actions.py",
+                        source_fact_key=source_fact_key,
+                        finality="reconciled",
+                        now=now,
+                    ),
+                },
+            )
+            if card["grp_id"] is not None:
+                _upsert_gameplay_action_card_provenance(
+                    connection,
+                    card_id=str(card["gameplay_action_card_id"]),
+                    fact_field="grp_id",
+                    source_payload_prefix=str(card["source_payload_prefix"]),
+                    source_fact_key=source_fact_key,
+                    ingest_run_id=ingest_run_id,
+                    now=now,
+                    event_timestamp=normalized["timestamp"],
+                    has_game_state_id=normalized["game_state_id"] is not None,
+                )
+            elif card["instance_id"] is not None:
+                _upsert_gameplay_action_card_provenance(
+                    connection,
+                    card_id=str(card["gameplay_action_card_id"]),
+                    fact_field="instance_id",
+                    source_payload_prefix=str(card["source_payload_prefix"]),
+                    source_fact_key=source_fact_key,
+                    ingest_run_id=ingest_run_id,
+                    now=now,
+                    event_timestamp=normalized["timestamp"],
+                    has_game_state_id=normalized["game_state_id"] is not None,
+                )
+
+
+def _normalize_gameplay_action_entry(entry: Mapping[str, object], index: int) -> dict[str, object]:
+    context = f"gameplay_action_entries[{index}]"
+    match_id = _required_text(entry.get("match_id"), f"{context}.match_id")
+    game_number = _required_positive_int(entry.get("game_number"), f"{context}.game_number")
+    action_type = _required_text(entry.get("action_type"), f"{context}.action_type")
+    actor_relation = _gameplay_actor_relation(entry.get("actor_relation"), f"{context}.actor_relation")
+    raw_action_types = _text_list(entry.get("raw_action_types"), f"{context}.raw_action_types")
+    annotation_types = _text_list(entry.get("annotation_types"), f"{context}.annotation_types")
+    annotation_categories = _text_list(entry.get("annotation_categories"), f"{context}.annotation_categories")
+    return {
+        "game_id": f"{match_id}:g{game_number}",
+        "match_id": match_id,
+        "game_number": game_number,
+        "timestamp": _optional_text(entry.get("timestamp")),
+        "game_state_id": _optional_int(entry.get("game_state_id"), f"{context}.game_state_id"),
+        "turn_number": _optional_int(entry.get("turn_number"), f"{context}.turn_number"),
+        "action_type": action_type,
+        "cast_mode": _optional_text(entry.get("cast_mode")),
+        "instance_id": _optional_int(entry.get("instance_id"), f"{context}.instance_id"),
+        "grp_id": _optional_int(entry.get("grp_id"), f"{context}.grp_id"),
+        "observed_grp_id": _optional_int(entry.get("observed_grp_id"), f"{context}.observed_grp_id"),
+        "overlay_grp_id": _optional_int(entry.get("overlay_grp_id"), f"{context}.overlay_grp_id"),
+        "object_source_grp_id": _optional_int(
+            entry.get("object_source_grp_id"),
+            f"{context}.object_source_grp_id",
+        ),
+        "parent_id": _optional_int(entry.get("parent_id"), f"{context}.parent_id"),
+        "identity_hint_source": _optional_text(entry.get("identity_hint_source")),
+        "actor_relation": actor_relation,
+        "from_zone_type": _optional_text(entry.get("from_zone_type")),
+        "to_zone_type": _optional_text(entry.get("to_zone_type")),
+        "raw_action_types": raw_action_types,
+        "annotation_types": annotation_types,
+        "raw_action_type_labels": _stable_text_list(raw_action_types),
+        "annotation_type_labels": _stable_text_list(annotation_types),
+        "annotation_context_label": _annotation_context_label(annotation_categories),
+        "visible_in_log": _optional_bool_int(entry.get("visible_in_log"), f"{context}.visible_in_log"),
+    }
+
+
+def _gameplay_action_id(normalized: Mapping[str, object]) -> str:
+    id_payload = {
+        "match_id": normalized["match_id"],
+        "game_number": normalized["game_number"],
+        "game_state_id": normalized["game_state_id"],
+        "turn_number": normalized["turn_number"],
+        "action_type": normalized["action_type"],
+        "cast_mode": normalized["cast_mode"],
+        "actor_relation": normalized["actor_relation"],
+        "instance_id": normalized["instance_id"],
+        "grp_id": normalized["grp_id"],
+        "observed_grp_id": normalized["observed_grp_id"],
+        "overlay_grp_id": normalized["overlay_grp_id"],
+        "object_source_grp_id": normalized["object_source_grp_id"],
+        "parent_id": normalized["parent_id"],
+        "from_zone_type": normalized["from_zone_type"],
+        "to_zone_type": normalized["to_zone_type"],
+        "raw_action_types": normalized["raw_action_types"],
+        "annotation_types": normalized["annotation_types"],
+    }
+    digest = hashlib.sha256(_canonical_json(id_payload).encode("utf-8")).hexdigest()
+    return f"gameplay_action:{digest}"
+
+
+def _gameplay_action_card_rows(
+    entry: Mapping[str, object],
+    *,
+    action_id: str,
+    game_id: str,
+    action_index: int,
+) -> list[dict[str, object]]:
+    raw_cards = _card_identity_inputs(entry, action_index=action_index)
+    rows: list[dict[str, object]] = []
+    for fallback_ordinal, (raw_card, source_payload_prefix) in enumerate(raw_cards, start=1):
+        context = f"{action_id}.card[{fallback_ordinal}]"
+        raw_ordinal = raw_card.get("card_ordinal")
+        card_ordinal = (
+            fallback_ordinal
+            if raw_ordinal in (None, "")
+            else _required_positive_int(raw_ordinal, f"{context}.card_ordinal")
+        )
+        card = {
+            "card_ordinal": card_ordinal,
+            "instance_id": _optional_int(raw_card.get("instance_id"), f"{context}.instance_id"),
+            "grp_id": _optional_int(raw_card.get("grp_id"), f"{context}.grp_id"),
+            "observed_grp_id": _optional_int(raw_card.get("observed_grp_id"), f"{context}.observed_grp_id"),
+            "overlay_grp_id": _optional_int(raw_card.get("overlay_grp_id"), f"{context}.overlay_grp_id"),
+            "object_source_grp_id": _optional_int(
+                raw_card.get("object_source_grp_id"),
+                f"{context}.object_source_grp_id",
+            ),
+            "identity_hint_source": _optional_text(raw_card.get("identity_hint_source")),
+            "card_name": _optional_text(raw_card.get("card_name")),
+            "display_name": _optional_text(raw_card.get("display_name")),
+            "name_resolution_status": _optional_text(raw_card.get("resolution_status")),
+        }
+        if not _has_gameplay_card_identity(card):
+            continue
+        card["enrichment_status"] = _gameplay_card_enrichment_status(card)
+        digest = hashlib.sha256(_canonical_json({"action_id": action_id, "card_ordinal": card_ordinal}).encode("utf-8"))
+        rows.append(
+            {
+                "gameplay_action_card_id": f"gameplay_action_card:{digest.hexdigest()}",
+                "gameplay_action_id": action_id,
+                "game_id": game_id,
+                "source_payload_prefix": source_payload_prefix,
+                **card,
+            }
+        )
+    return rows
+
+
+def _card_identity_inputs(entry: Mapping[str, object], *, action_index: int) -> list[tuple[Mapping[str, object], str]]:
+    for field_name in ("associated_cards", "cards", "card_identities"):
+        value = entry.get(field_name)
+        if value is None:
+            continue
+        if isinstance(value, (str, bytes)) or not isinstance(value, Sequence):
+            raise AnalyticsReplayIngestError(f"{field_name} must be a list of mappings")
+        cards: list[tuple[Mapping[str, object], str]] = []
+        for index, item in enumerate(value):
+            if not isinstance(item, Mapping):
+                raise AnalyticsReplayIngestError(f"{field_name}[{index}] must be a mapping")
+            cards.append((item, f"/gameplay_action_entries/{action_index}/{field_name}/{index}"))
+        return cards
+    return [(entry, f"/gameplay_action_entries/{action_index}")]
+
+
+def _has_gameplay_card_identity(card: Mapping[str, object]) -> bool:
+    return any(
+        card.get(field_name) not in (None, "")
+        for field_name in (
+            "instance_id",
+            "grp_id",
+            "observed_grp_id",
+            "overlay_grp_id",
+            "object_source_grp_id",
+            "card_name",
+            "display_name",
+        )
+    )
+
+
+def _gameplay_card_enrichment_status(card: Mapping[str, object]) -> str | None:
+    has_numeric_identity = any(
+        card.get(field_name) is not None
+        for field_name in (
+            "instance_id",
+            "grp_id",
+            "observed_grp_id",
+            "overlay_grp_id",
+            "object_source_grp_id",
+        )
+    )
+    has_name = card.get("card_name") is not None or card.get("display_name") is not None
+    if has_numeric_identity and has_name:
+        return "parser_rendered"
+    if has_name:
+        return "name_only"
+    if has_numeric_identity:
+        return "unresolved_id"
+    return None
+
+
+def _upsert_gameplay_action_provenance(
+    connection: sqlite3.Connection,
+    *,
+    action_id: str,
+    index: int,
+    fact_field: str,
+    source_fact_key: str,
+    ingest_run_id: str,
+    now: str,
+    event_timestamp: object,
+    has_game_state_id: bool,
+) -> None:
+    _upsert_fact_provenance(
+        connection,
+        fact_table="gameplay_actions",
+        fact_id=action_id,
+        fact_field=fact_field,
+        source_parser_surface="gameplay_actions.py",
+        source_fact_key=source_fact_key,
+        ingest_run_id=ingest_run_id,
+        finality="reconciled",
+        now=now,
+        ledger_entry_id=_GAMEPLAY_ACTION_LEDGER_ENTRY_ID,
+        source_event_kind="GameState" if has_game_state_id else None,
+        source_event_type=None,
+        source_payload_paths=[f"/gameplay_action_entries/{index}/{fact_field}"],
+        source_event_timestamp=_optional_text(event_timestamp),
+    )
+
+
+def _upsert_gameplay_action_card_provenance(
+    connection: sqlite3.Connection,
+    *,
+    card_id: str,
+    fact_field: str,
+    source_payload_prefix: str,
+    source_fact_key: str,
+    ingest_run_id: str,
+    now: str,
+    event_timestamp: object,
+    has_game_state_id: bool,
+) -> None:
+    _upsert_fact_provenance(
+        connection,
+        fact_table="gameplay_action_cards",
+        fact_id=card_id,
+        fact_field=fact_field,
+        source_parser_surface="gameplay_actions.py",
+        source_fact_key=source_fact_key,
+        ingest_run_id=ingest_run_id,
+        finality="reconciled",
+        now=now,
+        ledger_entry_id=_GAMEPLAY_ACTION_LEDGER_ENTRY_ID,
+        source_event_kind="GameState" if has_game_state_id else None,
+        source_event_type=None,
+        source_payload_paths=[f"{source_payload_prefix}/{fact_field}"],
+        source_event_timestamp=_optional_text(event_timestamp),
+    )
+
+
+def _game_exists(connection: sqlite3.Connection, game_id: str) -> bool:
+    row = connection.execute("SELECT 1 FROM games WHERE game_id = ? LIMIT 1", (game_id,)).fetchone()
+    return row is not None
+
+
+def _gameplay_actor_relation(value: object, field_name: str) -> str:
+    text = _optional_text(value)
+    if text is None:
+        return ""
+    normalized = text.lower()
+    if normalized not in _ALLOWED_GAMEPLAY_ACTOR_RELATIONS:
+        raise AnalyticsReplayIngestError(
+            f"{field_name} must be one of local, opponent, unknown, or blank"
+        )
+    return normalized
+
+
+def _optional_bool_int(value: object, field_name: str) -> int | None:
+    if value in (None, ""):
+        return None
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int) and value in {0, 1}:
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"true", "yes"}:
+            return 1
+        if normalized in {"false", "no"}:
+            return 0
+    raise AnalyticsReplayIngestError(f"{field_name} must be 1, 0, true, false, or blank")
+
+
+def _text_list(value: object, field_name: str) -> list[str]:
+    if value in (None, ""):
+        return []
+    if isinstance(value, str):
+        return [value.strip()] if value.strip() else []
+    if isinstance(value, Sequence) and not isinstance(value, (bytes, bytearray)):
+        return [text for item in value if (text := str(item or "").strip())]
+    raise AnalyticsReplayIngestError(f"{field_name} must be a list of labels")
+
+
+def _stable_text_list(values: Sequence[str]) -> str:
+    return json.dumps(list(values), separators=(",", ":"), ensure_ascii=False)
+
+
+def _annotation_context_label(annotation_categories: Sequence[str]) -> str | None:
+    if not annotation_categories:
+        return None
+    return ";".join(annotation_categories)
+
+
+def _canonical_json(value: object) -> str:
+    return json.dumps(_jsonable(value), sort_keys=True, separators=(",", ":"), ensure_ascii=False)
 
 
 def _ingest_opening_hand(
@@ -603,7 +1041,13 @@ def _upsert_fact_provenance(
     ingest_run_id: str,
     finality: str,
     now: str,
+    ledger_entry_id: str | None = None,
+    source_event_kind: str | None = None,
+    source_event_type: str | None = None,
+    source_payload_paths: Sequence[str] | None = None,
+    source_event_timestamp: str | None = None,
 ) -> None:
+    payload_paths = list(source_payload_paths) if source_payload_paths is not None else [f"/{source_fact_key}"]
     _upsert(
         connection,
         "fact_provenance",
@@ -613,13 +1057,13 @@ def _upsert_fact_provenance(
             "fact_table": fact_table,
             "fact_id": fact_id,
             "fact_field": fact_field,
-            "ledger_entry_id": None,
+            "ledger_entry_id": ledger_entry_id,
             "source_parser_surface": source_parser_surface,
             "source_fact_key": source_fact_key,
-            "source_event_kind": None,
-            "source_event_type": None,
-            "source_payload_paths": json.dumps([f"/{source_fact_key}"], separators=(",", ":")),
-            "source_event_timestamp": None,
+            "source_event_kind": source_event_kind,
+            "source_event_type": source_event_type,
+            "source_payload_paths": json.dumps(payload_paths, separators=(",", ":")),
+            "source_event_timestamp": source_event_timestamp,
             "value_source": "derived",
             "confidence": "unknown",
             "finality": finality,
@@ -826,8 +1270,6 @@ def _ingest_timestamp(started_at: str | None, generated_at: str) -> str:
 
 def _deferred_optional_warnings(replay: ParserNormalizedReplayInput) -> list[str]:
     warnings: list[str] = []
-    if replay.gameplay_action_entries:
-        warnings.append("gameplay_action_entries are accepted but deferred by the first ingest pass")
     if replay.opponent_card_observations:
         warnings.append("opponent_card_observations are accepted but deferred by the first ingest pass")
     if replay.field_evidence_entries:
@@ -837,8 +1279,6 @@ def _deferred_optional_warnings(replay: ParserNormalizedReplayInput) -> list[str
 
 def _deferred_optional_skips(replay: ParserNormalizedReplayInput) -> dict[str, int]:
     skipped: dict[str, int] = {}
-    if replay.gameplay_action_entries:
-        skipped["gameplay_action_entries"] = len(replay.gameplay_action_entries)
     if replay.opponent_card_observations:
         skipped["opponent_card_observations"] = len(replay.opponent_card_observations)
     if replay.field_evidence_entries:

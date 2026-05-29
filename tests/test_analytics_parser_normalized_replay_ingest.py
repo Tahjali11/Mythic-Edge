@@ -351,7 +351,6 @@ def test_unsupported_source_kind_and_unsafe_label_fail_clearly() -> None:
 
 def test_deferred_optional_payloads_are_reported_as_skipped() -> None:
     replay = _base_replay()
-    replay["gameplay_action_entries"] = [{"match_id": "match:test:001"}]
     replay["opponent_card_observations"] = [{"match_id": "match:test:001"}]
     replay["field_evidence_entries"] = [{"source_fact_key": "match_id"}]
     connection = _connect()
@@ -359,11 +358,10 @@ def test_deferred_optional_payloads_are_reported_as_skipped() -> None:
     result = ingest_parser_normalized_replay(connection, replay, started_at="now", finished_at="done")
 
     assert result.skipped == {
-        "gameplay_action_entries": 1,
         "opponent_card_observations": 1,
         "field_evidence_entries": 1,
     }
-    assert len(result.warnings) == 3
+    assert len(result.warnings) == 2
 
 
 def test_ingest_does_not_create_generated_sqlite_files() -> None:
