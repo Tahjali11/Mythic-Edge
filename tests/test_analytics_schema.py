@@ -70,11 +70,13 @@ CORE_PROVENANCE_COLUMNS = {
 REQUIRED_VIEWS = {
     "v_opening_hand_cards",
     "v_opening_lines",
+    "v_gameplay_action_review",
     "v_mulligan_outcomes",
     "v_game1_vs_postboard",
     "v_play_draw_splits",
     "v_sample_size_warnings",
     "v_matchup_label_performance",
+    "v_opponent_card_observation_review",
 }
 VALUE_SOURCE_LABELS = {
     "observed",

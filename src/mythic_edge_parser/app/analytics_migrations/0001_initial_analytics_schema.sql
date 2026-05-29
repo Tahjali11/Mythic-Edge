@@ -1262,7 +1262,15 @@ SELECT
     oh.match_id,
     oh.game_id,
     oh.game_number,
+    oh.opening_hand_id,
     oh.hand_size,
+    oh.exact_card_count,
+    oh.value_source AS opening_hand_value_source,
+    oh.confidence AS opening_hand_confidence,
+    oh.finality AS opening_hand_finality,
+    oh.drift_status AS opening_hand_drift_status,
+    oh.availability_status AS opening_hand_availability_status,
+    ohc.opening_hand_card_id,
     ohc.card_position,
     ohc.grp_id,
     ohc.card_name,
@@ -1271,6 +1279,11 @@ SELECT
     ohc.value_source,
     ohc.confidence,
     ohc.finality,
+    ohc.drift_status,
+    ohc.parser_schema_version,
+    ohc.ingest_run_id,
+    ohc.source_parser_surface,
+    ohc.source_fact_key,
     ohc.availability_status
 FROM opening_hands AS oh
 JOIN opening_hand_cards AS ohc
@@ -1278,31 +1291,114 @@ JOIN opening_hand_cards AS ohc
 
 CREATE VIEW v_opening_lines AS
 SELECT
-    match_id,
-    game_id,
-    game_number,
-    turn_number,
-    action_type,
-    actor_relation,
-    from_zone_type,
-    to_zone_type,
-    value_source,
-    confidence,
-    availability_status
-FROM gameplay_actions
-WHERE turn_number IS NOT NULL
-  AND turn_number <= 3;
+    ga.gameplay_action_id,
+    ga.match_id,
+    ga.game_id,
+    ga.game_number,
+    ga.timestamp,
+    ga.game_state_id,
+    ga.turn_number,
+    ga.action_type,
+    ga.actor_relation,
+    ga.from_zone_type,
+    ga.to_zone_type,
+    ga.source_status,
+    ga.annotation_context_label,
+    ga.raw_action_type_labels,
+    ga.annotation_type_labels,
+    ga.visible_in_log,
+    (
+        SELECT COUNT(*)
+        FROM gameplay_action_cards AS gac
+        WHERE gac.gameplay_action_id = ga.gameplay_action_id
+    ) AS card_count,
+    (
+        SELECT GROUP_CONCAT(card_identity.grp_id)
+        FROM (
+            SELECT grp_id
+            FROM gameplay_action_cards
+            WHERE gameplay_action_id = ga.gameplay_action_id
+              AND grp_id IS NOT NULL
+            ORDER BY card_ordinal
+        ) AS card_identity
+    ) AS grp_ids,
+    ga.value_source,
+    ga.confidence,
+    ga.finality,
+    ga.drift_status,
+    ga.parser_schema_version,
+    ga.ingest_run_id,
+    ga.source_parser_surface,
+    ga.source_fact_key,
+    ga.availability_status
+FROM gameplay_actions AS ga
+WHERE ga.turn_number IS NOT NULL
+  AND ga.turn_number <= 3;
+
+CREATE VIEW v_gameplay_action_review AS
+SELECT
+    ga.gameplay_action_id,
+    ga.match_id,
+    ga.game_id,
+    ga.game_number,
+    ga.timestamp,
+    ga.game_state_id,
+    ga.turn_number,
+    ga.action_type,
+    ga.actor_relation,
+    ga.from_zone_type,
+    ga.to_zone_type,
+    ga.source_status,
+    ga.annotation_context_label,
+    ga.raw_action_type_labels,
+    ga.annotation_type_labels,
+    ga.visible_in_log,
+    (
+        SELECT COUNT(*)
+        FROM gameplay_action_cards AS gac
+        WHERE gac.gameplay_action_id = ga.gameplay_action_id
+    ) AS card_count,
+    (
+        SELECT GROUP_CONCAT(card_identity.grp_id)
+        FROM (
+            SELECT grp_id
+            FROM gameplay_action_cards
+            WHERE gameplay_action_id = ga.gameplay_action_id
+              AND grp_id IS NOT NULL
+            ORDER BY card_ordinal
+        ) AS card_identity
+    ) AS grp_ids,
+    ga.value_source,
+    ga.confidence,
+    ga.finality,
+    ga.drift_status,
+    ga.parser_schema_version,
+    ga.ingest_run_id,
+    ga.source_parser_surface,
+    ga.source_fact_key,
+    ga.availability_status
+FROM gameplay_actions AS ga;
 
 CREATE VIEW v_mulligan_outcomes AS
 SELECT
+    me.mulligan_event_id,
     me.match_id,
     me.game_id,
     me.game_number,
+    me.ordinal_or_count,
     me.mulligan_count,
+    me.decision_detail,
     gr.local_result,
     gr.play_draw,
+    gr.pre_postboard_label,
     me.value_source,
     me.confidence,
+    me.finality,
+    me.drift_status,
+    me.parser_schema_version,
+    me.ingest_run_id,
+    me.source_parser_surface,
+    me.source_fact_key,
     me.availability_status
 FROM mulligan_events AS me
 LEFT JOIN game_results AS gr
@@ -1310,6 +1406,7 @@ LEFT JOIN game_results AS gr
 
 CREATE VIEW v_game1_vs_postboard AS
 SELECT
+    game_result_id,
     match_id,
     game_id,
     game_number,
@@ -1317,19 +1414,44 @@ SELECT
     local_result,
     play_draw,
     turn_count,
+    game_duration_seconds,
     value_source,
     confidence,
+    finality,
+    drift_status,
+    parser_schema_version,
+    ingest_run_id,
+    source_parser_surface,
+    source_fact_key,
     availability_status
 FROM game_results;
 
 CREATE VIEW v_play_draw_splits AS
 SELECT
-    COALESCE(play_draw, 'unknown') AS play_draw,
+    COALESCE(NULLIF(TRIM(play_draw), ''), 'unknown') AS play_draw,
     COUNT(*) AS game_count,
+    SUM(CASE WHEN local_result IN ('win', 'loss') THEN 1 ELSE 0 END) AS known_result_count,
     SUM(CASE WHEN local_result = 'win' THEN 1 ELSE 0 END) AS wins,
-    AVG(CASE WHEN local_result = 'win' THEN 1.0 ELSE 0.0 END) AS win_rate
+    SUM(CASE WHEN local_result = 'loss' THEN 1 ELSE 0 END) AS losses,
+    SUM(CASE WHEN local_result IS NULL OR local_result NOT IN ('win', 'loss') THEN 1 ELSE 0 END)
+        AS unknown_result_count,
+    SUM(CASE WHEN availability_status != 'available' THEN 1 ELSE 0 END) AS unavailable_result_count,
+    SUM(
+        CASE
+            WHEN drift_status IN ('degraded', 'conflict', 'missing_expected_evidence', 'redacted')
+              OR value_source = 'conflict'
+            THEN 1
+            ELSE 0
+        END
+    ) AS degraded_result_count,
+    CASE
+        WHEN SUM(CASE WHEN local_result IN ('win', 'loss') THEN 1 ELSE 0 END) = 0 THEN NULL
+        ELSE
+            SUM(CASE WHEN local_result = 'win' THEN 1.0 ELSE 0.0 END)
+            / SUM(CASE WHEN local_result IN ('win', 'loss') THEN 1.0 ELSE 0.0 END)
+    END AS win_rate
 FROM game_results
-GROUP BY COALESCE(play_draw, 'unknown');
+GROUP BY COALESCE(NULLIF(TRIM(play_draw), ''), 'unknown');
 
 CREATE VIEW v_sample_size_warnings AS
 SELECT
@@ -1344,11 +1466,75 @@ FROM v_play_draw_splits;
 CREATE VIEW v_matchup_label_performance AS
 SELECT
     ml.label_value AS matchup_label,
-    COUNT(DISTINCT mr.match_id) AS match_count,
+    COUNT(DISTINCT ml.match_id) AS match_count,
+    SUM(CASE WHEN mr.match_win IN (0, 1) THEN 1 ELSE 0 END) AS known_match_result_count,
     SUM(CASE WHEN mr.match_win = 1 THEN 1 ELSE 0 END) AS match_wins,
-    AVG(CASE WHEN mr.match_win = 1 THEN 1.0 ELSE 0.0 END) AS match_win_rate
+    SUM(CASE WHEN mr.match_win = 0 THEN 1 ELSE 0 END) AS match_losses,
+    SUM(CASE WHEN mr.match_win IS NULL THEN 1 ELSE 0 END) AS unknown_match_result_count,
+    CASE
+        WHEN SUM(CASE WHEN mr.match_win IN (0, 1) THEN 1 ELSE 0 END) = 0 THEN NULL
+        ELSE
+            SUM(CASE WHEN mr.match_win = 1 THEN 1.0 ELSE 0.0 END)
+            / SUM(CASE WHEN mr.match_win IN (0, 1) THEN 1.0 ELSE 0.0 END)
+    END AS match_win_rate
 FROM matchup_labels AS ml
 LEFT JOIN match_results AS mr
     ON ml.match_id = mr.match_id
 WHERE ml.is_current = 1
 GROUP BY ml.label_value;
+
+CREATE VIEW v_opponent_card_observation_review AS
+SELECT
+    oco.opponent_card_observation_id,
+    oco.gameplay_action_id,
+    oco.match_id,
+    oco.game_id,
+    oco.game_number,
+    oco.timestamp,
+    oco.game_state_id,
+    oco.turn_number,
+    oco.actor_relation,
+    oco.actor_seat_id,
+    oco.local_seat_id,
+    oco.instance_id,
+    oco.grp_id,
+    oco.observed_grp_id,
+    oco.overlay_grp_id,
+    oco.object_source_grp_id,
+    oco.parent_id,
+    oco.identity_hint_source,
+    oco.card_name,
+    oco.display_name,
+    oco.resolution_status,
+    oco.name_resolution_source,
+    oco.action_type,
+    oco.cast_mode,
+    oco.source_evidence,
+    oco.evidence_status,
+    oco.visibility,
+    oco.from_zone_type,
+    oco.to_zone_type,
+    oco.degradation_flags,
+    oco.review_required,
+    ococ.opponent_card_observation_card_id,
+    ococ.card_ordinal,
+    ococ.grp_id AS card_grp_id,
+    ococ.observed_grp_id AS card_observed_grp_id,
+    ococ.overlay_grp_id AS card_overlay_grp_id,
+    ococ.object_source_grp_id AS card_object_source_grp_id,
+    ococ.identity_hint_source AS card_identity_hint_source,
+    ococ.card_name AS card_name_from_child,
+    ococ.resolution_status AS card_resolution_status,
+    ococ.visibility AS card_visibility,
+    oco.value_source,
+    oco.confidence,
+    oco.finality,
+    oco.drift_status,
+    oco.parser_schema_version,
+    oco.ingest_run_id,
+    oco.source_parser_surface,
+    oco.source_fact_key,
+    oco.availability_status
+FROM opponent_card_observations AS oco
+LEFT JOIN opponent_card_observation_cards AS ococ
+    ON oco.opponent_card_observation_id = ococ.opponent_card_observation_id;
