@@ -339,14 +339,14 @@ def test_missing_parent_game_identity_fails_without_orphan_action_rows() -> None
     _assert_no_partial_fact_rows(connection)
 
 
-def test_opponent_card_observations_still_remain_deferred() -> None:
+def test_field_evidence_still_remains_deferred() -> None:
     connection = _connect()
     replay = _with_actions(_action_entry())
-    replay["opponent_card_observations"] = [{"match_id": "match:test:gameplay"}]
+    replay["field_evidence_entries"] = [{"source_fact_key": "match_id"}]
 
     result = ingest_parser_normalized_replay(connection, replay, started_at="now", finished_at="done")
 
-    assert result.skipped == {"opponent_card_observations": 1}
-    assert result.warnings == ["opponent_card_observations are accepted but deferred by the first ingest pass"]
+    assert result.skipped == {"field_evidence_entries": 1}
+    assert result.warnings == ["field_evidence_entries are accepted but deferred by the first ingest pass"]
     assert _count(connection, "gameplay_actions") == 1
     assert _count(connection, "opponent_card_observations") == 0

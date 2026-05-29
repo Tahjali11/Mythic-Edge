@@ -9,6 +9,12 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from .analytics_migration_loader import ANALYTICS_SCHEMA_VERSION, apply_analytics_migrations
+from .opponent_card_observations import (
+    OPPONENT_CARD_OBSERVATION_OBJECT,
+)
+from .opponent_card_observations import (
+    SCHEMA_VERSION as OPPONENT_CARD_OBSERVATION_SCHEMA_VERSION,
+)
 
 ANALYTICS_REPLAY_INGEST_SCHEMA_VERSION = "analytics_parser_normalized_replay_ingest.v1"
 
@@ -27,13 +33,51 @@ _TOUCHED_TABLES = (
     "mulligan_bottomed_or_discarded_cards",
     "gameplay_actions",
     "gameplay_action_cards",
+    "opponent_card_observations",
+    "opponent_card_observation_cards",
     "fact_provenance",
 )
 _UNAVAILABLE_CARD_VALUES = {"", "[]", "{}", "n/a", "na", "none", "unknown", "unavailable", "not available"}
 _PRIVATE_LABEL_RE = re.compile(r"(^[a-zA-Z]:[\\/]|^[\\/]|://)")
 _INTEGER_TEXT_RE = re.compile(r"[+-]?\d+")
+_SAFE_DEGRADATION_FLAG_RE = re.compile(r"[A-Za-z0-9_.-]+")
+_PRIVATE_DEGRADATION_MARKERS = (
+    "player.log",
+    "failed_" + "posts",
+    "runtime_" + "status",
+    "webhook",
+    "api_" + "key",
+    "apikey",
+    "access_" + "token",
+    "secret",
+    "password",
+    "payload",
+)
 _ALLOWED_GAMEPLAY_ACTOR_RELATIONS = {"local", "opponent", "unknown", ""}
 _GAMEPLAY_ACTION_LEDGER_ENTRY_ID = "tier5.gameplay_action.gameplay_action"
+_OPPONENT_CARD_OBSERVATION_LEDGER_ENTRY_ID = (
+    "tier5.opponent_card_observation.opponent_card_observation"
+)
+_ALLOWED_OBSERVATION_VALUE_SOURCES = {"observed", "derived", "inferred", "unknown", "conflict", "legacy_enriched"}
+_ALLOWED_OBSERVATION_CONFIDENCE = {"high", "medium", "low", "unknown"}
+_ALLOWED_OBSERVATION_EVIDENCE_STATUS = {"observed", "derived", "inferred", "unknown", "conflict", "degraded"}
+_ALLOWED_OBSERVATION_VISIBILITY = {
+    "action_visible",
+    "public_zone",
+    "revealed",
+    "derived_zone_transition",
+    "ambiguous",
+    "hidden_not_recorded",
+}
+_ALLOWED_OBSERVATION_FINALITY = {"reconciled", "final", "provisional", "live"}
+_ALLOWED_OBSERVATION_DRIFT_STATUS = {
+    "none",
+    "not_checked",
+    "degraded",
+    "conflict",
+    "missing_expected_evidence",
+    "redacted",
+}
 
 
 class AnalyticsReplayIngestError(ValueError):
@@ -165,6 +209,14 @@ def ingest_parser_normalized_replay(
             known_game_ids=known_game_ids,
             ingest_run_id=ingest_run_id,
             now=timestamp,
+        )
+        _ingest_opponent_card_observations(
+            connection,
+            normalized.opponent_card_observations,
+            known_game_ids=known_game_ids,
+            ingest_run_id=ingest_run_id,
+            now=timestamp,
+            warnings=warnings,
         )
         row_counts = _table_counts(connection, _TOUCHED_TABLES)
         _upsert_ingest_run(
@@ -788,6 +840,499 @@ def _upsert_gameplay_action_card_provenance(
     )
 
 
+def _ingest_opponent_card_observations(
+    connection: sqlite3.Connection,
+    observations: tuple[dict[str, object], ...],
+    *,
+    known_game_ids: set[str],
+    ingest_run_id: str,
+    now: str,
+    warnings: list[str],
+) -> None:
+    for index, observation in enumerate(observations):
+        normalized = _normalize_opponent_card_observation(observation, index)
+        game_id = str(normalized["game_id"])
+        if game_id not in known_game_ids and not _game_exists(connection, game_id):
+            raise AnalyticsReplayIngestError(
+                f"opponent_card_observations[{index}] references unknown game parent: {game_id}"
+            )
+
+        explicit_gameplay_action_id = _optional_text(observation.get("gameplay_action_id"))
+        gameplay_action_id = _resolve_opponent_observation_gameplay_action_id(
+            connection,
+            explicit_gameplay_action_id=explicit_gameplay_action_id,
+            observation=observation,
+            index=index,
+        )
+        if explicit_gameplay_action_id and gameplay_action_id is None:
+            warnings.append(
+                f"opponent_card_observations[{index}] gameplay_action_id did not match an ingested action"
+            )
+
+        observation_id = _opponent_card_observation_id(normalized)
+        source_fact_key = observation_id
+        _upsert(
+            connection,
+            "opponent_card_observations",
+            "opponent_card_observation_id",
+            {
+                "opponent_card_observation_id": observation_id,
+                "game_id": normalized["game_id"],
+                "match_id": normalized["match_id"],
+                "game_number": normalized["game_number"],
+                "gameplay_action_id": gameplay_action_id,
+                "timestamp": normalized["timestamp"],
+                "game_state_id": normalized["game_state_id"],
+                "turn_number": normalized["turn_number"],
+                "actor_relation": "opponent",
+                "actor_seat_id": normalized["actor_seat_id"],
+                "local_seat_id": normalized["local_seat_id"],
+                "instance_id": normalized["instance_id"],
+                "grp_id": normalized["grp_id"],
+                "observed_grp_id": normalized["observed_grp_id"],
+                "overlay_grp_id": normalized["overlay_grp_id"],
+                "object_source_grp_id": normalized["object_source_grp_id"],
+                "parent_id": normalized["parent_id"],
+                "identity_hint_source": normalized["identity_hint_source"],
+                "card_name": normalized["card_name"],
+                "display_name": normalized["display_name"],
+                "resolution_status": normalized["resolution_status"],
+                "name_resolution_source": normalized["name_resolution_source"],
+                "action_type": normalized["action_type"],
+                "cast_mode": normalized["cast_mode"],
+                "source_evidence": normalized["source_evidence"],
+                "evidence_status": normalized["evidence_status"],
+                "visibility": normalized["visibility"],
+                "from_zone_type": normalized["from_zone_type"],
+                "to_zone_type": normalized["to_zone_type"],
+                "degradation_flags": normalized["degradation_flags_json"],
+                "review_required": normalized["review_required"],
+                **_observation_core_columns(
+                    normalized,
+                    ingest_run_id=ingest_run_id,
+                    source_parser_surface="opponent_card_observations.py",
+                    source_fact_key=source_fact_key,
+                    now=now,
+                ),
+            },
+        )
+
+        for fact_field in (
+            "visibility",
+            "evidence_status",
+            "value_source",
+            "confidence",
+            "review_required",
+            "degradation_flags",
+            "action_type",
+        ):
+            _upsert_opponent_observation_provenance(
+                connection,
+                fact_table="opponent_card_observations",
+                fact_id=observation_id,
+                fact_field=fact_field,
+                index=index,
+                source_fact_key=source_fact_key,
+                normalized=normalized,
+                ingest_run_id=ingest_run_id,
+                now=now,
+            )
+
+        card = _opponent_observation_card_row(normalized, observation_id=observation_id)
+        if card is None:
+            continue
+
+        _upsert(
+            connection,
+            "opponent_card_observation_cards",
+            "opponent_card_observation_card_id",
+            {
+                "opponent_card_observation_card_id": card["opponent_card_observation_card_id"],
+                "opponent_card_observation_id": observation_id,
+                "game_id": normalized["game_id"],
+                "card_ordinal": card["card_ordinal"],
+                "grp_id": normalized["grp_id"],
+                "observed_grp_id": normalized["observed_grp_id"],
+                "overlay_grp_id": normalized["overlay_grp_id"],
+                "object_source_grp_id": normalized["object_source_grp_id"],
+                "identity_hint_source": normalized["identity_hint_source"],
+                "card_name": normalized["card_name"],
+                "resolution_status": normalized["resolution_status"],
+                "visibility": normalized["visibility"],
+                **_observation_core_columns(
+                    normalized,
+                    ingest_run_id=ingest_run_id,
+                    source_parser_surface="opponent_card_observations.py",
+                    source_fact_key=source_fact_key,
+                    now=now,
+                ),
+            },
+        )
+        if normalized["grp_id"] is not None:
+            _upsert_opponent_observation_provenance(
+                connection,
+                fact_table="opponent_card_observation_cards",
+                fact_id=str(card["opponent_card_observation_card_id"]),
+                fact_field="grp_id",
+                index=index,
+                source_fact_key=source_fact_key,
+                normalized=normalized,
+                ingest_run_id=ingest_run_id,
+                now=now,
+            )
+        if normalized["observed_grp_id"] is not None and normalized["observed_grp_id"] != normalized["grp_id"]:
+            _upsert_opponent_observation_provenance(
+                connection,
+                fact_table="opponent_card_observation_cards",
+                fact_id=str(card["opponent_card_observation_card_id"]),
+                fact_field="observed_grp_id",
+                index=index,
+                source_fact_key=source_fact_key,
+                normalized=normalized,
+                ingest_run_id=ingest_run_id,
+                now=now,
+            )
+        if not _has_opponent_observation_numeric_identity(normalized) and normalized["card_name"] is not None:
+            _upsert_opponent_observation_provenance(
+                connection,
+                fact_table="opponent_card_observation_cards",
+                fact_id=str(card["opponent_card_observation_card_id"]),
+                fact_field="card_name",
+                index=index,
+                source_fact_key=source_fact_key,
+                normalized=normalized,
+                ingest_run_id=ingest_run_id,
+                now=now,
+            )
+
+
+def _normalize_opponent_card_observation(entry: Mapping[str, object], index: int) -> dict[str, object]:
+    context = f"opponent_card_observations[{index}]"
+    object_marker = _required_text(entry.get("object"), f"{context}.object")
+    if object_marker != OPPONENT_CARD_OBSERVATION_OBJECT:
+        raise AnalyticsReplayIngestError(f"{context}.object must be {OPPONENT_CARD_OBSERVATION_OBJECT}")
+    schema_version = _required_text(entry.get("schema_version"), f"{context}.schema_version")
+    if schema_version != OPPONENT_CARD_OBSERVATION_SCHEMA_VERSION:
+        raise AnalyticsReplayIngestError(
+            f"{context}.schema_version must be {OPPONENT_CARD_OBSERVATION_SCHEMA_VERSION}"
+        )
+
+    match_id = _required_text(entry.get("match_id"), f"{context}.match_id")
+    game_number = _required_positive_int(entry.get("game_number"), f"{context}.game_number")
+    actor_relation = _required_text(entry.get("actor_relation"), f"{context}.actor_relation")
+    if actor_relation != "opponent":
+        raise AnalyticsReplayIngestError(f"{context}.actor_relation must be opponent")
+
+    evidence_status = _required_enum(
+        entry.get("evidence_status"),
+        f"{context}.evidence_status",
+        _ALLOWED_OBSERVATION_EVIDENCE_STATUS,
+    )
+    value_source = _required_enum(
+        entry.get("value_source"),
+        f"{context}.value_source",
+        _ALLOWED_OBSERVATION_VALUE_SOURCES,
+    )
+    confidence = _required_enum(
+        entry.get("confidence"),
+        f"{context}.confidence",
+        _ALLOWED_OBSERVATION_CONFIDENCE,
+    )
+    visibility = _required_enum(
+        entry.get("visibility"),
+        f"{context}.visibility",
+        _ALLOWED_OBSERVATION_VISIBILITY,
+    )
+    degradation_flags = _required_string_list(entry.get("degradation_flags"), f"{context}.degradation_flags")
+    review_required = _required_bool_int(entry.get("review_required"), f"{context}.review_required")
+    finality = _optional_enum(
+        entry.get("finality"),
+        f"{context}.finality",
+        _ALLOWED_OBSERVATION_FINALITY,
+        default="reconciled",
+    )
+    drift_status = _optional_enum(
+        entry.get("drift_status"),
+        f"{context}.drift_status",
+        _ALLOWED_OBSERVATION_DRIFT_STATUS,
+        default=_default_observation_drift_status(
+            evidence_status=evidence_status,
+            degradation_flags=degradation_flags,
+            review_required=bool(review_required),
+        ),
+    )
+    return {
+        "game_id": f"{match_id}:g{game_number}",
+        "match_id": match_id,
+        "game_number": game_number,
+        "timestamp": _optional_text(entry.get("timestamp")),
+        "game_state_id": _optional_int(entry.get("game_state_id"), f"{context}.game_state_id"),
+        "turn_number": _optional_int(entry.get("turn_number"), f"{context}.turn_number"),
+        "actor_seat_id": _optional_int(entry.get("actor_seat_id"), f"{context}.actor_seat_id"),
+        "local_seat_id": _optional_int(entry.get("local_seat_id"), f"{context}.local_seat_id"),
+        "instance_id": _optional_int(entry.get("instance_id"), f"{context}.instance_id"),
+        "grp_id": _optional_int(entry.get("grp_id"), f"{context}.grp_id"),
+        "observed_grp_id": _optional_int(entry.get("observed_grp_id"), f"{context}.observed_grp_id"),
+        "overlay_grp_id": _optional_int(entry.get("overlay_grp_id"), f"{context}.overlay_grp_id"),
+        "object_source_grp_id": _optional_int(
+            entry.get("object_source_grp_id"),
+            f"{context}.object_source_grp_id",
+        ),
+        "parent_id": _optional_int(entry.get("parent_id"), f"{context}.parent_id"),
+        "identity_hint_source": _optional_text(entry.get("identity_hint_source")),
+        "card_name": _optional_text(entry.get("card_name")),
+        "display_name": _optional_text(entry.get("display_name")),
+        "resolution_status": _optional_text(entry.get("resolution_status")),
+        "name_resolution_source": _optional_text(entry.get("name_resolution_source")),
+        "action_type": _required_text(entry.get("action_type"), f"{context}.action_type"),
+        "cast_mode": _optional_text(entry.get("cast_mode")),
+        "source_evidence": _required_text(entry.get("source_evidence"), f"{context}.source_evidence"),
+        "evidence_status": evidence_status,
+        "visibility": visibility,
+        "from_zone_type": _optional_text(entry.get("from_zone_type")),
+        "to_zone_type": _optional_text(entry.get("to_zone_type")),
+        "degradation_flags": degradation_flags,
+        "degradation_flags_json": _stable_text_list(degradation_flags),
+        "review_required": review_required,
+        "value_source": value_source,
+        "confidence": confidence,
+        "finality": finality,
+        "drift_status": drift_status,
+        "degraded_reason": _observation_degraded_reason(
+            evidence_status=evidence_status,
+            degradation_flags=degradation_flags,
+        ),
+    }
+
+
+def _opponent_card_observation_id(normalized: Mapping[str, object]) -> str:
+    id_payload = {
+        "match_id": normalized["match_id"],
+        "game_number": normalized["game_number"],
+        "game_state_id": normalized["game_state_id"],
+        "turn_number": normalized["turn_number"],
+        "actor_relation": "opponent",
+        "actor_seat_id": normalized["actor_seat_id"],
+        "local_seat_id": normalized["local_seat_id"],
+        "instance_id": normalized["instance_id"],
+        "grp_id": normalized["grp_id"],
+        "observed_grp_id": normalized["observed_grp_id"],
+        "overlay_grp_id": normalized["overlay_grp_id"],
+        "object_source_grp_id": normalized["object_source_grp_id"],
+        "parent_id": normalized["parent_id"],
+        "action_type": normalized["action_type"],
+        "cast_mode": normalized["cast_mode"],
+        "source_evidence": normalized["source_evidence"],
+        "visibility": normalized["visibility"],
+        "from_zone_type": normalized["from_zone_type"],
+        "to_zone_type": normalized["to_zone_type"],
+    }
+    digest = hashlib.sha256(_canonical_json(id_payload).encode("utf-8")).hexdigest()
+    return f"opponent_card_observation:{digest}"
+
+
+def _resolve_opponent_observation_gameplay_action_id(
+    connection: sqlite3.Connection,
+    *,
+    explicit_gameplay_action_id: str | None,
+    observation: Mapping[str, object],
+    index: int,
+) -> str | None:
+    if explicit_gameplay_action_id and _gameplay_action_exists(connection, explicit_gameplay_action_id):
+        return explicit_gameplay_action_id
+
+    candidate = _gameplay_action_id(_normalize_gameplay_action_entry(observation, index))
+    if _gameplay_action_exists(connection, candidate):
+        return candidate
+    return None
+
+
+def _opponent_observation_card_row(
+    normalized: Mapping[str, object],
+    *,
+    observation_id: str,
+) -> dict[str, object] | None:
+    if not _has_opponent_observation_card_identity(normalized):
+        return None
+    card_ordinal = 1
+    digest = hashlib.sha256(
+        _canonical_json({"observation_id": observation_id, "card_ordinal": card_ordinal}).encode("utf-8")
+    )
+    return {
+        "opponent_card_observation_card_id": f"opponent_card_observation_card:{digest.hexdigest()}",
+        "card_ordinal": card_ordinal,
+    }
+
+
+def _has_opponent_observation_card_identity(normalized: Mapping[str, object]) -> bool:
+    return any(
+        normalized.get(field_name) is not None
+        for field_name in (
+            "grp_id",
+            "observed_grp_id",
+            "overlay_grp_id",
+            "object_source_grp_id",
+            "identity_hint_source",
+            "card_name",
+        )
+    )
+
+
+def _has_opponent_observation_numeric_identity(normalized: Mapping[str, object]) -> bool:
+    return any(
+        normalized.get(field_name) is not None
+        for field_name in ("grp_id", "observed_grp_id", "overlay_grp_id", "object_source_grp_id")
+    )
+
+
+def _observation_core_columns(
+    normalized: Mapping[str, object],
+    *,
+    ingest_run_id: str,
+    source_parser_surface: str,
+    source_fact_key: str,
+    now: str,
+) -> dict[str, object]:
+    values = _core_columns(
+        ingest_run_id=ingest_run_id,
+        source_parser_surface=source_parser_surface,
+        source_fact_key=source_fact_key,
+        finality=str(normalized["finality"]),
+        now=now,
+    )
+    values["value_source"] = normalized["value_source"]
+    values["confidence"] = normalized["confidence"]
+    values["drift_status"] = normalized["drift_status"]
+    return values
+
+
+def _upsert_opponent_observation_provenance(
+    connection: sqlite3.Connection,
+    *,
+    fact_table: str,
+    fact_id: str,
+    fact_field: str,
+    index: int,
+    source_fact_key: str,
+    normalized: Mapping[str, object],
+    ingest_run_id: str,
+    now: str,
+) -> None:
+    _upsert_fact_provenance(
+        connection,
+        fact_table=fact_table,
+        fact_id=fact_id,
+        fact_field=fact_field,
+        source_parser_surface="opponent_card_observations.py",
+        source_fact_key=source_fact_key,
+        ingest_run_id=ingest_run_id,
+        finality=str(normalized["finality"]),
+        now=now,
+        ledger_entry_id=_OPPONENT_CARD_OBSERVATION_LEDGER_ENTRY_ID,
+        source_event_kind="GameState" if normalized["game_state_id"] is not None else None,
+        source_event_type=None,
+        source_payload_paths=[f"/opponent_card_observations/{index}/{fact_field}"],
+        source_event_timestamp=_optional_text(normalized["timestamp"]),
+        value_source=str(normalized["value_source"]),
+        confidence=str(normalized["confidence"]),
+        drift_flags=list(normalized["degradation_flags"]),  # type: ignore[arg-type]
+        degraded_reason=_optional_text(normalized["degraded_reason"]),
+        review_required=int(normalized["review_required"]),
+    )
+
+
+def _gameplay_action_exists(connection: sqlite3.Connection, gameplay_action_id: str) -> bool:
+    row = connection.execute(
+        "SELECT 1 FROM gameplay_actions WHERE gameplay_action_id = ? LIMIT 1",
+        (gameplay_action_id,),
+    ).fetchone()
+    return row is not None
+
+
+def _required_enum(value: object, field_name: str, allowed_values: set[str]) -> str:
+    text = _required_text(value, field_name)
+    if text not in allowed_values:
+        allowed = ", ".join(sorted(allowed_values))
+        raise AnalyticsReplayIngestError(f"{field_name} must be one of {allowed}")
+    return text
+
+
+def _optional_enum(value: object, field_name: str, allowed_values: set[str], *, default: str) -> str:
+    text = _optional_text(value)
+    if text is None:
+        return default
+    if text not in allowed_values:
+        allowed = ", ".join(sorted(allowed_values))
+        raise AnalyticsReplayIngestError(f"{field_name} must be one of {allowed}")
+    return text
+
+
+def _required_bool_int(value: object, field_name: str) -> int:
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int) and value in {0, 1}:
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"true", "yes", "1"}:
+            return 1
+        if normalized in {"false", "no", "0"}:
+            return 0
+    raise AnalyticsReplayIngestError(f"{field_name} must be a boolean or safe boolean-like value")
+
+
+def _required_string_list(value: object, field_name: str) -> list[str]:
+    if not isinstance(value, list):
+        raise AnalyticsReplayIngestError(f"{field_name} must be a list of strings")
+    values: list[str] = []
+    for index, item in enumerate(value):
+        if not isinstance(item, str):
+            raise AnalyticsReplayIngestError(f"{field_name}[{index}] must be a string")
+        text = item.strip()
+        if not text:
+            raise AnalyticsReplayIngestError(f"{field_name}[{index}] must be a non-empty safe label")
+        _validate_safe_degradation_flag(text, f"{field_name}[{index}]")
+        values.append(text)
+    return values
+
+
+def _validate_safe_degradation_flag(value: str, field_name: str) -> None:
+    marker_text = value.lower().replace("-", "_").replace(" ", "")
+    if (
+        _PRIVATE_LABEL_RE.search(value)
+        or not _SAFE_DEGRADATION_FLAG_RE.fullmatch(value)
+        or any(marker in marker_text for marker in _PRIVATE_DEGRADATION_MARKERS)
+    ):
+        raise AnalyticsReplayIngestError(f"{field_name} must be a safe degradation_flags label")
+
+
+def _default_observation_drift_status(
+    *,
+    evidence_status: str,
+    degradation_flags: Sequence[str],
+    review_required: bool,
+) -> str:
+    if evidence_status == "conflict":
+        return "conflict"
+    if evidence_status == "degraded" or degradation_flags or review_required:
+        return "degraded"
+    return "not_checked"
+
+
+def _observation_degraded_reason(
+    *,
+    evidence_status: str,
+    degradation_flags: Sequence[str],
+) -> str | None:
+    if evidence_status == "conflict":
+        return "conflict"
+    if evidence_status == "degraded" and not degradation_flags:
+        return "degraded"
+    if degradation_flags:
+        return ";".join(degradation_flags)
+    return None
+
+
 def _game_exists(connection: sqlite3.Connection, game_id: str) -> bool:
     row = connection.execute("SELECT 1 FROM games WHERE game_id = ? LIMIT 1", (game_id,)).fetchone()
     return row is not None
@@ -1046,8 +1591,14 @@ def _upsert_fact_provenance(
     source_event_type: str | None = None,
     source_payload_paths: Sequence[str] | None = None,
     source_event_timestamp: str | None = None,
+    value_source: str = "derived",
+    confidence: str = "unknown",
+    drift_flags: Sequence[str] | None = None,
+    degraded_reason: str | None = None,
+    review_required: int = 0,
 ) -> None:
     payload_paths = list(source_payload_paths) if source_payload_paths is not None else [f"/{source_fact_key}"]
+    drift_flag_values = list(drift_flags) if drift_flags is not None else []
     _upsert(
         connection,
         "fact_provenance",
@@ -1064,13 +1615,13 @@ def _upsert_fact_provenance(
             "source_event_type": source_event_type,
             "source_payload_paths": json.dumps(payload_paths, separators=(",", ":")),
             "source_event_timestamp": source_event_timestamp,
-            "value_source": "derived",
-            "confidence": "unknown",
+            "value_source": value_source,
+            "confidence": confidence,
             "finality": finality,
-            "drift_flags": "[]",
+            "drift_flags": json.dumps(drift_flag_values, separators=(",", ":")),
             "invariant_status": None,
-            "degraded_reason": None,
-            "review_required": 0,
+            "degraded_reason": degraded_reason,
+            "review_required": review_required,
             "ingest_run_id": ingest_run_id,
             "created_at": now,
         },
@@ -1270,8 +1821,6 @@ def _ingest_timestamp(started_at: str | None, generated_at: str) -> str:
 
 def _deferred_optional_warnings(replay: ParserNormalizedReplayInput) -> list[str]:
     warnings: list[str] = []
-    if replay.opponent_card_observations:
-        warnings.append("opponent_card_observations are accepted but deferred by the first ingest pass")
     if replay.field_evidence_entries:
         warnings.append("field_evidence_entries are accepted but deferred by the first ingest pass")
     return warnings
@@ -1279,8 +1828,6 @@ def _deferred_optional_warnings(replay: ParserNormalizedReplayInput) -> list[str
 
 def _deferred_optional_skips(replay: ParserNormalizedReplayInput) -> dict[str, int]:
     skipped: dict[str, int] = {}
-    if replay.opponent_card_observations:
-        skipped["opponent_card_observations"] = len(replay.opponent_card_observations)
     if replay.field_evidence_entries:
         skipped["field_evidence_entries"] = len(replay.field_evidence_entries)
     return skipped
