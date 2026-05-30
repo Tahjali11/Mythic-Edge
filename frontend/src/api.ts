@@ -8,12 +8,14 @@ import {
   type ManualImportErrorCode,
   type ManualImportJob,
   type ManualImportRequest,
+  type ManualImportUploadRequest,
   type SetupStatusErrorCode,
   type SetupStatusResponse
 } from "./types";
 
 const SETUP_STATUS_PATH = "/api/app/setup-status";
 const MANUAL_IMPORT_PATH = "/api/imports/jsonl";
+const MANUAL_IMPORT_UPLOAD_PATH = "/api/imports/jsonl/upload";
 const MANUAL_IMPORT_JOB_PATH = "/api/imports/jobs";
 const REQUIRED_SETUP_STATUS_FIELDS = [
   "object",
@@ -124,6 +126,44 @@ export async function submitManualJsonlImport(
       method: "POST",
       headers: { Accept: "application/json", "Content-Type": "application/json" },
       body: JSON.stringify(request)
+    });
+  } catch {
+    throw new ManualImportApiError("backend_unavailable", "Manual import backend is unavailable.");
+  }
+
+  if (!response.ok) {
+    throw new ManualImportApiError("backend_unavailable", "Manual import backend is unavailable.");
+  }
+
+  let payload: unknown;
+  try {
+    payload = await response.json();
+  } catch {
+    throw new ManualImportApiError("malformed_response", "Manual import returned malformed JSON.");
+  }
+
+  return validateManualImportJob(payload);
+}
+
+export async function submitManualJsonlUpload(
+  request: ManualImportUploadRequest,
+  fetchImpl: typeof fetch = fetch
+): Promise<ManualImportJob> {
+  const baseUrl = getManualImportApiBaseUrl();
+  const formData = new FormData();
+  for (const file of request.files) {
+    formData.append("files", file);
+  }
+  if (request.source_artifact_label?.trim()) {
+    formData.append("source_artifact_label", request.source_artifact_label.trim());
+  }
+
+  let response: Response;
+  try {
+    response = await fetchImpl(`${baseUrl}${MANUAL_IMPORT_UPLOAD_PATH}`, {
+      method: "POST",
+      headers: { Accept: "application/json" },
+      body: formData
     });
   } catch {
     throw new ManualImportApiError("backend_unavailable", "Manual import backend is unavailable.");

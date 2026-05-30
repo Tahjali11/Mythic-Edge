@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import re
 from collections import Counter
@@ -17,6 +18,7 @@ ANALYTICS_LEGACY_JSONL_IMPORT_QUALITY_OBJECT = "mythic_edge_legacy_jsonl_import_
 ANALYTICS_LEGACY_JSONL_IMPORT_QUALITY_SCHEMA_VERSION = "analytics_legacy_jsonl_import_quality_breakdown.v1"
 
 SOURCE_KIND = "saved_event_replay"
+BROWSER_JSONL_UPLOAD_SOURCE_MODE = "uploaded_file_batch"
 
 _SAFE_KIND_RE = re.compile(r"^[A-Za-z0-9_.-]{1,80}$")
 _SAFE_CODE_RE = re.compile(r"^[A-Za-z0-9_.:-]{1,100}$")
@@ -60,10 +62,25 @@ class LegacyJsonlAdapterResult:
     source_artifacts: list[dict[str, object]] = field(default_factory=list)
 
 
+@dataclass(frozen=True, slots=True)
+class LegacyJsonlUploadSource:
+    display_name: str
+    content_bytes: bytes
+    size_bytes: int
+    original_index: int
+
+
+@dataclass(frozen=True, slots=True)
+class _JsonlInput:
+    display_name: str
+    path: Path | None
+    content_bytes: bytes | None
+
+
 @dataclass(slots=True)
 class _SourceArtifactStats:
     batch_index: int
-    path: Path
+    source: _JsonlInput
     source_artifact_label: str
     source_display_label: str
     records_seen: int = 0
@@ -112,6 +129,22 @@ def adapt_legacy_jsonl_file_batch(
     )
 
 
+def adapt_legacy_jsonl_upload_batch(
+    sources: Sequence[LegacyJsonlUploadSource],
+    *,
+    source_artifact_label: str | None = None,
+) -> LegacyJsonlAdapterResult:
+    selected_sources = _selected_upload_jsonl_sources(sources)
+    label = _safe_upload_batch_source_artifact_label(source_artifact_label, selected_sources=selected_sources)
+    return _adapt_jsonl_inputs(
+        selected_sources,
+        label=label,
+        source_mode=BROWSER_JSONL_UPLOAD_SOURCE_MODE,
+        files_selected=len(selected_sources),
+        source_artifact_label_prefix="legacy_jsonl_uploaded_file",
+    )
+
+
 def _adapt_selected_jsonl_files(
     selected_files: list[Path],
     *,
@@ -119,7 +152,28 @@ def _adapt_selected_jsonl_files(
     source_mode: str,
     files_selected: int,
 ) -> LegacyJsonlAdapterResult:
-    source_stats = [_source_artifact_stats(index, jsonl_path) for index, jsonl_path in enumerate(selected_files)]
+    selected_sources = [_path_jsonl_input(jsonl_path) for jsonl_path in selected_files]
+    return _adapt_jsonl_inputs(
+        selected_sources,
+        label=label,
+        source_mode=source_mode,
+        files_selected=files_selected,
+        source_artifact_label_prefix="legacy_jsonl_file",
+    )
+
+
+def _adapt_jsonl_inputs(
+    selected_sources: list[_JsonlInput],
+    *,
+    label: str,
+    source_mode: str,
+    files_selected: int,
+    source_artifact_label_prefix: str,
+) -> LegacyJsonlAdapterResult:
+    source_stats = [
+        _source_artifact_stats(index, source, source_artifact_label_prefix=source_artifact_label_prefix)
+        for index, source in enumerate(selected_sources)
+    ]
 
     records_seen = 0
     events_processed = 0
@@ -138,7 +192,7 @@ def _adapt_selected_jsonl_files(
     _seed_empty_card_lookup()
     try:
         for stats in source_stats:
-            for line_number, raw_line in _iter_jsonl_lines(stats.path):
+            for line_number, raw_line in _iter_jsonl_input_lines(stats.source):
                 line = raw_line.strip()
                 if not line:
                     events_skipped += 1
@@ -149,7 +203,7 @@ def _adapt_selected_jsonl_files(
 
                 records_seen += 1
                 stats.records_seen += 1
-                record = _json_record(line, jsonl_path=stats.path, line_number=line_number)
+                record = _json_record(line, source_label=stats.source_display_label, line_number=line_number)
                 raw_hash = str(record.get("raw_bytes_hash") or "").strip()
                 if raw_hash:
                     if raw_hash in seen_raw_hashes:
@@ -160,7 +214,7 @@ def _adapt_selected_jsonl_files(
                         continue
                     seen_raw_hashes.add(raw_hash)
 
-                kind = _required_kind(record, jsonl_path=stats.path, line_number=line_number)
+                kind = _required_kind(record, source_label=stats.source_display_label, line_number=line_number)
                 if kind not in saved_event_replay.EVENT_CLASS_BY_KIND:
                     kind_label = _safe_kind_label(kind)
                     unsupported_kind_counts[kind_label] += 1
@@ -175,7 +229,12 @@ def _adapt_selected_jsonl_files(
                 if derived_match_id:
                     derived_match_ids.add(derived_match_id)
 
-                event = _event_from_record(line, record, jsonl_path=stats.path, line_number=line_number)
+                event = _event_from_record(
+                    line,
+                    record,
+                    source_label=stats.source_display_label,
+                    line_number=line_number,
+                )
                 state._update_match_summary(event)
                 kind_label = _safe_kind_label(kind)
                 processed_kind_counts[kind_label] += 1
@@ -207,7 +266,7 @@ def _adapt_selected_jsonl_files(
             replay=replay,
             source_kind=SOURCE_KIND,
             source_artifact_label=label,
-            files_processed=len(selected_files),
+            files_processed=len(selected_sources),
             records_seen=records_seen,
             events_processed=events_processed,
             events_skipped=events_skipped,
@@ -216,8 +275,8 @@ def _adapt_selected_jsonl_files(
             quality=quality,
             source_mode=source_mode,
             files_selected=files_selected,
-            files_accepted=len(selected_files),
-            files_rejected=max(0, files_selected - len(selected_files)),
+            files_accepted=len(selected_sources),
+            files_rejected=max(0, files_selected - len(selected_sources)),
             source_artifacts=[_source_artifact_summary(stats) for stats in source_stats],
         )
     finally:
@@ -290,6 +349,37 @@ def _selected_explicit_jsonl_files(sources: Sequence[Path]) -> list[Path]:
     return sorted(selected, key=lambda path: (str(path).casefold(), str(path)))
 
 
+def _selected_upload_jsonl_sources(sources: Sequence[LegacyJsonlUploadSource]) -> list[_JsonlInput]:
+    if isinstance(sources, (str, bytes)) or not sources:
+        raise LegacyJsonlAdapterError("uploaded files must include one or more JSONL files")
+
+    selected: list[tuple[tuple[str, int, str, int], _JsonlInput]] = []
+    for source in sources:
+        raw_name = _uploaded_basename(source.display_name)
+        if not raw_name:
+            raise LegacyJsonlAdapterError("Uploaded JSONL file must include a safe file name")
+        if Path(raw_name).suffix.lower() != ".jsonl":
+            display_name = _safe_uploaded_display_name(raw_name)
+            raise LegacyJsonlAdapterError(f"Uploaded file must be a JSONL file: {display_name}")
+        display_name = _safe_uploaded_display_name(raw_name)
+        content_bytes = bytes(source.content_bytes)
+        size_bytes = int(source.size_bytes)
+        if size_bytes <= 0 or not content_bytes:
+            raise LegacyJsonlAdapterError(f"Uploaded JSONL file is empty: {display_name}")
+        if size_bytes != len(content_bytes):
+            size_bytes = len(content_bytes)
+
+        content_digest = hashlib.sha256(content_bytes).hexdigest()
+        selected.append(
+            (
+                (display_name.casefold(), size_bytes, content_digest, int(source.original_index)),
+                _JsonlInput(display_name=display_name, path=None, content_bytes=content_bytes),
+            )
+        )
+
+    return [source for _, source in sorted(selected, key=lambda item: item[0])]
+
+
 def _safe_source_artifact_label(
     requested_label: str | None,
     *,
@@ -327,19 +417,51 @@ def _safe_batch_source_artifact_label(
     return f"legacy_jsonl_explicit_batch:{len(selected_names)}:{short_hash}"
 
 
-def _source_artifact_stats(batch_index: int, path: Path) -> _SourceArtifactStats:
+def _safe_upload_batch_source_artifact_label(
+    requested_label: str | None,
+    *,
+    selected_sources: Iterable[_JsonlInput],
+) -> str:
+    if requested_label is not None:
+        label = requested_label.strip()
+        if not label:
+            raise LegacyJsonlAdapterError("source_artifact_label must be a non-empty safe label")
+        _validate_safe_label(label)
+        return label
+
+    selected_metadata = [f"{source.display_name}:{len(source.content_bytes or b'')}" for source in selected_sources]
+    digest_source = "|".join(selected_metadata)
+    short_hash = hashlib.sha256(digest_source.encode("utf-8")).hexdigest()[:12]
+    return f"legacy_jsonl_uploaded_batch:{len(selected_metadata)}:{short_hash}"
+
+
+def _source_artifact_stats(
+    batch_index: int,
+    source: _JsonlInput,
+    *,
+    source_artifact_label_prefix: str,
+) -> _SourceArtifactStats:
     return _SourceArtifactStats(
         batch_index=batch_index,
-        path=path,
-        source_artifact_label=_source_file_artifact_label(batch_index, path),
-        source_display_label=_safe_source_display_label(path),
+        source=source,
+        source_artifact_label=_source_file_artifact_label(
+            batch_index,
+            source.display_name,
+            source_artifact_label_prefix=source_artifact_label_prefix,
+        ),
+        source_display_label=source.display_name,
     )
 
 
-def _source_file_artifact_label(batch_index: int, path: Path) -> str:
-    digest_source = f"{batch_index}:{Path(path).name}"
+def _source_file_artifact_label(
+    batch_index: int,
+    display_name: str,
+    *,
+    source_artifact_label_prefix: str,
+) -> str:
+    digest_source = f"{batch_index}:{display_name}"
     short_hash = hashlib.sha256(digest_source.encode("utf-8")).hexdigest()[:12]
-    return f"legacy_jsonl_file:{batch_index}:{short_hash}"
+    return f"{source_artifact_label_prefix}:{batch_index}:{short_hash}"
 
 
 def _source_artifact_summary(stats: _SourceArtifactStats) -> dict[str, object]:
@@ -383,6 +505,21 @@ def _safe_source_display_label(path: Path) -> str:
     return "<selected_jsonl>"
 
 
+def _path_jsonl_input(path: Path) -> _JsonlInput:
+    return _JsonlInput(display_name=_safe_source_display_label(path), path=path, content_bytes=None)
+
+
+def _uploaded_basename(value: str) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    return re.split(r"[\\/]+", text)[-1].strip()
+
+
+def _safe_uploaded_display_name(value: str) -> str:
+    return _safe_source_display_label(Path(value))
+
+
 def _validate_safe_label(label: str) -> None:
     marker_text = label.lower()
     if (
@@ -396,6 +533,20 @@ def _validate_safe_label(label: str) -> None:
         raise LegacyJsonlAdapterError("source_artifact_label must be a safe label, not a local path or URL")
 
 
+def _iter_jsonl_input_lines(source: _JsonlInput) -> Iterable[tuple[int, str]]:
+    if source.path is not None:
+        yield from _iter_jsonl_lines(source.path)
+        return
+
+    try:
+        text = (source.content_bytes or b"").decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise LegacyJsonlAdapterError(f"Selected JSONL file is not valid UTF-8: {source.display_name}") from exc
+
+    for line_number, raw_line in enumerate(io.StringIO(text), start=1):
+        yield line_number, raw_line
+
+
 def _iter_jsonl_lines(path: Path) -> Iterable[tuple[int, str]]:
     try:
         with path.open("r", encoding="utf-8") as handle:
@@ -407,42 +558,41 @@ def _iter_jsonl_lines(path: Path) -> Iterable[tuple[int, str]]:
         raise LegacyJsonlAdapterError(f"Selected JSONL file could not be read: {_safe_path_label(path)}") from exc
 
 
-def _json_record(line: str, *, jsonl_path: Path, line_number: int) -> dict[str, Any]:
+def _json_record(line: str, *, source_label: str, line_number: int) -> dict[str, Any]:
     try:
         record = json.loads(line)
     except json.JSONDecodeError as exc:
         raise LegacyJsonlAdapterError(
-            f"Invalid JSON in selected JSONL record: {_safe_path_label(jsonl_path)}:{line_number}"
+            f"Invalid JSON in selected JSONL record: {source_label}:{line_number}"
         ) from exc
     if not isinstance(record, dict):
         raise LegacyJsonlAdapterError(
-            f"JSONL record must be an object: {_safe_path_label(jsonl_path)}:{line_number}"
+            f"JSONL record must be an object: {source_label}:{line_number}"
         )
     return record
 
 
-def _required_kind(record: dict[str, Any], *, jsonl_path: Path, line_number: int) -> str:
+def _required_kind(record: dict[str, Any], *, source_label: str, line_number: int) -> str:
     kind = record.get("kind")
     if not isinstance(kind, str) or not kind.strip():
         raise LegacyJsonlAdapterError(
-            f"JSONL record must include a string kind: {_safe_path_label(jsonl_path)}:{line_number}"
+            f"JSONL record must include a string kind: {source_label}:{line_number}"
         )
     return kind.strip()
 
 
-def _event_from_record(line: str, record: dict[str, Any], *, jsonl_path: Path, line_number: int) -> Any:
+def _event_from_record(line: str, record: dict[str, Any], *, source_label: str, line_number: int) -> Any:
     try:
         event = saved_event_replay.event_from_saved_record(line, record)
     except Exception as exc:
         kind = _safe_kind_label(str(record.get("kind") or "unknown"))
         raise LegacyJsonlAdapterError(
-            f"Malformed saved event record for kind {kind}: {_safe_path_label(jsonl_path)}:{line_number}"
+            f"Malformed saved event record for kind {kind}: {source_label}:{line_number}"
         ) from exc
     if event is None:
         kind = _safe_kind_label(str(record.get("kind") or "unknown"))
         raise LegacyJsonlAdapterError(
-            f"Supported saved event record could not be reconstructed for kind {kind}: "
-            f"{_safe_path_label(jsonl_path)}:{line_number}"
+            f"Supported saved event record could not be reconstructed for kind {kind}: {source_label}:{line_number}"
         )
     return event
 

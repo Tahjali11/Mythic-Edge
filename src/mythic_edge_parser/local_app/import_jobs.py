@@ -4,7 +4,7 @@ import re
 import sqlite3
 import uuid
 from collections import OrderedDict
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -15,9 +15,12 @@ from mythic_edge_parser.app.analytics_ingest import (
     ingest_parser_normalized_replay,
 )
 from mythic_edge_parser.app.analytics_legacy_jsonl_adapter import (
+    BROWSER_JSONL_UPLOAD_SOURCE_MODE,
     LegacyJsonlAdapterError,
+    LegacyJsonlUploadSource,
     adapt_legacy_jsonl_artifacts,
     adapt_legacy_jsonl_file_batch,
+    adapt_legacy_jsonl_upload_batch,
     failed_legacy_jsonl_import_quality,
 )
 
@@ -26,6 +29,9 @@ from .paths import LocalAppPaths, build_local_app_paths, display_app_path
 MANUAL_JSONL_IMPORT_SCHEMA_VERSION = "analytics_manual_jsonl_import_ui_job_status.v1"
 MANUAL_JSONL_IMPORT_OBJECT = "mythic_edge_local_app_manual_jsonl_import_job"
 MAX_LEGACY_JSONL_BATCH_FILES = 100
+MAX_BROWSER_JSONL_UPLOAD_FILES = 100
+MAX_BROWSER_JSONL_UPLOAD_FILE_BYTES = 25 * 1024 * 1024
+MAX_BROWSER_JSONL_UPLOAD_TOTAL_BYTES = 250 * 1024 * 1024
 
 _MAX_STORED_JOBS = 25
 _JOBS: OrderedDict[str, dict[str, object]] = OrderedDict()
@@ -56,11 +62,19 @@ class _SourceValidation:
     source_file_extension: str
     source_mode: str = "single_file"
     source_paths: tuple[Path, ...] = ()
+    upload_sources: tuple[LegacyJsonlUploadSource, ...] = ()
     files_selected: int = 0
     files_accepted: int = 0
     files_rejected: int = 0
     source_artifacts: tuple[dict[str, object], ...] = ()
     error: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class BrowserJsonlUploadFile:
+    filename: str
+    content_bytes: bytes
+    content_type: str = ""
 
 
 def run_manual_jsonl_import(
@@ -70,10 +84,61 @@ def run_manual_jsonl_import(
     now: Callable[[], str] | None = None,
     job_id_factory: Callable[[], str] | None = None,
 ) -> dict[str, object]:
+    return _run_import_from_source(
+        _validate_source_request(request),
+        app_data_root=app_data_root,
+        now=now,
+        job_id_factory=job_id_factory,
+    )
+
+
+def run_browser_jsonl_upload_import(
+    files: Sequence[BrowserJsonlUploadFile],
+    *,
+    source_artifact_label: str | None = None,
+    app_data_root: Path | None = None,
+    now: Callable[[], str] | None = None,
+    job_id_factory: Callable[[], str] | None = None,
+) -> dict[str, object]:
+    return _run_import_from_source(
+        _validate_upload_request(files, source_artifact_label=source_artifact_label),
+        app_data_root=app_data_root,
+        now=now,
+        job_id_factory=job_id_factory,
+    )
+
+
+def reject_browser_jsonl_upload_import(
+    error: str,
+    *,
+    files_selected: int = 0,
+    app_data_root: Path | None = None,
+    now: Callable[[], str] | None = None,
+    job_id_factory: Callable[[], str] | None = None,
+) -> dict[str, object]:
+    return _run_import_from_source(
+        _invalid_source(
+            error,
+            source_mode=BROWSER_JSONL_UPLOAD_SOURCE_MODE,
+            source_file_extension=".jsonl",
+            files_selected=max(0, files_selected),
+        ),
+        app_data_root=app_data_root,
+        now=now,
+        job_id_factory=job_id_factory,
+    )
+
+
+def _run_import_from_source(
+    source: _SourceValidation,
+    *,
+    app_data_root: Path | None = None,
+    now: Callable[[], str] | None = None,
+    job_id_factory: Callable[[], str] | None = None,
+) -> dict[str, object]:
     now_fn = now or _utc_now
     created_at = now_fn()
     job_id = (job_id_factory or _default_job_id)()
-    source = _validate_source_request(request)
     if source.error is not None or not _source_has_selection(source):
         return _store_job(
             _job_payload(
@@ -233,6 +298,110 @@ def _validate_source_request(request: object) -> _SourceValidation:
     if not has_source_path:
         return _invalid_source("source_path_required")
     return _validate_single_source_request(request)
+
+
+def _validate_upload_request(
+    files: Sequence[BrowserJsonlUploadFile],
+    *,
+    source_artifact_label: str | None,
+) -> _SourceValidation:
+    if isinstance(files, (str, bytes)) or not files:
+        return _invalid_source("upload_files_required", source_mode=BROWSER_JSONL_UPLOAD_SOURCE_MODE)
+    if len(files) > MAX_BROWSER_JSONL_UPLOAD_FILES:
+        return _invalid_source(
+            "upload_files_too_many",
+            source_mode=BROWSER_JSONL_UPLOAD_SOURCE_MODE,
+            files_selected=len(files),
+        )
+
+    if source_artifact_label is not None:
+        if not isinstance(source_artifact_label, str) or not source_artifact_label.strip():
+            return _invalid_source(
+                "source_artifact_label_invalid",
+                source_mode=BROWSER_JSONL_UPLOAD_SOURCE_MODE,
+                source_file_extension=".jsonl",
+                files_selected=len(files),
+            )
+        safe_source_artifact_label = source_artifact_label.strip()
+        if _safe_label_or_empty(safe_source_artifact_label) != safe_source_artifact_label:
+            return _invalid_source(
+                "source_artifact_label_invalid",
+                source_mode=BROWSER_JSONL_UPLOAD_SOURCE_MODE,
+                source_file_extension=".jsonl",
+                files_selected=len(files),
+            )
+    else:
+        safe_source_artifact_label = None
+
+    upload_sources: list[LegacyJsonlUploadSource] = []
+    total_size = 0
+    for index, upload_file in enumerate(files):
+        raw_filename = str(upload_file.filename or "").strip()
+        basename = _uploaded_basename(raw_filename)
+        if not basename:
+            return _invalid_source(
+                "upload_filename_required",
+                source_mode=BROWSER_JSONL_UPLOAD_SOURCE_MODE,
+                source_file_extension=".jsonl",
+                files_selected=len(files),
+            )
+        display_label = _safe_uploaded_display_label(basename)
+        if Path(basename).suffix.lower() != ".jsonl":
+            return _invalid_source(
+                "upload_file_extension_not_allowed",
+                source_mode=BROWSER_JSONL_UPLOAD_SOURCE_MODE,
+                source_file_extension=Path(basename).suffix.lower(),
+                source_display_label=display_label,
+                files_selected=len(files),
+            )
+
+        content_bytes = bytes(upload_file.content_bytes)
+        size_bytes = len(content_bytes)
+        if size_bytes <= 0:
+            return _invalid_source(
+                "upload_file_empty",
+                source_mode=BROWSER_JSONL_UPLOAD_SOURCE_MODE,
+                source_file_extension=".jsonl",
+                source_display_label=display_label,
+                files_selected=len(files),
+            )
+        if size_bytes > MAX_BROWSER_JSONL_UPLOAD_FILE_BYTES:
+            return _invalid_source(
+                "upload_file_too_large",
+                source_mode=BROWSER_JSONL_UPLOAD_SOURCE_MODE,
+                source_file_extension=".jsonl",
+                source_display_label=display_label,
+                files_selected=len(files),
+            )
+        total_size += size_bytes
+        if total_size > MAX_BROWSER_JSONL_UPLOAD_TOTAL_BYTES:
+            return _invalid_source(
+                "upload_total_size_too_large",
+                source_mode=BROWSER_JSONL_UPLOAD_SOURCE_MODE,
+                source_file_extension=".jsonl",
+                files_selected=len(files),
+            )
+
+        upload_sources.append(
+            LegacyJsonlUploadSource(
+                display_name=basename,
+                content_bytes=content_bytes,
+                size_bytes=size_bytes,
+                original_index=index,
+            )
+        )
+
+    return _SourceValidation(
+        source_path=None,
+        upload_sources=tuple(upload_sources),
+        source_artifact_label=safe_source_artifact_label,
+        source_display_label=f"{len(upload_sources)} uploaded JSONL files",
+        source_file_extension=".jsonl",
+        source_mode=BROWSER_JSONL_UPLOAD_SOURCE_MODE,
+        files_selected=len(files),
+        files_accepted=len(upload_sources),
+        files_rejected=0,
+    )
 
 
 def _validate_single_source_request(request: Mapping[object, object]) -> _SourceValidation:
@@ -503,12 +672,19 @@ def _store_job(job: dict[str, object]) -> dict[str, object]:
 
 
 def _source_has_selection(source: _SourceValidation) -> bool:
+    if source.source_mode == BROWSER_JSONL_UPLOAD_SOURCE_MODE:
+        return bool(source.upload_sources)
     if source.source_mode == "explicit_file_batch":
         return bool(source.source_paths)
     return source.source_path is not None
 
 
 def _adapt_source(source: _SourceValidation) -> object:
+    if source.source_mode == BROWSER_JSONL_UPLOAD_SOURCE_MODE:
+        return adapt_legacy_jsonl_upload_batch(
+            source.upload_sources,
+            source_artifact_label=source.source_artifact_label,
+        )
     if source.source_mode == "explicit_file_batch":
         return adapt_legacy_jsonl_file_batch(
             source.source_paths,
@@ -526,6 +702,7 @@ def _source_with_adapter_result(source: _SourceValidation, adapter_result: objec
     return _SourceValidation(
         source_path=source.source_path,
         source_paths=source.source_paths,
+        upload_sources=source.upload_sources,
         source_artifact_label=str(getattr(adapter_result, "source_artifact_label")),
         source_display_label=source.source_display_label,
         source_file_extension=source.source_file_extension,
@@ -698,6 +875,17 @@ def _safe_source_display_label(path: Path) -> str:
     ):
         return name
     return "<selected_jsonl>"
+
+
+def _uploaded_basename(value: str) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    return re.split(r"[\\/]+", text)[-1].strip()
+
+
+def _safe_uploaded_display_label(value: str) -> str:
+    return _safe_source_display_label(Path(value))
 
 
 def _safe_label_or_empty(value: str | None) -> str:

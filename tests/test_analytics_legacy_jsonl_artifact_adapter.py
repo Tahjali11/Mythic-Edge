@@ -17,15 +17,23 @@ from mythic_edge_parser.app.analytics_legacy_jsonl_adapter import (
     ANALYTICS_LEGACY_JSONL_BATCH_IMPORT_SCHEMA_VERSION,
     ANALYTICS_LEGACY_JSONL_IMPORT_QUALITY_OBJECT,
     ANALYTICS_LEGACY_JSONL_IMPORT_QUALITY_SCHEMA_VERSION,
+    BROWSER_JSONL_UPLOAD_SOURCE_MODE,
     LegacyJsonlAdapterError,
+    LegacyJsonlUploadSource,
     adapt_legacy_jsonl_artifacts,
     adapt_legacy_jsonl_file_batch,
+    adapt_legacy_jsonl_upload_batch,
 )
 
 
 def _write_jsonl(path: Path, records: list[dict[str, Any] | str | list[Any]]) -> None:
     lines = [record if isinstance(record, str) else json.dumps(record, ensure_ascii=False) for record in records]
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _jsonl_bytes(records: list[dict[str, Any] | str | list[Any]]) -> bytes:
+    lines = [record if isinstance(record, str) else json.dumps(record, ensure_ascii=False) for record in records]
+    return ("\n".join(lines) + "\n").encode("utf-8")
 
 
 def _match_started(match_id: str, raw_hash: str = "match-started-hash") -> dict[str, Any]:
@@ -411,6 +419,125 @@ def test_explicit_file_batch_aggregates_cross_file_duplicate_hashes_without_expo
     assert "duplicate-final-hash" not in encoded
     assert "unsupported-shared-hash" not in encoded
     assert "not emitted" not in encoded
+
+
+def test_uploaded_file_batch_sorts_inputs_and_uses_safe_uploaded_source_mode() -> None:
+    match_id = "match:legacy:upload"
+    first_bytes = _jsonl_bytes([_match_started(match_id), _turn_one(match_id)])
+    second_bytes = _jsonl_bytes([_match_finished(match_id)])
+    result = adapt_legacy_jsonl_upload_batch(
+        [
+            LegacyJsonlUploadSource(
+                display_name="C:\\fakepath\\b_events.jsonl",
+                content_bytes=second_bytes,
+                size_bytes=len(second_bytes),
+                original_index=0,
+            ),
+            LegacyJsonlUploadSource(
+                display_name="C:\\fakepath\\a_events.jsonl",
+                content_bytes=first_bytes,
+                size_bytes=len(first_bytes),
+                original_index=1,
+            ),
+        ],
+        source_artifact_label="legacy_jsonl_uploaded_batch_v1",
+    )
+    encoded = json.dumps(result.quality | {"source_artifacts": result.source_artifacts}, sort_keys=True)
+
+    assert result.source_mode == BROWSER_JSONL_UPLOAD_SOURCE_MODE
+    assert result.source_artifact_label == "legacy_jsonl_uploaded_batch_v1"
+    assert result.files_processed == 2
+    assert result.files_selected == 2
+    assert result.files_accepted == 2
+    assert result.files_rejected == 0
+    assert result.events_processed == 3
+    assert [artifact["source_display_label"] for artifact in result.source_artifacts] == [
+        "a_events.jsonl",
+        "b_events.jsonl",
+    ]
+    assert all(
+        str(artifact["source_artifact_label"]).startswith("legacy_jsonl_uploaded_file:")
+        for artifact in result.source_artifacts
+    )
+    assert result.replay["match_log_rows"][0]["match_id"] == match_id  # type: ignore[index]
+    assert "fakepath" not in encoded.lower()
+
+
+def test_uploaded_file_batch_dedupes_cross_file_hashes_without_exposing_hash_or_payload() -> None:
+    match_id = "match:legacy:upload-degraded"
+    first_bytes = _jsonl_bytes(
+        [
+            _match_started(match_id),
+            _turn_one(match_id),
+            _match_finished(match_id, raw_hash="uploaded-duplicate-final-hash"),
+            {
+                "kind": "ConnectionError",
+                "timestamp": "2026-05-29T18:00:30+00:00",
+                "raw_bytes_hash": "uploaded-unsupported-shared-hash",
+                "payload": {"type": "connection_error", "private": "not emitted"},
+            },
+        ]
+    )
+    second_bytes = _jsonl_bytes(
+        [
+            "",
+            {
+                "kind": "Rank",
+                "timestamp": "2026-05-29T18:00:45+00:00",
+                "raw_bytes_hash": "uploaded-unsupported-shared-hash",
+                "payload": {"constructed_class": "Mythic", "constructed_percentile": 99},
+            },
+            _match_finished(match_id, raw_hash="uploaded-duplicate-final-hash"),
+        ]
+    )
+
+    result = adapt_legacy_jsonl_upload_batch(
+        [
+            LegacyJsonlUploadSource("b_events.jsonl", second_bytes, len(second_bytes), 0),
+            LegacyJsonlUploadSource("a_events.jsonl", first_bytes, len(first_bytes), 1),
+        ],
+    )
+    encoded = json.dumps(result.quality | {"source_artifacts": result.source_artifacts}, sort_keys=True)
+
+    assert result.source_mode == BROWSER_JSONL_UPLOAD_SOURCE_MODE
+    assert result.source_artifact_label.startswith("legacy_jsonl_uploaded_batch:2:")
+    assert result.records_seen == 6
+    assert result.events_processed == 3
+    assert result.events_skipped == 4
+    assert result.quality["skipped_reason_counts"] == {
+        "blank_line": 1,
+        "duplicate_raw_hash": 2,
+        "unsupported_kind": 1,
+    }
+    assert result.source_artifacts[0]["source_display_label"] == "a_events.jsonl"
+    assert result.source_artifacts[1]["source_display_label"] == "b_events.jsonl"
+    assert "uploaded-duplicate-final-hash" not in encoded
+    assert "uploaded-unsupported-shared-hash" not in encoded
+    assert "not emitted" not in encoded
+
+
+def test_uploaded_file_batch_malformed_json_fails_without_payload_hash_or_path_echo() -> None:
+    raw_hash = "uploaded-private-raw-hash"
+    bad_line = f'{{"kind": "GameState", "raw_bytes_hash": "{raw_hash}", "payload": '
+    with pytest.raises(LegacyJsonlAdapterError) as exc_info:
+        adapt_legacy_jsonl_upload_batch(
+            [
+                LegacyJsonlUploadSource(
+                    display_name="C:\\fakepath\\malformed_events.jsonl",
+                    content_bytes=_jsonl_bytes([bad_line]),
+                    size_bytes=len(_jsonl_bytes([bad_line])),
+                    original_index=0,
+                )
+            ]
+        )
+
+    message = str(exc_info.value)
+    assert "Invalid JSON" in message
+    assert "malformed_events.jsonl" in message
+    assert "fakepath" not in message.lower()
+    assert bad_line not in message
+    assert "payload" not in message
+    assert raw_hash not in message
 
 
 def test_explicit_file_batch_malformed_selected_file_fails_without_replay_or_private_echo(

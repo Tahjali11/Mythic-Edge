@@ -1,13 +1,20 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode, type RefObject } from "react";
 
 import "./App.css";
-import { fetchSetupStatus, ManualImportApiError, SetupStatusApiError, submitManualJsonlImport } from "./api";
+import {
+  fetchSetupStatus,
+  ManualImportApiError,
+  SetupStatusApiError,
+  submitManualJsonlImport,
+  submitManualJsonlUpload
+} from "./api";
 import { safeDisplayValue, statusTone } from "./status";
 import {
   MANUAL_IMPORT_JOB_SCHEMA_VERSION,
   SETUP_STATUS_SCHEMA_VERSION,
   type ManualImportJob,
   type ManualImportRequest,
+  type ManualImportUploadRequest,
   type LegacyJsonlImportQuality,
   type LegacyJsonlRoutingHint,
   type ManualImportSourceArtifact,
@@ -23,6 +30,7 @@ type LoadState =
 type SetupStatusAppProps = {
   fetchStatus?: () => Promise<SetupStatusResponse>;
   submitImport?: (request: ManualImportRequest) => Promise<ManualImportJob>;
+  submitUpload?: (request: ManualImportUploadRequest) => Promise<ManualImportJob>;
 };
 
 type ImportState =
@@ -37,12 +45,18 @@ type Panel = {
   details: Array<{ label: string; value: unknown }>;
 };
 
-export function SetupStatusApp({ fetchStatus = fetchSetupStatus, submitImport = submitManualJsonlImport }: SetupStatusAppProps) {
+export function SetupStatusApp({
+  fetchStatus = fetchSetupStatus,
+  submitImport = submitManualJsonlImport,
+  submitUpload = submitManualJsonlUpload
+}: SetupStatusAppProps) {
   const [loadState, setLoadState] = useState<LoadState>({ state: "loading" });
   const [sourcePath, setSourcePath] = useState("");
   const [sourcePathsText, setSourcePathsText] = useState("");
+  const [uploadFiles, setUploadFiles] = useState<File[]>([]);
   const [sourceLabel, setSourceLabel] = useState("");
   const [importState, setImportState] = useState<ImportState>({ state: "idle" });
+  const uploadFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let active = true;
@@ -118,6 +132,50 @@ export function SetupStatusApp({ fetchStatus = fetchSetupStatus, submitImport = 
     }
   }
 
+  async function handleBrowserUpload(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (importState.state === "submitting" || uploadFiles.length === 0) {
+      return;
+    }
+
+    const request: ManualImportUploadRequest = { files: uploadFiles };
+    const trimmedLabel = sourceLabel.trim();
+    if (trimmedLabel) {
+      request.source_artifact_label = trimmedLabel;
+    }
+
+    setImportState({ state: "submitting" });
+    try {
+      const job = await submitUpload(request);
+      clearUploadSelection();
+      setSourceLabel("");
+      setImportState({ state: "result", job });
+    } catch (error: unknown) {
+      clearUploadSelection();
+      setSourceLabel("");
+      if (error instanceof ManualImportApiError) {
+        setImportState({ state: "error", code: error.code, message: error.message });
+        return;
+      }
+      setImportState({
+        state: "error",
+        code: "backend_unavailable",
+        message: "Manual import backend is unavailable."
+      });
+    }
+  }
+
+  function handleUploadFilesChange(fileList: FileList | null) {
+    setUploadFiles(Array.from(fileList ?? []));
+  }
+
+  function clearUploadSelection() {
+    setUploadFiles([]);
+    if (uploadFileInputRef.current) {
+      uploadFileInputRef.current.value = "";
+    }
+  }
+
   if (loadState.state === "loading") {
     return (
       <Shell>
@@ -173,12 +231,16 @@ export function SetupStatusApp({ fetchStatus = fetchSetupStatus, submitImport = 
       <ManualImportPanel
         importState={importState}
         onSubmit={handleManualImport}
+        onUploadFilesChange={handleUploadFilesChange}
+        onUploadSubmit={handleBrowserUpload}
         sourceLabel={sourceLabel}
         sourcePath={sourcePath}
         sourcePathsText={sourcePathsText}
         setSourceLabel={setSourceLabel}
         setSourcePath={setSourcePath}
         setSourcePathsText={setSourcePathsText}
+        uploadFileInputRef={uploadFileInputRef}
+        uploadFiles={uploadFiles}
       />
 
       <section className="panelGrid futureGrid" aria-label="Deferred local app sections">
@@ -236,22 +298,30 @@ function StatusPanel({ title, status, details }: Panel) {
 
 function ManualImportPanel({
   importState,
+  onUploadFilesChange,
+  onUploadSubmit,
   onSubmit,
   sourceLabel,
   sourcePath,
   sourcePathsText,
   setSourceLabel,
   setSourcePath,
-  setSourcePathsText
+  setSourcePathsText,
+  uploadFileInputRef,
+  uploadFiles
 }: {
   importState: ImportState;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onUploadFilesChange: (fileList: FileList | null) => void;
+  onUploadSubmit: (event: FormEvent<HTMLFormElement>) => void;
   sourceLabel: string;
   sourcePath: string;
   sourcePathsText: string;
   setSourceLabel: (value: string) => void;
   setSourcePath: (value: string) => void;
   setSourcePathsText: (value: string) => void;
+  uploadFileInputRef: RefObject<HTMLInputElement | null>;
+  uploadFiles: File[];
 }) {
   const busy = importState.state === "submitting";
   const status = manualImportStatus(importState);
@@ -295,6 +365,24 @@ function ManualImportPanel({
         <button disabled={busy || !hasExactlyOneSourceMode} type="submit">
           Import JSONL
         </button>
+      </form>
+      <form className="manualImportForm uploadImportForm" onSubmit={onUploadSubmit}>
+        <label htmlFor="manual-import-upload-files">Upload JSONL files</label>
+        <input
+          accept=".jsonl"
+          disabled={busy}
+          id="manual-import-upload-files"
+          multiple
+          onChange={(event) => onUploadFilesChange(event.target.files)}
+          ref={uploadFileInputRef}
+          type="file"
+        />
+        <button disabled={busy || uploadFiles.length === 0} type="submit">
+          Upload JSONL Files
+        </button>
+        {uploadFiles.length > 0 ? (
+          <p className="uploadSelection">{formatUploadSelection(uploadFiles)}</p>
+        ) : null}
       </form>
       {importState.state === "submitting" ? <p className="jobMessage">Import running</p> : null}
       {importState.state === "error" ? <ManualImportErrorNotice importState={importState} /> : null}
@@ -516,6 +604,36 @@ function formatRoutingHints(hints: LegacyJsonlRoutingHint[]): string {
 function formatSourceArtifact(artifact: ManualImportSourceArtifact): string {
   const warnings = formatLabels(artifact.adapter_warning_codes);
   return `${artifact.source_display_label} ${artifact.status} events ${artifact.events_processed} skipped ${artifact.events_skipped} warnings ${warnings}`;
+}
+
+function formatUploadSelection(files: File[]): string {
+  const labels = files.map((file) => safeUploadFileName(file.name)).join(" ");
+  return `${files.length} files selected ${labels}`;
+}
+
+function safeUploadFileName(value: string): string {
+  const basename = value.split(/[\\/]+/).pop()?.trim() ?? "";
+  const markerText = basename.toLowerCase();
+  const privateMarkers = [
+    "player.log",
+    "script.google.com",
+    "hooks.",
+    "webhook",
+    "api_key",
+    "apikey",
+    "access_token",
+    "bearer ",
+    "secret",
+    "password",
+    "token"
+  ];
+  if (
+    /^[A-Za-z0-9_. -]{1,80}\.jsonl$/i.test(basename) &&
+    !privateMarkers.some((marker) => markerText.includes(marker))
+  ) {
+    return basename;
+  }
+  return "<selected_jsonl>";
 }
 
 function manualImportErrorTitle(code: ManualImportApiError["code"]): string {

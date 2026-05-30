@@ -5,11 +5,18 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from urllib.parse import urlparse
 
-from fastapi import Body, FastAPI, HTTPException
+from fastapi import Body, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.datastructures import UploadFile
 
 from .config import load_local_app_config_status
-from .import_jobs import get_import_job, run_manual_jsonl_import
+from .import_jobs import (
+    BrowserJsonlUploadFile,
+    get_import_job,
+    reject_browser_jsonl_upload_import,
+    run_browser_jsonl_upload_import,
+    run_manual_jsonl_import,
+)
 from .paths import build_local_app_paths
 from .setup_status import (
     build_analytics_database_status,
@@ -73,6 +80,58 @@ def create_app(
     @app.post("/api/imports/jsonl")
     def import_jsonl(request: object = Body(...)) -> dict[str, object]:
         return run_manual_jsonl_import(request, app_data_root=app_data_root)
+
+    @app.post("/api/imports/jsonl/upload")
+    async def import_jsonl_upload(request: Request) -> dict[str, object]:
+        form = await request.form()
+        form_files = list(form.getlist("files"))
+        raw_source_artifact_labels = form.getlist("source_artifact_label")
+        raw_source_artifact_label = raw_source_artifact_labels[-1] if raw_source_artifact_labels else None
+        source_artifact_label = raw_source_artifact_label if isinstance(raw_source_artifact_label, str) else None
+
+        upload_files: list[UploadFile] = []
+        for value in form_files:
+            if not isinstance(value, UploadFile):
+                for upload_file in upload_files:
+                    await upload_file.close()
+                await form.close()
+                return reject_browser_jsonl_upload_import(
+                    "upload_file_invalid",
+                    files_selected=len(form_files),
+                    app_data_root=app_data_root,
+                )
+            upload_files.append(value)
+
+        if raw_source_artifact_label is not None and not isinstance(raw_source_artifact_label, str):
+            for upload_file in upload_files:
+                await upload_file.close()
+            await form.close()
+            return reject_browser_jsonl_upload_import(
+                "source_artifact_label_invalid",
+                files_selected=len(form_files),
+                app_data_root=app_data_root,
+            )
+
+        uploads: list[BrowserJsonlUploadFile] = []
+        try:
+            for upload_file in upload_files:
+                uploads.append(
+                    BrowserJsonlUploadFile(
+                        filename=upload_file.filename or "",
+                        content_bytes=await upload_file.read(),
+                        content_type=upload_file.content_type or "",
+                    )
+                )
+        finally:
+            for upload_file in upload_files:
+                await upload_file.close()
+            await form.close()
+
+        return run_browser_jsonl_upload_import(
+            uploads,
+            source_artifact_label=source_artifact_label,
+            app_data_root=app_data_root,
+        )
 
     @app.get("/api/imports/jobs/{job_id}")
     def import_job(job_id: str) -> dict[str, object]:

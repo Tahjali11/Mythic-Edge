@@ -51,7 +51,7 @@ export type ManualImportSource = {
   source_display_label: string;
   source_file_extension: string;
   path_echoed: false;
-  source_mode?: "single_file" | "explicit_file_batch" | "adapter_directory_selection" | string;
+  source_mode?: "single_file" | "explicit_file_batch" | "uploaded_file_batch" | "adapter_directory_selection" | string;
   files_selected?: number;
   files_accepted?: number;
   files_rejected?: number;
@@ -116,7 +116,7 @@ export type ManualImportAdapter = {
   unsupported_kind_counts: Record<string, number>;
   warnings: string[];
   quality?: LegacyJsonlImportQuality;
-  source_mode?: "single_file" | "explicit_file_batch" | "adapter_directory_selection" | string;
+  source_mode?: "single_file" | "explicit_file_batch" | "uploaded_file_batch" | "adapter_directory_selection" | string;
   files_selected?: number;
   files_accepted?: number;
   files_rejected?: number;
@@ -170,6 +170,11 @@ export type ManualImportBatchRequest = {
 };
 
 export type ManualImportRequest = ManualImportSingleFileRequest | ManualImportBatchRequest;
+
+export type ManualImportUploadRequest = {
+  files: File[];
+  source_artifact_label?: string;
+};
 
 export type ManualImportErrorCode =
   | "backend_unavailable"

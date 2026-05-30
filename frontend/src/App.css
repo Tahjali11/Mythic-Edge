@@ -120,6 +120,11 @@ h3 {
   align-items: center;
 }
 
+.uploadImportForm {
+  border-top: 1px solid #d9ded7;
+  padding-top: 16px;
+}
+
 .manualImportForm label {
   color: #596067;
   font-size: 0.82rem;
@@ -155,6 +160,13 @@ h3 {
 .manualImportForm button:disabled {
   border-color: #9fa9a2;
   background: #9fa9a2;
+}
+
+.uploadSelection {
+  grid-column: 2;
+  color: #596067;
+  font-size: 0.86rem;
+  overflow-wrap: anywhere;
 }
 
 .jobMessage {
@@ -289,5 +301,9 @@ dd {
   .manualImportForm button {
     grid-column: 1;
     width: 100%;
+  }
+
+  .uploadSelection {
+    grid-column: 1;
   }
 }

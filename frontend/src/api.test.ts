@@ -6,7 +6,8 @@ import {
   getApiBaseUrl,
   ManualImportApiError,
   SetupStatusApiError,
-  submitManualJsonlImport
+  submitManualJsonlImport,
+  submitManualJsonlUpload
 } from "./api";
 import {
   LEGACY_JSONL_IMPORT_QUALITY_OBJECT,
@@ -101,6 +102,44 @@ describe("api helpers", () => {
       headers: { Accept: "application/json", "Content-Type": "application/json" },
       body: JSON.stringify({ source_paths: sourcePaths })
     });
+  });
+
+  it("submits browser upload import requests as multipart form data", async () => {
+    const payload = buildManualImportJob();
+    const firstFile = new File(['{"kind":"MatchState"}\n'], "a_events.jsonl", { type: "application/jsonl" });
+    const secondFile = new File(['{"kind":"GameResult"}\n'], "b_events.jsonl", { type: "application/jsonl" });
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      expect(init?.method).toBe("POST");
+      expect(init?.headers).toEqual({ Accept: "application/json" });
+      expect(init?.body).toBeInstanceOf(FormData);
+
+      const formData = init?.body as FormData;
+      const files = formData.getAll("files");
+      expect(files).toHaveLength(2);
+      expect(files[0]).toBe(firstFile);
+      expect(files[1]).toBe(secondFile);
+      expect(formData.get("source_artifact_label")).toBe("safe_upload_label");
+
+      return jsonResponse(payload);
+    }) as unknown as typeof fetch;
+
+    await expect(
+      submitManualJsonlUpload(
+        {
+          files: [firstFile, secondFile],
+          source_artifact_label: " safe_upload_label "
+        },
+        fetchImpl
+      )
+    ).resolves.toEqual(payload);
+    expect(fetchImpl).toHaveBeenCalledWith(
+      "/api/imports/jsonl/upload",
+      expect.objectContaining({
+        method: "POST",
+        headers: { Accept: "application/json" },
+        body: expect.any(FormData)
+      })
+    );
   });
 
   it("fetches manual import job status by opaque id", async () => {

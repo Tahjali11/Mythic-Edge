@@ -147,6 +147,75 @@ describe("SetupStatusApp", () => {
     expect(screen.queryByText(secondRawPath)).not.toBeInTheDocument();
   });
 
+  it("uploads browser-selected JSONL files and renders sanitized upload summaries", async () => {
+    const firstFile = new File(['{"kind":"MatchState"}\n'], "a_events.jsonl", { type: "application/jsonl" });
+    const secondFile = new File(['{"kind":"GameResult"}\n'], "b_events.jsonl", { type: "application/jsonl" });
+    const submitUpload = vi.fn(async () => buildUploadedManualImportJob());
+    render(<SetupStatusApp fetchStatus={() => Promise.resolve(buildPayload())} submitUpload={submitUpload} />);
+
+    const uploadInput = (await screen.findByLabelText("Upload JSONL files")) as HTMLInputElement;
+    fireEvent.change(uploadInput, { target: { files: [firstFile, secondFile] } });
+    fireEvent.change(screen.getByLabelText("Source label"), { target: { value: "safe_upload_label" } });
+    expect(screen.getByText("2 files selected a_events.jsonl b_events.jsonl")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Upload JSONL Files" }));
+
+    await waitFor(() => {
+      expect(submitUpload).toHaveBeenCalledWith({
+        files: [firstFile, secondFile],
+        source_artifact_label: "safe_upload_label"
+      });
+    });
+    expect(await screen.findByRole("heading", { name: "Import Job" })).toBeInTheDocument();
+    expect(screen.getByText("uploaded_file_batch")).toBeInTheDocument();
+    expect(screen.getByText("a_events.jsonl processed events 2 skipped 0 warnings none")).toBeInTheDocument();
+    expect(screen.getByText("b_events.jsonl processed events 1 skipped 0 warnings none")).toBeInTheDocument();
+    expect(screen.queryByText("2 files selected a_events.jsonl b_events.jsonl")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /reset|delete|wipe|cancel|retry|git|sheets|ai/i })).not.toBeInTheDocument();
+  });
+
+  it("renders upload API errors safely and clears selected files", async () => {
+    const rawFileName = "secret_token_dump.jsonl";
+    const selectedFile = new File(['{"raw":"private"}\n'], rawFileName, { type: "application/jsonl" });
+    const submitUpload = vi.fn(async () => {
+      throw new ManualImportApiError("malformed_response", "Malformed import response");
+    });
+    render(<SetupStatusApp fetchStatus={() => Promise.resolve(buildPayload())} submitUpload={submitUpload} />);
+
+    fireEvent.change(await screen.findByLabelText("Upload JSONL files"), { target: { files: [selectedFile] } });
+    expect(screen.getByText("1 files selected <selected_jsonl>")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Upload JSONL Files" }));
+
+    expect(await screen.findByRole("heading", { name: "Malformed import response" })).toBeInTheDocument();
+    expect(screen.queryByText("1 files selected <selected_jsonl>")).not.toBeInTheDocument();
+    expect(screen.queryByText(/stack|error:/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(rawFileName)).not.toBeInTheDocument();
+  });
+
+  it("redacts selected upload filenames with private-marker classes", async () => {
+    const privateNames = [
+      "api_key_dump.jsonl",
+      "apikey_dump.jsonl",
+      "access_token_dump.jsonl",
+      "bearer credential.jsonl",
+      "password_dump.jsonl",
+      "hooks.example.jsonl",
+      "script.google.com.jsonl"
+    ];
+    const selectedFiles = privateNames.map((name) => new File(['{"kind":"Rank"}\n'], name, { type: "application/jsonl" }));
+    render(<SetupStatusApp fetchStatus={() => Promise.resolve(buildPayload())} />);
+
+    fireEvent.change(await screen.findByLabelText("Upload JSONL files"), { target: { files: selectedFiles } });
+
+    expect(
+      screen.getByText(
+        "7 files selected <selected_jsonl> <selected_jsonl> <selected_jsonl> <selected_jsonl> <selected_jsonl> <selected_jsonl> <selected_jsonl>"
+      )
+    ).toBeInTheDocument();
+    for (const privateName of privateNames) {
+      expect(screen.queryByText(privateName)).not.toBeInTheDocument();
+    }
+  });
+
   it("renders a rejected batch import state without retaining raw paths", async () => {
     const rawPath = "Z:\\synthetic\\invalid_events.jsonl";
     const submitImport = vi.fn(async () => buildBatchRejectedManualImportJob());
@@ -414,6 +483,30 @@ function buildBatchManualImportJob(): ManualImportJob {
       quality: buildImportQuality()
     },
     warnings: []
+  };
+}
+
+function buildUploadedManualImportJob(): ManualImportJob {
+  const job = buildBatchManualImportJob();
+  const sourceArtifacts = (job.source.source_artifacts ?? []).map((artifact) => ({
+    ...artifact,
+    source_artifact_label: artifact.source_artifact_label.replace("legacy_jsonl_file", "legacy_jsonl_uploaded_file")
+  }));
+  return {
+    ...job,
+    source: {
+      ...job.source,
+      source_artifact_label: "safe_upload_label",
+      source_display_label: "2 uploaded JSONL files",
+      source_mode: "uploaded_file_batch",
+      source_group_label: "safe_upload_label",
+      source_artifacts: sourceArtifacts
+    },
+    adapter: {
+      ...job.adapter,
+      source_mode: "uploaded_file_batch",
+      source_artifacts: sourceArtifacts
+    }
   };
 }
 
