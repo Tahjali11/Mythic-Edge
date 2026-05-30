@@ -1,23 +1,26 @@
 # ADR-0006 Repository Boundary Adoption Contract-Test Report
 
-report_lifecycle: final_approval
-finding_lifecycle: N/A
+report_lifecycle: followup_after_fixer
 
 ## Findings
 
 No blocking findings.
 
-No non-blocking findings were found in the reviewed ADR adoption candidate. The implementation stayed governance/docs-only and did not split repositories, move files, rename packages, change imports, add CI gates, or change parser/runtime/analytics/UI/workbook/webhook/Apps Script/Sheets/AI/production behavior.
+| finding_id | severity | finding_lifecycle | finding_status | blocking_status | verification_evidence | next_route |
+| --- | --- | --- | --- | --- | --- | --- |
+| CT-ADR0006-001 | P2 | fixed_state_followup | Fixed | Not blocking | ADR-0006 now cites issue #217 and PR #216 directly; PR #216 body readback also cites #217 directly. | Codex F |
+
+No new non-blocking findings were found in this confirmation pass.
 
 ## Role Performed
 
-Codex E: Module Reviewer / contract-test thread.
+Codex E: Module Reviewer / confirmation thread.
 
-## Related Issue Used
+## Issue And PR Used
 
-- Related issue: https://github.com/Tahjali11/Mythic-Edge/issues/215
-- Issue status verified: CLOSED
-- New ADR adoption governance issue: not found by targeted GitHub issue search and not created by this review.
+- ADR adoption issue: https://github.com/Tahjali11/Mythic-Edge/issues/217
+- Related PR: https://github.com/Tahjali11/Mythic-Edge/pull/216
+- Related internal boundary issue: https://github.com/Tahjali11/Mythic-Edge/issues/215
 
 ## Source Artifact Reviewed
 
@@ -28,44 +31,36 @@ Codex E: Module Reviewer / contract-test thread.
 - Contract: `docs/contracts/adr_0006_repository_boundary_adoption.md`
 - Implementation handoff: `docs/implementation_handoffs/adr_0006_repository_boundary_adoption_comparison.md`
 - Branch: `codex/adr-0006-repository-boundary-adoption`
+- Target branch: `codex/analytics-foundation`
 - Risk tier: Medium
 
 ## Files Reviewed
 
 - `AGENTS.md`
 - `docs/agent_rules.yml`
-- `docs/agent_constitution.md`
-- `docs/codex_module_workflow.md`
 - `docs/agent_threads/review.md`
 - `docs/agent_threads/contract_test.md`
-- `docs/decisions/README.md`
-- `docs/decisions/ADR-0001-parser-owns-truth.md`
-- `docs/decisions/ADR-0002-local-deterministic-scorer-decides-llm-explains.md`
-- `docs/decisions/ADR-0003-player-log-drift-policy.md`
-- `docs/decisions/ADR-0004-protected-surfaces-and-schema-change-policy.md`
-- `docs/decisions/ADR-0005-external-integration-collaboration-surfaces.md`
-- `docs/decisions/ADR-0006-repository-boundary-strategy.md`
-- `docs/contracts/internal_project_boundaries.md`
-- `docs/implementation_handoffs/internal_project_boundaries_comparison.md`
-- `docs/contract_test_reports/internal_project_boundaries.md`
 - `docs/contracts/adr_0006_repository_boundary_adoption.md`
+- `docs/decisions/ADR-0006-repository-boundary-strategy.md`
+- `docs/decisions/README.md`
 - `docs/implementation_handoffs/adr_0006_repository_boundary_adoption_comparison.md`
+- `docs/contract_test_reports/adr_0006_repository_boundary_adoption.md`
+- GitHub issue #217
+- GitHub PR #216
+- GitHub issue #215
 
-## Contract Matches
+## Confirmed Contract Matches
 
-- ADR-0006 remains `Status: Proposed`, satisfying the contract's status path for an adoption candidate awaiting review (`docs/decisions/ADR-0006-repository-boundary-strategy.md:3`).
-- Decision-owner metadata now reflects the A/B/C/E adoption workflow (`docs/decisions/ADR-0006-repository-boundary-strategy.md:7`).
-- ADR-0006 cites issue #215 and records that a separate ADR adoption governance issue was recommended but not created during Codex C (`docs/decisions/ADR-0006-repository-boundary-strategy.md:14`).
-- Related PRs remain `TBD` with an explicit note that Codex C did not open an adoption PR (`docs/decisions/ADR-0006-repository-boundary-strategy.md:20`).
-- ADR-0006 cites the issue #215 boundary package and ADR-0006 adoption contract/handoff (`docs/decisions/ADR-0006-repository-boundary-strategy.md:24`).
-- The decision vocabulary aligns with Parser, Corpus / Provenance, Analytics, Local App / UI, Workbook / Transport, Quality / Governance, and future AI Integration (`docs/decisions/ADR-0006-repository-boundary-strategy.md:88`).
-- The extraction order is explicitly planning guidance only, not authorization to extract, move, rename, change imports, or add gates (`docs/decisions/ADR-0006-repository-boundary-strategy.md:132`).
-- Workbook / Transport and Local App / UI remain in the primary repo by default unless future scoped approval supersedes that policy (`docs/decisions/ADR-0006-repository-boundary-strategy.md:143`).
-- Dependency direction uses the current internal project names and preserves Quality / Governance as inspection-only rather than runtime behavior (`docs/decisions/ADR-0006-repository-boundary-strategy.md:150`).
-- Non-goals and protected-surface exclusions remain explicit (`docs/decisions/ADR-0006-repository-boundary-strategy.md:189`, `docs/decisions/ADR-0006-repository-boundary-strategy.md:275`).
-- Validation evidence was updated from stale draft/fixer evidence to the current issue #215 package, adoption contract, Codex C handoff, and pending Codex E review path (`docs/decisions/ADR-0006-repository-boundary-strategy.md:315`).
-- ADR-0006 explicitly says acceptance still requires Codex E review or contract-test evidence (`docs/decisions/ADR-0006-repository-boundary-strategy.md:323`).
-- The ADR index summary update preserves `Proposed` status and uses the current internal project vocabulary (`docs/decisions/README.md:140`).
+- ADR-0006 remains `Status: Proposed` and has not been accepted by review fiat.
+- ADR-0006 cites issue #217 directly as the ADR adoption governance issue.
+- ADR-0006 cites PR #216 directly as the draft ADR adoption PR.
+- ADR-0006 still cites issue #215 and the internal boundary package as related evidence.
+- ADR-0006 records that acceptance still requires explicit user authorization and the approved submitter/deployer path.
+- ADR-0006 preserves monorepo-first policy and future extraction as planning guidance only.
+- ADR-0006 continues to forbid repository splits, file moves, package renames, import changes, CI gate additions, protected-surface changes, and runtime/protected behavior changes.
+- The implementation handoff now distinguishes historical Codex C observations from the Codex D metadata fix and routes back to Codex E confirmation.
+- PR #216 remains open, draft, targeted at `codex/analytics-foundation`, and does not close issue #215.
+- No parser/runtime/analytics/UI/workbook/webhook/Apps Script/Sheets/AI/production behavior changed.
 
 ## Contract Mismatches
 
@@ -73,7 +68,7 @@ None found.
 
 ## Missing Safeguards Or Tests
 
-None required for this docs-only ADR adoption candidate.
+None required for this docs-only governance metadata fix.
 
 Runtime tests are not required because no runtime code, imports, CI, parser behavior, analytics behavior, local app/UI behavior, workbook schema, webhook payload, Apps Script behavior, runtime artifact, or generated data changed.
 
@@ -81,22 +76,21 @@ Runtime tests are not required because no runtime code, imports, CI, parser beha
 
 ADR-0006 remains `Proposed`.
 
-This review does not accept ADR-0006 by fiat. It verifies that the ADR is ready for Codex F submitter work as a reviewed governance/docs package.
+This confirmation review verifies the metadata fix only. It does not accept ADR-0006, mark PR #216 ready for review, merge, close issue #217, close issue #215, or approve production-facing changes.
 
 ## Validation Run And Result
 
 - `git fetch --prune` -> passed.
-- `git status --short --branch` -> branch `codex/adr-0006-repository-boundary-adoption`; scoped docs/governance changes only.
-- `git branch -vv` -> local branch has no remote tracking branch yet.
-- `git rev-list --left-right --count HEAD...origin/codex/adr-0006-repository-boundary-adoption` fallback -> `NO_REMOTE_BRANCH`.
-- `gh issue view 215 --repo Tahjali11/Mythic-Edge --json number,title,state,url` -> issue #215 is CLOSED.
-- `gh issue list --repo Tahjali11/Mythic-Edge --search "ADR-0006 repository boundary adoption" --json number,title,state,url` -> `[]`.
-- `git diff --stat` -> docs-only changes to ADR-0006 and `docs/decisions/README.md`.
+- `git status --short --branch` -> branch `codex/adr-0006-repository-boundary-adoption`; local D changes present in ADR-0006 and the implementation handoff; unrelated untracked `docs/contracts/internal_project_boundary_annotation_organization.md` left untouched.
+- `gh pr view 216 --repo Tahjali11/Mythic-Edge ...` -> PR #216 is OPEN, draft, targets `codex/analytics-foundation`, merge state CLEAN, and body cites `Refs #217` plus related boundary evidence `Refs #215`.
+- `gh issue view 217 --repo Tahjali11/Mythic-Edge ...` -> issue #217 is OPEN and links PR #216.
+- `gh pr checks 216 --repo Tahjali11/Mythic-Edge` -> two `tests` checks passed.
+- `rg` metadata check over ADR-0006 and the handoff -> issue #217 and PR #216 are cited; ADR-0006 remains Proposed; `Closes #215` remains prohibited.
 - `git diff --check` -> passed.
 - `py tools\check_agent_docs.py` -> passed; checked 46 files, errors 0, warnings 0.
-- Path-scoped protected-surface scan over ADR-0006, ADR README, contract, and handoff -> passed; forbidden 0, warnings 0.
-- Path-scoped secret/private-marker scan over ADR-0006, ADR README, contract, and handoff -> result warning; forbidden 0, warnings 1. Warning is the existing protected-surface wording reference in `docs/decisions/README.md:24`, not a secret/private marker introduced by this pass.
-- Generated artifact scan via `git status --short --ignored=matching` found ignored `__pycache__` directories but no changed or untracked SQLite database, WAL/SHM/journal, JSONL, `Player.log`, raw runtime, workbook export, or local-only artifact in the reviewed scope.
+- Path-scoped protected-surface scan over the two D-touched files -> passed; forbidden 0, warnings 0.
+- Path-scoped secret/private-marker scan over the two D-touched files -> passed; forbidden 0, warnings 0.
+- Generated artifact scan for SQLite/database/JSONL/Player.log/frontend build markers -> no matches.
 
 ## Protected-Surface Status
 
@@ -104,15 +98,11 @@ Clean. The path-scoped protected-surface scan passed with forbidden 0 and warnin
 
 ## Secret/Private-Marker Status
 
-No forbidden secret/private-marker findings.
-
-One warning was reported for existing ADR README protected-surface wording that mentions failed-post artifacts. This is policy text, not a secret, raw payload, local path, credential, or private artifact.
+Clean. The path-scoped secret/private-marker scan passed with forbidden 0 and warnings 0.
 
 ## Generated Artifact Status
 
-No prohibited generated artifacts were found in the reviewed scope.
-
-Ignored `__pycache__` directories exist in the working tree but were not part of this ADR package and were not touched by this review.
+No prohibited generated artifacts were found in the reviewed D-fix scope.
 
 ## Forbidden Scope
 
@@ -120,19 +110,24 @@ Forbidden scope touched: false.
 
 No repository split, file move, package rename, import change, CI gate, parser/runtime/analytics/UI/workbook/webhook/Apps Script/Sheets/AI/production behavior change, secret change, generated artifact change, fixture change, snapshot change, or drift baseline change was identified.
 
+## Drift Classification
+
+- Repo drift: none found in reviewed scope.
+- PR metadata drift: fixed by Codex D; verified by PR #216 readback.
+- Governance status drift: none found. ADR-0006 remains Proposed and issue #217 remains the active adoption issue.
+- Local unrelated dirt: `docs/contracts/internal_project_boundary_annotation_organization.md` remains untracked and out of scope.
+
 ## Recommendation
 
 Route to Codex F: Module Submitter.
 
-Codex F should stage only the reviewed ADR adoption package:
+Codex F should stage only the reviewed D/E confirmation package:
 
-- `docs/contracts/adr_0006_repository_boundary_adoption.md`
 - `docs/decisions/ADR-0006-repository-boundary-strategy.md`
-- `docs/decisions/README.md`
 - `docs/implementation_handoffs/adr_0006_repository_boundary_adoption_comparison.md`
 - `docs/contract_test_reports/adr_0006_repository_boundary_adoption.md`
 
-Codex F should push the currently local-only branch and open or update a draft PR against the approved non-main target. It should not use `Closes #215` unless the user explicitly changes that routing.
+Codex F should commit and push these updates to PR #216. It should not mark the PR ready for review, change ADR-0006 to Accepted, close issue #217, close issue #215, or merge unless explicitly instructed.
 
 ## Pasteable Codex F Prompt
 
@@ -140,38 +135,48 @@ Codex F should push the currently local-only branch and open or update a draft P
 Use the Mythic Edge agent constitution.
 Use $mythic-edge-workflow.
 
-Act as Codex F: Module Submitter for ADR-0006 repository boundary adoption.
+Act as Codex F: Module Submitter for the ADR-0006 repository boundary adoption metadata confirmation.
 
-Related issue:
+Issue:
+https://github.com/Tahjali11/Mythic-Edge/issues/217
+
+Related PR:
+https://github.com/Tahjali11/Mythic-Edge/pull/216
+
+Related boundary issue:
 https://github.com/Tahjali11/Mythic-Edge/issues/215
 
 Branch:
 codex/adr-0006-repository-boundary-adoption
 
-Reviewed package:
-- docs/contracts/adr_0006_repository_boundary_adoption.md
+Target branch:
+codex/analytics-foundation
+
+Reviewed D/E confirmation package:
 - docs/decisions/ADR-0006-repository-boundary-strategy.md
-- docs/decisions/README.md
 - docs/implementation_handoffs/adr_0006_repository_boundary_adoption_comparison.md
 - docs/contract_test_reports/adr_0006_repository_boundary_adoption.md
 
-Codex E review verdict:
+Codex E confirmation verdict:
 - No blocking findings.
-- No contract mismatches.
+- Prior P2 metadata traceability finding is fixed.
 - ADR-0006 remains Status: Proposed.
-- Forbidden scope touched: false.
+- PR #216 remains open draft and targets codex/analytics-foundation.
+- PR #216 body cites issue #217 directly.
 - Protected-surface scan passed.
-- Secret/private-marker scan had forbidden 0 and one expected README policy-text warning.
-- No prohibited generated artifacts were found.
+- Secret/private-marker scan passed.
+- Forbidden scope touched: false.
 
 Task:
-Inspect git status, confirm no unrelated files are staged, stage only the reviewed ADR adoption package, commit with a concise message, push the local branch, and open or update a draft PR against the approved non-main target for this governance package.
+Inspect git status, confirm no unrelated files are staged, stage only the reviewed three-file confirmation package, commit with a concise issue-linked message, push the branch, and leave PR #216 as draft unless explicitly instructed otherwise.
 
 Do not:
-- stage unrelated files
-- use Closes #215 unless explicitly instructed
-- target main unless explicitly approved
-- accept ADR-0006 by changing status unless separately authorized
+- stage docs/contracts/internal_project_boundary_annotation_organization.md
+- mark PR #216 ready for review
+- change ADR-0006 to Accepted
+- use Closes #215
+- close issue #217 or issue #215
+- target main
 - split repositories
 - move files
 - rename packages
@@ -185,34 +190,33 @@ Do not:
 
 ```yaml
 workflow_handoff:
-  role_performed: "Codex E: Module Reviewer / contract-test thread"
-  issue: "new governance issue recommended; related issue https://github.com/Tahjali11/Mythic-Edge/issues/215"
-  completed_thread: "E"
-  next_thread: "F"
-  source_artifact: "docs/decisions/ADR-0006-repository-boundary-strategy.md"
+  role_performed: "Codex E: Module Reviewer / confirmation thread"
+  issue: "https://github.com/Tahjali11/Mythic-Edge/issues/217"
+  related_pr: "https://github.com/Tahjali11/Mythic-Edge/pull/216"
+  related_issue: "https://github.com/Tahjali11/Mythic-Edge/issues/215"
+  branch: "codex/adr-0006-repository-boundary-adoption"
+  target_branch: "codex/analytics-foundation"
   contract_artifact: "docs/contracts/adr_0006_repository_boundary_adoption.md"
   implementation_handoff: "docs/implementation_handoffs/adr_0006_repository_boundary_adoption_comparison.md"
   review_artifact: "docs/contract_test_reports/adr_0006_repository_boundary_adoption.md"
-  branch: "codex/adr-0006-repository-boundary-adoption"
-  risk_tier: "Medium"
+  finding_confirmed_fixed:
+    - "PR/ADR metadata now cites issue #217 directly."
   findings:
     blocking: []
     non_blocking: []
   adr_status: "Proposed"
+  pr_status: "open draft"
   validation:
-    - "git fetch --prune -> passed"
-    - "git status --short --branch -> scoped docs/governance changes only"
-    - "remote branch check -> no remote branch found yet"
-    - "gh issue view 215 -> CLOSED"
-    - "gh issue list search for ADR-0006 repository boundary adoption -> []"
+    - "gh pr view 216 -> OPEN draft, target codex/analytics-foundation, body cites #217"
+    - "gh issue view 217 -> OPEN, linked to PR #216"
+    - "gh pr checks 216 -> tests passed"
     - "git diff --check -> passed"
     - "py tools\\check_agent_docs.py -> passed"
-    - "path-scoped protected-surface scan -> passed, forbidden 0, warnings 0"
-    - "path-scoped secret/private-marker scan -> forbidden 0, warnings 1 existing README policy wording"
-    - "generated artifact scan -> no prohibited generated artifacts in reviewed scope"
-  protected_surface_status: "clean"
-  secret_private_marker_status: "clean_with_expected_policy_text_warning"
-  generated_artifact_status: "clean"
+    - "path-scoped protected-surface scan over D-touched files -> passed"
+    - "path-scoped secret/private-marker scan over D-touched files -> passed"
+    - "generated artifact scan -> no matches"
+  unrelated_untracked_left_untouched:
+    - "docs/contracts/internal_project_boundary_annotation_organization.md"
   forbidden_scope_touched: false
   recommendation: "Codex F: Module Submitter"
 ```

@@ -13,13 +13,12 @@ Decision owners / workflow role:
 
 Related issues:
 
+- https://github.com/Tahjali11/Mythic-Edge/issues/217
 - https://github.com/Tahjali11/Mythic-Edge/issues/215
-- New ADR adoption governance issue: recommended but not created during the
-  Codex C adoption revision pass.
 
 Related PRs:
 
-- TBD. Adoption PR not opened during Codex C revision.
+- https://github.com/Tahjali11/Mythic-Edge/pull/216
 
 Related contracts, handoffs, or review reports:
 
@@ -311,6 +310,10 @@ runtime artifacts, or generated data.
 
 Current adoption evidence:
 
+- issue #217 ADR-0006 adoption governance issue:
+  - https://github.com/Tahjali11/Mythic-Edge/issues/217
+- PR #216 draft ADR-0006 adoption PR:
+  - https://github.com/Tahjali11/Mythic-Edge/pull/216
 - issue #215 internal project boundary package:
   - `docs/contracts/internal_project_boundaries.md`
   - `docs/implementation_handoffs/internal_project_boundaries_comparison.md`
@@ -319,10 +322,13 @@ Current adoption evidence:
   - `docs/contracts/adr_0006_repository_boundary_adoption.md`
 - Codex C adoption comparison:
   - `docs/implementation_handoffs/adr_0006_repository_boundary_adoption_comparison.md`
+- Codex E adoption review:
+  - `docs/contract_test_reports/adr_0006_repository_boundary_adoption.md`
 
-Acceptance still requires Codex E review or contract-test evidence. The Codex C
-handoff records `git diff --check`, path-scoped protected-surface scan, and
-path-scoped secret/private-marker scan results for this revision.
+Acceptance still requires explicit user authorization and the approved
+submitter/deployer path. The Codex C handoff records `git diff --check`,
+path-scoped protected-surface scan, and path-scoped secret/private-marker scan
+results for this revision.
 
 Future extraction plans must define their own validation, including consumer
 compatibility tests across the source repository and the app repository.
@@ -339,9 +345,8 @@ None.
 
 - Create a future repository-boundary problem representation before any actual
   extraction.
-- Create or link a dedicated ADR-0006 adoption governance issue before PR
-  submission if the project wants an issue separate from the already-satisfied
-  issue #215.
+- Use issue #217 as the dedicated ADR-0006 adoption governance issue for this
+  adoption package.
 - Consider a future `mythic-edge-corpus` extraction plan after evidence-ledger
   Tier 7 and corpus parity goals are stable.
 - Define public event, payload, fixture, and release compatibility contracts
@@ -359,10 +364,11 @@ The preferred project framing is: Mythic Edge is a local MTGA decision-support
 system. The parser is an evidence intake and interpretation layer, not the
 whole project.
 
-This revision keeps `Status: Proposed` for Codex E review. Acceptance should
-occur only through reviewed repo changes on an approved branch, or through
-another explicit user-approved workflow.
+This revision keeps `Status: Proposed`. Acceptance should occur only through
+reviewed repo changes on an approved branch, or through another explicit
+user-approved workflow.
 
+Issue #217 is the direct ADR-0006 adoption governance issue for this pass.
 Issue #215 is related evidence, not a closing target for this adoption pass.
 Do not use `Closes #215` for the ADR-0006 adoption PR unless a future issue or
 user instruction explicitly changes that routing.
