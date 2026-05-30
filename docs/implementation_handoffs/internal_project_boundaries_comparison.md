@@ -1,0 +1,374 @@
+# Internal Project Boundaries Comparison
+
+## Role Performed
+
+Codex C: Module Implementer / comparison thread.
+
+## Issue And Contract
+
+- Issue: https://github.com/Tahjali11/Mythic-Edge/issues/215
+- Tracker: N/A
+- Contract: `docs/contracts/internal_project_boundaries.md`
+- Branch: `codex/analytics-foundation`
+- Risk tier: Medium-High
+
+## Branch And Worktree Status
+
+Confirmed branch: `codex/analytics-foundation`.
+
+Initial worktree state:
+
+```text
+## codex/analytics-foundation...origin/codex/analytics-foundation
+?? docs/contracts/internal_project_boundaries.md
+```
+
+The untracked contract was treated as the Codex B source artifact. No unrelated
+dirty files were absorbed into this comparison.
+
+## Files Inspected
+
+- `AGENTS.md`
+- `docs/agent_constitution.md`
+- `docs/agent_rules.yml`
+- `docs/codex_module_workflow.md`
+- `docs/agent_threads/implementation.md`
+- `docs/templates/implementation_handoff.md`
+- `docs/project_roadmap.md`
+- `docs/decisions/README.md`
+- `docs/decisions/ADR-0006-repository-boundary-strategy.md`
+- `docs/contracts/internal_project_boundaries.md`
+- `docs/contracts/`
+- `src/mythic_edge_parser/`
+- `frontend/src/`
+- `tools/`
+- `tests/`
+- `.github/ISSUE_TEMPLATE/module_workflow.yml`
+- `.github/pull_request_template.md`
+- `.github/workflows/repo-checks.yml`
+- `pyproject.toml`
+- GitHub issue #215
+
+## Current Behavior Compared To Contract
+
+### Contract Matches
+
+- The repo remains a monorepo with one Python package, `mythic-edge-parser`.
+- Parser truth ownership is already described in `AGENTS.md`,
+  `docs/agent_constitution.md`, `docs/codex_module_workflow.md`, and accepted
+  ADRs.
+- `docs/project_roadmap.md` already separates parser reliability, evidence
+  ledger, analytics, local app, Match Journal, live mode, deterministic
+  analytics, polish, and AI-assisted coaching phases.
+- `frontend/src/` is already physically separate from Python parser,
+  analytics, and local backend modules.
+- `src/mythic_edge_parser/local_app/` already isolates local backend, setup
+  status, paths, config, and import orchestration better than the older broad
+  `app/` namespace.
+- `docs/contracts/` is flat, as required, and uses practical ownership
+  prefixes such as `parser_*`, `player_log_evidence_ledger_*`,
+  `analytics_*`, `code_hardening_*`, `repo_wide_*`, `quality_*`,
+  `governance_*`, and `external_integration_*`.
+- Tests are flat, as required, and mostly signal ownership through names such
+  as `test_analytics_*`, `test_evidence_*`, `test_parser_*`, `test_sheet_*`,
+  `test_check_*`, and parser-family test names.
+- Targeted source import scans did not find parser-core modules importing
+  downstream `analytics`, `local_app`, workbook transport, or AI modules.
+- `local_app` imports analytics migration/ingest/adapter modules for local
+  app setup and import behavior. That matches the allowed Local App / UI to
+  backend/import/analytics direction.
+- `analytics_legacy_jsonl_adapter.py` reads parser replay/state support as
+  bridge code. This matches the contract's bridge-code framing so long as it
+  does not turn legacy derived fields into parser truth.
+- `analytics_ingest.py` reads approved provenance and parser-normalized
+  opponent-card observation constants. This matches the allowed Analytics to
+  parser-normalized facts and provenance direction.
+- ADR-0006 exists and is correctly marked `Proposed`, not accepted authority.
+
+### Gaps And Suspected Risks
+
+- `src/mythic_edge_parser/app/` remains broad: parser truth, analytics,
+  evidence/provenance, workbook transport, runtime/status, card/deck support,
+  and bridge modules share the same physical namespace.
+- `pyproject.toml` still packages analytics migrations under
+  `mythic_edge_parser.app.analytics_migrations`, so analytics is physically
+  inside the existing parser package even though the contract treats analytics
+  as a separate internal project.
+- Contract names are mostly clear, but local-app work is still usually under
+  `analytics_*` prefixes rather than a distinct `local_app_*` prefix. This is
+  consistent with the current analytics foundation, but it may become unclear
+  as the local app grows.
+- Test naming is useful but uneven. Some ownership is obvious from prefixes;
+  other files use legacy or module names such as `test_app_*`,
+  `test_auto_launcher.py`, `test_status_api.py`, and `test_runtime_surfaces.py`
+  that require context to classify.
+- `.github/ISSUE_TEMPLATE/module_workflow.yml` still offers older layer names
+  like `webhook / transport layer`, `dashboard / reporting tabs`, and
+  `AI analysis`, but does not yet offer the new internal project names such as
+  Corpus / Provenance, Analytics, Local App / UI, Workbook / Transport, and
+  Quality / Governance.
+- No automated boundary checker exists. The contract's proposed
+  `tools/check_internal_project_boundaries.py` remains a future advisory
+  option, not current behavior.
+- No import graph report is currently generated by `tools/select_validation.py`
+  or CI. This is acceptable because the contract forbids immediate CI gates,
+  but it leaves boundary enforcement manual.
+- Bridge modules are documented by contracts rather than obvious from file
+  names. Examples include `analytics_legacy_jsonl_adapter.py`, card/catalog
+  support modules, setup/status modules, and wrapper tools.
+- An ignored mirror-like tree exists at `.github/Mythic-Edge/`. It is covered
+  by `.gitignore` and was not touched, but future cleanup should classify it
+  before any file-move or repository-boundary work.
+- There is no accepted ADR specifically adopting internal project boundaries.
+  ADR-0006 provides useful proposed context only.
+
+## Implementation Option Chosen
+
+Docs-only comparison.
+
+The contract does not authorize file moves, repository splits, package renames,
+import changes, runtime changes, UI changes, analytics changes, parser changes,
+or CI gates. The only implementation artifact produced in this pass is this
+comparison handoff.
+
+## Files Changed
+
+- `docs/implementation_handoffs/internal_project_boundaries_comparison.md`
+
+Untracked source artifact preserved:
+
+- `docs/contracts/internal_project_boundaries.md`
+
+## Exact Sections Changed
+
+- Added this implementation handoff with:
+  - issue and contract context;
+  - files inspected;
+  - observed contract matches;
+  - gaps and suspected boundary risks;
+  - import scan evidence summary;
+  - validation results;
+  - reviewer focus;
+  - pasteable Codex E prompt;
+  - workflow handoff block.
+
+No authority docs, templates, tooling files, imports, packages, tests, runtime
+code, frontend code, CI configuration, or repo layout files were changed.
+
+## Code/Test/Docs Status
+
+- Code changed: no.
+- Tests changed: no.
+- Docs changed: yes, handoff only.
+- Governance-only: yes, comparison artifact only.
+- Tooling changed: no.
+- Interface changes: none.
+- CI gates added: no.
+- Files moved: no.
+- Repositories split: no.
+- Packages renamed: no.
+- Imports changed: no.
+
+## Import And Boundary Evidence
+
+Evidence commands run:
+
+```powershell
+rg -n "^from mythic_edge_parser|^import mythic_edge_parser" src tests tools -g "*.py"
+rg -n "mythic_edge_parser\.(local_app|app\.analytics|app\.evidence|app\.sheet|app\.outputs|parsers|router|events)" src tests tools -g "*.py"
+```
+
+Summary:
+
+- Test and tool imports intentionally cross internal project boundaries for
+  validation.
+- `src/mythic_edge_parser/local_app/import_jobs.py` imports analytics ingest
+  and legacy JSONL adapter modules.
+- `src/mythic_edge_parser/local_app/setup_status.py` imports analytics
+  migration status and parser config display support.
+- Parser-core targeted scans did not show parser modules importing analytics,
+  local app, workbook transport, or AI surfaces.
+- No source import change was made.
+
+## Protected And Forbidden Scope Confirmation
+
+No intentional changes were made to:
+
+- parser behavior;
+- parser state final reconciliation;
+- parser event classes;
+- event kind values;
+- parser payload shapes;
+- match identity;
+- game identity;
+- deduplication;
+- analytics behavior;
+- SQLite schema or migrations;
+- local app backend behavior;
+- frontend/UI behavior;
+- workbook schema;
+- webhook payload shape;
+- Apps Script behavior;
+- Google Sheets behavior;
+- output transport;
+- production behavior;
+- AI/model-provider behavior;
+- OpenAI runtime integration;
+- secrets, credentials, tokens, API keys, webhook URLs, or environment variables;
+- raw Player.log files;
+- local JSONL artifacts;
+- generated SQLite database files;
+- runtime status files;
+- failed posts;
+- workbook exports;
+- generated data;
+- local-only artifacts.
+
+## Validation Run
+
+- `git status --short --branch` -> confirmed branch and scoped untracked contract.
+- `gh issue view 215 --repo Tahjali11/Mythic-Edge --json number,title,state,body,labels,url` -> issue #215 is open.
+- `rg -n "^from mythic_edge_parser|^import mythic_edge_parser" src tests tools -g "*.py"` -> completed; evidence used for comparison.
+- `rg -n "mythic_edge_parser\.(local_app|app\.analytics|app\.evidence|app\.sheet|app\.outputs|parsers|router|events)" src tests tools -g "*.py"` -> completed; evidence used for comparison.
+- `git diff --check` -> passed.
+- Path-scoped protected-surface scan over contract and handoff -> passed, forbidden 0, warnings 0.
+- Path-scoped secret/private-marker scan over contract and handoff -> passed, forbidden 0, warnings 0.
+
+## Generated Artifact Status
+
+No generated SQLite database files, raw logs, local JSONL artifacts, runtime
+status files, failed-post payloads, workbook exports, frontend build outputs,
+or local-only artifacts were created or modified by this pass.
+
+Ignored local artifact observed but not touched:
+
+- `.github/Mythic-Edge/`
+
+## Remaining Risks Or Unverified Layers
+
+- The import scans are advisory evidence, not a full static dependency graph.
+- No future boundary enforcement tool was implemented.
+- No issue label set was inspected beyond issue #215 labels because label
+  governance is not required by this comparison pass.
+- Live workbook state was not inspected.
+- Deployed Apps Script state was not inspected.
+- Production behavior was not exercised.
+- ADR-0006 remains proposed and should not be treated as accepted authority.
+
+## Reviewer Focus
+
+Codex E should verify:
+
+- This handoff accurately treats the pass as comparison-only.
+- No docs/template/tooling edits were required by the contract.
+- The import evidence supports the conclusion that parser-core downstream
+  dependency violations were not observed in targeted scans.
+- The reported gaps are classified as future follow-ups, not current required
+  fixes.
+- The untracked source contract should be reviewed as part of the module scope.
+
+## Next Recommended Role
+
+Codex E: Module Reviewer / contract-test thread.
+
+## Pasteable Codex E Prompt
+
+```text
+Use the Mythic Edge agent constitution.
+Use $mythic-edge-workflow.
+
+Act as Codex E: Module Reviewer / contract-test thread for issue #215.
+
+Issue:
+https://github.com/Tahjali11/Mythic-Edge/issues/215
+
+Branch:
+codex/analytics-foundation
+
+Contract:
+docs/contracts/internal_project_boundaries.md
+
+Implementation handoff:
+docs/implementation_handoffs/internal_project_boundaries_comparison.md
+
+Risk tier:
+Medium-High
+
+Task:
+Review the internal project boundaries comparison against the contract. Lead with findings ordered by severity. Verify that Codex C stayed comparison-focused and did not move files, split repositories, rename packages, change imports, add CI gates, or alter parser/runtime/analytics/UI/workbook/webhook/App Script/Sheets/AI/production behavior.
+
+Review focus:
+- The handoff accurately compares current repo organization, imports, docs/contracts naming, tests, tools, frontend, and package metadata against the contract.
+- Observed module ownership and bridge-code classifications are reasonable.
+- Import-direction observations are supported by the recorded scans.
+- Contract gaps are classified as future advisory follow-ups, not implemented changes.
+- ADR-0006 is treated as Proposed context only, not accepted authority.
+- No protected surfaces or local/generated/private artifacts were touched.
+
+Validation to run:
+git status --short --branch
+rg -n "^from mythic_edge_parser|^import mythic_edge_parser" src tests tools -g "*.py"
+rg -n "mythic_edge_parser\\.(local_app|app\\.analytics|app\\.evidence|app\\.sheet|app\\.outputs|parsers|router|events)" src tests tools -g "*.py"
+git diff --check
+@'
+docs/contracts/internal_project_boundaries.md
+docs/implementation_handoffs/internal_project_boundaries_comparison.md
+'@ | py tools\check_protected_surfaces.py --base origin/codex/analytics-foundation --paths-from-stdin
+@'
+docs/contracts/internal_project_boundaries.md
+docs/implementation_handoffs/internal_project_boundaries_comparison.md
+'@ | py tools\check_secret_patterns.py --base origin/codex/analytics-foundation --paths-from-stdin
+
+Do not:
+- Move files.
+- Split repositories.
+- Rename packages.
+- Change imports.
+- Add CI gates.
+- Target main.
+- Change parser/runtime/analytics/UI/workbook/webhook/App Script/Sheets/AI/production behavior.
+- Touch secrets, raw logs, generated data, runtime artifacts, failed posts, workbook exports, local JSONL artifacts, generated SQLite files, or local-only artifacts.
+- Stage, commit, push, open a PR, merge, or close issue #215 unless explicitly asked.
+
+Final review report must include:
+- role performed
+- issue reviewed
+- contract and handoff reviewed
+- files reviewed
+- findings ordered by severity
+- validation run and result
+- protected-surface status
+- secret/private-marker status
+- generated artifact status
+- whether forbidden scope was touched
+- recommendation: route to D, F, B/A, or accept/no-op
+- workflow_handoff block
+```
+
+```yaml
+workflow_handoff:
+  issue: "https://github.com/Tahjali11/Mythic-Edge/issues/215"
+  tracker: ""
+  completed_thread: "C"
+  next_thread: "E"
+  source_artifact: "docs/contracts/internal_project_boundaries.md"
+  target_artifact: "docs/contract_test_reports/internal_project_boundaries.md"
+  implementation_handoff: "docs/implementation_handoffs/internal_project_boundaries_comparison.md"
+  risk_tier: "Medium-High"
+  branch: "codex/analytics-foundation"
+  validation:
+    - "git status --short --branch -> confirmed branch and scoped untracked contract"
+    - "gh issue view 215 -> issue open"
+    - "import scan commands -> completed as advisory evidence"
+    - "git diff --check -> passed"
+    - "path-scoped protected-surface scan -> passed, forbidden 0, warnings 0"
+    - "path-scoped secret/private-marker scan -> passed, forbidden 0, warnings 0"
+  stop_conditions:
+    - "Do not move files."
+    - "Do not split repositories."
+    - "Do not rename packages."
+    - "Do not change imports."
+    - "Do not add CI gates."
+    - "Do not target main."
+    - "Do not change parser/runtime/analytics/UI/workbook/webhook/App Script/Sheets/AI/production behavior."
+```
