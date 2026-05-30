@@ -73,6 +73,7 @@ def test_start_mode_uses_expected_commands_and_process_local_frontend_env(tmp_pa
     launcher.cleanup_children(result.children)
 
     backend_command = recorder.calls[0].command
+    backend_call = recorder.calls[0]
     frontend_call = recorder.calls[1]
 
     assert backend_command == [
@@ -86,6 +87,7 @@ def test_start_mode_uses_expected_commands_and_process_local_frontend_env(tmp_pa
         "--port",
         "8765",
     ]
+    assert backend_call.env["MYTHIC_EDGE_LOCAL_APP_FRONTEND_ORIGIN"] == "http://127.0.0.1:5173"
     assert frontend_call.command == [
         "npm.cmd",
         "--prefix",
@@ -215,6 +217,18 @@ def test_powershell_wrapper_is_thin_and_routes_to_python_helper() -> None:
     assert "-Start" in wrapper
     assert "git pull" not in wrapper.lower()
     assert "reset" not in wrapper.lower()
+
+
+def test_root_cmd_shortcut_is_thin_and_routes_to_powershell_wrapper() -> None:
+    shortcut = Path("Start Mythic Edge Dev App.cmd").read_text(encoding="utf-8")
+    shortcut_lower = shortcut.lower()
+
+    assert "tools\\dev_app\\start_mythic_edge_dev_app.ps1" in shortcut
+    assert "-Start" in shortcut
+    assert "git pull" not in shortcut_lower
+    assert "reset" not in shortcut_lower
+    assert "del " not in shortcut_lower
+    assert "rmdir" not in shortcut_lower
 
 
 def test_immediate_frontend_exit_cleans_up_started_backend(tmp_path) -> None:

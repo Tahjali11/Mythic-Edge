@@ -575,6 +575,7 @@ def _backend_env(config: LauncherConfig) -> dict[str, str]:
     src_path = str(config.repo_root / "src")
     existing_pythonpath = env.get("PYTHONPATH")
     env["PYTHONPATH"] = src_path if not existing_pythonpath else os.pathsep.join((src_path, existing_pythonpath))
+    env["MYTHIC_EDGE_LOCAL_APP_FRONTEND_ORIGIN"] = f"http://{config.frontend_host}:{config.frontend_port}"
     return env
 
 
