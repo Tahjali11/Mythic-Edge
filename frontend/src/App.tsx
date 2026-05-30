@@ -1,9 +1,16 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 
 import "./App.css";
-import { fetchSetupStatus, SetupStatusApiError } from "./api";
+import { fetchSetupStatus, ManualImportApiError, SetupStatusApiError, submitManualJsonlImport } from "./api";
 import { safeDisplayValue, statusTone } from "./status";
-import { SETUP_STATUS_SCHEMA_VERSION, type SectionStatus, type SetupStatusResponse } from "./types";
+import {
+  MANUAL_IMPORT_JOB_SCHEMA_VERSION,
+  SETUP_STATUS_SCHEMA_VERSION,
+  type ManualImportJob,
+  type ManualImportRequest,
+  type SectionStatus,
+  type SetupStatusResponse
+} from "./types";
 
 type LoadState =
   | { state: "loading" }
@@ -12,7 +19,14 @@ type LoadState =
 
 type SetupStatusAppProps = {
   fetchStatus?: () => Promise<SetupStatusResponse>;
+  submitImport?: (request: ManualImportRequest) => Promise<ManualImportJob>;
 };
+
+type ImportState =
+  | { state: "idle" }
+  | { state: "submitting" }
+  | { state: "result"; job: ManualImportJob }
+  | { state: "error"; code: ManualImportApiError["code"]; message: string };
 
 type Panel = {
   title: string;
@@ -20,8 +34,11 @@ type Panel = {
   details: Array<{ label: string; value: unknown }>;
 };
 
-export function SetupStatusApp({ fetchStatus = fetchSetupStatus }: SetupStatusAppProps) {
+export function SetupStatusApp({ fetchStatus = fetchSetupStatus, submitImport = submitManualJsonlImport }: SetupStatusAppProps) {
   const [loadState, setLoadState] = useState<LoadState>({ state: "loading" });
+  const [sourcePath, setSourcePath] = useState("");
+  const [sourceLabel, setSourceLabel] = useState("");
+  const [importState, setImportState] = useState<ImportState>({ state: "idle" });
 
   useEffect(() => {
     let active = true;
@@ -54,6 +71,40 @@ export function SetupStatusApp({ fetchStatus = fetchSetupStatus }: SetupStatusAp
       active = false;
     };
   }, [fetchStatus]);
+
+  async function handleManualImport(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const trimmedPath = sourcePath.trim();
+    if (!trimmedPath || importState.state === "submitting") {
+      return;
+    }
+
+    const request: ManualImportRequest = { source_path: trimmedPath };
+    const trimmedLabel = sourceLabel.trim();
+    if (trimmedLabel) {
+      request.source_artifact_label = trimmedLabel;
+    }
+
+    setImportState({ state: "submitting" });
+    try {
+      const job = await submitImport(request);
+      setSourcePath("");
+      setSourceLabel("");
+      setImportState({ state: "result", job });
+    } catch (error: unknown) {
+      setSourcePath("");
+      setSourceLabel("");
+      if (error instanceof ManualImportApiError) {
+        setImportState({ state: "error", code: error.code, message: error.message });
+        return;
+      }
+      setImportState({
+        state: "error",
+        code: "backend_unavailable",
+        message: "Manual import backend is unavailable."
+      });
+    }
+  }
 
   if (loadState.state === "loading") {
     return (
@@ -107,8 +158,16 @@ export function SetupStatusApp({ fetchStatus = fetchSetupStatus }: SetupStatusAp
         ))}
       </section>
 
+      <ManualImportPanel
+        importState={importState}
+        onSubmit={handleManualImport}
+        sourceLabel={sourceLabel}
+        sourcePath={sourcePath}
+        setSourceLabel={setSourceLabel}
+        setSourcePath={setSourcePath}
+      />
+
       <section className="panelGrid futureGrid" aria-label="Deferred local app sections">
-        <StatusPanel title="Manual Import" status="deferred" details={[{ label: "state", value: "deferred" }]} />
         <StatusPanel title="Analytics Views" status="deferred" details={[{ label: "state", value: "deferred" }]} />
         <StatusPanel title="Live Watcher" status="deferred" details={[{ label: "state", value: "deferred" }]} />
       </section>
@@ -158,6 +217,101 @@ function StatusPanel({ title, status, details }: Panel) {
         })}
       </dl>
     </article>
+  );
+}
+
+function ManualImportPanel({
+  importState,
+  onSubmit,
+  sourceLabel,
+  sourcePath,
+  setSourceLabel,
+  setSourcePath
+}: {
+  importState: ImportState;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  sourceLabel: string;
+  sourcePath: string;
+  setSourceLabel: (value: string) => void;
+  setSourcePath: (value: string) => void;
+}) {
+  const busy = importState.state === "submitting";
+  const status = manualImportStatus(importState);
+  const tone = statusTone(status);
+  return (
+    <section className={`manualImportPanel tone-${tone}`} aria-labelledby="manual-import-title">
+      <div className="panelHeader">
+        <h2 id="manual-import-title">Manual Import</h2>
+        <StatusPill label={status} tone={tone} />
+      </div>
+      <form className="manualImportForm" onSubmit={onSubmit}>
+        <label htmlFor="manual-import-path">JSONL path</label>
+        <input
+          autoComplete="off"
+          disabled={busy}
+          id="manual-import-path"
+          onChange={(event) => setSourcePath(event.target.value)}
+          value={sourcePath}
+        />
+        <label htmlFor="manual-import-label">Source label</label>
+        <input
+          autoComplete="off"
+          disabled={busy}
+          id="manual-import-label"
+          onChange={(event) => setSourceLabel(event.target.value)}
+          value={sourceLabel}
+        />
+        <button disabled={busy || !sourcePath.trim()} type="submit">
+          Import JSONL
+        </button>
+      </form>
+      {importState.state === "submitting" ? <p className="jobMessage">Import running</p> : null}
+      {importState.state === "error" ? <ManualImportErrorNotice importState={importState} /> : null}
+      {importState.state === "result" ? <ManualImportJobSummary job={importState.job} /> : null}
+    </section>
+  );
+}
+
+function ManualImportErrorNotice({ importState }: { importState: Extract<ImportState, { state: "error" }> }) {
+  return (
+    <section className={`jobResult tone-${errorTone(importState.code)}`} aria-label="Manual import error">
+      <div className="panelHeader">
+        <h2>{manualImportErrorTitle(importState.code)}</h2>
+        <StatusPill label={errorTone(importState.code)} tone={errorTone(importState.code)} />
+      </div>
+      <p>{importState.code === "incompatible_response" ? `Expected schema: ${MANUAL_IMPORT_JOB_SCHEMA_VERSION}` : importState.message}</p>
+    </section>
+  );
+}
+
+function ManualImportJobSummary({ job }: { job: ManualImportJob }) {
+  return (
+    <section className={`jobResult tone-${statusTone(job.status)}`} aria-label="Manual import job summary">
+      <div className="panelHeader">
+        <h2>Import Job</h2>
+        <StatusPill label={job.status} tone={statusTone(job.status)} />
+      </div>
+      <dl>
+        <SummaryRow label="source" value={job.source.source_display_label} />
+        <SummaryRow label="adapter events" value={job.adapter.events_processed} />
+        <SummaryRow label="adapter skipped" value={job.adapter.events_skipped} />
+        <SummaryRow label="matches" value={job.ingest.row_counts.matches ?? 0} />
+        <SummaryRow label="games" value={job.ingest.row_counts.games ?? 0} />
+        <SummaryRow label="database" value={job.database.status} />
+        <SummaryRow label="warnings" value={formatLabels(job.warnings)} />
+        <SummaryRow label="errors" value={formatLabels(job.errors)} />
+      </dl>
+    </section>
+  );
+}
+
+function SummaryRow({ label, value }: { label: string; value: unknown }) {
+  const safe = safeDisplayValue(String(value));
+  return (
+    <div className={safe.redacted ? "redactedRow" : undefined}>
+      <dt>{label}</dt>
+      <dd>{safe.text}</dd>
+    </div>
   );
 }
 
@@ -251,6 +405,39 @@ function countUnsafeValues(payload: SetupStatusResponse): number {
   return buildPanels(payload).reduce((count, panel) => {
     return count + panel.details.filter((detail) => safeDisplayValue(detail.value).redacted).length;
   }, 0);
+}
+
+function manualImportStatus(importState: ImportState): string {
+  if (importState.state === "submitting") {
+    return "running";
+  }
+  if (importState.state === "result") {
+    return importState.job.status;
+  }
+  if (importState.state === "error") {
+    return errorTone(importState.code);
+  }
+  return "enabled";
+}
+
+function formatLabels(values: string[]): string {
+  if (values.length === 0) {
+    return "none";
+  }
+  return values.join(" ");
+}
+
+function manualImportErrorTitle(code: ManualImportApiError["code"]): string {
+  if (code === "malformed_response") {
+    return "Malformed import response";
+  }
+  if (code === "incompatible_response") {
+    return "Incompatible import schema";
+  }
+  if (code === "unsafe_api_base_url") {
+    return "Unsafe API base URL";
+  }
+  return "Backend unavailable";
 }
 
 function errorTitle(code: SetupStatusApiError["code"]): string {

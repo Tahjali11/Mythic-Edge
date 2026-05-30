@@ -96,6 +96,69 @@ h2 {
   padding: 18px;
 }
 
+.manualImportPanel {
+  margin-top: 20px;
+  border: 1px solid #d9ded7;
+  border-top: 5px solid #73808b;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 18px;
+}
+
+.manualImportForm {
+  display: grid;
+  grid-template-columns: minmax(120px, 160px) minmax(0, 1fr);
+  gap: 12px 16px;
+  margin-top: 18px;
+  align-items: center;
+}
+
+.manualImportForm label {
+  color: #596067;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.manualImportForm input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #b9c2ba;
+  border-radius: 6px;
+  padding: 10px 12px;
+  color: #20242a;
+  background: #ffffff;
+}
+
+.manualImportForm button {
+  grid-column: 2;
+  width: fit-content;
+  border: 1px solid #2f6d4a;
+  border-radius: 6px;
+  padding: 10px 14px;
+  color: #ffffff;
+  background: #2f6d4a;
+  font-weight: 700;
+}
+
+.manualImportForm button:disabled {
+  border-color: #9fa9a2;
+  background: #9fa9a2;
+}
+
+.jobMessage {
+  margin-top: 14px;
+  color: #596067;
+  font-weight: 700;
+}
+
+.jobResult {
+  margin-top: 16px;
+  border: 1px solid #d9ded7;
+  border-top: 5px solid #73808b;
+  border-radius: 8px;
+  padding: 16px;
+}
+
 .panelHeader {
   display: flex;
   align-items: flex-start;
@@ -198,5 +261,14 @@ dd {
 
   .panelGrid {
     grid-template-columns: 1fr;
+  }
+
+  .manualImportForm {
+    grid-template-columns: 1fr;
+  }
+
+  .manualImportForm button {
+    grid-column: 1;
+    width: 100%;
   }
 }

@@ -9,7 +9,14 @@ const SECRET_MARKER_RE = /(api[_-]?key|secret|token|oauth|webhook)/i;
 
 export function statusTone(status: string): SetupStatusTone {
   const normalized = status.toLowerCase();
-  if (normalized === "ok" || normalized.endsWith("_exists") || normalized === "present") {
+  if (
+    normalized === "ok" ||
+    normalized === "enabled" ||
+    normalized === "succeeded" ||
+    normalized === "completed" ||
+    normalized.endsWith("_exists") ||
+    normalized === "present"
+  ) {
     return "ok";
   }
   if (normalized === "degraded") {
@@ -21,7 +28,13 @@ export function statusTone(status: string): SetupStatusTone {
   if (normalized === "unavailable") {
     return "unavailable";
   }
-  if (normalized === "error" || normalized.startsWith("invalid_") || normalized === "unreadable") {
+  if (
+    normalized === "error" ||
+    normalized === "failed" ||
+    normalized === "rejected" ||
+    normalized.startsWith("invalid_") ||
+    normalized === "unreadable"
+  ) {
     return "error";
   }
   if (normalized === "deferred" || normalized === "disabled" || normalized === "separate_reference_surface") {

@@ -1,7 +1,21 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { fetchSetupStatus, getApiBaseUrl, SetupStatusApiError } from "./api";
-import { SETUP_STATUS_OBJECT, SETUP_STATUS_SCHEMA_VERSION, type SetupStatusResponse } from "./types";
+import {
+  fetchManualImportJob,
+  fetchSetupStatus,
+  getApiBaseUrl,
+  ManualImportApiError,
+  SetupStatusApiError,
+  submitManualJsonlImport
+} from "./api";
+import {
+  MANUAL_IMPORT_JOB_OBJECT,
+  MANUAL_IMPORT_JOB_SCHEMA_VERSION,
+  SETUP_STATUS_OBJECT,
+  SETUP_STATUS_SCHEMA_VERSION,
+  type ManualImportJob,
+  type SetupStatusResponse
+} from "./types";
 
 describe("api helpers", () => {
   it("accepts empty and loopback API base URLs only", () => {
@@ -58,6 +72,56 @@ describe("api helpers", () => {
 
     await expect(fetchSetupStatus(fetchImpl)).rejects.toMatchObject({ code: "backend_unavailable" });
   });
+
+  it("submits manual JSONL import requests without exposing raw payloads in errors", async () => {
+    const payload = buildManualImportJob();
+    const fetchImpl = vi.fn(async () => jsonResponse(payload)) as unknown as typeof fetch;
+
+    await expect(
+      submitManualJsonlImport({ source_path: "Z:\\synthetic\\events_v1.jsonl" }, fetchImpl)
+    ).resolves.toEqual(payload);
+    expect(fetchImpl).toHaveBeenCalledWith("/api/imports/jsonl", {
+      method: "POST",
+      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      body: JSON.stringify({ source_path: "Z:\\synthetic\\events_v1.jsonl" })
+    });
+  });
+
+  it("fetches manual import job status by opaque id", async () => {
+    const payload = buildManualImportJob();
+    const fetchImpl = vi.fn(async () => jsonResponse(payload)) as unknown as typeof fetch;
+
+    await expect(fetchManualImportJob("job/with space", fetchImpl)).resolves.toEqual(payload);
+    expect(fetchImpl).toHaveBeenCalledWith("/api/imports/jobs/job%2Fwith%20space", {
+      headers: { Accept: "application/json" }
+    });
+  });
+
+  it("rejects malformed manual import job responses safely", async () => {
+    const missingFieldsFetch = vi.fn(async () =>
+      jsonResponse({ object: MANUAL_IMPORT_JOB_OBJECT })
+    ) as unknown as typeof fetch;
+    await expect(
+      submitManualJsonlImport({ source_path: "Z:\\synthetic\\events_v1.jsonl" }, missingFieldsFetch)
+    ).rejects.toMatchObject({ code: "malformed_response" });
+
+    const wrongSchemaFetch = vi.fn(async () =>
+      jsonResponse({ ...buildManualImportJob(), schema_version: "future.schema" })
+    ) as unknown as typeof fetch;
+    await expect(
+      submitManualJsonlImport({ source_path: "Z:\\synthetic\\events_v1.jsonl" }, wrongSchemaFetch)
+    ).rejects.toMatchObject({ code: "incompatible_response" });
+  });
+
+  it("maps manual import backend and unsafe API base failures", async () => {
+    const failedFetch = vi.fn(async () => {
+      throw new Error("synthetic network failure");
+    }) as unknown as typeof fetch;
+
+    await expect(
+      submitManualJsonlImport({ source_path: "Z:\\synthetic\\events_v1.jsonl" }, failedFetch)
+    ).rejects.toBeInstanceOf(ManualImportApiError);
+  });
 });
 
 function jsonResponse(payload: unknown): Response {
@@ -79,5 +143,50 @@ function buildSetupStatusPayload(): SetupStatusResponse {
     migrations: { status: "ok" },
     runtime: { status: "ok" },
     capabilities: { setup_status: "enabled" }
+  };
+}
+
+function buildManualImportJob(): ManualImportJob {
+  return {
+    object: MANUAL_IMPORT_JOB_OBJECT,
+    schema_version: MANUAL_IMPORT_JOB_SCHEMA_VERSION,
+    job_id: "job-123",
+    status: "succeeded",
+    phase: "completed",
+    created_at: "2026-05-29T18:00:00+00:00",
+    started_at: "2026-05-29T18:00:00+00:00",
+    finished_at: "2026-05-29T18:00:01+00:00",
+    source: {
+      source_kind: "saved_event_replay",
+      source_artifact_label: "safe_source_label",
+      source_display_label: "events_v1.jsonl",
+      source_file_extension: ".jsonl",
+      path_echoed: false
+    },
+    adapter: {
+      status: "succeeded",
+      files_processed: 1,
+      records_seen: 3,
+      events_processed: 3,
+      events_skipped: 0,
+      unsupported_kind_counts: {},
+      warnings: []
+    },
+    ingest: {
+      status: "succeeded",
+      ingest_run_id: "ingest-123",
+      source_kind: "saved_event_replay",
+      source_artifact_label: "safe_source_label",
+      row_counts: { matches: 1, games: 1 },
+      warnings: [],
+      skipped: {}
+    },
+    database: {
+      status: "ok",
+      display_path: "<app_data>\\db\\mythic_edge.sqlite3",
+      created: true
+    },
+    warnings: [],
+    errors: []
   };
 }

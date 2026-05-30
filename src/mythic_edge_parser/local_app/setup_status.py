@@ -22,7 +22,7 @@ def build_capabilities() -> dict[str, str]:
         "setup_status": "enabled",
         "config_write": "disabled",
         "database_init": "disabled",
-        "manual_import": "disabled",
+        "manual_import": "enabled",
         "live_watcher": "disabled",
         "parser_runner_control": "disabled",
         "frontend": "deferred",
@@ -183,7 +183,7 @@ def build_runtime_state() -> dict[str, object]:
         "backend": {"status": "running", "host": DEFAULT_BACKEND_HOST},
         "parser_runner": {"status": "deferred"},
         "live_watcher": {"status": "deferred"},
-        "manual_import": {"status": "deferred"},
+        "manual_import": {"status": "enabled"},
         "legacy_status_api": {"status": "separate_reference_surface"},
     }
 

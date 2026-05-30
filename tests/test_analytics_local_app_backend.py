@@ -27,7 +27,7 @@ def test_health_endpoint_reports_setup_status_only_capabilities(tmp_path) -> Non
             "setup_status": "enabled",
             "config_write": "disabled",
             "database_init": "disabled",
-            "manual_import": "disabled",
+            "manual_import": "enabled",
             "live_watcher": "disabled",
             "parser_runner_control": "disabled",
             "frontend": "deferred",
@@ -44,15 +44,63 @@ def test_read_only_endpoint_inventory_and_no_wildcard_cors(tmp_path) -> None:
         "/api/app/paths",
         "/api/analytics/database/status",
         "/api/runtime/status",
+        "/api/imports/jsonl",
+        "/api/imports/jobs/{job_id}",
     }
     route_paths = {route.path for route in client.app.routes}
 
     assert expected_routes <= route_paths
-    assert all("POST" not in route.methods for route in client.app.routes)
+    assert all("DELETE" not in route.methods for route in client.app.routes)
     assert client.post("/api/health").status_code == 405
 
     response = client.get("/api/health", headers={"Origin": "http://example.invalid"})
     assert response.headers.get("access-control-allow-origin") != "*"
+
+
+def test_backend_allows_only_explicit_loopback_frontend_cors(tmp_path) -> None:
+    client = _client(tmp_path / "app-data")
+
+    allowed = client.get("/api/health", headers={"Origin": "http://127.0.0.1:5173"})
+    preflight = client.options(
+        "/api/imports/jsonl",
+        headers={
+            "Origin": "http://127.0.0.1:5173",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type",
+        },
+    )
+    disallowed = client.get("/api/health", headers={"Origin": "http://example.invalid"})
+
+    assert allowed.headers.get("access-control-allow-origin") == "http://127.0.0.1:5173"
+    assert preflight.headers.get("access-control-allow-origin") == "http://127.0.0.1:5173"
+    assert "POST" in preflight.headers.get("access-control-allow-methods", "")
+    assert disallowed.headers.get("access-control-allow-origin") is None
+
+
+def test_backend_cors_uses_local_frontend_origin_from_launcher_env(tmp_path) -> None:
+    client = TestClient(
+        create_app(
+            app_data_root=tmp_path / "app-data",
+            env={"MYTHIC_EDGE_LOCAL_APP_FRONTEND_ORIGIN": "http://127.0.0.1:5180"},
+        ),
+    )
+
+    response = client.get("/api/health", headers={"Origin": "http://127.0.0.1:5180"})
+
+    assert response.headers.get("access-control-allow-origin") == "http://127.0.0.1:5180"
+
+
+def test_backend_ignores_non_loopback_frontend_origin_env(tmp_path) -> None:
+    client = TestClient(
+        create_app(
+            app_data_root=tmp_path / "app-data",
+            env={"MYTHIC_EDGE_LOCAL_APP_FRONTEND_ORIGIN": "https://example.invalid"},
+        ),
+    )
+
+    response = client.get("/api/health", headers={"Origin": "https://example.invalid"})
+
+    assert response.headers.get("access-control-allow-origin") is None
 
 
 def test_setup_status_combines_sections_without_exposing_temp_paths_or_writing(tmp_path) -> None:
@@ -182,6 +230,6 @@ def test_runtime_state_route_is_explicitly_non_controlling(tmp_path) -> None:
         "backend": {"status": "running", "host": "127.0.0.1"},
         "parser_runner": {"status": "deferred"},
         "live_watcher": {"status": "deferred"},
-        "manual_import": {"status": "deferred"},
+        "manual_import": {"status": "enabled"},
         "legacy_status_api": {"status": "separate_reference_surface"},
     }
