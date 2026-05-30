@@ -6,17 +6,20 @@ Date: 2026-05-21
 
 Decision owners / workflow role:
 
-- Codex A: Thinker / architecture framing role.
-- Codex D: Module Fixer / ADR-0006 governance blocker cleanup.
+- Codex A: architecture framing / readiness assessment.
+- Codex B: ADR adoption contract.
+- Codex C: adoption comparison / revision.
+- Codex E: adoption review / contract test.
 
 Related issues:
 
-- N/A. This ADR records future repository-boundary policy before any split is
-  attempted.
+- https://github.com/Tahjali11/Mythic-Edge/issues/215
+- New ADR adoption governance issue: recommended but not created during the
+  Codex C adoption revision pass.
 
 Related PRs:
 
-- TBD
+- TBD. Adoption PR not opened during Codex C revision.
 
 Related contracts, handoffs, or review reports:
 
@@ -25,6 +28,11 @@ Related contracts, handoffs, or review reports:
 - `docs/agent_rules.yml`
 - `docs/decisions/README.md`
 - `README.md`
+- `docs/contracts/internal_project_boundaries.md`
+- `docs/implementation_handoffs/internal_project_boundaries_comparison.md`
+- `docs/contract_test_reports/internal_project_boundaries.md`
+- `docs/contracts/adr_0006_repository_boundary_adoption.md`
+- `docs/implementation_handoffs/adr_0006_repository_boundary_adoption_comparison.md`
 - `docs/problem_representations/player_log_evidence_ledger.md`
 - `docs/contracts/player_log_evidence_ledger.md`
 
@@ -38,22 +46,24 @@ Related ADRs:
 
 ## Context
 
-Mythic Edge began as a personal MTG Arena parser/data pipeline, but its product
-direction has expanded. The durable project identity is now a
-competitively-oriented decision support tool. That tool requires multiple
-capabilities:
+Mythic Edge began as a personal MTG Arena parser/data pipeline, but its project
+direction has expanded into a local MTGA decision-support system. That system
+requires multiple capabilities:
 
 - a parser that turns `Player.log` evidence into structured observations
 - validation and provenance that explain whether parser-produced facts are
   trustworthy
 - deterministic analytics that measure repeatable patterns
-- future recommendation or explanation layers that help the player decide what
-  to review
+- local app and UI surfaces that expose setup, import, and analytics workflows
+- workbook and transport surfaces that receive parser-normalized rows
+- quality and governance surfaces that keep boundaries reviewable
+- future AI Integration layers that may explain, summarize, or propose
+  hypotheses without owning truth
 
 Manasight provides a useful reference for separating a parser library from a
 sanitized corpus. Mythic Edge may eventually benefit from a similar multi-repo
-shape, especially if the corpus, parser, analytics, and Codex workflow assets
-become independently reusable.
+shape, especially if Corpus / Provenance, Parser, Analytics, or future AI
+Integration assets become independently reusable.
 
 The current Mythic Edge codebase is still changing rapidly. Parser event
 contracts, evidence-ledger tiers, corpus reports, workbook-facing rows,
@@ -64,6 +74,10 @@ versioning, CI, branch, and Codex context risk.
 The project needs a durable policy that allows future repository extraction
 without making a split the current plan.
 
+The internal project boundary package from issue #215 names the current
+monorepo-internal project areas and confirms that ADR-0006 should be treated as
+proposed context until reviewed and accepted through the normal workflow.
+
 ## Decision
 
 Mythic Edge remains a single primary repository until a future issue, contract,
@@ -71,18 +85,19 @@ review, and user-approved migration plan explicitly authorize extracting a
 component.
 
 The current repo should still be organized as if future boundaries may exist.
-Future work should keep parser, corpus, evidence/provenance, analytics,
-recommendation, workflow, and app orchestration responsibilities separable even
-while they live in one repository.
+Future work should keep Parser, Corpus / Provenance, Analytics, Local App / UI,
+Workbook / Transport, Quality / Governance, and future AI Integration
+responsibilities separable even while they live in one repository.
 
 The preferred future extraction order is:
 
-1. Corpus first.
+1. Corpus / Provenance first.
    A future `mythic-edge-corpus` repository may own sanitized or synthetic
    `Player.log` fixture slices, golden replay manifests, count-only baselines,
-   release tags, and corpus metadata. It must not contain raw private logs,
-   secrets, failed posts, runtime status files, generated private data, or
-   workbook exports.
+   evidence-ledger metadata, drift baselines, release tags, and corpus
+   metadata. It must not contain raw private logs, secrets, failed posts,
+   runtime status files, generated private data, generated SQLite databases,
+   local JSONL artifacts, or workbook exports.
 
 2. Parser second.
    A future `mythic-edge-parser` repository may own `Player.log` discovery,
@@ -96,34 +111,49 @@ The preferred future extraction order is:
    A future `mythic-edge-analytics` repository may own deterministic feature
    extraction, player-improvement metrics, matchup/card/performance analysis,
    and model-ready derived features. It should consume validated parser facts
-   and provenance metadata. It must not reach backward into raw logs or parser
-   internals as a truth shortcut.
+   and provenance metadata. It must not reach backward into raw logs, parser
+   internals, or legacy derived artifacts as a truth shortcut.
 
-4. Recommendation/advisor last.
-   A future advisor or recommender repository may own user-facing
-   recommendations, explanations, review prompts, and optional LLM advisory
-   scaffolds. It must consume deterministic analytics and provenance labels. It
-   must not own parser truth, validation truth, merge readiness, deployment
-   readiness, or hidden game facts.
+4. AI Integration / advisor last.
+   A future AI Integration, advisor, or recommender repository may own
+   user-facing explanations, review prompts, coaching hypotheses, and optional
+   LLM advisory scaffolds. It must consume deterministic analytics and
+   provenance labels. It must not own parser truth, analytics truth, validation
+   truth, workbook truth, merge readiness, deployment readiness, model-provider
+   truth, or hidden game facts.
 
-5. Agent workflow assets only if they become reusable outside Mythic Edge.
-   A future workflow repository may own Codex skills, prompts, templates, or
-   governance helpers. It must not supersede the active repo constitution,
-   current issues, contracts, accepted ADRs, or reviewed PRs by implication.
+5. Quality / Governance workflow assets only if they become reusable outside
+   Mythic Edge.
+   A future workflow repository may own reusable Codex skills, prompts,
+   templates, or governance helpers. It must not supersede the active repo
+   constitution, current issues, current contracts, accepted ADRs, reviewed
+   PRs, or repo authority by implication.
+
+This extraction order is planning guidance only. It is not authorization to
+extract a repository, move files, rename packages, change imports, or add
+validation gates.
 
 The primary `mythic-edge` repository should remain the integration and app
-orchestration home unless a later ADR supersedes this decision. It may own the
-local runner, workbook/webhook integration, Apps Script assets, user-facing
-configuration, launcher behavior, docs, and cross-component integration tests.
+orchestration home unless a later issue, contract, review, accepted ADR, and
+explicit user-approved migration plan supersede this decision. It may own the
+local runner, Local App / UI, Workbook / Transport integration, Apps Script
+assets, user-facing configuration, launcher behavior, docs, and
+cross-component integration tests.
+
+Workbook / Transport and Local App / UI should remain in the primary repo by
+default unless a future issue, contract, review, and accepted ADR explicitly
+authorize a split.
 
 Future repository dependency direction should be one-way:
 
 ```text
-corpus -> no production code dependency
-parser -> may consume pinned corpus releases for tests
-app/evidence -> consumes parser event and row contracts
-analytics -> consumes validated parser/evidence outputs
-advisor -> consumes deterministic analytics and provenance summaries
+Corpus / Provenance -> no production code dependency by default
+Parser -> may consume pinned sanitized corpus releases for tests
+Workbook / Transport -> consumes parser-normalized row contracts
+Analytics -> consumes validated parser facts and provenance metadata
+Local App / UI -> consumes backend, analytics, setup/status, and display APIs
+AI Integration -> consumes deterministic analytics and provenance summaries
+Quality / Governance -> may inspect all layers without becoming runtime behavior
 ```
 
 Repository boundaries do not change truth ownership. Moving code or data to a
@@ -150,8 +180,9 @@ This ADR governs future repository-boundary planning for Mythic Edge.
 
 It applies to future issues, contracts, implementation handoffs, reviews, PR
 descriptions, release plans, CI plans, and migration plans that propose
-extracting parser, corpus, analytics, advisor, workflow, or app-orchestration
-surfaces out of the current repository.
+extracting Parser, Corpus / Provenance, Analytics, Local App / UI, Workbook /
+Transport, Quality / Governance, or future AI Integration surfaces out of the
+current repository.
 
 ## Non-Goals
 
@@ -165,14 +196,19 @@ This ADR does not:
 - change CI
 - change parser behavior
 - change parser state final reconciliation
-- change parser event classes or payload shapes
+- change parser event classes, event `kind` values, or payload shapes
+- change analytics behavior
+- change SQLite schema or migrations
+- change local app/UI behavior
 - change workbook schema
 - change webhook payload shape
 - change Apps Script behavior
+- change Google Sheets behavior
 - change match/game identity or deduplication
 - authorize raw private logs or local artifacts in any repository
-- implement analytics or recommendation behavior
+- implement analytics, Local App / UI, or AI Integration behavior
 - authorize OpenAI API or model-provider runtime integration
+- add CI gates
 - change branch, merge, deploy, or tracker policy by itself
 
 ## Alternatives Considered
@@ -185,8 +221,9 @@ This ADR does not:
   sanitized corpus or parser package may become easier to test, release, and
   consume as its own repository.
 - Mirror Manasight's repository structure exactly. Rejected because Mythic Edge
-  is not only a parser library. It is a competitively-oriented decision support
-  tool with parser, validation, analytics, and recommendation layers.
+  is not only a parser library. It is a local MTGA decision-support system with
+  Parser, Corpus / Provenance, Analytics, Local App / UI, Workbook / Transport,
+  Quality / Governance, and future AI Integration layers.
 - Split by implementation language or Codex role. Rejected for now because
   repository boundaries should follow product and truth-ownership boundaries,
   not just tooling convenience.
@@ -199,11 +236,12 @@ Future contributors and Codex threads have a clear answer when multi-repo
 structure comes up: design for separation, but do not split until interfaces
 are stable and migration is explicitly authorized.
 
-The likely first useful extraction is a sanitized corpus repository, because
-corpus artifacts can be versioned and consumed by CI without moving parser
-truth. Parser extraction should wait for stable public event and payload
-contracts. Analytics and advisor extraction should wait until evidence-ledger
-and provenance semantics are strong enough for downstream consumption.
+The likely first useful extraction is a sanitized Corpus / Provenance
+repository, because corpus artifacts can be versioned and consumed by tests
+without moving parser truth. Parser extraction should wait for stable public
+event and payload contracts. Analytics and future AI Integration extraction
+should wait until evidence-ledger and provenance semantics are strong enough
+for downstream consumption.
 
 The cost is that the current repository remains broad for longer. That is
 acceptable while the project is still finding the right boundaries. The benefit
@@ -219,10 +257,13 @@ This ADR preserves `ADR-0001`, `ADR-0002`, `ADR-0003`, `ADR-0004`, and
 Parser and state interpretation remain the source of truth for parser-managed
 facts. The evidence ledger describes support, confidence, finality, drift, and
 degradation for those facts. Deterministic analytics may own derived analytic
-scores only when separately contracted. Recommendation and LLM layers may
-explain, summarize, or propose hypotheses, but they must not own parser truth,
-validation truth, schema truth, merge readiness, deploy readiness, or hidden
-game facts.
+scores only when separately contracted. Local App / UI may display and
+orchestrate local workflows, but it must not own parser or analytics truth.
+Workbook / Transport may receive and move parser-normalized rows, but it must
+not feed transport or sheet state back into parser truth. Future AI Integration
+and LLM layers may explain, summarize, or propose hypotheses, but they must not
+own parser truth, analytics truth, validation truth, schema truth, merge
+readiness, deploy readiness, model-provider truth, or hidden game facts.
 
 A repository boundary is an ownership and packaging boundary, not a truth
 shortcut.
@@ -237,9 +278,13 @@ This ADR does not authorize:
 - parser state final reconciliation changes
 - parser event class or event `kind` changes
 - parser payload shape changes
+- analytics behavior changes
+- SQLite schema or migration changes
+- local app/UI behavior changes
 - workbook schema changes
 - webhook payload shape changes
 - Apps Script behavior changes
+- Google Sheets behavior changes
 - match/game identity changes
 - deduplication changes
 - environment variable contract changes
@@ -249,6 +294,8 @@ This ADR does not authorize:
 - runtime status file commits
 - failed post commits
 - workbook export commits
+- generated SQLite database commits
+- local JSONL artifact commits
 - production deployment changes
 - OpenAI API or model-provider runtime behavior
 
@@ -258,18 +305,24 @@ an explicit issue, contract, review, validation, and deployer path.
 ## Validation Or Review Evidence
 
 Runtime validation is not applicable because this ADR is documentation-only and
-does not change code, imports, CI, parser behavior, workbook schema, webhook
-payloads, Apps Script behavior, runtime artifacts, or generated data.
+does not change code, imports, CI, parser behavior, analytics behavior, local
+app/UI behavior, workbook schema, webhook payloads, Apps Script behavior,
+runtime artifacts, or generated data.
 
-Codex D fixer validation for this ADR draft:
+Current adoption evidence:
 
-- `git diff --check`: no output.
-- `git diff --check --no-index /dev/null docs/decisions/ADR-0006-repository-boundary-strategy.md`:
-  no whitespace-error output; nonzero exit is expected for a new-file
-  comparison.
-- Trailing-whitespace scan for the ADR and ADR index: no matches.
-- `python3 tools/check_protected_surfaces.py --base origin/main --paths-from-stdin`:
-  passed with `forbidden: 0` and `warnings: 0`.
+- issue #215 internal project boundary package:
+  - `docs/contracts/internal_project_boundaries.md`
+  - `docs/implementation_handoffs/internal_project_boundaries_comparison.md`
+  - `docs/contract_test_reports/internal_project_boundaries.md`
+- ADR-0006 adoption contract:
+  - `docs/contracts/adr_0006_repository_boundary_adoption.md`
+- Codex C adoption comparison:
+  - `docs/implementation_handoffs/adr_0006_repository_boundary_adoption_comparison.md`
+
+Acceptance still requires Codex E review or contract-test evidence. The Codex C
+handoff records `git diff --check`, path-scoped protected-surface scan, and
+path-scoped secret/private-marker scan results for this revision.
 
 Future extraction plans must define their own validation, including consumer
 compatibility tests across the source repository and the app repository.
@@ -286,6 +339,9 @@ None.
 
 - Create a future repository-boundary problem representation before any actual
   extraction.
+- Create or link a dedicated ADR-0006 adoption governance issue before PR
+  submission if the project wants an issue separate from the already-satisfied
+  issue #215.
 - Consider a future `mythic-edge-corpus` extraction plan after evidence-ledger
   Tier 7 and corpus parity goals are stable.
 - Define public event, payload, fixture, and release compatibility contracts
@@ -299,10 +355,14 @@ None.
 This ADR intentionally keeps repository splitting as a future option, not a
 current requirement.
 
-The preferred project framing is: Mythic Edge is a competitively-oriented MTGA
-decision support tool. The parser is an evidence intake layer, not the whole
-product.
+The preferred project framing is: Mythic Edge is a local MTGA decision-support
+system. The parser is an evidence intake and interpretation layer, not the
+whole project.
 
-This ADR cites only artifacts that exist on `origin/main` or accepted ADRs in
-the standalone governance PR base. Parser-reliability branch artifacts can be
-cited by a later update after they are merged into the target base.
+This revision keeps `Status: Proposed` for Codex E review. Acceptance should
+occur only through reviewed repo changes on an approved branch, or through
+another explicit user-approved workflow.
+
+Issue #215 is related evidence, not a closing target for this adoption pass.
+Do not use `Closes #215` for the ADR-0006 adoption PR unless a future issue or
+user instruction explicitly changes that routing.
