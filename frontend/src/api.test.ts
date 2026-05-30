@@ -90,6 +90,19 @@ describe("api helpers", () => {
     });
   });
 
+  it("submits explicit batch import requests with source_paths", async () => {
+    const payload = buildManualImportJob();
+    const fetchImpl = vi.fn(async () => jsonResponse(payload)) as unknown as typeof fetch;
+    const sourcePaths = ["Z:\\synthetic\\a_events.jsonl", "Z:\\synthetic\\b_events.jsonl"];
+
+    await expect(submitManualJsonlImport({ source_paths: sourcePaths }, fetchImpl)).resolves.toEqual(payload);
+    expect(fetchImpl).toHaveBeenCalledWith("/api/imports/jsonl", {
+      method: "POST",
+      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      body: JSON.stringify({ source_paths: sourcePaths })
+    });
+  });
+
   it("fetches manual import job status by opaque id", async () => {
     const payload = buildManualImportJob();
     const fetchImpl = vi.fn(async () => jsonResponse(payload)) as unknown as typeof fetch;
@@ -187,7 +200,13 @@ function buildManualImportJob(): ManualImportJob {
       source_artifact_label: "safe_source_label",
       source_display_label: "events_v1.jsonl",
       source_file_extension: ".jsonl",
-      path_echoed: false
+      path_echoed: false,
+      source_mode: "single_file",
+      files_selected: 1,
+      files_accepted: 1,
+      files_rejected: 0,
+      source_group_label: "safe_source_label",
+      source_artifacts: []
     },
     adapter: {
       status: "succeeded",
@@ -197,6 +216,11 @@ function buildManualImportJob(): ManualImportJob {
       events_skipped: 0,
       unsupported_kind_counts: {},
       warnings: [],
+      source_mode: "single_file",
+      files_selected: 1,
+      files_accepted: 1,
+      files_rejected: 0,
+      source_artifacts: [],
       quality: buildImportQuality()
     },
     ingest: {

@@ -126,7 +126,8 @@ h3 {
   font-weight: 700;
 }
 
-.manualImportForm input {
+.manualImportForm input,
+.manualImportForm textarea {
   width: 100%;
   min-width: 0;
   border: 1px solid #b9c2ba;
@@ -134,6 +135,10 @@ h3 {
   padding: 10px 12px;
   color: #20242a;
   background: #ffffff;
+}
+
+.manualImportForm textarea {
+  resize: vertical;
 }
 
 .manualImportForm button {
@@ -166,7 +171,8 @@ h3 {
   padding: 16px;
 }
 
-.qualityBreakdown {
+.qualityBreakdown,
+.sourceArtifactsBreakdown {
   margin-top: 16px;
   border-top: 1px solid #d9ded7;
   padding-top: 14px;

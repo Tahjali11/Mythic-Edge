@@ -51,6 +51,12 @@ export type ManualImportSource = {
   source_display_label: string;
   source_file_extension: string;
   path_echoed: false;
+  source_mode?: "single_file" | "explicit_file_batch" | "adapter_directory_selection" | string;
+  files_selected?: number;
+  files_accepted?: number;
+  files_rejected?: number;
+  source_group_label?: string;
+  source_artifacts?: ManualImportSourceArtifact[];
 };
 
 export type LegacyJsonlImportQualityStatus = "complete" | "degraded" | "failed";
@@ -87,6 +93,20 @@ export type LegacyJsonlImportQuality = {
   };
 };
 
+export type ManualImportSourceArtifact = {
+  batch_index: number;
+  source_artifact_label: string;
+  source_display_label: string;
+  status: "processed" | "processed_with_skips" | "rejected" | "failed" | string;
+  records_seen: number;
+  events_processed: number;
+  events_skipped: number;
+  processed_kind_counts: Record<string, number>;
+  unsupported_kind_counts: Record<string, number>;
+  skipped_reason_counts: Record<string, number>;
+  adapter_warning_codes: string[];
+};
+
 export type ManualImportAdapter = {
   status: string;
   files_processed: number;
@@ -96,6 +116,11 @@ export type ManualImportAdapter = {
   unsupported_kind_counts: Record<string, number>;
   warnings: string[];
   quality?: LegacyJsonlImportQuality;
+  source_mode?: "single_file" | "explicit_file_batch" | "adapter_directory_selection" | string;
+  files_selected?: number;
+  files_accepted?: number;
+  files_rejected?: number;
+  source_artifacts?: ManualImportSourceArtifact[];
 };
 
 export type ManualImportIngest = {
@@ -132,10 +157,19 @@ export type ManualImportJob = {
   [key: string]: unknown;
 };
 
-export type ManualImportRequest = {
+export type ManualImportSingleFileRequest = {
   source_path: string;
+  source_paths?: never;
   source_artifact_label?: string;
 };
+
+export type ManualImportBatchRequest = {
+  source_paths: string[];
+  source_path?: never;
+  source_artifact_label?: string;
+};
+
+export type ManualImportRequest = ManualImportSingleFileRequest | ManualImportBatchRequest;
 
 export type ManualImportErrorCode =
   | "backend_unavailable"

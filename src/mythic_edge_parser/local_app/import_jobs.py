@@ -17,6 +17,7 @@ from mythic_edge_parser.app.analytics_ingest import (
 from mythic_edge_parser.app.analytics_legacy_jsonl_adapter import (
     LegacyJsonlAdapterError,
     adapt_legacy_jsonl_artifacts,
+    adapt_legacy_jsonl_file_batch,
     failed_legacy_jsonl_import_quality,
 )
 
@@ -24,6 +25,7 @@ from .paths import LocalAppPaths, build_local_app_paths, display_app_path
 
 MANUAL_JSONL_IMPORT_SCHEMA_VERSION = "analytics_manual_jsonl_import_ui_job_status.v1"
 MANUAL_JSONL_IMPORT_OBJECT = "mythic_edge_local_app_manual_jsonl_import_job"
+MAX_LEGACY_JSONL_BATCH_FILES = 100
 
 _MAX_STORED_JOBS = 25
 _JOBS: OrderedDict[str, dict[str, object]] = OrderedDict()
@@ -52,6 +54,12 @@ class _SourceValidation:
     source_artifact_label: str | None
     source_display_label: str
     source_file_extension: str
+    source_mode: str = "single_file"
+    source_paths: tuple[Path, ...] = ()
+    files_selected: int = 0
+    files_accepted: int = 0
+    files_rejected: int = 0
+    source_artifacts: tuple[dict[str, object], ...] = ()
     error: str | None = None
 
 
@@ -66,7 +74,7 @@ def run_manual_jsonl_import(
     created_at = now_fn()
     job_id = (job_id_factory or _default_job_id)()
     source = _validate_source_request(request)
-    if source.error is not None or source.source_path is None:
+    if source.error is not None or not _source_has_selection(source):
         return _store_job(
             _job_payload(
                 job_id=job_id,
@@ -86,10 +94,7 @@ def run_manual_jsonl_import(
 
     started_at = now_fn()
     try:
-        adapter_result = adapt_legacy_jsonl_artifacts(
-            source.source_path,
-            source_artifact_label=source.source_artifact_label,
-        )
+        adapter_result = _adapt_source(source)
     except LegacyJsonlAdapterError as exc:
         error_code = _adapter_error_category(str(exc))
         return _store_job(
@@ -119,7 +124,7 @@ def run_manual_jsonl_import(
                 created_at=created_at,
                 started_at=started_at,
                 finished_at=now_fn(),
-                source=_source_with_adapter_label(source, adapter_result.source_artifact_label),
+                source=_source_with_adapter_result(source, adapter_result),
                 adapter=_adapter_summary(status="succeeded", result=adapter_result),
                 ingest=_ingest_summary(status="not_started"),
                 database=_database_summary(status="unavailable", created=False),
@@ -139,7 +144,7 @@ def run_manual_jsonl_import(
                 created_at=created_at,
                 started_at=started_at,
                 finished_at=now_fn(),
-                source=_source_with_adapter_label(source, adapter_result.source_artifact_label),
+                source=_source_with_adapter_result(source, adapter_result),
                 adapter=_adapter_summary(status="succeeded", result=adapter_result),
                 ingest=_ingest_summary(status="not_started"),
                 database=_database_summary(status="unavailable", created=False),
@@ -171,7 +176,7 @@ def run_manual_jsonl_import(
                 created_at=created_at,
                 started_at=started_at,
                 finished_at=now_fn(),
-                source=_source_with_adapter_label(source, adapter_result.source_artifact_label),
+                source=_source_with_adapter_result(source, adapter_result),
                 adapter=_adapter_summary(status="succeeded", result=adapter_result),
                 ingest=_ingest_summary(status="failed"),
                 database=_database_summary(
@@ -193,7 +198,7 @@ def run_manual_jsonl_import(
             created_at=created_at,
             started_at=started_at,
             finished_at=finished_at,
-            source=_source_with_adapter_label(source, adapter_result.source_artifact_label),
+            source=_source_with_adapter_result(source, adapter_result),
             adapter=_adapter_summary(status=status, result=adapter_result, ingest_warnings=ingest_result.warnings),
             ingest=_ingest_summary(status="succeeded", result=ingest_result),
             database=_database_summary(
@@ -219,6 +224,18 @@ def _validate_source_request(request: object) -> _SourceValidation:
     if not isinstance(request, Mapping):
         return _invalid_source("source_request_invalid")
 
+    has_source_path = "source_path" in request
+    has_source_paths = "source_paths" in request
+    if has_source_path and has_source_paths:
+        return _invalid_source("source_path_and_source_paths_conflict")
+    if has_source_paths:
+        return _validate_batch_source_request(request)
+    if not has_source_path:
+        return _invalid_source("source_path_required")
+    return _validate_single_source_request(request)
+
+
+def _validate_single_source_request(request: Mapping[object, object]) -> _SourceValidation:
     raw_source_path = request.get("source_path")
     if not isinstance(raw_source_path, str) or not raw_source_path.strip():
         return _invalid_source("source_path_required")
@@ -281,6 +298,124 @@ def _validate_source_request(request: object) -> _SourceValidation:
         source_artifact_label=source_artifact_label,
         source_display_label=display_label,
         source_file_extension=".jsonl",
+        files_selected=1,
+        files_accepted=1,
+    )
+
+
+def _validate_batch_source_request(request: Mapping[object, object]) -> _SourceValidation:
+    raw_source_paths = request.get("source_paths")
+    if not isinstance(raw_source_paths, list):
+        return _invalid_source("source_paths_required", source_mode="explicit_file_batch")
+    if not raw_source_paths:
+        return _invalid_source("source_paths_empty", source_mode="explicit_file_batch")
+    if len(raw_source_paths) > MAX_LEGACY_JSONL_BATCH_FILES:
+        return _invalid_source(
+            "source_paths_too_many",
+            source_mode="explicit_file_batch",
+            files_selected=len(raw_source_paths),
+        )
+
+    raw_label = request.get("source_artifact_label")
+    if raw_label is not None:
+        if not isinstance(raw_label, str) or not raw_label.strip():
+            return _invalid_source(
+                "source_artifact_label_invalid",
+                source_mode="explicit_file_batch",
+                source_file_extension=".jsonl",
+            )
+        source_artifact_label = raw_label.strip()
+    else:
+        source_artifact_label = None
+
+    selected: list[tuple[Path, str]] = []
+    seen: set[str] = set()
+    for raw_source_path in raw_source_paths:
+        if not isinstance(raw_source_path, str) or not raw_source_path.strip():
+            return _invalid_source(
+                "source_path_invalid",
+                source_mode="explicit_file_batch",
+                source_file_extension=".jsonl",
+                files_selected=len(raw_source_paths),
+            )
+
+        source_text = _normalize_source_path_text(raw_source_path)
+        source_path = Path(source_text)
+        extension = source_path.suffix.lower()
+        display_label = _safe_source_display_label(source_path)
+
+        if _looks_like_url(source_text):
+            return _invalid_source(
+                "source_path_url_not_allowed",
+                source_mode="explicit_file_batch",
+                source_file_extension=extension,
+                source_display_label=display_label,
+                files_selected=len(raw_source_paths),
+            )
+        if _looks_like_unc_path(source_text):
+            return _invalid_source(
+                "source_path_unc_not_allowed",
+                source_mode="explicit_file_batch",
+                source_file_extension=extension,
+                source_display_label=display_label,
+                files_selected=len(raw_source_paths),
+            )
+        if not source_path.exists():
+            return _invalid_source(
+                "source_path_missing",
+                source_mode="explicit_file_batch",
+                source_file_extension=extension,
+                source_display_label=display_label,
+                files_selected=len(raw_source_paths),
+            )
+        if source_path.is_dir():
+            return _invalid_source(
+                "source_path_directory_not_allowed",
+                source_mode="explicit_file_batch",
+                source_file_extension=extension,
+                source_display_label=display_label,
+                files_selected=len(raw_source_paths),
+            )
+        if extension != ".jsonl":
+            return _invalid_source(
+                "source_path_extension_not_allowed",
+                source_mode="explicit_file_batch",
+                source_file_extension=extension,
+                source_display_label=display_label,
+                files_selected=len(raw_source_paths),
+            )
+        if not source_path.is_file():
+            return _invalid_source(
+                "source_path_not_file",
+                source_mode="explicit_file_batch",
+                source_file_extension=extension,
+                source_display_label=display_label,
+                files_selected=len(raw_source_paths),
+            )
+
+        resolved_path = source_path.resolve()
+        key = str(resolved_path).casefold()
+        if key in seen:
+            return _invalid_source(
+                "source_path_duplicate",
+                source_mode="explicit_file_batch",
+                source_file_extension=".jsonl",
+                files_selected=len(raw_source_paths),
+            )
+        seen.add(key)
+        selected.append((resolved_path, source_text))
+
+    sorted_paths = tuple(path for path, _ in sorted(selected, key=lambda item: (str(item[0]).casefold(), item[1])))
+    return _SourceValidation(
+        source_path=None,
+        source_paths=sorted_paths,
+        source_artifact_label=source_artifact_label,
+        source_display_label=f"{len(sorted_paths)} selected JSONL files",
+        source_file_extension=".jsonl",
+        source_mode="explicit_file_batch",
+        files_selected=len(raw_source_paths),
+        files_accepted=len(sorted_paths),
+        files_rejected=0,
     )
 
 
@@ -289,12 +424,20 @@ def _invalid_source(
     *,
     source_file_extension: str = "",
     source_display_label: str = "<selected_jsonl>",
+    source_mode: str = "single_file",
+    files_selected: int = 0,
+    files_accepted: int = 0,
+    files_rejected: int = 0,
 ) -> _SourceValidation:
     return _SourceValidation(
         source_path=None,
         source_artifact_label=None,
         source_display_label=source_display_label,
         source_file_extension=source_file_extension,
+        source_mode=source_mode,
+        files_selected=files_selected,
+        files_accepted=files_accepted,
+        files_rejected=files_rejected,
         error=error,
     )
 
@@ -336,6 +479,12 @@ def _job_payload(
             "source_display_label": source.source_display_label,
             "source_file_extension": source.source_file_extension,
             "path_echoed": False,
+            "source_mode": source.source_mode,
+            "files_selected": source.files_selected,
+            "files_accepted": source.files_accepted,
+            "files_rejected": source.files_rejected,
+            "source_group_label": _safe_label_or_empty(source.source_artifact_label),
+            "source_artifacts": list(source.source_artifacts),
         },
         "adapter": adapter,
         "ingest": ingest,
@@ -353,12 +502,38 @@ def _store_job(job: dict[str, object]) -> dict[str, object]:
     return dict(job)
 
 
-def _source_with_adapter_label(source: _SourceValidation, source_artifact_label: str) -> _SourceValidation:
+def _source_has_selection(source: _SourceValidation) -> bool:
+    if source.source_mode == "explicit_file_batch":
+        return bool(source.source_paths)
+    return source.source_path is not None
+
+
+def _adapt_source(source: _SourceValidation) -> object:
+    if source.source_mode == "explicit_file_batch":
+        return adapt_legacy_jsonl_file_batch(
+            source.source_paths,
+            source_artifact_label=source.source_artifact_label,
+        )
+    if source.source_path is None:
+        raise LegacyJsonlAdapterError("source_path_required")
+    return adapt_legacy_jsonl_artifacts(
+        source.source_path,
+        source_artifact_label=source.source_artifact_label,
+    )
+
+
+def _source_with_adapter_result(source: _SourceValidation, adapter_result: object) -> _SourceValidation:
     return _SourceValidation(
         source_path=source.source_path,
-        source_artifact_label=source_artifact_label,
+        source_paths=source.source_paths,
+        source_artifact_label=str(getattr(adapter_result, "source_artifact_label")),
         source_display_label=source.source_display_label,
         source_file_extension=source.source_file_extension,
+        source_mode=str(getattr(adapter_result, "source_mode", source.source_mode)),
+        files_selected=int(getattr(adapter_result, "files_selected", source.files_selected)),
+        files_accepted=int(getattr(adapter_result, "files_accepted", source.files_accepted)),
+        files_rejected=int(getattr(adapter_result, "files_rejected", source.files_rejected)),
+        source_artifacts=tuple(_safe_source_artifact_summaries(getattr(adapter_result, "source_artifacts", []))),
     )
 
 
@@ -378,6 +553,11 @@ def _adapter_summary(
             "events_skipped": 0,
             "unsupported_kind_counts": {},
             "warnings": [],
+            "source_mode": "",
+            "files_selected": 0,
+            "files_accepted": 0,
+            "files_rejected": 0,
+            "source_artifacts": [],
         }
         if status == "failed":
             summary["quality"] = failed_legacy_jsonl_import_quality(failure_code or "adapter_failed")
@@ -393,6 +573,11 @@ def _adapter_summary(
         "unsupported_kind_counts": dict(getattr(result, "unsupported_kind_counts")),
         "warnings": list(getattr(result, "warnings")),
         "quality": quality,
+        "source_mode": str(getattr(result, "source_mode", "single_file")),
+        "files_selected": int(getattr(result, "files_selected", int(getattr(result, "files_processed")))),
+        "files_accepted": int(getattr(result, "files_accepted", int(getattr(result, "files_processed")))),
+        "files_rejected": int(getattr(result, "files_rejected", 0)),
+        "source_artifacts": _safe_source_artifact_summaries(getattr(result, "source_artifacts", [])),
     }
 
 
@@ -522,6 +707,79 @@ def _safe_label_or_empty(value: str | None) -> str:
     if _SAFE_LABEL_RE.fullmatch(value) and not any(marker in marker_text for marker in _PRIVATE_MARKERS):
         return value
     return ""
+
+
+def _safe_source_artifact_summaries(value: object) -> list[dict[str, object]]:
+    if not isinstance(value, list):
+        return []
+
+    summaries: list[dict[str, object]] = []
+    for entry in value:
+        if not isinstance(entry, Mapping):
+            continue
+        summaries.append(
+            {
+                "batch_index": _non_negative_int(entry.get("batch_index")),
+                "source_artifact_label": _safe_label_or_empty(str(entry.get("source_artifact_label") or "")),
+                "source_display_label": _safe_display_label_text(entry.get("source_display_label")),
+                "status": _safe_source_artifact_status(entry.get("status")),
+                "records_seen": _non_negative_int(entry.get("records_seen")),
+                "events_processed": _non_negative_int(entry.get("events_processed")),
+                "events_skipped": _non_negative_int(entry.get("events_skipped")),
+                "processed_kind_counts": _safe_count_map(entry.get("processed_kind_counts")),
+                "unsupported_kind_counts": _safe_count_map(entry.get("unsupported_kind_counts")),
+                "skipped_reason_counts": _safe_count_map(entry.get("skipped_reason_counts")),
+                "adapter_warning_codes": _safe_code_list(entry.get("adapter_warning_codes")),
+            }
+        )
+    return summaries
+
+
+def _safe_display_label_text(value: object) -> str:
+    text = str(value or "").strip()
+    marker_text = text.lower()
+    if (
+        _SAFE_DISPLAY_BASENAME_RE.fullmatch(text)
+        and "://" not in text
+        and "\\" not in text
+        and "/" not in text
+        and "#" not in text
+        and not any(marker in marker_text for marker in _PRIVATE_MARKERS)
+    ):
+        return text
+    return "<selected_jsonl>"
+
+
+def _safe_source_artifact_status(value: object) -> str:
+    text = str(value or "").strip()
+    if text in {"processed", "processed_with_skips", "rejected", "failed"}:
+        return text
+    return "processed"
+
+
+def _safe_count_map(value: object) -> dict[str, int]:
+    if not isinstance(value, Mapping):
+        return {}
+    result: dict[str, int] = {}
+    for key, count in value.items():
+        safe_key = _safe_quality_code(str(key))
+        if safe_key:
+            result[safe_key] = _non_negative_int(count)
+    return dict(sorted(result.items()))
+
+
+def _safe_code_list(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return sorted({_safe_quality_code(str(entry)) for entry in value if _safe_quality_code(str(entry))})
+
+
+def _non_negative_int(value: object) -> int:
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        return 0
+    return max(0, number)
 
 
 def _utc_now() -> str:

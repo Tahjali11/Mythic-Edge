@@ -4,14 +4,15 @@ import hashlib
 import json
 import re
 from collections import Counter
-from collections.abc import Iterable
-from dataclasses import dataclass
+from collections.abc import Iterable, Sequence
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 from . import saved_event_replay, state
 
 ANALYTICS_LEGACY_JSONL_ADAPTER_SCHEMA_VERSION = "analytics_legacy_jsonl_artifact_adapter.v1"
+ANALYTICS_LEGACY_JSONL_BATCH_IMPORT_SCHEMA_VERSION = "analytics_legacy_jsonl_batch_import.v1"
 ANALYTICS_LEGACY_JSONL_IMPORT_QUALITY_OBJECT = "mythic_edge_legacy_jsonl_import_quality"
 ANALYTICS_LEGACY_JSONL_IMPORT_QUALITY_SCHEMA_VERSION = "analytics_legacy_jsonl_import_quality_breakdown.v1"
 
@@ -19,6 +20,7 @@ SOURCE_KIND = "saved_event_replay"
 
 _SAFE_KIND_RE = re.compile(r"^[A-Za-z0-9_.-]{1,80}$")
 _SAFE_CODE_RE = re.compile(r"^[A-Za-z0-9_.:-]{1,100}$")
+_SAFE_DISPLAY_BASENAME_RE = re.compile(r"^[A-Za-z0-9_. -]{1,80}\.jsonl$", re.IGNORECASE)
 _WINDOWS_ABSOLUTE_PATH_RE = re.compile(r"^[A-Za-z]:[\\/]")
 _PRIVATE_LABEL_MARKERS = (
     "player.log",
@@ -51,6 +53,27 @@ class LegacyJsonlAdapterResult:
     unsupported_kind_counts: dict[str, int]
     warnings: list[str]
     quality: dict[str, object]
+    source_mode: str = "single_file"
+    files_selected: int = 1
+    files_accepted: int = 1
+    files_rejected: int = 0
+    source_artifacts: list[dict[str, object]] = field(default_factory=list)
+
+
+@dataclass(slots=True)
+class _SourceArtifactStats:
+    batch_index: int
+    path: Path
+    source_artifact_label: str
+    source_display_label: str
+    records_seen: int = 0
+    events_processed: int = 0
+    events_skipped: int = 0
+    blank_line_count: int = 0
+    duplicate_raw_hash_count: int = 0
+    unsupported_kind_skip_count: int = 0
+    processed_kind_counts: Counter[str] = field(default_factory=Counter)
+    unsupported_kind_counts: Counter[str] = field(default_factory=Counter)
 
 
 def adapt_legacy_jsonl_artifacts(
@@ -58,12 +81,45 @@ def adapt_legacy_jsonl_artifacts(
     *,
     source_artifact_label: str | None = None,
 ) -> LegacyJsonlAdapterResult:
-    selected_files = _selected_jsonl_files(Path(source))
+    source_path = Path(source)
+    selected_files = _selected_jsonl_files(source_path)
     label = _safe_source_artifact_label(
         source_artifact_label,
         selected_files=selected_files,
-        source_is_dir=Path(source).is_dir(),
+        source_is_dir=source_path.is_dir(),
     )
+    source_mode = "adapter_directory_selection" if source_path.is_dir() else "single_file"
+    return _adapt_selected_jsonl_files(
+        selected_files,
+        label=label,
+        source_mode=source_mode,
+        files_selected=len(selected_files),
+    )
+
+
+def adapt_legacy_jsonl_file_batch(
+    sources: Sequence[Path],
+    *,
+    source_artifact_label: str | None = None,
+) -> LegacyJsonlAdapterResult:
+    selected_files = _selected_explicit_jsonl_files(sources)
+    label = _safe_batch_source_artifact_label(source_artifact_label, selected_files=selected_files)
+    return _adapt_selected_jsonl_files(
+        selected_files,
+        label=label,
+        source_mode="explicit_file_batch",
+        files_selected=len(selected_files),
+    )
+
+
+def _adapt_selected_jsonl_files(
+    selected_files: list[Path],
+    *,
+    label: str,
+    source_mode: str,
+    files_selected: int,
+) -> LegacyJsonlAdapterResult:
+    source_stats = [_source_artifact_stats(index, jsonl_path) for index, jsonl_path in enumerate(selected_files)]
 
     records_seen = 0
     events_processed = 0
@@ -81,40 +137,51 @@ def adapt_legacy_jsonl_artifacts(
     state.reset_runtime_state()
     _seed_empty_card_lookup()
     try:
-        for jsonl_path in selected_files:
-            for line_number, raw_line in _iter_jsonl_lines(jsonl_path):
+        for stats in source_stats:
+            for line_number, raw_line in _iter_jsonl_lines(stats.path):
                 line = raw_line.strip()
                 if not line:
                     events_skipped += 1
                     blank_line_count += 1
+                    stats.events_skipped += 1
+                    stats.blank_line_count += 1
                     continue
 
                 records_seen += 1
-                record = _json_record(line, jsonl_path=jsonl_path, line_number=line_number)
+                stats.records_seen += 1
+                record = _json_record(line, jsonl_path=stats.path, line_number=line_number)
                 raw_hash = str(record.get("raw_bytes_hash") or "").strip()
                 if raw_hash:
                     if raw_hash in seen_raw_hashes:
                         events_skipped += 1
                         duplicate_raw_hash_count += 1
+                        stats.events_skipped += 1
+                        stats.duplicate_raw_hash_count += 1
                         continue
                     seen_raw_hashes.add(raw_hash)
 
-                kind = _required_kind(record, jsonl_path=jsonl_path, line_number=line_number)
+                kind = _required_kind(record, jsonl_path=stats.path, line_number=line_number)
                 if kind not in saved_event_replay.EVENT_CLASS_BY_KIND:
                     kind_label = _safe_kind_label(kind)
                     unsupported_kind_counts[kind_label] += 1
                     unsupported_kind_skip_count += 1
                     events_skipped += 1
+                    stats.unsupported_kind_counts[kind_label] += 1
+                    stats.unsupported_kind_skip_count += 1
+                    stats.events_skipped += 1
                     continue
 
                 derived_match_id = _derived_match_id(record.get("derived"))
                 if derived_match_id:
                     derived_match_ids.add(derived_match_id)
 
-                event = _event_from_record(line, record, jsonl_path=jsonl_path, line_number=line_number)
+                event = _event_from_record(line, record, jsonl_path=stats.path, line_number=line_number)
                 state._update_match_summary(event)
-                processed_kind_counts[_safe_kind_label(kind)] += 1
+                kind_label = _safe_kind_label(kind)
+                processed_kind_counts[kind_label] += 1
+                stats.processed_kind_counts[kind_label] += 1
                 events_processed += 1
+                stats.events_processed += 1
                 timestamp = getattr(event.metadata, "timestamp", None)
                 if timestamp is not None:
                     latest_timestamp = timestamp.isoformat()
@@ -147,6 +214,11 @@ def adapt_legacy_jsonl_artifacts(
             unsupported_kind_counts=dict(sorted(unsupported_kind_counts.items())),
             warnings=warnings,
             quality=quality,
+            source_mode=source_mode,
+            files_selected=files_selected,
+            files_accepted=len(selected_files),
+            files_rejected=max(0, files_selected - len(selected_files)),
+            source_artifacts=[_source_artifact_summary(stats) for stats in source_stats],
         )
     finally:
         state.reset_runtime_state()
@@ -192,6 +264,32 @@ def _selected_jsonl_files(source: Path) -> list[Path]:
     raise LegacyJsonlAdapterError(f"Source is neither a JSONL file nor a directory: {_safe_path_label(source)}")
 
 
+def _selected_explicit_jsonl_files(sources: Sequence[Path]) -> list[Path]:
+    if isinstance(sources, (str, bytes)) or not sources:
+        raise LegacyJsonlAdapterError("source_paths must include one or more JSONL files")
+
+    selected: list[Path] = []
+    seen: set[str] = set()
+    for source in sources:
+        source_path = Path(source)
+        if not source_path.exists():
+            raise LegacyJsonlAdapterError(f"Source does not exist: {_safe_path_label(source_path)}")
+        if source_path.is_dir():
+            raise LegacyJsonlAdapterError(f"Source file must not be a directory: {_safe_path_label(source_path)}")
+        if source_path.suffix.lower() != ".jsonl":
+            raise LegacyJsonlAdapterError(f"Source file must be a JSONL file: {_safe_path_label(source_path)}")
+        if not source_path.is_file():
+            raise LegacyJsonlAdapterError(f"Source is not a regular file: {_safe_path_label(source_path)}")
+        resolved_path = source_path.resolve()
+        key = str(resolved_path).casefold()
+        if key in seen:
+            raise LegacyJsonlAdapterError("Duplicate source file selected: <selected_jsonl>")
+        seen.add(key)
+        selected.append(resolved_path)
+
+    return sorted(selected, key=lambda path: (str(path).casefold(), str(path)))
+
+
 def _safe_source_artifact_label(
     requested_label: str | None,
     *,
@@ -209,6 +307,80 @@ def _safe_source_artifact_label(
     short_hash = hashlib.sha256(digest_source.encode("utf-8")).hexdigest()[:12]
     label_prefix = "legacy_jsonl_bundle" if source_is_dir else "legacy_jsonl_saved_event_replay"
     return f"{label_prefix}:{short_hash}"
+
+
+def _safe_batch_source_artifact_label(
+    requested_label: str | None,
+    *,
+    selected_files: Iterable[Path],
+) -> str:
+    if requested_label is not None:
+        label = requested_label.strip()
+        if not label:
+            raise LegacyJsonlAdapterError("source_artifact_label must be a non-empty safe label")
+        _validate_safe_label(label)
+        return label
+
+    selected_names = [path.name for path in selected_files]
+    digest_source = "|".join(selected_names)
+    short_hash = hashlib.sha256(digest_source.encode("utf-8")).hexdigest()[:12]
+    return f"legacy_jsonl_explicit_batch:{len(selected_names)}:{short_hash}"
+
+
+def _source_artifact_stats(batch_index: int, path: Path) -> _SourceArtifactStats:
+    return _SourceArtifactStats(
+        batch_index=batch_index,
+        path=path,
+        source_artifact_label=_source_file_artifact_label(batch_index, path),
+        source_display_label=_safe_source_display_label(path),
+    )
+
+
+def _source_file_artifact_label(batch_index: int, path: Path) -> str:
+    digest_source = f"{batch_index}:{Path(path).name}"
+    short_hash = hashlib.sha256(digest_source.encode("utf-8")).hexdigest()[:12]
+    return f"legacy_jsonl_file:{batch_index}:{short_hash}"
+
+
+def _source_artifact_summary(stats: _SourceArtifactStats) -> dict[str, object]:
+    warning_codes: list[str] = []
+    if stats.events_skipped:
+        warning_codes.append("events_skipped")
+    if stats.unsupported_kind_counts:
+        warning_codes.append("unsupported_event_kinds")
+
+    return {
+        "batch_index": stats.batch_index,
+        "source_artifact_label": stats.source_artifact_label,
+        "source_display_label": stats.source_display_label,
+        "status": "processed_with_skips" if warning_codes else "processed",
+        "records_seen": stats.records_seen,
+        "events_processed": stats.events_processed,
+        "events_skipped": stats.events_skipped,
+        "processed_kind_counts": dict(sorted(stats.processed_kind_counts.items())),
+        "unsupported_kind_counts": dict(sorted(stats.unsupported_kind_counts.items())),
+        "skipped_reason_counts": {
+            "blank_line": stats.blank_line_count,
+            "duplicate_raw_hash": stats.duplicate_raw_hash_count,
+            "unsupported_kind": stats.unsupported_kind_skip_count,
+        },
+        "adapter_warning_codes": warning_codes,
+    }
+
+
+def _safe_source_display_label(path: Path) -> str:
+    name = path.name.strip()
+    marker_text = name.lower()
+    if (
+        _SAFE_DISPLAY_BASENAME_RE.fullmatch(name)
+        and "://" not in name
+        and "\\" not in name
+        and "/" not in name
+        and "#" not in name
+        and not any(marker in marker_text for marker in _PRIVATE_LABEL_MARKERS)
+    ):
+        return name
+    return "<selected_jsonl>"
 
 
 def _validate_safe_label(label: str) -> None:

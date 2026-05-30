@@ -278,6 +278,9 @@ function validateManualImportAdapter(adapter: Record<string, unknown>): void {
   if ("quality" in adapter) {
     validateManualImportQuality(adapter.quality);
   }
+  if ("source_artifacts" in adapter && !isSourceArtifacts(adapter.source_artifacts)) {
+    throw new ManualImportApiError("malformed_response", "Manual import adapter has unsupported source artifacts.");
+  }
 }
 
 function validateManualImportQuality(value: unknown): void {
@@ -354,6 +357,27 @@ function isRoutingHints(value: unknown): value is Array<Record<string, unknown>>
         typeof entry.category === "string" &&
         typeof entry.severity === "string" &&
         typeof entry.count === "number"
+    )
+  );
+}
+
+function isSourceArtifacts(value: unknown): value is Array<Record<string, unknown>> {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (entry) =>
+        isRecord(entry) &&
+        typeof entry.batch_index === "number" &&
+        typeof entry.source_artifact_label === "string" &&
+        typeof entry.source_display_label === "string" &&
+        typeof entry.status === "string" &&
+        typeof entry.records_seen === "number" &&
+        typeof entry.events_processed === "number" &&
+        typeof entry.events_skipped === "number" &&
+        isNumberRecord(entry.processed_kind_counts) &&
+        isNumberRecord(entry.unsupported_kind_counts) &&
+        isNumberRecord(entry.skipped_reason_counts) &&
+        isStringArray(entry.adapter_warning_codes)
     )
   );
 }

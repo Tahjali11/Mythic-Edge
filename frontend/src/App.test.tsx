@@ -12,6 +12,7 @@ import {
   SETUP_STATUS_SCHEMA_VERSION,
   type LegacyJsonlImportQuality,
   type ManualImportJob,
+  type ManualImportSourceArtifact,
   type SetupStatusResponse
 } from "./types";
 
@@ -118,6 +119,115 @@ describe("SetupStatusApp", () => {
     expect(screen.queryByRole("button", { name: /reset|delete|wipe|cancel|retry|git|sheets|ai/i })).not.toBeInTheDocument();
   });
 
+  it("submits a batch import and renders sanitized per-file summaries", async () => {
+    const firstRawPath = "Z:\\synthetic\\a_events.jsonl";
+    const secondRawPath = "Z:\\synthetic\\b_events.jsonl";
+    const submitImport = vi.fn(async () => buildBatchManualImportJob());
+    render(<SetupStatusApp fetchStatus={() => Promise.resolve(buildPayload())} submitImport={submitImport} />);
+
+    const batchInput = await screen.findByLabelText("Batch JSONL paths");
+    fireEvent.change(batchInput, { target: { value: `${firstRawPath}\n${secondRawPath}` } });
+    fireEvent.change(screen.getByLabelText("Source label"), { target: { value: "safe_batch_label" } });
+    fireEvent.click(screen.getByRole("button", { name: "Import JSONL" }));
+
+    await waitFor(() => {
+      expect(submitImport).toHaveBeenCalledWith({
+        source_paths: [firstRawPath, secondRawPath],
+        source_artifact_label: "safe_batch_label"
+      });
+    });
+    expect(await screen.findByRole("heading", { name: "Import Job" })).toBeInTheDocument();
+    expect(screen.getByText("explicit_file_batch")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Source Files" })).toBeInTheDocument();
+    expect(screen.getByText("a_events.jsonl processed events 2 skipped 0 warnings none")).toBeInTheDocument();
+    expect(screen.getByText("b_events.jsonl processed events 1 skipped 0 warnings none")).toBeInTheDocument();
+    expect(batchInput).toHaveValue("");
+    expect(screen.queryByDisplayValue(firstRawPath)).not.toBeInTheDocument();
+    expect(screen.queryByText(firstRawPath)).not.toBeInTheDocument();
+    expect(screen.queryByText(secondRawPath)).not.toBeInTheDocument();
+  });
+
+  it("renders a rejected batch import state without retaining raw paths", async () => {
+    const rawPath = "Z:\\synthetic\\invalid_events.jsonl";
+    const submitImport = vi.fn(async () => buildBatchRejectedManualImportJob());
+    render(<SetupStatusApp fetchStatus={() => Promise.resolve(buildPayload())} submitImport={submitImport} />);
+
+    const batchInput = await screen.findByLabelText("Batch JSONL paths");
+    fireEvent.change(batchInput, { target: { value: rawPath } });
+    fireEvent.click(screen.getByRole("button", { name: "Import JSONL" }));
+
+    await waitFor(() => {
+      expect(submitImport).toHaveBeenCalledWith({ source_paths: [rawPath] });
+    });
+    expect(await screen.findByRole("heading", { name: "Import Job" })).toBeInTheDocument();
+    expect(screen.getAllByLabelText("status rejected").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("<selected_jsonl>")).toBeInTheDocument();
+    expect(screen.getByText("source_path_invalid")).toBeInTheDocument();
+    expect(batchInput).toHaveValue("");
+    expect(screen.queryByDisplayValue(rawPath)).not.toBeInTheDocument();
+    expect(screen.queryByText(rawPath)).not.toBeInTheDocument();
+  });
+
+  it("renders a failed batch import state without raw payload, hash, or path details", async () => {
+    const firstRawPath = "Z:\\synthetic\\a_events.jsonl";
+    const secondRawPath = "Z:\\synthetic\\malformed_events.jsonl";
+    const privateHash = "batch-private-raw-hash";
+    const rawPayload = '{"kind": "GameState", "payload": ';
+    const submitImport = vi.fn(async () => buildBatchFailedManualImportJob());
+    render(<SetupStatusApp fetchStatus={() => Promise.resolve(buildPayload())} submitImport={submitImport} />);
+
+    const batchInput = await screen.findByLabelText("Batch JSONL paths");
+    fireEvent.change(batchInput, { target: { value: `${firstRawPath}\n${secondRawPath}` } });
+    fireEvent.click(screen.getByRole("button", { name: "Import JSONL" }));
+
+    await waitFor(() => {
+      expect(submitImport).toHaveBeenCalledWith({ source_paths: [firstRawPath, secondRawPath] });
+    });
+    expect(await screen.findByRole("heading", { name: "Import Job" })).toBeInTheDocument();
+    expect(screen.getAllByLabelText("status failed").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("invalid_jsonl").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("invalid_jsonl source_artifact_problem action_needed 1")).toBeInTheDocument();
+    expect(batchInput).toHaveValue("");
+    expect(screen.queryByText(firstRawPath)).not.toBeInTheDocument();
+    expect(screen.queryByText(secondRawPath)).not.toBeInTheDocument();
+    expect(screen.queryByText(privateHash)).not.toBeInTheDocument();
+    expect(screen.queryByText(rawPayload)).not.toBeInTheDocument();
+  });
+
+  it("renders a degraded batch import state with safe aggregate and per-file details", async () => {
+    const firstRawPath = "Z:\\synthetic\\a_events.jsonl";
+    const secondRawPath = "Z:\\synthetic\\degraded_events.jsonl";
+    const submitImport = vi.fn(async () => buildBatchDegradedManualImportJob());
+    render(<SetupStatusApp fetchStatus={() => Promise.resolve(buildPayload())} submitImport={submitImport} />);
+
+    const batchInput = await screen.findByLabelText("Batch JSONL paths");
+    fireEvent.change(batchInput, { target: { value: `${firstRawPath}\n${secondRawPath}` } });
+    fireEvent.click(screen.getByRole("button", { name: "Import JSONL" }));
+
+    await waitFor(() => {
+      expect(submitImport).toHaveBeenCalledWith({ source_paths: [firstRawPath, secondRawPath] });
+    });
+    expect(await screen.findByRole("heading", { name: "Import Job" })).toBeInTheDocument();
+    expect(screen.getAllByLabelText("status degraded").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("explicit_file_batch")).toBeInTheDocument();
+    expect(screen.getByText("duplicate_raw_hash 1 unsupported_kind 1")).toBeInTheDocument();
+    expect(screen.getByText("degraded_events.jsonl processed_with_skips events 1 skipped 2 warnings events_skipped")).toBeInTheDocument();
+    expect(batchInput).toHaveValue("");
+    expect(screen.queryByText(firstRawPath)).not.toBeInTheDocument();
+    expect(screen.queryByText(secondRawPath)).not.toBeInTheDocument();
+  });
+
+  it("keeps manual import submission disabled when both single and batch paths are entered", async () => {
+    const submitImport = vi.fn(async () => buildManualImportJob());
+    render(<SetupStatusApp fetchStatus={() => Promise.resolve(buildPayload())} submitImport={submitImport} />);
+
+    fireEvent.change(await screen.findByLabelText("JSONL path"), { target: { value: "Z:\\synthetic\\events.jsonl" } });
+    fireEvent.change(screen.getByLabelText("Batch JSONL paths"), { target: { value: "Z:\\synthetic\\a_events.jsonl" } });
+
+    expect(screen.getByRole("button", { name: "Import JSONL" })).toBeDisabled();
+    expect(submitImport).not.toHaveBeenCalled();
+  });
+
   it("renders manual import API errors safely and clears the submitted path", async () => {
     const rawPath = "Z:\\synthetic\\events_v1.jsonl";
     const submitImport = vi.fn(async () => {
@@ -194,7 +304,13 @@ function buildManualImportJob(): ManualImportJob {
       source_artifact_label: "safe_source_label",
       source_display_label: "events_v1.jsonl",
       source_file_extension: ".jsonl",
-      path_echoed: false
+      path_echoed: false,
+      source_mode: "single_file",
+      files_selected: 1,
+      files_accepted: 1,
+      files_rejected: 0,
+      source_group_label: "safe_source_label",
+      source_artifacts: []
     },
     adapter: {
       status: "degraded",
@@ -204,6 +320,11 @@ function buildManualImportJob(): ManualImportJob {
       events_skipped: 2,
       unsupported_kind_counts: { ConnectionError: 1 },
       warnings: [],
+      source_mode: "single_file",
+      files_selected: 1,
+      files_accepted: 1,
+      files_rejected: 0,
+      source_artifacts: [],
       quality: buildImportQuality()
     },
     ingest: {
@@ -222,6 +343,240 @@ function buildManualImportJob(): ManualImportJob {
     },
     warnings: ["unsupported_event_kinds"],
     errors: []
+  };
+}
+
+function buildBatchManualImportJob(): ManualImportJob {
+  const job = buildManualImportJob();
+  const sourceArtifacts: ManualImportSourceArtifact[] = [
+    {
+      batch_index: 0,
+      source_artifact_label: "legacy_jsonl_file:0:abc123",
+      source_display_label: "a_events.jsonl",
+      status: "processed",
+      records_seen: 2,
+      events_processed: 2,
+      events_skipped: 0,
+      processed_kind_counts: { GameState: 1, MatchState: 1 },
+      unsupported_kind_counts: {},
+      skipped_reason_counts: {
+        blank_line: 0,
+        duplicate_raw_hash: 0,
+        unsupported_kind: 0
+      },
+      adapter_warning_codes: []
+    },
+    {
+      batch_index: 1,
+      source_artifact_label: "legacy_jsonl_file:1:def456",
+      source_display_label: "b_events.jsonl",
+      status: "processed",
+      records_seen: 1,
+      events_processed: 1,
+      events_skipped: 0,
+      processed_kind_counts: { GameResult: 1 },
+      unsupported_kind_counts: {},
+      skipped_reason_counts: {
+        blank_line: 0,
+        duplicate_raw_hash: 0,
+        unsupported_kind: 0
+      },
+      adapter_warning_codes: []
+    }
+  ];
+  return {
+    ...job,
+    status: "succeeded",
+    source: {
+      ...job.source,
+      source_artifact_label: "safe_batch_label",
+      source_display_label: "2 selected JSONL files",
+      source_mode: "explicit_file_batch",
+      files_selected: 2,
+      files_accepted: 2,
+      files_rejected: 0,
+      source_group_label: "safe_batch_label",
+      source_artifacts: sourceArtifacts
+    },
+    adapter: {
+      ...job.adapter,
+      status: "succeeded",
+      files_processed: 2,
+      records_seen: 3,
+      events_processed: 3,
+      events_skipped: 0,
+      unsupported_kind_counts: {},
+      source_mode: "explicit_file_batch",
+      files_selected: 2,
+      files_accepted: 2,
+      files_rejected: 0,
+      source_artifacts: sourceArtifacts,
+      quality: buildImportQuality()
+    },
+    warnings: []
+  };
+}
+
+function buildBatchRejectedManualImportJob(): ManualImportJob {
+  const job = buildManualImportJob();
+  return {
+    ...job,
+    status: "rejected",
+    phase: "failed",
+    source: {
+      ...job.source,
+      source_artifact_label: "",
+      source_display_label: "<selected_jsonl>",
+      source_file_extension: ".jsonl",
+      source_mode: "explicit_file_batch",
+      files_selected: 1,
+      files_accepted: 0,
+      files_rejected: 0,
+      source_group_label: "",
+      source_artifacts: []
+    },
+    adapter: {
+      status: "not_started",
+      files_processed: 0,
+      records_seen: 0,
+      events_processed: 0,
+      events_skipped: 0,
+      unsupported_kind_counts: {},
+      warnings: [],
+      source_mode: "",
+      files_selected: 0,
+      files_accepted: 0,
+      files_rejected: 0,
+      source_artifacts: []
+    },
+    ingest: {
+      ...job.ingest,
+      status: "not_started",
+      ingest_run_id: "",
+      row_counts: {}
+    },
+    database: {
+      status: "not_started",
+      display_path: "",
+      created: false
+    },
+    warnings: [],
+    errors: ["source_path_invalid"]
+  };
+}
+
+function buildBatchFailedManualImportJob(): ManualImportJob {
+  const job = buildBatchManualImportJob();
+  return {
+    ...job,
+    status: "failed",
+    phase: "failed",
+    adapter: {
+      ...job.adapter,
+      status: "failed",
+      files_processed: 0,
+      records_seen: 0,
+      events_processed: 0,
+      events_skipped: 0,
+      unsupported_kind_counts: {},
+      warnings: [],
+      source_artifacts: [],
+      quality: {
+        ...buildImportQuality(),
+        quality_status: "failed",
+        records_seen: 0,
+        events_processed: 0,
+        events_skipped: 0,
+        processed_kind_counts: {},
+        unsupported_kind_counts: {},
+        skipped_reason_counts: {},
+        blank_line_count: 0,
+        duplicate_raw_hash_count: 0,
+        unsupported_kind_skip_count: 0,
+        adapter_warning_counts: { invalid_jsonl: 1 },
+        adapter_warning_codes: ["invalid_jsonl"],
+        routing_hints: [
+          {
+            code: "invalid_jsonl",
+            category: "source_artifact_problem",
+            severity: "action_needed",
+            count: 1
+          }
+        ]
+      }
+    },
+    ingest: {
+      ...job.ingest,
+      status: "not_started",
+      ingest_run_id: "",
+      row_counts: {}
+    },
+    database: {
+      status: "not_started",
+      display_path: "",
+      created: false
+    },
+    warnings: [],
+    errors: ["invalid_jsonl"]
+  };
+}
+
+function buildBatchDegradedManualImportJob(): ManualImportJob {
+  const job = buildBatchManualImportJob();
+  const degradedSourceArtifacts: ManualImportSourceArtifact[] = [
+    {
+      batch_index: 0,
+      source_artifact_label: "legacy_jsonl_file:0:abc123",
+      source_display_label: "a_events.jsonl",
+      status: "processed",
+      records_seen: 2,
+      events_processed: 2,
+      events_skipped: 0,
+      processed_kind_counts: { GameState: 1, MatchState: 1 },
+      unsupported_kind_counts: {},
+      skipped_reason_counts: {
+        blank_line: 0,
+        duplicate_raw_hash: 0,
+        unsupported_kind: 0
+      },
+      adapter_warning_codes: []
+    },
+    {
+      batch_index: 1,
+      source_artifact_label: "legacy_jsonl_file:1:def456",
+      source_display_label: "degraded_events.jsonl",
+      status: "processed_with_skips",
+      records_seen: 3,
+      events_processed: 1,
+      events_skipped: 2,
+      processed_kind_counts: { GameResult: 1 },
+      unsupported_kind_counts: { ConnectionError: 1 },
+      skipped_reason_counts: {
+        blank_line: 0,
+        duplicate_raw_hash: 1,
+        unsupported_kind: 1
+      },
+      adapter_warning_codes: ["events_skipped"]
+    }
+  ];
+  return {
+    ...job,
+    status: "degraded",
+    adapter: {
+      ...job.adapter,
+      status: "degraded",
+      records_seen: 5,
+      events_processed: 3,
+      events_skipped: 2,
+      unsupported_kind_counts: { ConnectionError: 1 },
+      source_artifacts: degradedSourceArtifacts,
+      quality: buildImportQuality()
+    },
+    source: {
+      ...job.source,
+      source_artifacts: degradedSourceArtifacts
+    },
+    warnings: ["unsupported_event_kinds", "events_skipped"]
   };
 }
 

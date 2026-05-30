@@ -10,6 +10,7 @@ import {
   type ManualImportRequest,
   type LegacyJsonlImportQuality,
   type LegacyJsonlRoutingHint,
+  type ManualImportSourceArtifact,
   type SectionStatus,
   type SetupStatusResponse
 } from "./types";
@@ -39,6 +40,7 @@ type Panel = {
 export function SetupStatusApp({ fetchStatus = fetchSetupStatus, submitImport = submitManualJsonlImport }: SetupStatusAppProps) {
   const [loadState, setLoadState] = useState<LoadState>({ state: "loading" });
   const [sourcePath, setSourcePath] = useState("");
+  const [sourcePathsText, setSourcePathsText] = useState("");
   const [sourceLabel, setSourceLabel] = useState("");
   const [importState, setImportState] = useState<ImportState>({ state: "idle" });
 
@@ -77,11 +79,17 @@ export function SetupStatusApp({ fetchStatus = fetchSetupStatus, submitImport = 
   async function handleManualImport(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const trimmedPath = sourcePath.trim();
-    if (!trimmedPath || importState.state === "submitting") {
+    const trimmedBatchPaths = sourcePathsText
+      .split(/\r?\n/)
+      .map((path) => path.trim())
+      .filter(Boolean);
+    const hasSinglePath = Boolean(trimmedPath);
+    const hasBatchPaths = trimmedBatchPaths.length > 0;
+    if (importState.state === "submitting" || hasSinglePath === hasBatchPaths) {
       return;
     }
 
-    const request: ManualImportRequest = { source_path: trimmedPath };
+    const request: ManualImportRequest = hasBatchPaths ? { source_paths: trimmedBatchPaths } : { source_path: trimmedPath };
     const trimmedLabel = sourceLabel.trim();
     if (trimmedLabel) {
       request.source_artifact_label = trimmedLabel;
@@ -91,10 +99,12 @@ export function SetupStatusApp({ fetchStatus = fetchSetupStatus, submitImport = 
     try {
       const job = await submitImport(request);
       setSourcePath("");
+      setSourcePathsText("");
       setSourceLabel("");
       setImportState({ state: "result", job });
     } catch (error: unknown) {
       setSourcePath("");
+      setSourcePathsText("");
       setSourceLabel("");
       if (error instanceof ManualImportApiError) {
         setImportState({ state: "error", code: error.code, message: error.message });
@@ -165,8 +175,10 @@ export function SetupStatusApp({ fetchStatus = fetchSetupStatus, submitImport = 
         onSubmit={handleManualImport}
         sourceLabel={sourceLabel}
         sourcePath={sourcePath}
+        sourcePathsText={sourcePathsText}
         setSourceLabel={setSourceLabel}
         setSourcePath={setSourcePath}
+        setSourcePathsText={setSourcePathsText}
       />
 
       <section className="panelGrid futureGrid" aria-label="Deferred local app sections">
@@ -227,19 +239,28 @@ function ManualImportPanel({
   onSubmit,
   sourceLabel,
   sourcePath,
+  sourcePathsText,
   setSourceLabel,
-  setSourcePath
+  setSourcePath,
+  setSourcePathsText
 }: {
   importState: ImportState;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   sourceLabel: string;
   sourcePath: string;
+  sourcePathsText: string;
   setSourceLabel: (value: string) => void;
   setSourcePath: (value: string) => void;
+  setSourcePathsText: (value: string) => void;
 }) {
   const busy = importState.state === "submitting";
   const status = manualImportStatus(importState);
   const tone = statusTone(status);
+  const hasSinglePath = Boolean(sourcePath.trim());
+  const hasBatchPaths = sourcePathsText
+    .split(/\r?\n/)
+    .some((path) => path.trim());
+  const hasExactlyOneSourceMode = hasSinglePath !== hasBatchPaths;
   return (
     <section className={`manualImportPanel tone-${tone}`} aria-labelledby="manual-import-title">
       <div className="panelHeader">
@@ -255,6 +276,14 @@ function ManualImportPanel({
           onChange={(event) => setSourcePath(event.target.value)}
           value={sourcePath}
         />
+        <label htmlFor="manual-import-batch-paths">Batch JSONL paths</label>
+        <textarea
+          disabled={busy}
+          id="manual-import-batch-paths"
+          onChange={(event) => setSourcePathsText(event.target.value)}
+          rows={4}
+          value={sourcePathsText}
+        />
         <label htmlFor="manual-import-label">Source label</label>
         <input
           autoComplete="off"
@@ -263,7 +292,7 @@ function ManualImportPanel({
           onChange={(event) => setSourceLabel(event.target.value)}
           value={sourceLabel}
         />
-        <button disabled={busy || !sourcePath.trim()} type="submit">
+        <button disabled={busy || !hasExactlyOneSourceMode} type="submit">
           Import JSONL
         </button>
       </form>
@@ -287,6 +316,7 @@ function ManualImportErrorNotice({ importState }: { importState: Extract<ImportS
 }
 
 function ManualImportJobSummary({ job }: { job: ManualImportJob }) {
+  const sourceArtifacts = job.adapter.source_artifacts ?? job.source.source_artifacts ?? [];
   return (
     <section className={`jobResult tone-${statusTone(job.status)}`} aria-label="Manual import job summary">
       <div className="panelHeader">
@@ -295,6 +325,8 @@ function ManualImportJobSummary({ job }: { job: ManualImportJob }) {
       </div>
       <dl>
         <SummaryRow label="source" value={job.source.source_display_label} />
+        <SummaryRow label="source mode" value={job.source.source_mode ?? job.adapter.source_mode ?? "single_file"} />
+        <SummaryRow label="files selected" value={job.source.files_selected ?? job.adapter.files_selected ?? 1} />
         <SummaryRow label="adapter events" value={job.adapter.events_processed} />
         <SummaryRow label="adapter skipped" value={job.adapter.events_skipped} />
         <SummaryRow label="matches" value={job.ingest.row_counts.matches ?? 0} />
@@ -304,6 +336,24 @@ function ManualImportJobSummary({ job }: { job: ManualImportJob }) {
         <SummaryRow label="errors" value={formatLabels(job.errors)} />
       </dl>
       {job.adapter.quality ? <ManualImportQualitySummary quality={job.adapter.quality} /> : null}
+      {sourceArtifacts.length > 0 ? <ManualImportSourceArtifactsSummary artifacts={sourceArtifacts} /> : null}
+    </section>
+  );
+}
+
+function ManualImportSourceArtifactsSummary({ artifacts }: { artifacts: ManualImportSourceArtifact[] }) {
+  return (
+    <section className="sourceArtifactsBreakdown" aria-label="Import source artifact summary">
+      <h3>Source Files</h3>
+      <dl>
+        {artifacts.map((artifact) => (
+          <SummaryRow
+            key={`${artifact.batch_index}-${artifact.source_artifact_label}`}
+            label={`file ${artifact.batch_index + 1}`}
+            value={formatSourceArtifact(artifact)}
+          />
+        ))}
+      </dl>
     </section>
   );
 }
@@ -461,6 +511,11 @@ function formatRoutingHints(hints: LegacyJsonlRoutingHint[]): string {
     return "none";
   }
   return hints.map((hint) => `${hint.code} ${hint.category} ${hint.severity} ${hint.count}`).join(" ");
+}
+
+function formatSourceArtifact(artifact: ManualImportSourceArtifact): string {
+  const warnings = formatLabels(artifact.adapter_warning_codes);
+  return `${artifact.source_display_label} ${artifact.status} events ${artifact.events_processed} skipped ${artifact.events_skipped} warnings ${warnings}`;
 }
 
 function manualImportErrorTitle(code: ManualImportApiError["code"]): string {

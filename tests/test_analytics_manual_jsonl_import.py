@@ -15,6 +15,7 @@ from mythic_edge_parser.app.analytics_legacy_jsonl_adapter import (
 from mythic_edge_parser.local_app.backend import create_app
 from mythic_edge_parser.local_app.import_jobs import (
     MANUAL_JSONL_IMPORT_SCHEMA_VERSION,
+    MAX_LEGACY_JSONL_BATCH_FILES,
     clear_import_jobs_for_tests,
 )
 
@@ -189,6 +190,68 @@ def test_valid_synthetic_jsonl_imports_into_app_owned_sqlite_and_job_status(tmp_
     assert _repo_sqlite_artifacts() == before_repo_artifacts
 
 
+def test_explicit_batch_jsonl_imports_in_one_job_and_is_idempotent(tmp_path: Path) -> None:
+    app_root = tmp_path / "app-data"
+    first_path = tmp_path / "selected" / "a_events.jsonl"
+    second_path = tmp_path / "selected" / "b_events.jsonl"
+    match_id = "match:manual:batch"
+    _write_jsonl(first_path, [_match_started(match_id), _turn_one(match_id)])
+    _write_jsonl(second_path, [_match_finished(match_id)])
+    client = _client(app_root)
+
+    response = client.post(
+        "/api/imports/jsonl",
+        json={
+            "source_paths": [str(second_path), str(first_path)],
+            "source_artifact_label": "legacy_jsonl_explicit_batch_v1",
+        },
+    )
+    payload = response.json()
+    encoded = json.dumps(payload, sort_keys=True)
+
+    assert response.status_code == 200
+    assert payload["status"] == "succeeded"
+    assert payload["source"]["source_mode"] == "explicit_file_batch"
+    assert payload["source"]["files_selected"] == 2
+    assert payload["source"]["files_accepted"] == 2
+    assert payload["source"]["files_rejected"] == 0
+    assert payload["source"]["source_group_label"] == "legacy_jsonl_explicit_batch_v1"
+    assert payload["adapter"]["source_mode"] == "explicit_file_batch"
+    assert payload["adapter"]["files_selected"] == 2
+    assert payload["adapter"]["files_accepted"] == 2
+    assert payload["adapter"]["files_rejected"] == 0
+    assert payload["adapter"]["events_processed"] == 3
+    assert payload["adapter"]["events_skipped"] == 0
+    assert payload["adapter"]["quality"]["quality_status"] == "complete"
+    assert [artifact["source_display_label"] for artifact in payload["adapter"]["source_artifacts"]] == [
+        "a_events.jsonl",
+        "b_events.jsonl",
+    ]
+    assert payload["source"]["source_artifacts"] == payload["adapter"]["source_artifacts"]
+    assert payload["ingest"]["row_counts"]["matches"] == 1
+    assert payload["ingest"]["row_counts"]["games"] == 1
+    assert str(first_path) not in encoded
+    assert str(second_path) not in encoded
+
+    second_response = client.post(
+        "/api/imports/jsonl",
+        json={
+            "source_paths": [str(first_path), str(second_path)],
+            "source_artifact_label": "legacy_jsonl_explicit_batch_v1",
+        },
+    )
+    assert second_response.status_code == 200
+    assert second_response.json()["status"] == "succeeded"
+
+    database_path = app_root / "db" / "mythic_edge.sqlite3"
+    connection = sqlite3.connect(database_path)
+    try:
+        assert connection.execute("SELECT COUNT(*) FROM matches").fetchone()[0] == 1
+        assert connection.execute("SELECT COUNT(*) FROM games").fetchone()[0] == 1
+    finally:
+        connection.close()
+
+
 def test_quoted_windows_copy_as_path_style_jsonl_path_is_accepted(tmp_path: Path) -> None:
     app_root = tmp_path / "app-data"
     jsonl_path = tmp_path / "selected path with spaces" / "events_v1_synthetic.jsonl"
@@ -203,6 +266,52 @@ def test_quoted_windows_copy_as_path_style_jsonl_path_is_accepted(tmp_path: Path
     assert payload["status"] == "succeeded"
     assert payload["source"]["source_display_label"] == "events_v1_synthetic.jsonl"
     assert str(jsonl_path) not in encoded
+
+
+def test_invalid_batch_source_shapes_reject_before_database_creation(tmp_path: Path) -> None:
+    valid_path = tmp_path / "selected" / "events.jsonl"
+    _write_jsonl(valid_path, _supported_records("match:manual:batch-validation"))
+    text_path = tmp_path / "selected" / "events.txt"
+    text_path.write_text("not-jsonl", encoding="utf-8")
+    directory_path = tmp_path / "selected" / "folder.jsonl"
+    directory_path.mkdir()
+    missing_path = tmp_path / "selected" / "missing.jsonl"
+
+    cases: list[tuple[object, str]] = [
+        ({"source_path": str(valid_path), "source_paths": [str(valid_path)]}, "source_path_and_source_paths_conflict"),
+        ({"source_paths": "not-a-list"}, "source_paths_required"),
+        ({"source_paths": []}, "source_paths_empty"),
+        (
+            {"source_paths": [str(valid_path)] * (MAX_LEGACY_JSONL_BATCH_FILES + 1)},
+            "source_paths_too_many",
+        ),
+        ({"source_paths": [str(valid_path), ""]}, "source_path_invalid"),
+        ({"source_paths": [str(valid_path), 7]}, "source_path_invalid"),
+        ({"source_paths": [str(valid_path), {"source_path": str(valid_path)}]}, "source_path_invalid"),
+        ({"source_paths": [str(valid_path), f'"{valid_path}"']}, "source_path_duplicate"),
+        ({"source_paths": ["https://example.invalid/events.jsonl"]}, "source_path_url_not_allowed"),
+        ({"source_paths": ["\\\\server\\share\\events.jsonl"]}, "source_path_unc_not_allowed"),
+        ({"source_paths": [str(missing_path)]}, "source_path_missing"),
+        ({"source_paths": [str(directory_path)]}, "source_path_directory_not_allowed"),
+        ({"source_paths": [str(text_path)]}, "source_path_extension_not_allowed"),
+    ]
+
+    for index, (body, expected_error) in enumerate(cases):
+        app_root = tmp_path / f"app-data-batch-invalid-{index}"
+        client = _client(app_root)
+
+        response = client.post("/api/imports/jsonl", json=body)
+        payload = response.json()
+        encoded = json.dumps(payload, sort_keys=True)
+
+        assert response.status_code == 200
+        assert payload["status"] == "rejected"
+        assert payload["errors"] == [expected_error]
+        assert str(valid_path) not in encoded
+        assert str(text_path) not in encoded
+        assert str(directory_path) not in encoded
+        assert str(missing_path) not in encoded
+        assert not app_root.exists()
 
 
 @pytest.mark.parametrize(

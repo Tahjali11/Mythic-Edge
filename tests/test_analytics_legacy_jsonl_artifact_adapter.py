@@ -7,16 +7,19 @@ from typing import Any
 
 import pytest
 
+from mythic_edge_parser.app import state
 from mythic_edge_parser.app.analytics_ingest import (
     ingest_parser_normalized_replay,
     normalize_parser_normalized_replay,
 )
 from mythic_edge_parser.app.analytics_legacy_jsonl_adapter import (
     ANALYTICS_LEGACY_JSONL_ADAPTER_SCHEMA_VERSION,
+    ANALYTICS_LEGACY_JSONL_BATCH_IMPORT_SCHEMA_VERSION,
     ANALYTICS_LEGACY_JSONL_IMPORT_QUALITY_OBJECT,
     ANALYTICS_LEGACY_JSONL_IMPORT_QUALITY_SCHEMA_VERSION,
     LegacyJsonlAdapterError,
     adapt_legacy_jsonl_artifacts,
+    adapt_legacy_jsonl_file_batch,
 )
 
 
@@ -146,6 +149,7 @@ def _local_generated_artifacts() -> set[str]:
 
 def test_schema_version_constant_is_public() -> None:
     assert ANALYTICS_LEGACY_JSONL_ADAPTER_SCHEMA_VERSION == "analytics_legacy_jsonl_artifact_adapter.v1"
+    assert ANALYTICS_LEGACY_JSONL_BATCH_IMPORT_SCHEMA_VERSION == "analytics_legacy_jsonl_batch_import.v1"
     assert (
         ANALYTICS_LEGACY_JSONL_IMPORT_QUALITY_SCHEMA_VERSION
         == "analytics_legacy_jsonl_import_quality_breakdown.v1"
@@ -287,6 +291,150 @@ def test_supported_generated_jsonl_adapts_to_saved_event_replay_input_and_sqlite
     assert ingest_result.row_counts["matches"] == 1
     assert ingest_result.row_counts["games"] == 1
     assert _local_generated_artifacts() == before_artifacts
+
+
+def test_explicit_file_batch_sorts_inputs_and_reconstructs_one_replay(tmp_path: Path) -> None:
+    first_path = tmp_path / "a_events.jsonl"
+    second_path = tmp_path / "b_events.jsonl"
+    match_id = "match:legacy:batch"
+    _write_jsonl(first_path, [_match_started(match_id), _turn_one(match_id)])
+    _write_jsonl(second_path, [_match_finished(match_id)])
+
+    result = adapt_legacy_jsonl_file_batch(
+        [second_path, first_path],
+        source_artifact_label="legacy_jsonl_explicit_batch_v1",
+    )
+
+    assert result.source_mode == "explicit_file_batch"
+    assert result.source_artifact_label == "legacy_jsonl_explicit_batch_v1"
+    assert result.files_processed == 2
+    assert result.files_selected == 2
+    assert result.files_accepted == 2
+    assert result.files_rejected == 0
+    assert result.events_processed == 3
+    assert result.events_skipped == 0
+    assert result.source_artifacts == [
+        {
+            "batch_index": 0,
+            "source_artifact_label": result.source_artifacts[0]["source_artifact_label"],
+            "source_display_label": "a_events.jsonl",
+            "status": "processed",
+            "records_seen": 2,
+            "events_processed": 2,
+            "events_skipped": 0,
+            "processed_kind_counts": {"GameState": 1, "MatchState": 1},
+            "unsupported_kind_counts": {},
+            "skipped_reason_counts": {"blank_line": 0, "duplicate_raw_hash": 0, "unsupported_kind": 0},
+            "adapter_warning_codes": [],
+        },
+        {
+            "batch_index": 1,
+            "source_artifact_label": result.source_artifacts[1]["source_artifact_label"],
+            "source_display_label": "b_events.jsonl",
+            "status": "processed",
+            "records_seen": 1,
+            "events_processed": 1,
+            "events_skipped": 0,
+            "processed_kind_counts": {"GameResult": 1},
+            "unsupported_kind_counts": {},
+            "skipped_reason_counts": {"blank_line": 0, "duplicate_raw_hash": 0, "unsupported_kind": 0},
+            "adapter_warning_codes": [],
+        },
+    ]
+    assert all(
+        str(artifact["source_artifact_label"]).startswith("legacy_jsonl_file:")
+        for artifact in result.source_artifacts
+    )
+    assert result.replay["match_log_rows"][0]["match_id"] == match_id  # type: ignore[index]
+    assert result.replay["game_log_rows"][0]["match_id"] == match_id  # type: ignore[index]
+
+
+def test_explicit_file_batch_aggregates_cross_file_duplicate_hashes_without_exposing_raw_hashes(
+    tmp_path: Path,
+) -> None:
+    first_path = tmp_path / "a_events.jsonl"
+    second_path = tmp_path / "b_events.jsonl"
+    match_id = "match:legacy:batch-degraded"
+    _write_jsonl(
+        first_path,
+        [
+            _match_started(match_id),
+            _turn_one(match_id),
+            _match_finished(match_id, raw_hash="duplicate-final-hash"),
+            {
+                "kind": "ConnectionError",
+                "timestamp": "2026-05-29T18:00:30+00:00",
+                "raw_bytes_hash": "unsupported-shared-hash",
+                "payload": {"type": "connection_error", "private": "not emitted"},
+            },
+        ],
+    )
+    _write_jsonl(
+        second_path,
+        [
+            "",
+            {
+                "kind": "Rank",
+                "timestamp": "2026-05-29T18:00:45+00:00",
+                "raw_bytes_hash": "unsupported-shared-hash",
+                "payload": {"constructed_class": "Mythic", "constructed_percentile": 99},
+            },
+            _match_finished(match_id, raw_hash="duplicate-final-hash"),
+        ],
+    )
+
+    result = adapt_legacy_jsonl_file_batch([second_path, first_path])
+    encoded = json.dumps(result.quality | {"source_artifacts": result.source_artifacts}, sort_keys=True)
+
+    assert result.source_mode == "explicit_file_batch"
+    assert result.source_artifact_label.startswith("legacy_jsonl_explicit_batch:2:")
+    assert result.files_selected == 2
+    assert result.records_seen == 6
+    assert result.events_processed == 3
+    assert result.events_skipped == 4
+    assert result.unsupported_kind_counts == {"ConnectionError": 1}
+    assert result.quality["skipped_reason_counts"] == {
+        "blank_line": 1,
+        "duplicate_raw_hash": 2,
+        "unsupported_kind": 1,
+    }
+    assert result.source_artifacts[0]["source_display_label"] == "a_events.jsonl"
+    assert result.source_artifacts[0]["status"] == "processed_with_skips"
+    assert result.source_artifacts[0]["unsupported_kind_counts"] == {"ConnectionError": 1}
+    assert result.source_artifacts[1]["source_display_label"] == "b_events.jsonl"
+    assert result.source_artifacts[1]["events_skipped"] == 3
+    assert result.source_artifacts[1]["skipped_reason_counts"] == {
+        "blank_line": 1,
+        "duplicate_raw_hash": 2,
+        "unsupported_kind": 0,
+    }
+    assert "duplicate-final-hash" not in encoded
+    assert "unsupported-shared-hash" not in encoded
+    assert "not emitted" not in encoded
+
+
+def test_explicit_file_batch_malformed_selected_file_fails_without_replay_or_private_echo(
+    tmp_path: Path,
+) -> None:
+    first_path = tmp_path / "a_events.jsonl"
+    malformed_path = tmp_path / "b_malformed_events.jsonl"
+    match_id = "match:legacy:batch-malformed"
+    raw_hash = "batch-private-raw-hash"
+    bad_line = f'{{"kind": "GameState", "raw_bytes_hash": "{raw_hash}", "payload": '
+    _write_jsonl(first_path, [_match_started(match_id), _turn_one(match_id)])
+    _write_jsonl(malformed_path, [bad_line])
+
+    with pytest.raises(LegacyJsonlAdapterError) as exc_info:
+        adapt_legacy_jsonl_file_batch([first_path, malformed_path])
+
+    message = str(exc_info.value)
+    assert "Invalid JSON" in message
+    assert state.iter_match_summaries() == []
+    assert bad_line not in message
+    assert "payload" not in message
+    assert raw_hash not in message
+    assert str(malformed_path) not in message
+    assert malformed_path.as_posix() not in message
 
 
 def test_directory_input_uses_latest_saved_event_selection_semantics(tmp_path: Path) -> None:
