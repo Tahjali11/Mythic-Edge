@@ -1,6 +1,6 @@
 # ADR-0006: Repository Boundary Strategy
 
-Status: Proposed
+Status: Accepted
 
 Date: 2026-05-21
 
@@ -364,9 +364,10 @@ The preferred project framing is: Mythic Edge is a local MTGA decision-support
 system. The parser is an evidence intake and interpretation layer, not the
 whole project.
 
-This revision keeps `Status: Proposed`. Acceptance should occur only through
-reviewed repo changes on an approved branch, or through another explicit
-user-approved workflow.
+This revision changes ADR-0006 to `Status: Accepted` through issue #217's
+reviewed governance path. The accepted status becomes durable project
+precedent only when the approved submitter/deployer path lands the change on
+the approved branch, or through another explicit user-approved workflow.
 
 Issue #217 is the direct ADR-0006 adoption governance issue for this pass.
 Issue #215 is related evidence, not a closing target for this adoption pass.

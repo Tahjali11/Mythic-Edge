@@ -8,6 +8,10 @@ Codex D addendum: Module Fixer / narrow governance metadata pass for the
 Codex E non-blocking finding that PR/ADR metadata did not cite issue #217
 directly.
 
+Codex D status addendum: Module Fixer / narrow governance status pass for the
+Codex G blocker that ADR-0006 and the ADR index still showed `Proposed` after
+issue #217 entered the acceptance path.
+
 ## Related Issue
 
 - ADR adoption governance issue:
@@ -116,9 +120,9 @@ production behavior.
 
 Docs-only adoption-candidate revision.
 
-ADR-0006 remains `Status: Proposed` because this Codex C pass prepares the ADR
-for Codex E review. It does not accept the ADR, open a PR, merge, or create a
-new governance issue.
+During the Codex C pass, ADR-0006 remained `Status: Proposed` because that
+pass prepared the ADR for Codex E review. Codex C did not accept the ADR, open
+a PR, merge, or create a new governance issue.
 
 ## Files Changed
 
@@ -136,6 +140,13 @@ Codex D metadata pass changed:
 - `docs/implementation_handoffs/adr_0006_repository_boundary_adoption_comparison.md`
 - PR #216 body metadata, to cite issue #217 directly while keeping the PR
   draft.
+
+Codex D status acceptance pass changed:
+
+- `docs/decisions/ADR-0006-repository-boundary-strategy.md`
+- `docs/decisions/README.md`
+- `docs/implementation_handoffs/adr_0006_repository_boundary_adoption_comparison.md`
+- `docs/contract_test_reports/adr_0006_repository_boundary_adoption.md`
 
 Codex D metadata pass preserved unrelated work:
 
@@ -169,13 +180,18 @@ Codex D metadata pass preserved unrelated work:
   adoption contract, Codex C handoff, and pending Codex E review path.
 - Added follow-up language for a dedicated adoption governance issue if the
   project wants one before PR submission.
-- Updated `Notes` to keep `Status: Proposed` for review and warn against
-  using `Closes #215` for this adoption pass.
+- During Codex C, updated `Notes` to keep `Status: Proposed` for review and
+  warn against using `Closes #215` for that adoption-candidate pass.
+- Codex D status acceptance pass changed the current ADR status from
+  `Proposed` to `Accepted` and preserved the note that the accepted status
+  becomes durable precedent only after the approved submitter/deployer path
+  lands the change on the approved branch.
 
 ### `docs/decisions/README.md`
 
 - Updated only the ADR-0006 index summary row.
-- ADR-0006 status remains `Proposed`.
+- Codex D status acceptance pass updated the ADR-0006 index row from
+  `Proposed` to `Accepted`.
 
 ## Code/Test/Interface Status
 
@@ -185,8 +201,9 @@ Codex D metadata pass preserved unrelated work:
 - ADR-only/governance-only: yes.
 - Runtime behavior changed: no.
 - Interface changes: no runtime interface changes.
-- ADR status changed: no, ADR-0006 remains `Proposed`.
-- ADR index changed: yes, summary text only.
+- ADR status changed: yes, ADR-0006 now records `Accepted` for issue #217's
+  acceptance path.
+- ADR index changed: yes, ADR-0006 now records `Accepted`.
 - CI gates added: no.
 
 ## Protected And Forbidden Scope Confirmation
@@ -222,29 +239,37 @@ No intentional changes were made to:
 
 - `git status --short --branch` -> on
   `codex/adr-0006-repository-boundary-adoption`; changed files are ADR-0006,
-  ADR README, untracked adoption contract, and this handoff.
-- `gh issue view 215 --repo Tahjali11/Mythic-Edge --json number,title,state,url`
-  -> issue #215 is CLOSED.
-- `gh issue list --repo Tahjali11/Mythic-Edge --search "ADR-0006 repository boundary adoption" --json number,title,state,url`
-  -> `[]`; no matching new ADR adoption governance issue found.
+  ADR README, this handoff, and the contract-test report.
+- `gh pr view 216 --repo Tahjali11/Mythic-Edge ...` -> PR #216 is OPEN,
+  draft, targets `codex/analytics-foundation`, merge state CLEAN.
+- `gh issue view 217 --repo Tahjali11/Mythic-Edge ...` -> issue #217 is OPEN
+  and routes the remaining blocker to Codex D status acceptance.
+- `gh pr checks 216 --repo Tahjali11/Mythic-Edge` -> two remote `tests` checks
+  passed on the currently pushed PR head.
+- `rg` status check over ADR-0006 and the ADR index -> both now show
+  `Accepted` for ADR-0006.
 - `git diff --check` -> passed.
-- `py tools\check_agent_docs.py` -> passed; checked 46 files, errors 0,
+- `python3 tools/check_agent_docs.py` -> passed; checked 30 files, errors 0,
   warnings 0.
-- Path-scoped protected-surface scan over the ADR adoption contract, ADR-0006,
-  ADR README, and this handoff -> passed; forbidden 0, warnings 0.
-- Path-scoped secret/private-marker scan over the same four files ->
-  forbidden 0, warnings 1. The warning is an existing protected-surface wording
-  reference in `docs/decisions/README.md`, not a secret or private artifact.
-- Generated artifact status check for SQLite, database, JSONL, Player.log,
-  WAL/SHM/journal markers in `git status --short --ignored=matching` -> no
-  matches.
+- Path-scoped protected-surface scan over the four D-touched files -> passed;
+  forbidden 0, warnings 0.
+- Path-scoped secret/private-marker scan over the four D-touched files ->
+  completed with forbidden 0 and warnings 1. The warning is an existing
+  protected-surface wording reference in `docs/decisions/README.md`, not a
+  secret or private artifact.
+- Generated/raw artifact status check for SQLite, database, JSONL, Player.log,
+  frontend build, `node_modules`, and Vite markers in
+  `git status --short --ignored=matching` -> no matches.
 
 ## Remaining Risks Or Unverified Layers
 
-- ADR-0006 remains Proposed and should not be treated as accepted authority
-  until Codex E review and the approved submitter/deployer path complete.
-- Issue #217 now exists as the direct ADR-0006 adoption governance issue.
-- PR #216 now exists as the draft ADR-0006 adoption PR and remains draft.
+- ADR-0006 now records `Status: Accepted` for issue #217's acceptance path,
+  but PR #216 remains draft and still requires the approved reviewer,
+  submitter, and deployer path before merge.
+- Issue #217 remains open until the adoption PR lands and Codex G verifies
+  completion.
+- PR #216 remains the draft ADR-0006 adoption PR and targets
+  `codex/analytics-foundation`, not `main`.
 - Live workbook state was not inspected.
 - Deployed Apps Script state was not inspected.
 - Production behavior was not exercised.
@@ -253,15 +278,15 @@ No intentional changes were made to:
 
 Codex E should verify:
 
-- ADR-0006 remains Proposed and is not treated as accepted by this pass.
-- ADR-0006 metadata cites issue #217 directly.
-- ADR-0006 metadata cites PR #216 directly.
-- The revised ADR satisfies the adoption contract without expanding scope.
-- The issue #215 boundary package citations are accurate.
-- The boundary vocabulary aligns with Parser, Corpus / Provenance, Analytics,
-  Local App / UI, Workbook / Transport, Quality / Governance, and future AI
-  Integration.
-- The ADR index summary update is appropriate and status-preserving.
+- ADR-0006 records `Status: Accepted`.
+- `docs/decisions/README.md` records ADR-0006 as `Accepted`.
+- The acceptance-status change is authorized by issue #217 and the adoption
+  contract, and preserves the note that durable precedent lands through the
+  approved submitter/deployer path.
+- ADR-0006 metadata still cites issue #217, PR #216, issue #215, and the
+  internal project boundary package accurately.
+- Monorepo-first policy is preserved.
+- Future extraction order remains planning guidance only, not authorization.
 - No forbidden runtime, repo-layout, package, import, CI, protected-surface, or
   local-artifact scope was touched.
 
@@ -275,7 +300,7 @@ Codex E: Module Reviewer / confirmation thread.
 Use the Mythic Edge agent constitution.
 Use $mythic-edge-workflow.
 
-Act as Codex E: Module Reviewer / confirmation thread for the ADR-0006 repository boundary adoption metadata fix.
+Act as Codex E: Module Reviewer / confirmation thread for the ADR-0006 repository boundary adoption status fix.
 
 Issue:
 https://github.com/Tahjali11/Mythic-Edge/issues/217
@@ -288,6 +313,9 @@ https://github.com/Tahjali11/Mythic-Edge/issues/215
 
 Branch:
 codex/adr-0006-repository-boundary-adoption
+
+Target branch:
+codex/analytics-foundation
 
 Source artifact:
 docs/decisions/ADR-0006-repository-boundary-strategy.md
@@ -302,67 +330,46 @@ Risk tier:
 Medium
 
 Task:
-Confirm the Codex D metadata fix for the prior non-blocking finding that PR/ADR metadata did not cite issue #217 directly. Lead with findings ordered by severity.
+Confirm the Codex D status acceptance fix for the Codex G blocker that ADR-0006 and the ADR index still showed Proposed.
 
 Review focus:
-- ADR-0006 remains Status: Proposed unless the contract-authorized acceptance path has actually happened.
-- The ADR cites issue #217 directly as the ADR adoption governance issue.
-- The ADR cites PR #216 directly as the draft adoption PR.
-- The ADR still cites issue #215 and the internal project boundary package as related evidence.
-- The decision-owner metadata reflects Codex A/B/C/E adoption workflow roles.
-- Vocabulary aligns with Parser, Corpus / Provenance, Analytics, Local App / UI, Workbook / Transport, Quality / Governance, and future AI Integration.
+- ADR-0006 now says Status: Accepted.
+- docs/decisions/README.md now lists ADR-0006 as Accepted.
+- The accepted status is limited to the ADR adoption path and does not mark PR #216 ready, merge PR #216, close issue #217, close issue #215, or target main.
 - Monorepo-first policy is preserved.
-- Future extraction order is planning guidance only, not authorization.
-- Dependency direction uses current internal project names.
+- Future extraction order remains planning guidance only, not authorization.
 - Data/privacy and protected-surface exclusions remain intact.
-- The implementation handoff routing/status notes reflect issue #217 and PR #216 without rewriting historical Codex C observations.
 - No repositories were split, files moved, packages renamed, imports changed, CI gates added, or runtime/protected behavior changed.
 
 Do not:
-- Accept ADR-0006 by review fiat.
-- Split repositories.
-- Move files.
-- Rename packages.
-- Change imports.
-- Add CI gates.
-- Change parser/runtime/analytics/UI/workbook/webhook/App Script/Sheets/AI/production behavior.
-- Touch secrets, credentials, raw logs, generated data, runtime artifacts, transport failure payloads, workbook exports, local JSONL artifacts, generated SQLite files, fixtures, snapshots, drift baselines, or local-only artifacts.
-- Stage, commit, push, mark PR #216 ready for review, merge, close issues, or mark any tracker complete unless explicitly asked.
+- mark PR #216 ready for review
+- merge PR #216
+- close issue #217 or issue #215
+- use Closes #215
+- target main
+- split repositories
+- move files
+- rename packages
+- change imports
+- add CI gates
+- change parser/runtime/analytics/UI/workbook/webhook/App Script/Sheets/AI/production behavior
+- touch secrets, credentials, raw logs, generated data, runtime artifacts, transport failure payloads, workbook exports, local JSONL artifacts, generated SQLite files, fixtures, snapshots, drift baselines, or local-only artifacts
+- stage, commit, push, or mark any tracker complete unless explicitly asked
 
 Validation:
 git status --short --branch
 git diff --check
-py tools\check_agent_docs.py
-@'
-docs/decisions/ADR-0006-repository-boundary-strategy.md
-docs/implementation_handoffs/adr_0006_repository_boundary_adoption_comparison.md
-'@ | py tools\check_protected_surfaces.py --base origin/codex/analytics-foundation --paths-from-stdin
-@'
-docs/decisions/ADR-0006-repository-boundary-strategy.md
-docs/implementation_handoffs/adr_0006_repository_boundary_adoption_comparison.md
-'@ | py tools\check_secret_patterns.py --base origin/codex/analytics-foundation --paths-from-stdin
+python3 tools/check_agent_docs.py
+printf '%s\n' docs/decisions/ADR-0006-repository-boundary-strategy.md docs/decisions/README.md docs/implementation_handoffs/adr_0006_repository_boundary_adoption_comparison.md docs/contract_test_reports/adr_0006_repository_boundary_adoption.md | python3 tools/check_protected_surfaces.py --base origin/codex/analytics-foundation --paths-from-stdin
+printf '%s\n' docs/decisions/ADR-0006-repository-boundary-strategy.md docs/decisions/README.md docs/implementation_handoffs/adr_0006_repository_boundary_adoption_comparison.md docs/contract_test_reports/adr_0006_repository_boundary_adoption.md | python3 tools/check_secret_patterns.py --base origin/codex/analytics-foundation --paths-from-stdin
+gh pr checks 216 --repo Tahjali11/Mythic-Edge
 
-Final review report must include:
-- role performed
-- issue/PR used
-- source artifact reviewed
-- contract and handoff reviewed
-- files reviewed
-- findings ordered by severity
-- validation run and result
-- ADR status verdict
-- protected-surface status
-- secret/private-marker status
-- generated artifact status
-- whether forbidden scope was touched
-- recommendation: route to D, B/A, F, or accept/no-op
-- pasteable next-role prompt if applicable
-- workflow_handoff block
+Final review report must include findings, validation, ADR status verdict, protected-surface status, secret/private-marker status, generated artifact status, forbidden-scope status, next recommended role, and workflow_handoff.
 ```
 
 ```yaml
 workflow_handoff:
-  role_performed: "Codex D: Module Fixer / narrow governance metadata pass"
+  role_performed: "Codex D: Module Fixer / narrow governance status pass"
   issue: "https://github.com/Tahjali11/Mythic-Edge/issues/217"
   related_pr: "https://github.com/Tahjali11/Mythic-Edge/pull/216"
   related_issue: "https://github.com/Tahjali11/Mythic-Edge/issues/215"
@@ -377,14 +384,15 @@ workflow_handoff:
   risk_tier: "Medium"
   branch: "codex/adr-0006-repository-boundary-adoption"
   finding_fixed:
-    - "PR/ADR metadata did not cite issue #217 directly."
+    - "ADR-0006 and docs/decisions/README.md still showed Proposed after issue #217 entered the acceptance path."
   files_changed:
     - "docs/decisions/ADR-0006-repository-boundary-strategy.md"
+    - "docs/decisions/README.md"
     - "docs/implementation_handoffs/adr_0006_repository_boundary_adoption_comparison.md"
-  pr_metadata_updated: true
-  adr_status: "Proposed"
+    - "docs/contract_test_reports/adr_0006_repository_boundary_adoption.md"
+  adr_status: "Accepted"
+  pr_status: "open draft"
   stop_conditions:
-    - "Do not accept ADR-0006 without scoped contract/review."
     - "Do not split repositories."
     - "Do not move files."
     - "Do not rename packages."
