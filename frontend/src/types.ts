@@ -2,6 +2,8 @@ export const SETUP_STATUS_OBJECT = "mythic_edge_local_app_setup_status";
 export const SETUP_STATUS_SCHEMA_VERSION = "analytics_app_backend_setup_status.v1";
 export const MANUAL_IMPORT_JOB_OBJECT = "mythic_edge_local_app_manual_jsonl_import_job";
 export const MANUAL_IMPORT_JOB_SCHEMA_VERSION = "analytics_manual_jsonl_import_ui_job_status.v1";
+export const LEGACY_JSONL_IMPORT_QUALITY_OBJECT = "mythic_edge_legacy_jsonl_import_quality";
+export const LEGACY_JSONL_IMPORT_QUALITY_SCHEMA_VERSION = "analytics_legacy_jsonl_import_quality_breakdown.v1";
 
 export type SetupStatusTone =
   | "ok"
@@ -51,6 +53,40 @@ export type ManualImportSource = {
   path_echoed: false;
 };
 
+export type LegacyJsonlImportQualityStatus = "complete" | "degraded" | "failed";
+
+export type LegacyJsonlRoutingHint = {
+  code: string;
+  category: string;
+  severity: string;
+  count: number;
+};
+
+export type LegacyJsonlImportQuality = {
+  object: typeof LEGACY_JSONL_IMPORT_QUALITY_OBJECT;
+  schema_version: typeof LEGACY_JSONL_IMPORT_QUALITY_SCHEMA_VERSION;
+  quality_status: LegacyJsonlImportQualityStatus;
+  records_seen: number;
+  events_processed: number;
+  events_skipped: number;
+  processed_kind_counts: Record<string, number>;
+  unsupported_kind_counts: Record<string, number>;
+  skipped_reason_counts: Record<string, number>;
+  blank_line_count: number;
+  duplicate_raw_hash_count: number;
+  unsupported_kind_skip_count: number;
+  output_gap_counts: Record<string, number>;
+  adapter_warning_counts: Record<string, number>;
+  adapter_warning_codes: string[];
+  ingest_warning_codes: string[];
+  routing_hints: LegacyJsonlRoutingHint[];
+  privacy: {
+    has_private_path_echo: false;
+    raw_payload_exposed: false;
+    raw_hash_exposed: false;
+  };
+};
+
 export type ManualImportAdapter = {
   status: string;
   files_processed: number;
@@ -59,6 +95,7 @@ export type ManualImportAdapter = {
   events_skipped: number;
   unsupported_kind_counts: Record<string, number>;
   warnings: string[];
+  quality?: LegacyJsonlImportQuality;
 };
 
 export type ManualImportIngest = {

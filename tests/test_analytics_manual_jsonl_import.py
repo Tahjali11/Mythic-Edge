@@ -8,6 +8,10 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
+from mythic_edge_parser.app.analytics_legacy_jsonl_adapter import (
+    ANALYTICS_LEGACY_JSONL_IMPORT_QUALITY_OBJECT,
+    ANALYTICS_LEGACY_JSONL_IMPORT_QUALITY_SCHEMA_VERSION,
+)
 from mythic_edge_parser.local_app.backend import create_app
 from mythic_edge_parser.local_app.import_jobs import (
     MANUAL_JSONL_IMPORT_SCHEMA_VERSION,
@@ -152,6 +156,14 @@ def test_valid_synthetic_jsonl_imports_into_app_owned_sqlite_and_job_status(tmp_
     assert payload["source"]["path_echoed"] is False
     assert payload["adapter"]["files_processed"] == 1
     assert payload["adapter"]["events_processed"] == 3
+    assert payload["adapter"]["quality"]["quality_status"] == "complete"
+    assert payload["adapter"]["quality"]["object"] == ANALYTICS_LEGACY_JSONL_IMPORT_QUALITY_OBJECT
+    assert payload["adapter"]["quality"]["schema_version"] == ANALYTICS_LEGACY_JSONL_IMPORT_QUALITY_SCHEMA_VERSION
+    assert payload["adapter"]["quality"]["processed_kind_counts"] == {
+        "GameResult": 1,
+        "GameState": 1,
+        "MatchState": 1,
+    }
     assert payload["ingest"]["status"] == "succeeded"
     assert payload["ingest"]["row_counts"]["matches"] == 1
     assert payload["ingest"]["row_counts"]["games"] == 1
@@ -285,8 +297,18 @@ def test_malformed_jsonl_fails_without_raw_line_path_or_database_creation(tmp_pa
     assert response.status_code == 200
     assert payload["status"] == "failed"
     assert payload["errors"] == ["invalid_jsonl"]
+    assert payload["adapter"]["quality"]["quality_status"] == "failed"
+    assert payload["adapter"]["quality"]["adapter_warning_codes"] == ["invalid_jsonl"]
+    assert payload["adapter"]["quality"]["routing_hints"] == [
+        {
+            "category": "source_artifact_problem",
+            "code": "invalid_jsonl",
+            "count": 1,
+            "severity": "action_needed",
+        }
+    ]
     assert bad_line not in encoded
-    assert "payload" not in encoded
+    assert '"payload":' not in encoded
     assert str(jsonl_path) not in encoded
     assert not app_root.exists()
 
@@ -299,6 +321,7 @@ def test_unsupported_kinds_and_duplicate_hashes_are_safe_degraded_counts(tmp_pat
         jsonl_path,
         [
             _match_started(match_id),
+            "",
             {
                 "kind": "ConnectionError",
                 "timestamp": "2026-05-29T18:00:30+00:00",
@@ -325,7 +348,52 @@ def test_unsupported_kinds_and_duplicate_hashes_are_safe_degraded_counts(tmp_pat
     assert response.status_code == 200
     assert payload["status"] == "degraded"
     assert payload["adapter"]["unsupported_kind_counts"] == {"ConnectionError": 1}
-    assert payload["adapter"]["events_skipped"] == 3
+    assert payload["adapter"]["events_skipped"] == 4
+    assert payload["adapter"]["quality"]["quality_status"] == "degraded"
+    assert payload["adapter"]["quality"]["records_seen"] == 6
+    assert payload["adapter"]["quality"]["events_processed"] == 3
+    assert payload["adapter"]["quality"]["events_skipped"] == 4
+    assert payload["adapter"]["quality"]["processed_kind_counts"] == {
+        "GameResult": 1,
+        "GameState": 1,
+        "MatchState": 1,
+    }
+    assert payload["adapter"]["quality"]["skipped_reason_counts"] == {
+        "blank_line": 1,
+        "duplicate_raw_hash": 2,
+        "unsupported_kind": 1,
+    }
+    assert payload["adapter"]["quality"]["duplicate_raw_hash_count"] == 2
+    assert payload["adapter"]["quality"]["unsupported_kind_skip_count"] == 1
+    assert payload["adapter"]["quality"]["adapter_warning_codes"] == [
+        "events_skipped",
+        "unsupported_event_kinds",
+    ]
+    assert payload["adapter"]["quality"]["routing_hints"] == [
+        {
+            "category": "harmless_expected_skip",
+            "code": "blank_lines",
+            "count": 1,
+            "severity": "info",
+        },
+        {
+            "category": "harmless_or_repeated_export",
+            "code": "duplicate_raw_hashes",
+            "count": 2,
+            "severity": "info",
+        },
+        {
+            "category": "parser_or_adapter_backlog",
+            "code": "unsupported_event_kinds",
+            "count": 1,
+            "severity": "warning",
+        },
+    ]
+    assert payload["adapter"]["quality"]["privacy"] == {
+        "has_private_path_echo": False,
+        "raw_hash_exposed": False,
+        "raw_payload_exposed": False,
+    }
     assert payload["warnings"] == ["unsupported_event_kinds", "events_skipped"]
     assert "unsupported-consumed-hash" not in encoded
     assert "final-hash" not in encoded

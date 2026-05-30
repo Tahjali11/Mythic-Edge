@@ -13,6 +13,8 @@ from mythic_edge_parser.app.analytics_ingest import (
 )
 from mythic_edge_parser.app.analytics_legacy_jsonl_adapter import (
     ANALYTICS_LEGACY_JSONL_ADAPTER_SCHEMA_VERSION,
+    ANALYTICS_LEGACY_JSONL_IMPORT_QUALITY_OBJECT,
+    ANALYTICS_LEGACY_JSONL_IMPORT_QUALITY_SCHEMA_VERSION,
     LegacyJsonlAdapterError,
     adapt_legacy_jsonl_artifacts,
 )
@@ -144,6 +146,10 @@ def _local_generated_artifacts() -> set[str]:
 
 def test_schema_version_constant_is_public() -> None:
     assert ANALYTICS_LEGACY_JSONL_ADAPTER_SCHEMA_VERSION == "analytics_legacy_jsonl_artifact_adapter.v1"
+    assert (
+        ANALYTICS_LEGACY_JSONL_IMPORT_QUALITY_SCHEMA_VERSION
+        == "analytics_legacy_jsonl_import_quality_breakdown.v1"
+    )
 
 
 def test_supported_generated_jsonl_adapts_to_saved_event_replay_input_and_sqlite(tmp_path: Path) -> None:
@@ -152,6 +158,7 @@ def test_supported_generated_jsonl_adapts_to_saved_event_replay_input_and_sqlite
     match_id = "match:legacy:adapter"
     records = [
         _match_started(match_id),
+        "",
         {
             "kind": "ConnectionError",
             "timestamp": "2026-05-29T18:00:30+00:00",
@@ -180,9 +187,71 @@ def test_supported_generated_jsonl_adapts_to_saved_event_replay_input_and_sqlite
     assert result.files_processed == 1
     assert result.records_seen == 6
     assert result.events_processed == 3
-    assert result.events_skipped == 3
+    assert result.events_skipped == 4
     assert result.unsupported_kind_counts == {"ConnectionError": 1}
     assert result.warnings == ["derived_match_id_mismatch:legacy_derived_wrong"]
+    assert result.quality == {
+        "object": ANALYTICS_LEGACY_JSONL_IMPORT_QUALITY_OBJECT,
+        "schema_version": ANALYTICS_LEGACY_JSONL_IMPORT_QUALITY_SCHEMA_VERSION,
+        "quality_status": "degraded",
+        "records_seen": 6,
+        "events_processed": 3,
+        "events_skipped": 4,
+        "processed_kind_counts": {"GameResult": 1, "GameState": 1, "MatchState": 1},
+        "unsupported_kind_counts": {"ConnectionError": 1},
+        "skipped_reason_counts": {
+            "blank_line": 1,
+            "duplicate_raw_hash": 2,
+            "unsupported_kind": 1,
+        },
+        "blank_line_count": 1,
+        "duplicate_raw_hash_count": 2,
+        "unsupported_kind_skip_count": 1,
+        "output_gap_counts": {
+            "incomplete_game_summary": 0,
+            "incomplete_match_summary": 0,
+            "incomplete_summary_unclassified": 0,
+        },
+        "adapter_warning_counts": {
+            "derived_match_id_mismatch": 1,
+            "events_skipped": 1,
+            "unsupported_event_kinds": 1,
+        },
+        "adapter_warning_codes": [
+            "derived_match_id_mismatch",
+            "events_skipped",
+            "unsupported_event_kinds",
+        ],
+        "ingest_warning_codes": [],
+        "routing_hints": [
+            {
+                "category": "harmless_expected_skip",
+                "code": "blank_lines",
+                "count": 1,
+                "severity": "info",
+            },
+            {
+                "category": "harmless_or_repeated_export",
+                "code": "duplicate_raw_hashes",
+                "count": 2,
+                "severity": "info",
+            },
+            {
+                "category": "parser_or_adapter_backlog",
+                "code": "unsupported_event_kinds",
+                "count": 1,
+                "severity": "warning",
+            },
+        ],
+        "privacy": {
+            "has_private_path_echo": False,
+            "raw_hash_exposed": False,
+            "raw_payload_exposed": False,
+        },
+    }
+    assert "unsupported-consumed-hash" not in json.dumps(result.quality, sort_keys=True)
+    assert "final-hash" not in json.dumps(result.quality, sort_keys=True)
+    assert "legacy_derived_wrong" not in json.dumps(result.quality, sort_keys=True)
 
     replay = result.replay
     normalized = normalize_parser_normalized_replay(replay)
@@ -232,6 +301,37 @@ def test_directory_input_uses_latest_saved_event_selection_semantics(tmp_path: P
     assert result.files_processed == 1
     assert result.source_artifact_label.startswith("legacy_jsonl_bundle:")
     assert result.replay["match_log_rows"][0]["match_id"] == match_id  # type: ignore[index]
+
+
+def test_quality_counts_incomplete_summary_output_gaps_without_inventing_match_game_split(tmp_path: Path) -> None:
+    jsonl_path = tmp_path / "events_v1_synthetic.jsonl"
+    complete_records = _synthetic_supported_records("match:legacy:complete")
+    for record in complete_records:
+        record.pop("derived", None)
+    incomplete_record = _match_started("match:legacy:incomplete", raw_hash="incomplete-match-started-hash")
+    incomplete_record.pop("derived", None)
+    _write_jsonl(jsonl_path, [*complete_records, incomplete_record])
+
+    result = adapt_legacy_jsonl_artifacts(jsonl_path)
+
+    assert result.events_processed == 4
+    assert result.events_skipped == 0
+    assert result.warnings == ["incomplete_match_summaries_skipped:1"]
+    assert result.quality["quality_status"] == "degraded"
+    assert result.quality["output_gap_counts"] == {
+        "incomplete_game_summary": 0,
+        "incomplete_match_summary": 0,
+        "incomplete_summary_unclassified": 1,
+    }
+    assert result.quality["adapter_warning_codes"] == ["incomplete_match_summaries_skipped"]
+    assert result.quality["routing_hints"] == [
+        {
+            "category": "analytics_ingest_backlog",
+            "code": "incomplete_summaries",
+            "count": 1,
+            "severity": "warning",
+        }
+    ]
 
 
 def test_unsafe_source_artifact_label_fails(tmp_path: Path) -> None:

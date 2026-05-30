@@ -1,4 +1,6 @@
 import {
+  LEGACY_JSONL_IMPORT_QUALITY_OBJECT,
+  LEGACY_JSONL_IMPORT_QUALITY_SCHEMA_VERSION,
   MANUAL_IMPORT_JOB_OBJECT,
   MANUAL_IMPORT_JOB_SCHEMA_VERSION,
   SETUP_STATUS_OBJECT,
@@ -251,7 +253,69 @@ function validateManualImportJob(payload: unknown): ManualImportJob {
     throw new ManualImportApiError("malformed_response", "Manual import job has an unsupported shape.");
   }
 
+  validateManualImportAdapter(payload.adapter);
+
   return payload as ManualImportJob;
+}
+
+function validateManualImportAdapter(adapter: Record<string, unknown>): void {
+  if (
+    typeof adapter.status !== "string" ||
+    typeof adapter.files_processed !== "number" ||
+    typeof adapter.records_seen !== "number" ||
+    typeof adapter.events_processed !== "number" ||
+    typeof adapter.events_skipped !== "number" ||
+    !isNumberRecord(adapter.unsupported_kind_counts) ||
+    !isStringArray(adapter.warnings)
+  ) {
+    throw new ManualImportApiError("malformed_response", "Manual import adapter has an unsupported shape.");
+  }
+
+  const needsQuality = adapter.status === "succeeded" || adapter.status === "degraded" || adapter.status === "failed";
+  if (needsQuality && !("quality" in adapter)) {
+    throw new ManualImportApiError("malformed_response", "Manual import adapter is missing quality details.");
+  }
+  if ("quality" in adapter) {
+    validateManualImportQuality(adapter.quality);
+  }
+}
+
+function validateManualImportQuality(value: unknown): void {
+  if (!isRecord(value)) {
+    throw new ManualImportApiError("malformed_response", "Manual import quality must be a JSON object.");
+  }
+
+  if (value.schema_version !== LEGACY_JSONL_IMPORT_QUALITY_SCHEMA_VERSION) {
+    throw new ManualImportApiError(
+      "incompatible_response",
+      `Expected import quality schema ${LEGACY_JSONL_IMPORT_QUALITY_SCHEMA_VERSION}.`
+    );
+  }
+
+  if (value.object !== LEGACY_JSONL_IMPORT_QUALITY_OBJECT) {
+    throw new ManualImportApiError("malformed_response", "Manual import quality object is unsupported.");
+  }
+
+  if (
+    !isQualityStatus(value.quality_status) ||
+    typeof value.records_seen !== "number" ||
+    typeof value.events_processed !== "number" ||
+    typeof value.events_skipped !== "number" ||
+    !isNumberRecord(value.processed_kind_counts) ||
+    !isNumberRecord(value.unsupported_kind_counts) ||
+    !isNumberRecord(value.skipped_reason_counts) ||
+    typeof value.blank_line_count !== "number" ||
+    typeof value.duplicate_raw_hash_count !== "number" ||
+    typeof value.unsupported_kind_skip_count !== "number" ||
+    !isNumberRecord(value.output_gap_counts) ||
+    !isNumberRecord(value.adapter_warning_counts) ||
+    !isStringArray(value.adapter_warning_codes) ||
+    !isStringArray(value.ingest_warning_codes) ||
+    !isRoutingHints(value.routing_hints) ||
+    !isPrivacySummary(value.privacy)
+  ) {
+    throw new ManualImportApiError("malformed_response", "Manual import quality has an unsupported shape.");
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -263,4 +327,42 @@ function isStringRecord(value: unknown): value is Record<string, string> {
     return false;
   }
   return Object.values(value).every((entry) => typeof entry === "string");
+}
+
+function isNumberRecord(value: unknown): value is Record<string, number> {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return Object.values(value).every((entry) => typeof entry === "number");
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((entry) => typeof entry === "string");
+}
+
+function isQualityStatus(value: unknown): value is "complete" | "degraded" | "failed" {
+  return value === "complete" || value === "degraded" || value === "failed";
+}
+
+function isRoutingHints(value: unknown): value is Array<Record<string, unknown>> {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (entry) =>
+        isRecord(entry) &&
+        typeof entry.code === "string" &&
+        typeof entry.category === "string" &&
+        typeof entry.severity === "string" &&
+        typeof entry.count === "number"
+    )
+  );
+}
+
+function isPrivacySummary(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    value.has_private_path_echo === false &&
+    value.raw_payload_exposed === false &&
+    value.raw_hash_exposed === false
+  );
 }

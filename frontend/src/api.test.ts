@@ -9,10 +9,13 @@ import {
   submitManualJsonlImport
 } from "./api";
 import {
+  LEGACY_JSONL_IMPORT_QUALITY_OBJECT,
+  LEGACY_JSONL_IMPORT_QUALITY_SCHEMA_VERSION,
   MANUAL_IMPORT_JOB_OBJECT,
   MANUAL_IMPORT_JOB_SCHEMA_VERSION,
   SETUP_STATUS_OBJECT,
   SETUP_STATUS_SCHEMA_VERSION,
+  type LegacyJsonlImportQuality,
   type ManualImportJob,
   type SetupStatusResponse
 } from "./types";
@@ -111,6 +114,29 @@ describe("api helpers", () => {
     await expect(
       submitManualJsonlImport({ source_path: "Z:\\synthetic\\events_v1.jsonl" }, wrongSchemaFetch)
     ).rejects.toMatchObject({ code: "incompatible_response" });
+
+    const missingQualityFetch = vi.fn(async () =>
+      jsonResponse({
+        ...buildManualImportJob(),
+        adapter: { ...buildManualImportJob().adapter, quality: undefined }
+      })
+    ) as unknown as typeof fetch;
+    await expect(
+      submitManualJsonlImport({ source_path: "Z:\\synthetic\\events_v1.jsonl" }, missingQualityFetch)
+    ).rejects.toMatchObject({ code: "malformed_response" });
+
+    const wrongQualitySchemaFetch = vi.fn(async () =>
+      jsonResponse({
+        ...buildManualImportJob(),
+        adapter: {
+          ...buildManualImportJob().adapter,
+          quality: { ...buildImportQuality(), schema_version: "future.quality" }
+        }
+      })
+    ) as unknown as typeof fetch;
+    await expect(
+      submitManualJsonlImport({ source_path: "Z:\\synthetic\\events_v1.jsonl" }, wrongQualitySchemaFetch)
+    ).rejects.toMatchObject({ code: "incompatible_response" });
   });
 
   it("maps manual import backend and unsafe API base failures", async () => {
@@ -170,7 +196,8 @@ function buildManualImportJob(): ManualImportJob {
       events_processed: 3,
       events_skipped: 0,
       unsupported_kind_counts: {},
-      warnings: []
+      warnings: [],
+      quality: buildImportQuality()
     },
     ingest: {
       status: "succeeded",
@@ -188,5 +215,40 @@ function buildManualImportJob(): ManualImportJob {
     },
     warnings: [],
     errors: []
+  };
+}
+
+function buildImportQuality(): LegacyJsonlImportQuality {
+  return {
+    object: LEGACY_JSONL_IMPORT_QUALITY_OBJECT,
+    schema_version: LEGACY_JSONL_IMPORT_QUALITY_SCHEMA_VERSION,
+    quality_status: "complete" as const,
+    records_seen: 3,
+    events_processed: 3,
+    events_skipped: 0,
+    processed_kind_counts: { GameResult: 1, GameState: 1, MatchState: 1 },
+    unsupported_kind_counts: {},
+    skipped_reason_counts: {
+      blank_line: 0,
+      duplicate_raw_hash: 0,
+      unsupported_kind: 0
+    },
+    blank_line_count: 0,
+    duplicate_raw_hash_count: 0,
+    unsupported_kind_skip_count: 0,
+    output_gap_counts: {
+      incomplete_match_summary: 0,
+      incomplete_game_summary: 0,
+      incomplete_summary_unclassified: 0
+    },
+    adapter_warning_counts: {},
+    adapter_warning_codes: [],
+    ingest_warning_codes: [],
+    routing_hints: [],
+    privacy: {
+      has_private_path_echo: false as const,
+      raw_payload_exposed: false as const,
+      raw_hash_exposed: false as const
+    }
   };
 }

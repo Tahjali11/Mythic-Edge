@@ -12,10 +12,13 @@ from typing import Any
 from . import saved_event_replay, state
 
 ANALYTICS_LEGACY_JSONL_ADAPTER_SCHEMA_VERSION = "analytics_legacy_jsonl_artifact_adapter.v1"
+ANALYTICS_LEGACY_JSONL_IMPORT_QUALITY_OBJECT = "mythic_edge_legacy_jsonl_import_quality"
+ANALYTICS_LEGACY_JSONL_IMPORT_QUALITY_SCHEMA_VERSION = "analytics_legacy_jsonl_import_quality_breakdown.v1"
 
 SOURCE_KIND = "saved_event_replay"
 
 _SAFE_KIND_RE = re.compile(r"^[A-Za-z0-9_.-]{1,80}$")
+_SAFE_CODE_RE = re.compile(r"^[A-Za-z0-9_.:-]{1,100}$")
 _WINDOWS_ABSOLUTE_PATH_RE = re.compile(r"^[A-Za-z]:[\\/]")
 _PRIVATE_LABEL_MARKERS = (
     "player.log",
@@ -47,6 +50,7 @@ class LegacyJsonlAdapterResult:
     events_skipped: int
     unsupported_kind_counts: dict[str, int]
     warnings: list[str]
+    quality: dict[str, object]
 
 
 def adapt_legacy_jsonl_artifacts(
@@ -64,6 +68,10 @@ def adapt_legacy_jsonl_artifacts(
     records_seen = 0
     events_processed = 0
     events_skipped = 0
+    blank_line_count = 0
+    duplicate_raw_hash_count = 0
+    unsupported_kind_skip_count = 0
+    processed_kind_counts: Counter[str] = Counter()
     unsupported_kind_counts: Counter[str] = Counter()
     warnings: list[str] = []
     seen_raw_hashes: set[str] = set()
@@ -78,6 +86,7 @@ def adapt_legacy_jsonl_artifacts(
                 line = raw_line.strip()
                 if not line:
                     events_skipped += 1
+                    blank_line_count += 1
                     continue
 
                 records_seen += 1
@@ -86,12 +95,15 @@ def adapt_legacy_jsonl_artifacts(
                 if raw_hash:
                     if raw_hash in seen_raw_hashes:
                         events_skipped += 1
+                        duplicate_raw_hash_count += 1
                         continue
                     seen_raw_hashes.add(raw_hash)
 
                 kind = _required_kind(record, jsonl_path=jsonl_path, line_number=line_number)
                 if kind not in saved_event_replay.EVENT_CLASS_BY_KIND:
-                    unsupported_kind_counts[_safe_kind_label(kind)] += 1
+                    kind_label = _safe_kind_label(kind)
+                    unsupported_kind_counts[kind_label] += 1
+                    unsupported_kind_skip_count += 1
                     events_skipped += 1
                     continue
 
@@ -101,6 +113,7 @@ def adapt_legacy_jsonl_artifacts(
 
                 event = _event_from_record(line, record, jsonl_path=jsonl_path, line_number=line_number)
                 state._update_match_summary(event)
+                processed_kind_counts[_safe_kind_label(kind)] += 1
                 events_processed += 1
                 timestamp = getattr(event.metadata, "timestamp", None)
                 if timestamp is not None:
@@ -110,6 +123,18 @@ def adapt_legacy_jsonl_artifacts(
         warnings.extend(_derived_warnings(derived_match_ids, replay["match_log_rows"]))
         if incomplete_count:
             warnings.append(f"incomplete_match_summaries_skipped:{incomplete_count}")
+        quality = _quality_summary(
+            records_seen=records_seen,
+            events_processed=events_processed,
+            events_skipped=events_skipped,
+            processed_kind_counts=processed_kind_counts,
+            unsupported_kind_counts=unsupported_kind_counts,
+            blank_line_count=blank_line_count,
+            duplicate_raw_hash_count=duplicate_raw_hash_count,
+            unsupported_kind_skip_count=unsupported_kind_skip_count,
+            incomplete_summary_unclassified_count=incomplete_count,
+            warnings=warnings,
+        )
 
         return LegacyJsonlAdapterResult(
             replay=replay,
@@ -121,9 +146,35 @@ def adapt_legacy_jsonl_artifacts(
             events_skipped=events_skipped,
             unsupported_kind_counts=dict(sorted(unsupported_kind_counts.items())),
             warnings=warnings,
+            quality=quality,
         )
     finally:
         state.reset_runtime_state()
+
+
+def failed_legacy_jsonl_import_quality(error_code: str) -> dict[str, object]:
+    code = _safe_code_label(error_code, fallback="adapter_failed")
+    return _quality_summary(
+        quality_status="failed",
+        records_seen=0,
+        events_processed=0,
+        events_skipped=0,
+        processed_kind_counts=Counter(),
+        unsupported_kind_counts=Counter(),
+        blank_line_count=0,
+        duplicate_raw_hash_count=0,
+        unsupported_kind_skip_count=0,
+        incomplete_summary_unclassified_count=0,
+        warning_codes=[code],
+        routing_hints=[
+            _routing_hint(
+                code=code,
+                category=_failure_routing_category(code),
+                severity="action_needed",
+                count=1,
+            )
+        ],
+    )
 
 
 def _selected_jsonl_files(source: Path) -> list[Path]:
@@ -282,11 +333,157 @@ def _derived_warnings(derived_match_ids: set[str], match_log_rows: object) -> li
     return [f"derived_match_id_mismatch:{_safe_kind_label(match_id)}" for match_id in mismatches]
 
 
+def _quality_summary(
+    *,
+    records_seen: int,
+    events_processed: int,
+    events_skipped: int,
+    processed_kind_counts: Counter[str],
+    unsupported_kind_counts: Counter[str],
+    blank_line_count: int,
+    duplicate_raw_hash_count: int,
+    unsupported_kind_skip_count: int,
+    incomplete_summary_unclassified_count: int,
+    warnings: list[str] | None = None,
+    warning_codes: list[str] | None = None,
+    routing_hints: list[dict[str, object]] | None = None,
+    quality_status: str | None = None,
+) -> dict[str, object]:
+    output_gap_counts = {
+        "incomplete_match_summary": 0,
+        "incomplete_game_summary": 0,
+        "incomplete_summary_unclassified": incomplete_summary_unclassified_count,
+    }
+    adapter_warning_counts = Counter(_warning_code(warning) for warning in warnings or [])
+    for code in warning_codes or []:
+        adapter_warning_counts[_safe_code_label(code, fallback="adapter_warning")] += 1
+    if events_skipped:
+        adapter_warning_counts["events_skipped"] += 1
+    if unsupported_kind_counts:
+        adapter_warning_counts["unsupported_event_kinds"] += 1
+
+    if quality_status is None:
+        has_quality_issues = bool(events_skipped or adapter_warning_counts or incomplete_summary_unclassified_count)
+        quality_status = "degraded" if has_quality_issues else "complete"
+
+    return {
+        "object": ANALYTICS_LEGACY_JSONL_IMPORT_QUALITY_OBJECT,
+        "schema_version": ANALYTICS_LEGACY_JSONL_IMPORT_QUALITY_SCHEMA_VERSION,
+        "quality_status": quality_status,
+        "records_seen": records_seen,
+        "events_processed": events_processed,
+        "events_skipped": events_skipped,
+        "processed_kind_counts": dict(sorted(processed_kind_counts.items())),
+        "unsupported_kind_counts": dict(sorted(unsupported_kind_counts.items())),
+        "skipped_reason_counts": {
+            "blank_line": blank_line_count,
+            "duplicate_raw_hash": duplicate_raw_hash_count,
+            "unsupported_kind": unsupported_kind_skip_count,
+        },
+        "blank_line_count": blank_line_count,
+        "duplicate_raw_hash_count": duplicate_raw_hash_count,
+        "unsupported_kind_skip_count": unsupported_kind_skip_count,
+        "output_gap_counts": output_gap_counts,
+        "adapter_warning_counts": dict(sorted(adapter_warning_counts.items())),
+        "adapter_warning_codes": sorted(adapter_warning_counts),
+        "ingest_warning_codes": [],
+        "routing_hints": routing_hints
+        if routing_hints is not None
+        else _quality_routing_hints(
+            blank_line_count=blank_line_count,
+            duplicate_raw_hash_count=duplicate_raw_hash_count,
+            unsupported_kind_skip_count=unsupported_kind_skip_count,
+            incomplete_summary_unclassified_count=incomplete_summary_unclassified_count,
+        ),
+        "privacy": {
+            "has_private_path_echo": False,
+            "raw_payload_exposed": False,
+            "raw_hash_exposed": False,
+        },
+    }
+
+
+def _quality_routing_hints(
+    *,
+    blank_line_count: int,
+    duplicate_raw_hash_count: int,
+    unsupported_kind_skip_count: int,
+    incomplete_summary_unclassified_count: int,
+) -> list[dict[str, object]]:
+    hints: list[dict[str, object]] = []
+    if blank_line_count:
+        hints.append(
+            _routing_hint(
+                code="blank_lines",
+                category="harmless_expected_skip",
+                severity="info",
+                count=blank_line_count,
+            )
+        )
+    if duplicate_raw_hash_count:
+        hints.append(
+            _routing_hint(
+                code="duplicate_raw_hashes",
+                category="harmless_or_repeated_export",
+                severity="info",
+                count=duplicate_raw_hash_count,
+            )
+        )
+    if unsupported_kind_skip_count:
+        hints.append(
+            _routing_hint(
+                code="unsupported_event_kinds",
+                category="parser_or_adapter_backlog",
+                severity="warning",
+                count=unsupported_kind_skip_count,
+            )
+        )
+    if incomplete_summary_unclassified_count:
+        hints.append(
+            _routing_hint(
+                code="incomplete_summaries",
+                category="analytics_ingest_backlog",
+                severity="warning",
+                count=incomplete_summary_unclassified_count,
+            )
+        )
+    return hints
+
+
+def _routing_hint(*, code: str, category: str, severity: str, count: int) -> dict[str, object]:
+    return {
+        "code": _safe_code_label(code, fallback="unknown"),
+        "category": _safe_code_label(category, fallback="unknown"),
+        "severity": _safe_code_label(severity, fallback="warning"),
+        "count": count,
+    }
+
+
+def _warning_code(value: str) -> str:
+    base = str(value or "").split(":", maxsplit=1)[0].strip()
+    return _safe_code_label(base, fallback="adapter_warning")
+
+
+def _failure_routing_category(code: str) -> str:
+    if code in {"invalid_jsonl", "invalid_utf8", "malformed_saved_event", "no_ingestable_rows"}:
+        return "source_artifact_problem"
+    if code in {"source_artifact_label_invalid", "adapter_failed"}:
+        return "unsupported_legacy_shape"
+    return "unknown"
+
+
 def _safe_kind_label(value: str) -> str:
     text = str(value or "").strip()
     if _SAFE_KIND_RE.fullmatch(text):
         return text
     return "unsafe_or_unknown_kind"
+
+
+def _safe_code_label(value: str, *, fallback: str) -> str:
+    text = str(value or "").strip()
+    if _SAFE_CODE_RE.fullmatch(text) and not any(marker in text.lower() for marker in _PRIVATE_LABEL_MARKERS):
+        return text
+    return fallback
 
 
 def _safe_path_label(path: Path) -> str:

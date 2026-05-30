@@ -61,6 +61,7 @@ textarea {
 
 h1,
 h2,
+h3,
 p {
   margin: 0;
 }
@@ -73,6 +74,12 @@ h1 {
 h2 {
   color: #20242a;
   font-size: 1rem;
+  line-height: 1.25;
+}
+
+h3 {
+  color: #20242a;
+  font-size: 0.92rem;
   line-height: 1.25;
 }
 
@@ -157,6 +164,12 @@ h2 {
   border-top: 5px solid #73808b;
   border-radius: 8px;
   padding: 16px;
+}
+
+.qualityBreakdown {
+  margin-top: 16px;
+  border-top: 1px solid #d9ded7;
+  padding-top: 14px;
 }
 
 .panelHeader {

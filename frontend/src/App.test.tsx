@@ -4,10 +4,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ManualImportApiError, SetupStatusApiError } from "./api";
 import { SetupStatusApp } from "./App";
 import {
+  LEGACY_JSONL_IMPORT_QUALITY_OBJECT,
+  LEGACY_JSONL_IMPORT_QUALITY_SCHEMA_VERSION,
   MANUAL_IMPORT_JOB_OBJECT,
   MANUAL_IMPORT_JOB_SCHEMA_VERSION,
   SETUP_STATUS_OBJECT,
   SETUP_STATUS_SCHEMA_VERSION,
+  type LegacyJsonlImportQuality,
   type ManualImportJob,
   type SetupStatusResponse
 } from "./types";
@@ -104,7 +107,10 @@ describe("SetupStatusApp", () => {
       });
     });
     expect(await screen.findByRole("heading", { name: "Import Job" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Quality Breakdown" })).toBeInTheDocument();
     expect(screen.getByText("events_v1.jsonl")).toBeInTheDocument();
+    expect(screen.getByText("duplicate_raw_hash 1 unsupported_kind 1")).toBeInTheDocument();
+    expect(screen.getByText("unsupported_event_kinds parser_or_adapter_backlog warning 1")).toBeInTheDocument();
     expect(screen.getByText("unsupported_event_kinds")).toBeInTheDocument();
     expect(pathInput).toHaveValue("");
     expect(screen.queryByDisplayValue(rawPath)).not.toBeInTheDocument();
@@ -195,9 +201,10 @@ function buildManualImportJob(): ManualImportJob {
       files_processed: 1,
       records_seen: 6,
       events_processed: 3,
-      events_skipped: 1,
+      events_skipped: 2,
       unsupported_kind_counts: { ConnectionError: 1 },
-      warnings: []
+      warnings: [],
+      quality: buildImportQuality()
     },
     ingest: {
       status: "succeeded",
@@ -215,5 +222,50 @@ function buildManualImportJob(): ManualImportJob {
     },
     warnings: ["unsupported_event_kinds"],
     errors: []
+  };
+}
+
+function buildImportQuality(): LegacyJsonlImportQuality {
+  return {
+    object: LEGACY_JSONL_IMPORT_QUALITY_OBJECT,
+    schema_version: LEGACY_JSONL_IMPORT_QUALITY_SCHEMA_VERSION,
+    quality_status: "degraded" as const,
+    records_seen: 6,
+    events_processed: 3,
+    events_skipped: 2,
+    processed_kind_counts: { GameResult: 1, GameState: 1, MatchState: 1 },
+    unsupported_kind_counts: { ConnectionError: 1 },
+    skipped_reason_counts: {
+      blank_line: 0,
+      duplicate_raw_hash: 1,
+      unsupported_kind: 1
+    },
+    blank_line_count: 0,
+    duplicate_raw_hash_count: 1,
+    unsupported_kind_skip_count: 1,
+    output_gap_counts: {
+      incomplete_match_summary: 0,
+      incomplete_game_summary: 0,
+      incomplete_summary_unclassified: 0
+    },
+    adapter_warning_counts: {
+      events_skipped: 1,
+      unsupported_event_kinds: 1
+    },
+    adapter_warning_codes: ["events_skipped", "unsupported_event_kinds"],
+    ingest_warning_codes: [],
+    routing_hints: [
+      {
+        code: "unsupported_event_kinds",
+        category: "parser_or_adapter_backlog",
+        severity: "warning",
+        count: 1
+      }
+    ],
+    privacy: {
+      has_private_path_echo: false as const,
+      raw_payload_exposed: false as const,
+      raw_hash_exposed: false as const
+    }
   };
 }

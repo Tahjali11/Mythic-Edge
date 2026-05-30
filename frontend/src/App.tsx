@@ -8,6 +8,8 @@ import {
   SETUP_STATUS_SCHEMA_VERSION,
   type ManualImportJob,
   type ManualImportRequest,
+  type LegacyJsonlImportQuality,
+  type LegacyJsonlRoutingHint,
   type SectionStatus,
   type SetupStatusResponse
 } from "./types";
@@ -301,6 +303,25 @@ function ManualImportJobSummary({ job }: { job: ManualImportJob }) {
         <SummaryRow label="warnings" value={formatLabels(job.warnings)} />
         <SummaryRow label="errors" value={formatLabels(job.errors)} />
       </dl>
+      {job.adapter.quality ? <ManualImportQualitySummary quality={job.adapter.quality} /> : null}
+    </section>
+  );
+}
+
+function ManualImportQualitySummary({ quality }: { quality: LegacyJsonlImportQuality }) {
+  return (
+    <section className="qualityBreakdown" aria-label="Import quality breakdown">
+      <h3>Quality Breakdown</h3>
+      <dl>
+        <SummaryRow label="quality status" value={quality.quality_status} />
+        <SummaryRow label="processed kinds" value={formatNumberRecord(quality.processed_kind_counts)} />
+        <SummaryRow label="skipped reasons" value={formatNumberRecord(quality.skipped_reason_counts)} />
+        <SummaryRow label="unsupported kinds" value={formatNumberRecord(quality.unsupported_kind_counts)} />
+        <SummaryRow label="output gaps" value={formatNumberRecord(quality.output_gap_counts)} />
+        <SummaryRow label="adapter warning codes" value={formatLabels(quality.adapter_warning_codes)} />
+        <SummaryRow label="ingest warning codes" value={formatLabels(quality.ingest_warning_codes)} />
+        <SummaryRow label="routing hints" value={formatRoutingHints(quality.routing_hints)} />
+      </dl>
     </section>
   );
 }
@@ -425,6 +446,21 @@ function formatLabels(values: string[]): string {
     return "none";
   }
   return values.join(" ");
+}
+
+function formatNumberRecord(values: Record<string, number>): string {
+  const entries = Object.entries(values).filter(([, count]) => count !== 0);
+  if (entries.length === 0) {
+    return "none";
+  }
+  return entries.map(([label, count]) => `${label} ${count}`).join(" ");
+}
+
+function formatRoutingHints(hints: LegacyJsonlRoutingHint[]): string {
+  if (hints.length === 0) {
+    return "none";
+  }
+  return hints.map((hint) => `${hint.code} ${hint.category} ${hint.severity} ${hint.count}`).join(" ");
 }
 
 function manualImportErrorTitle(code: ManualImportApiError["code"]): string {

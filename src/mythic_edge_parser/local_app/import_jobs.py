@@ -17,6 +17,7 @@ from mythic_edge_parser.app.analytics_ingest import (
 from mythic_edge_parser.app.analytics_legacy_jsonl_adapter import (
     LegacyJsonlAdapterError,
     adapt_legacy_jsonl_artifacts,
+    failed_legacy_jsonl_import_quality,
 )
 
 from .paths import LocalAppPaths, build_local_app_paths, display_app_path
@@ -90,6 +91,7 @@ def run_manual_jsonl_import(
             source_artifact_label=source.source_artifact_label,
         )
     except LegacyJsonlAdapterError as exc:
+        error_code = _adapter_error_category(str(exc))
         return _store_job(
             _job_payload(
                 job_id=job_id,
@@ -99,11 +101,11 @@ def run_manual_jsonl_import(
                 started_at=started_at,
                 finished_at=now_fn(),
                 source=source,
-                adapter=_adapter_summary(status="failed"),
+                adapter=_adapter_summary(status="failed", failure_code=error_code),
                 ingest=_ingest_summary(status="not_started"),
                 database=_database_summary(status="not_started", created=False),
                 warnings=[],
-                errors=[_adapter_error_category(str(exc))],
+                errors=[error_code],
             ),
         )
 
@@ -192,7 +194,7 @@ def run_manual_jsonl_import(
             started_at=started_at,
             finished_at=finished_at,
             source=_source_with_adapter_label(source, adapter_result.source_artifact_label),
-            adapter=_adapter_summary(status=status, result=adapter_result),
+            adapter=_adapter_summary(status=status, result=adapter_result, ingest_warnings=ingest_result.warnings),
             ingest=_ingest_summary(status="succeeded", result=ingest_result),
             database=_database_summary(
                 status="ok",
@@ -360,9 +362,15 @@ def _source_with_adapter_label(source: _SourceValidation, source_artifact_label:
     )
 
 
-def _adapter_summary(status: str, result: object | None = None) -> dict[str, object]:
+def _adapter_summary(
+    status: str,
+    result: object | None = None,
+    *,
+    ingest_warnings: list[str] | None = None,
+    failure_code: str | None = None,
+) -> dict[str, object]:
     if result is None:
-        return {
+        summary: dict[str, object] = {
             "status": status,
             "files_processed": 0,
             "records_seen": 0,
@@ -371,6 +379,11 @@ def _adapter_summary(status: str, result: object | None = None) -> dict[str, obj
             "unsupported_kind_counts": {},
             "warnings": [],
         }
+        if status == "failed":
+            summary["quality"] = failed_legacy_jsonl_import_quality(failure_code or "adapter_failed")
+        return summary
+
+    quality = _quality_with_ingest_warnings(dict(getattr(result, "quality")), ingest_warnings or [])
     return {
         "status": status,
         "files_processed": int(getattr(result, "files_processed")),
@@ -379,6 +392,7 @@ def _adapter_summary(status: str, result: object | None = None) -> dict[str, obj
         "events_skipped": int(getattr(result, "events_skipped")),
         "unsupported_kind_counts": dict(getattr(result, "unsupported_kind_counts")),
         "warnings": list(getattr(result, "warnings")),
+        "quality": quality,
     }
 
 
@@ -434,6 +448,30 @@ def _warning_categories(adapter_result: object) -> list[str]:
     if int(getattr(adapter_result, "events_skipped")) > 0:
         warnings.append("events_skipped")
     return warnings
+
+
+def _quality_with_ingest_warnings(quality: dict[str, object], ingest_warnings: list[str]) -> dict[str, object]:
+    quality["ingest_warning_codes"] = _warning_codes(ingest_warnings)
+    if quality.get("quality_status") == "complete" and ingest_warnings:
+        quality["quality_status"] = "degraded"
+    return quality
+
+
+def _warning_codes(warnings: list[str]) -> list[str]:
+    return sorted({_safe_quality_code(warning.split(":", maxsplit=1)[0]) for warning in warnings})
+
+
+def _safe_quality_code(value: str) -> str:
+    text = str(value or "").strip()
+    marker_text = text.lower()
+    if (
+        text
+        and len(text) <= 100
+        and all(char.isalnum() or char in "_.:-" for char in text)
+        and not any(marker in marker_text for marker in _PRIVATE_MARKERS)
+    ):
+        return text
+    return "ingest_warning"
 
 
 def _adapter_error_category(message: str) -> str:
