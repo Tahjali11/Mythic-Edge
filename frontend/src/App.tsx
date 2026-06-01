@@ -3,12 +3,14 @@ import { useEffect, useRef, useState, type FormEvent, type ReactNode, type RefOb
 import "./App.css";
 import {
   AnalyticsHistoryApiError,
+  fetchGame1PostboardSplitReview,
   fetchGameHistory,
   fetchGameplayActionReview,
   fetchMatchHistory,
   fetchMulliganHistory,
   fetchOpponentCardObservationReview,
   fetchOpeningHandHistory,
+  fetchPlayDrawSplitReview,
   fetchSetupStatus,
   ManualImportApiError,
   SetupStatusApiError,
@@ -20,10 +22,13 @@ import {
   ACTION_REVIEW_SCHEMA_VERSION,
   ANALYTICS_HISTORY_SCHEMA_VERSION,
   EARLY_GAME_HISTORY_SCHEMA_VERSION,
+  SPLIT_REVIEW_SCHEMA_VERSION,
   MANUAL_IMPORT_JOB_SCHEMA_VERSION,
   SETUP_STATUS_SCHEMA_VERSION,
   type AnalyticsHistoryStatus,
   type AnalyticsHistoryStatusObject,
+  type Game1PostboardSplitReviewResponse,
+  type Game1PostboardSplitRow,
   type GameHistoryResponse,
   type GameplayActionReviewResponse,
   type GameplayActionReviewRow,
@@ -38,6 +43,8 @@ import {
   type OpeningHandHistoryRow,
   type OpponentCardObservationReviewResponse,
   type OpponentCardObservationReviewRow,
+  type PlayDrawSplitReviewResponse,
+  type PlayDrawSplitRow,
   type LegacyJsonlImportQuality,
   type LegacyJsonlRoutingHint,
   type ManualImportSourceArtifact,
@@ -58,6 +65,8 @@ type SetupStatusAppProps = {
   fetchMulligans?: () => Promise<MulliganHistoryResponse>;
   fetchGameplayActions?: () => Promise<GameplayActionReviewResponse>;
   fetchOpponentObservations?: () => Promise<OpponentCardObservationReviewResponse>;
+  fetchPlayDrawSplits?: () => Promise<PlayDrawSplitReviewResponse>;
+  fetchGame1PostboardSplits?: () => Promise<Game1PostboardSplitReviewResponse>;
   submitImport?: (request: ManualImportRequest) => Promise<ManualImportJob>;
   submitUpload?: (request: ManualImportUploadRequest) => Promise<ManualImportJob>;
 };
@@ -93,6 +102,16 @@ type ActionReviewState =
     }
   | { state: "error"; code: AnalyticsHistoryApiError["code"]; message: string };
 
+type SplitReviewState =
+  | { state: "loading" }
+  | {
+      state: "ready";
+      playDrawSplits: PlayDrawSplitReviewResponse;
+      game1PostboardSplits: Game1PostboardSplitReviewResponse;
+      unsafeCount: number;
+    }
+  | { state: "error"; code: AnalyticsHistoryApiError["code"]; message: string };
+
 type Panel = {
   title: string;
   status: string;
@@ -107,6 +126,8 @@ export function SetupStatusApp({
   fetchMulligans = fetchMulliganHistory,
   fetchGameplayActions = fetchGameplayActionReview,
   fetchOpponentObservations = fetchOpponentCardObservationReview,
+  fetchPlayDrawSplits = fetchPlayDrawSplitReview,
+  fetchGame1PostboardSplits = fetchGame1PostboardSplitReview,
   submitImport = submitManualJsonlImport,
   submitUpload = submitManualJsonlUpload
 }: SetupStatusAppProps) {
@@ -114,6 +135,7 @@ export function SetupStatusApp({
   const [historyState, setHistoryState] = useState<HistoryState>({ state: "loading" });
   const [earlyGameState, setEarlyGameState] = useState<EarlyGameHistoryState>({ state: "loading" });
   const [actionReviewState, setActionReviewState] = useState<ActionReviewState>({ state: "loading" });
+  const [splitReviewState, setSplitReviewState] = useState<SplitReviewState>({ state: "loading" });
   const [sourcePath, setSourcePath] = useState("");
   const [sourcePathsText, setSourcePathsText] = useState("");
   const [uploadFiles, setUploadFiles] = useState<File[]>([]);
@@ -276,6 +298,46 @@ export function SetupStatusApp({
     }
   }, [fetchGameplayActions, fetchOpponentObservations]);
 
+  useEffect(() => {
+    let active = true;
+
+    loadSplitReview();
+
+    return () => {
+      active = false;
+    };
+
+    function loadSplitReview() {
+      setSplitReviewState({ state: "loading" });
+      Promise.all([fetchPlayDrawSplits(), fetchGame1PostboardSplits()])
+        .then(([playDrawSplits, game1PostboardSplits]) => {
+          if (!active) {
+            return;
+          }
+          setSplitReviewState({
+            state: "ready",
+            playDrawSplits,
+            game1PostboardSplits,
+            unsafeCount: countUnsafeSplitReviewValues(playDrawSplits, game1PostboardSplits)
+          });
+        })
+        .catch((error: unknown) => {
+          if (!active) {
+            return;
+          }
+          if (error instanceof AnalyticsHistoryApiError) {
+            setSplitReviewState({ state: "error", code: error.code, message: error.message });
+            return;
+          }
+          setSplitReviewState({
+            state: "error",
+            code: "backend_unavailable",
+            message: "Analytics history backend is unavailable."
+          });
+        });
+    }
+  }, [fetchGame1PostboardSplits, fetchPlayDrawSplits]);
+
   function refreshHistory() {
     setHistoryState({ state: "loading" });
     Promise.all([fetchMatches(), fetchGames()])
@@ -341,6 +403,30 @@ export function SetupStatusApp({
           return;
         }
         setActionReviewState({
+          state: "error",
+          code: "backend_unavailable",
+          message: "Analytics history backend is unavailable."
+        });
+      });
+  }
+
+  function refreshSplitReview() {
+    setSplitReviewState({ state: "loading" });
+    Promise.all([fetchPlayDrawSplits(), fetchGame1PostboardSplits()])
+      .then(([playDrawSplits, game1PostboardSplits]) => {
+        setSplitReviewState({
+          state: "ready",
+          playDrawSplits,
+          game1PostboardSplits,
+          unsafeCount: countUnsafeSplitReviewValues(playDrawSplits, game1PostboardSplits)
+        });
+      })
+      .catch((error: unknown) => {
+        if (error instanceof AnalyticsHistoryApiError) {
+          setSplitReviewState({ state: "error", code: error.code, message: error.message });
+          return;
+        }
+        setSplitReviewState({
           state: "error",
           code: "backend_unavailable",
           message: "Analytics history backend is unavailable."
@@ -533,6 +619,7 @@ export function SetupStatusApp({
       <AnalyticsHistorySection historyState={historyState} onRefresh={refreshHistory} />
       <EarlyGameHistorySection earlyGameState={earlyGameState} onRefresh={refreshEarlyGameHistory} />
       <ActionReviewSection actionReviewState={actionReviewState} onRefresh={refreshActionReview} />
+      <SplitReviewSection splitReviewState={splitReviewState} onRefresh={refreshSplitReview} />
 
       <section className="panelGrid futureGrid" aria-label="Deferred local app sections">
         <StatusPanel title="Live Watcher" status="deferred" details={[{ label: "state", value: "deferred" }]} />
@@ -868,6 +955,67 @@ function ActionReviewErrorNotice({
   );
 }
 
+function SplitReviewSection({
+  splitReviewState,
+  onRefresh
+}: {
+  splitReviewState: SplitReviewState;
+  onRefresh: () => void;
+}) {
+  const status = splitReviewStatus(splitReviewState);
+  const tone = statusTone(status);
+  return (
+    <section className={`analyticsHistorySection tone-${tone}`} aria-labelledby="split-review-title">
+      <div className="panelHeader analyticsHistoryHeader">
+        <div>
+          <h2 id="split-review-title">Split Review</h2>
+        </div>
+        <div className="historyHeaderActions">
+          <StatusPill label={status} tone={tone} />
+          <button disabled={splitReviewState.state === "loading"} onClick={onRefresh} type="button">
+            Refresh Splits
+          </button>
+        </div>
+      </div>
+      {splitReviewState.state === "loading" ? <p className="historyStateMessage">Loading split review</p> : null}
+      {splitReviewState.state === "error" ? <SplitReviewErrorNotice splitReviewState={splitReviewState} /> : null}
+      {splitReviewState.state === "ready" ? (
+        <>
+          {splitReviewState.unsafeCount > 0 ? (
+            <p className="historyStateMessage">{splitReviewState.unsafeCount} split review value was redacted.</p>
+          ) : null}
+          <div className="historySummaryGrid" aria-label="Split review summary">
+            <PlayDrawSplitSummaryPanel response={splitReviewState.playDrawSplits} />
+            <Game1PostboardSplitSummaryPanel response={splitReviewState.game1PostboardSplits} />
+          </div>
+          <PlayDrawSplitTable response={splitReviewState.playDrawSplits} />
+          <Game1PostboardSplitTable response={splitReviewState.game1PostboardSplits} />
+        </>
+      ) : null}
+    </section>
+  );
+}
+
+function SplitReviewErrorNotice({
+  splitReviewState
+}: {
+  splitReviewState: Extract<SplitReviewState, { state: "error" }>;
+}) {
+  return (
+    <section className={`historyNotice tone-${errorTone(splitReviewState.code)}`} aria-label="Split review error">
+      <div className="panelHeader">
+        <h3>{analyticsHistoryErrorTitle(splitReviewState.code)}</h3>
+        <StatusPill label={errorTone(splitReviewState.code)} tone={errorTone(splitReviewState.code)} />
+      </div>
+      <p>
+        {splitReviewState.code === "incompatible_response"
+          ? `Expected schema: ${SPLIT_REVIEW_SCHEMA_VERSION}`
+          : splitReviewState.message}
+      </p>
+    </section>
+  );
+}
+
 function AnalyticsHistoryErrorNotice({ historyState }: { historyState: Extract<HistoryState, { state: "error" }> }) {
   return (
     <section className={`historyNotice tone-${errorTone(historyState.code)}`} aria-label="Analytics history error">
@@ -929,6 +1077,51 @@ function ActionReviewSummaryPanel({
         <SummaryRow label="unavailable" value={response.summary.unavailable_row_count} />
         <SummaryRow label="conflict" value={response.summary.conflict_row_count} />
         <SummaryRow label="review" value={response.summary.review_required_row_count} />
+        <SummaryRow label="schema" value={response.database.schema_status} />
+      </dl>
+    </article>
+  );
+}
+
+function PlayDrawSplitSummaryPanel({ response }: { response: PlayDrawSplitReviewResponse }) {
+  return (
+    <article className={`historySummaryPanel tone-${statusTone(response.status)}`}>
+      <div className="panelHeader">
+        <h3>Play/Draw Splits</h3>
+        <StatusPill label={response.status} tone={statusTone(response.status)} />
+      </div>
+      <dl>
+        <SummaryRow label="rows" value={response.summary.row_count} />
+        <SummaryRow label="games" value={response.summary.total_game_count} />
+        <SummaryRow label="known" value={response.summary.known_result_count} />
+        <SummaryRow label="wins" value={response.summary.wins} />
+        <SummaryRow label="losses" value={response.summary.losses} />
+        <SummaryRow label="unknown" value={response.summary.unknown_result_count} />
+        <SummaryRow label="unavailable" value={response.summary.unavailable_result_count} />
+        <SummaryRow label="degraded" value={response.summary.degraded_result_count} />
+        <SummaryRow label="small sample" value={response.summary.small_sample_group_count} />
+        <SummaryRow label="schema" value={response.database.schema_status} />
+      </dl>
+    </article>
+  );
+}
+
+function Game1PostboardSplitSummaryPanel({ response }: { response: Game1PostboardSplitReviewResponse }) {
+  return (
+    <article className={`historySummaryPanel tone-${statusTone(response.status)}`}>
+      <div className="panelHeader">
+        <h3>Game 1/Postboard</h3>
+        <StatusPill label={response.status} tone={statusTone(response.status)} />
+      </div>
+      <dl>
+        <SummaryRow label="rows" value={response.summary.row_count} />
+        <SummaryRow label="game 1" value={response.summary.game1_row_count} />
+        <SummaryRow label="postboard" value={response.summary.postboard_row_count} />
+        <SummaryRow label="known" value={response.summary.known_result_count} />
+        <SummaryRow label="unknown" value={response.summary.unknown_result_count} />
+        <SummaryRow label="degraded" value={response.summary.degraded_row_count} />
+        <SummaryRow label="unavailable" value={response.summary.unavailable_row_count} />
+        <SummaryRow label="conflict" value={response.summary.conflict_row_count} />
         <SummaryRow label="schema" value={response.database.schema_status} />
       </dl>
     </article>
@@ -1156,6 +1349,98 @@ function OpponentObservationReviewTable({ response }: { response: OpponentCardOb
   );
 }
 
+function PlayDrawSplitTable({ response }: { response: PlayDrawSplitReviewResponse }) {
+  return (
+    <section className="historyTableSection" aria-labelledby="play-draw-split-review-title">
+      <div className="panelHeader">
+        <h3 id="play-draw-split-review-title">Play/Draw Splits</h3>
+        <StatusPill label={response.status} tone={statusTone(response.status)} />
+      </div>
+      {response.rows.length === 0 ? (
+        <p className="historyStateMessage">{historyEmptyLabel("play/draw split", response.status)}</p>
+      ) : (
+        <div className="historyTableWrap">
+          <table className="historyTable">
+            <thead>
+              <tr>
+                <th scope="col">Split</th>
+                <th scope="col">Games</th>
+                <th scope="col">Known</th>
+                <th scope="col">Wins</th>
+                <th scope="col">Losses</th>
+                <th scope="col">Unknown</th>
+                <th scope="col">Unavailable</th>
+                <th scope="col">Degraded</th>
+                <th scope="col">Win Rate</th>
+                <th scope="col">Sample</th>
+              </tr>
+            </thead>
+            <tbody>
+              {response.rows.map((row) => (
+                <tr key={row.play_draw}>
+                  <SafeCell value={row.play_draw} />
+                  <SafeCell value={row.game_count} />
+                  <SafeCell value={row.known_result_count} />
+                  <SafeCell value={row.wins} />
+                  <SafeCell value={row.losses} />
+                  <SafeCell value={row.unknown_result_count} />
+                  <SafeCell value={row.unavailable_result_count} />
+                  <SafeCell value={row.degraded_result_count} />
+                  <SafeCell value={winRateLabel(row.win_rate)} />
+                  <SafeCell value={row.sample_size_warning ?? "none"} />
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function Game1PostboardSplitTable({ response }: { response: Game1PostboardSplitReviewResponse }) {
+  return (
+    <section className="historyTableSection" aria-labelledby="game1-postboard-split-review-title">
+      <div className="panelHeader">
+        <h3 id="game1-postboard-split-review-title">Game 1/Postboard Rows</h3>
+        <StatusPill label={response.status} tone={statusTone(response.status)} />
+      </div>
+      {response.rows.length === 0 ? (
+        <p className="historyStateMessage">{historyEmptyLabel("game 1/postboard split", response.status)}</p>
+      ) : (
+        <div className="historyTableWrap">
+          <table className="historyTable">
+            <thead>
+              <tr>
+                <th scope="col">Game</th>
+                <th scope="col">Split</th>
+                <th scope="col">Result</th>
+                <th scope="col">Play/Draw</th>
+                <th scope="col">Turns</th>
+                <th scope="col">Duration</th>
+                <th scope="col">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {response.rows.map((row) => (
+                <tr key={row.game_result_id}>
+                  <SafeCell value={`${row.match_id} game ${row.game_number}`} />
+                  <SafeCell value={row.pre_postboard_label ?? "unknown"} />
+                  <SafeCell value={row.local_result ?? "unknown"} />
+                  <SafeCell value={row.play_draw ?? "unknown"} />
+                  <SafeCell value={row.turn_count ?? "unknown"} />
+                  <SafeCell value={durationLabel(row.game_duration_seconds)} />
+                  <SafeCell value={statusSummary(row.game_result_status)} />
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function MatchHistoryTable({ response }: { response: MatchHistoryResponse }) {
   return (
     <section className="historyTableSection" aria-labelledby="match-history-title">
@@ -1239,8 +1524,18 @@ function GameHistoryTable({ response }: { response: GameHistoryResponse }) {
 }
 
 function SafeCell({ value }: { value: unknown }) {
-  const safe = safeDisplayValue(value ?? "unknown");
+  const safe = safeDisplayValue(formatSafeCellValue(value));
   return <td className={safe.redacted ? "redactedRow" : undefined}>{safe.text}</td>;
+}
+
+function formatSafeCellValue(value: unknown): string {
+  if (value === null || value === undefined) {
+    return "unknown";
+  }
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  return "unknown";
 }
 
 function ManualImportErrorNotice({ importState }: { importState: Extract<ImportState, { state: "error" }> }) {
@@ -1587,6 +1882,35 @@ function countUnsafeActionReviewValues(
   return values.filter((value) => safeDisplayValue(value ?? "unknown").redacted).length;
 }
 
+function countUnsafeSplitReviewValues(
+  playDrawSplits: PlayDrawSplitReviewResponse,
+  game1PostboardSplits: Game1PostboardSplitReviewResponse
+): number {
+  const values: unknown[] = [
+    playDrawSplits.database.display_path,
+    game1PostboardSplits.database.display_path,
+    ...playDrawSplits.warnings,
+    ...playDrawSplits.errors,
+    ...game1PostboardSplits.warnings,
+    ...game1PostboardSplits.errors
+  ];
+  for (const row of playDrawSplits.rows) {
+    values.push(row.play_draw, row.sample_size_warning);
+  }
+  for (const row of game1PostboardSplits.rows) {
+    values.push(
+      row.game_result_id,
+      row.match_id,
+      row.game_id,
+      row.pre_postboard_label,
+      row.local_result,
+      row.play_draw,
+      statusSummary(row.game_result_status)
+    );
+  }
+  return values.filter((value) => safeDisplayValue(value ?? "unknown").redacted).length;
+}
+
 function analyticsHistoryStatus(historyState: HistoryState): string {
   if (historyState.state === "loading") {
     return "loading";
@@ -1646,6 +1970,32 @@ function actionReviewStatus(actionReviewState: ActionReviewState): string {
   const statuses: AnalyticsHistoryStatus[] = [
     actionReviewState.gameplayActions.status,
     actionReviewState.opponentObservations.status
+  ];
+  const priorityStatuses: AnalyticsHistoryStatus[] = ["error", "unavailable", "degraded", "missing"];
+  for (const status of priorityStatuses) {
+    if (statuses.includes(status)) {
+      return status;
+    }
+  }
+  if (statuses.every((status) => status === "empty")) {
+    return "empty";
+  }
+  return "ok";
+}
+
+function splitReviewStatus(splitReviewState: SplitReviewState): string {
+  if (splitReviewState.state === "loading") {
+    return "loading";
+  }
+  if (splitReviewState.state === "error") {
+    return errorTone(splitReviewState.code);
+  }
+  if (splitReviewState.unsafeCount > 0) {
+    return "degraded";
+  }
+  const statuses: AnalyticsHistoryStatus[] = [
+    splitReviewState.playDrawSplits.status,
+    splitReviewState.game1PostboardSplits.status
   ];
   const priorityStatuses: AnalyticsHistoryStatus[] = ["error", "unavailable", "degraded", "missing"];
   for (const status of priorityStatuses) {
@@ -1756,6 +2106,20 @@ function degradationFlagsSummary(row: OpponentCardObservationReviewRow): string 
     return "no flags";
   }
   return row.degradation_flags.join(" ");
+}
+
+function winRateLabel(value: number | null): string {
+  if (value === null) {
+    return "unknown";
+  }
+  return `${Math.round(value * 1000) / 10} percent`;
+}
+
+function durationLabel(value: number | null): string {
+  if (value === null) {
+    return "unknown";
+  }
+  return `${Math.round(value)} seconds`;
 }
 
 function matchWinLabel(value: number | null): string {

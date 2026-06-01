@@ -3,6 +3,7 @@ import {
   ANALYTICS_HISTORY_SCHEMA_VERSION,
   EARLY_GAME_HISTORY_SCHEMA_VERSION,
   GAME_HISTORY_OBJECT,
+  GAME1_POSTBOARD_SPLIT_REVIEW_OBJECT,
   GAMEPLAY_ACTION_REVIEW_OBJECT,
   LEGACY_JSONL_IMPORT_QUALITY_OBJECT,
   LEGACY_JSONL_IMPORT_QUALITY_SCHEMA_VERSION,
@@ -12,10 +13,13 @@ import {
   MULLIGAN_HISTORY_OBJECT,
   OPPONENT_CARD_OBSERVATION_REVIEW_OBJECT,
   OPENING_HAND_HISTORY_OBJECT,
+  PLAY_DRAW_SPLIT_REVIEW_OBJECT,
   SETUP_STATUS_OBJECT,
   SETUP_STATUS_SCHEMA_VERSION,
+  SPLIT_REVIEW_SCHEMA_VERSION,
   type AnalyticsHistoryErrorCode,
   type AnalyticsHistoryStatus,
+  type Game1PostboardSplitReviewResponse,
   type GameHistoryResponse,
   type GameplayActionReviewResponse,
   type ManualImportErrorCode,
@@ -26,6 +30,7 @@ import {
   type MulliganHistoryResponse,
   type OpeningHandHistoryResponse,
   type OpponentCardObservationReviewResponse,
+  type PlayDrawSplitReviewResponse,
   type SetupStatusErrorCode,
   type SetupStatusResponse
 } from "./types";
@@ -37,6 +42,8 @@ const OPENING_HAND_HISTORY_PATH = "/api/analytics/opening-hands";
 const MULLIGAN_HISTORY_PATH = "/api/analytics/mulligans";
 const GAMEPLAY_ACTION_REVIEW_PATH = "/api/analytics/gameplay-actions";
 const OPPONENT_CARD_OBSERVATION_REVIEW_PATH = "/api/analytics/opponent-card-observations";
+const PLAY_DRAW_SPLIT_REVIEW_PATH = "/api/analytics/play-draw-splits";
+const GAME1_POSTBOARD_SPLIT_REVIEW_PATH = "/api/analytics/game1-postboard-splits";
 const MANUAL_IMPORT_PATH = "/api/imports/jsonl";
 const MANUAL_IMPORT_UPLOAD_PATH = "/api/imports/jsonl/upload";
 const MANUAL_IMPORT_JOB_PATH = "/api/imports/jobs";
@@ -213,6 +220,28 @@ export async function fetchOpponentCardObservationReview(
     validateOpponentCardObservationReviewRows,
     fetchImpl
   ) as Promise<OpponentCardObservationReviewResponse>;
+}
+
+export async function fetchPlayDrawSplitReview(fetchImpl: typeof fetch = fetch): Promise<PlayDrawSplitReviewResponse> {
+  return fetchSplitReviewHistory(
+    PLAY_DRAW_SPLIT_REVIEW_PATH,
+    PLAY_DRAW_SPLIT_REVIEW_OBJECT,
+    isPlayDrawSplitSummary,
+    validatePlayDrawSplitRows,
+    fetchImpl
+  ) as Promise<PlayDrawSplitReviewResponse>;
+}
+
+export async function fetchGame1PostboardSplitReview(
+  fetchImpl: typeof fetch = fetch
+): Promise<Game1PostboardSplitReviewResponse> {
+  return fetchSplitReviewHistory(
+    GAME1_POSTBOARD_SPLIT_REVIEW_PATH,
+    GAME1_POSTBOARD_SPLIT_REVIEW_OBJECT,
+    isGame1PostboardSplitSummary,
+    validateGame1PostboardSplitRows,
+    fetchImpl
+  ) as Promise<Game1PostboardSplitReviewResponse>;
 }
 
 export async function submitManualJsonlImport(
@@ -436,6 +465,37 @@ async function fetchActionReviewHistory(
   return validateActionReviewHistoryResponse(payload, objectName, validateRows);
 }
 
+async function fetchSplitReviewHistory(
+  path: string,
+  objectName: string,
+  validateSummary: (value: unknown) => boolean,
+  validateRows: (rows: unknown) => void,
+  fetchImpl: typeof fetch
+): Promise<PlayDrawSplitReviewResponse | Game1PostboardSplitReviewResponse> {
+  const baseUrl = getAnalyticsHistoryApiBaseUrl();
+  let response: Response;
+  try {
+    response = await fetchImpl(`${baseUrl}${path}`, {
+      headers: { Accept: "application/json" }
+    });
+  } catch {
+    throw new AnalyticsHistoryApiError("backend_unavailable", "Analytics history backend is unavailable.");
+  }
+
+  if (!response.ok) {
+    throw new AnalyticsHistoryApiError("backend_unavailable", "Analytics history backend is unavailable.");
+  }
+
+  let payload: unknown;
+  try {
+    payload = await response.json();
+  } catch {
+    throw new AnalyticsHistoryApiError("malformed_response", "Analytics history returned malformed JSON.");
+  }
+
+  return validateSplitReviewHistoryResponse(payload, objectName, validateSummary, validateRows);
+}
+
 function getAnalyticsHistoryApiBaseUrl(): string {
   try {
     return getApiBaseUrl();
@@ -568,6 +628,49 @@ function validateActionReviewHistoryResponse(
   validateRows(payload.rows);
 
   return payload as GameplayActionReviewResponse | OpponentCardObservationReviewResponse;
+}
+
+function validateSplitReviewHistoryResponse(
+  payload: unknown,
+  objectName: string,
+  validateSummary: (value: unknown) => boolean,
+  validateRows: (rows: unknown) => void
+): PlayDrawSplitReviewResponse | Game1PostboardSplitReviewResponse {
+  if (!isRecord(payload)) {
+    throw new AnalyticsHistoryApiError("malformed_response", "Analytics history must be a JSON object.");
+  }
+
+  for (const field of REQUIRED_ANALYTICS_HISTORY_FIELDS) {
+    if (!(field in payload)) {
+      throw new AnalyticsHistoryApiError("malformed_response", "Analytics history is missing required fields.");
+    }
+  }
+
+  if (payload.schema_version !== SPLIT_REVIEW_SCHEMA_VERSION) {
+    throw new AnalyticsHistoryApiError(
+      "incompatible_response",
+      `Expected analytics history schema ${SPLIT_REVIEW_SCHEMA_VERSION}.`
+    );
+  }
+
+  if (payload.object !== objectName) {
+    throw new AnalyticsHistoryApiError("malformed_response", "Analytics history object is unsupported.");
+  }
+
+  if (
+    !isAnalyticsHistoryStatus(payload.status) ||
+    !isHistoryDatabase(payload.database) ||
+    !isHistoryPagination(payload.pagination) ||
+    !validateSummary(payload.summary) ||
+    !isStringArray(payload.warnings) ||
+    !isStringArray(payload.errors)
+  ) {
+    throw new AnalyticsHistoryApiError("malformed_response", "Analytics history has an unsupported shape.");
+  }
+
+  validateRows(payload.rows);
+
+  return payload as PlayDrawSplitReviewResponse | Game1PostboardSplitReviewResponse;
 }
 
 function isAnalyticsHistoryStatus(value: unknown): value is AnalyticsHistoryStatus {
@@ -812,6 +915,52 @@ function validateOpponentCardObservationReviewRows(rows: unknown): void {
   }
 }
 
+function validatePlayDrawSplitRows(rows: unknown): void {
+  if (!Array.isArray(rows)) {
+    throw new AnalyticsHistoryApiError("malformed_response", "Play/draw split rows must be an array.");
+  }
+  for (const row of rows) {
+    if (
+      !isRecord(row) ||
+      typeof row.play_draw !== "string" ||
+      typeof row.game_count !== "number" ||
+      typeof row.known_result_count !== "number" ||
+      typeof row.wins !== "number" ||
+      typeof row.losses !== "number" ||
+      typeof row.unknown_result_count !== "number" ||
+      typeof row.unavailable_result_count !== "number" ||
+      typeof row.degraded_result_count !== "number" ||
+      !isNumberOrNull(row.win_rate) ||
+      !isStringOrNull(row.sample_size_warning)
+    ) {
+      throw new AnalyticsHistoryApiError("malformed_response", "Play/draw split row has an unsupported shape.");
+    }
+  }
+}
+
+function validateGame1PostboardSplitRows(rows: unknown): void {
+  if (!Array.isArray(rows)) {
+    throw new AnalyticsHistoryApiError("malformed_response", "Game 1/postboard split rows must be an array.");
+  }
+  for (const row of rows) {
+    if (
+      !isRecord(row) ||
+      typeof row.game_result_id !== "string" ||
+      typeof row.match_id !== "string" ||
+      typeof row.game_id !== "string" ||
+      typeof row.game_number !== "number" ||
+      !isStringOrNull(row.pre_postboard_label) ||
+      !isStringOrNull(row.local_result) ||
+      !isStringOrNull(row.play_draw) ||
+      !isNumberOrNull(row.turn_count) ||
+      !isNumberOrNull(row.game_duration_seconds) ||
+      !isHistoryStatus(row.game_result_status)
+    ) {
+      throw new AnalyticsHistoryApiError("malformed_response", "Game 1/postboard split row has an unsupported shape.");
+    }
+  }
+}
+
 function getManualImportApiBaseUrl(): string {
   try {
     return getApiBaseUrl();
@@ -1003,6 +1152,35 @@ function isActionReviewSummary(value: unknown): boolean {
     isEarlyGameHistorySummary(value) &&
     isRecord(value) &&
     typeof value.review_required_row_count === "number"
+  );
+}
+
+function isPlayDrawSplitSummary(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.row_count === "number" &&
+    typeof value.total_game_count === "number" &&
+    typeof value.known_result_count === "number" &&
+    typeof value.wins === "number" &&
+    typeof value.losses === "number" &&
+    typeof value.unknown_result_count === "number" &&
+    typeof value.unavailable_result_count === "number" &&
+    typeof value.degraded_result_count === "number" &&
+    typeof value.small_sample_group_count === "number"
+  );
+}
+
+function isGame1PostboardSplitSummary(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.row_count === "number" &&
+    typeof value.game1_row_count === "number" &&
+    typeof value.postboard_row_count === "number" &&
+    typeof value.known_result_count === "number" &&
+    typeof value.unknown_result_count === "number" &&
+    typeof value.degraded_row_count === "number" &&
+    typeof value.unavailable_row_count === "number" &&
+    typeof value.conflict_row_count === "number"
   );
 }
 

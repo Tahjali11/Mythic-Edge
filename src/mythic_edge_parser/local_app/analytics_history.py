@@ -11,12 +11,15 @@ from .setup_status import build_analytics_database_status
 HISTORY_SCHEMA_VERSION = "analytics_app_match_game_history_views.v1"
 EARLY_GAME_HISTORY_SCHEMA_VERSION = "analytics_app_opening_hand_mulligan_views.v1"
 ACTION_REVIEW_SCHEMA_VERSION = "analytics_app_gameplay_action_opponent_observation_views.v1"
+SPLIT_REVIEW_SCHEMA_VERSION = "analytics_app_play_draw_postboard_split_views.v1"
 MATCH_HISTORY_OBJECT = "mythic_edge_local_app_match_history"
 GAME_HISTORY_OBJECT = "mythic_edge_local_app_game_history"
 OPENING_HAND_HISTORY_OBJECT = "mythic_edge_local_app_opening_hand_history"
 MULLIGAN_HISTORY_OBJECT = "mythic_edge_local_app_mulligan_history"
 GAMEPLAY_ACTION_REVIEW_OBJECT = "mythic_edge_local_app_gameplay_action_review"
 OPPONENT_CARD_OBSERVATION_REVIEW_OBJECT = "mythic_edge_local_app_opponent_card_observation_review"
+PLAY_DRAW_SPLIT_REVIEW_OBJECT = "mythic_edge_local_app_play_draw_split_review"
+GAME1_POSTBOARD_SPLIT_REVIEW_OBJECT = "mythic_edge_local_app_game1_postboard_split_review"
 DEFAULT_HISTORY_LIMIT = 50
 MAX_HISTORY_LIMIT = 100
 DEGRADED_DRIFT_STATUSES = {"degraded", "conflict", "missing_expected_evidence", "redacted"}
@@ -157,6 +160,42 @@ def build_opponent_card_observation_review(
     )
 
 
+def build_play_draw_split_review(
+    paths: LocalAppPaths,
+    *,
+    limit: int = DEFAULT_HISTORY_LIMIT,
+    offset: int = 0,
+) -> dict[str, object]:
+    return _build_history(
+        paths,
+        object_name=PLAY_DRAW_SPLIT_REVIEW_OBJECT,
+        schema_version=SPLIT_REVIEW_SCHEMA_VERSION,
+        limit=limit,
+        offset=offset,
+        query=_PLAY_DRAW_SPLIT_REVIEW_QUERY,
+        row_mapper=_play_draw_split_row,
+        summary_builder=_play_draw_split_summary,
+    )
+
+
+def build_game1_postboard_split_review(
+    paths: LocalAppPaths,
+    *,
+    limit: int = DEFAULT_HISTORY_LIMIT,
+    offset: int = 0,
+) -> dict[str, object]:
+    return _build_history(
+        paths,
+        object_name=GAME1_POSTBOARD_SPLIT_REVIEW_OBJECT,
+        schema_version=SPLIT_REVIEW_SCHEMA_VERSION,
+        limit=limit,
+        offset=offset,
+        query=_GAME1_POSTBOARD_SPLIT_REVIEW_QUERY,
+        row_mapper=_game1_postboard_split_row,
+        summary_builder=_game1_postboard_split_summary,
+    )
+
+
 def _build_history(
     paths: LocalAppPaths,
     *,
@@ -166,6 +205,7 @@ def _build_history(
     query: str,
     row_mapper: Any,
     schema_version: str = HISTORY_SCHEMA_VERSION,
+    summary_builder: Any | None = None,
 ) -> dict[str, object]:
     normalized_limit = _normalize_limit(limit)
     normalized_offset = _normalize_offset(offset)
@@ -183,6 +223,7 @@ def _build_history(
             limit=normalized_limit,
             offset=normalized_offset,
             rows=[],
+            summary_override=_custom_summary(summary_builder, []),
         )
     if status == "error":
         return _payload(
@@ -194,6 +235,7 @@ def _build_history(
             offset=normalized_offset,
             rows=[],
             errors=_stable_codes(database_status.get("errors"), fallback="analytics_history_database_unavailable"),
+            summary_override=_custom_summary(summary_builder, []),
         )
     if schema_status != "schema_current":
         return _payload(
@@ -205,6 +247,7 @@ def _build_history(
             offset=normalized_offset,
             rows=[],
             warnings=["analytics_schema_not_current"],
+            summary_override=_custom_summary(summary_builder, []),
         )
 
     database_path = paths.analytics_database
@@ -218,6 +261,7 @@ def _build_history(
             offset=normalized_offset,
             rows=[],
             errors=["app_data_root_unavailable"],
+            summary_override=_custom_summary(summary_builder, []),
         )
 
     try:
@@ -232,6 +276,7 @@ def _build_history(
             offset=normalized_offset,
             rows=[],
             errors=["analytics_history_query_failed"],
+            summary_override=_custom_summary(summary_builder, []),
         )
 
     mapped_rows = [row_mapper(row) for row in rows]
@@ -243,6 +288,7 @@ def _build_history(
         limit=normalized_limit,
         offset=normalized_offset,
         rows=mapped_rows,
+        summary_override=_custom_summary(summary_builder, mapped_rows),
     )
 
 
@@ -571,6 +617,7 @@ def _payload(
     errors: list[str] | None = None,
     card_row_count: int | None = None,
     include_review_required_count: bool = False,
+    summary_override: dict[str, object] | None = None,
 ) -> dict[str, object]:
     return {
         "object": object_name,
@@ -582,7 +629,9 @@ def _payload(
             "offset": offset,
             "returned": len(rows),
         },
-        "summary": _summary(
+        "summary": summary_override
+        if summary_override is not None
+        else _summary(
             rows,
             card_row_count=card_row_count,
             include_review_required_count=include_review_required_count,
@@ -591,6 +640,12 @@ def _payload(
         "warnings": warnings or [],
         "errors": errors or [],
     }
+
+
+def _custom_summary(summary_builder: Any | None, rows: list[dict[str, object]]) -> dict[str, object] | None:
+    if summary_builder is None:
+        return None
+    return summary_builder(rows)
 
 
 def _history_database(database_status: dict[str, object]) -> dict[str, object]:
@@ -741,6 +796,67 @@ def _game_row(row: sqlite3.Row) -> dict[str, object]:
         "result_status": _optional_status_object(row, "result_id", "result"),
         "context_status": _optional_status_object(row, "context_id", "context"),
     }
+
+
+def _play_draw_split_row(row: sqlite3.Row) -> dict[str, object]:
+    return {
+        "play_draw": row["play_draw"],
+        "game_count": _int_value(row["game_count"]),
+        "known_result_count": _int_value(row["known_result_count"]),
+        "wins": _int_value(row["wins"]),
+        "losses": _int_value(row["losses"]),
+        "unknown_result_count": _int_value(row["unknown_result_count"]),
+        "unavailable_result_count": _int_value(row["unavailable_result_count"]),
+        "degraded_result_count": _int_value(row["degraded_result_count"]),
+        "win_rate": row["win_rate"],
+        "sample_size_warning": row["sample_size_warning"],
+    }
+
+
+def _game1_postboard_split_row(row: sqlite3.Row) -> dict[str, object]:
+    return {
+        "game_result_id": row["game_result_id"],
+        "match_id": row["match_id"],
+        "game_id": row["game_id"],
+        "game_number": row["game_number"],
+        "pre_postboard_label": row["pre_postboard_label"],
+        "local_result": row["local_result"],
+        "play_draw": row["play_draw"],
+        "turn_count": row["turn_count"],
+        "game_duration_seconds": row["game_duration_seconds"],
+        "game_result_status": _status_object(row, "game_result"),
+    }
+
+
+def _play_draw_split_summary(rows: list[dict[str, object]]) -> dict[str, object]:
+    return {
+        "row_count": len(rows),
+        "total_game_count": sum(_int_value(row.get("game_count")) for row in rows),
+        "known_result_count": sum(_int_value(row.get("known_result_count")) for row in rows),
+        "wins": sum(_int_value(row.get("wins")) for row in rows),
+        "losses": sum(_int_value(row.get("losses")) for row in rows),
+        "unknown_result_count": sum(_int_value(row.get("unknown_result_count")) for row in rows),
+        "unavailable_result_count": sum(_int_value(row.get("unavailable_result_count")) for row in rows),
+        "degraded_result_count": sum(_int_value(row.get("degraded_result_count")) for row in rows),
+        "small_sample_group_count": sum(1 for row in rows if row.get("sample_size_warning") == "small_sample"),
+    }
+
+
+def _game1_postboard_split_summary(rows: list[dict[str, object]]) -> dict[str, object]:
+    return {
+        "row_count": len(rows),
+        "game1_row_count": sum(1 for row in rows if _is_game1_or_preboard(row.get("pre_postboard_label"))),
+        "postboard_row_count": sum(1 for row in rows if row.get("pre_postboard_label") == "postboard"),
+        "known_result_count": sum(1 for row in rows if row.get("local_result") in {"win", "loss"}),
+        "unknown_result_count": sum(1 for row in rows if row.get("local_result") not in {"win", "loss"}),
+        "degraded_row_count": sum(1 for row in rows if _row_is_degraded(row)),
+        "unavailable_row_count": sum(1 for row in rows if _row_is_unavailable(row)),
+        "conflict_row_count": sum(1 for row in rows if _row_is_conflict(row)),
+    }
+
+
+def _is_game1_or_preboard(value: object) -> bool:
+    return value in {"game1", "preboard"}
 
 
 def _opening_hand_row(row: sqlite3.Row, card_rows: list[sqlite3.Row]) -> dict[str, object]:
@@ -992,6 +1108,14 @@ def _optional_bool(value: object) -> bool | None:
     return bool(value)
 
 
+def _int_value(value: object) -> int:
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int | float):
+        return int(value)
+    return 0
+
+
 def _integer_csv(value: object) -> list[int]:
     if not isinstance(value, str) or not value:
         return []
@@ -1068,6 +1192,59 @@ def _stable_codes(value: object, *, fallback: str) -> list[str]:
         return value
     return [fallback]
 
+
+_PLAY_DRAW_SPLIT_REVIEW_QUERY = """
+SELECT
+    splits.play_draw,
+    splits.game_count,
+    splits.known_result_count,
+    splits.wins,
+    splits.losses,
+    splits.unknown_result_count,
+    splits.unavailable_result_count,
+    splits.degraded_result_count,
+    splits.win_rate,
+    warnings.sample_size_warning
+FROM v_play_draw_splits AS splits
+LEFT JOIN v_sample_size_warnings AS warnings
+    ON warnings.play_draw = splits.play_draw
+ORDER BY
+    CASE splits.play_draw
+        WHEN 'play' THEN 0
+        WHEN 'draw' THEN 1
+        WHEN 'unknown' THEN 2
+        ELSE 3
+    END ASC,
+    splits.play_draw ASC
+LIMIT ? OFFSET ?
+"""
+
+_GAME1_POSTBOARD_SPLIT_REVIEW_QUERY = """
+SELECT
+    game_result_id,
+    match_id,
+    game_id,
+    game_number,
+    pre_postboard_label,
+    local_result,
+    play_draw,
+    turn_count,
+    game_duration_seconds,
+    value_source AS game_result_value_source,
+    confidence AS game_result_confidence,
+    finality AS game_result_finality,
+    drift_status AS game_result_drift_status,
+    availability_status AS game_result_availability_status,
+    source_parser_surface AS game_result_source_parser_surface,
+    source_fact_key AS game_result_source_fact_key,
+    ingest_run_id AS game_result_ingest_run_id
+FROM v_game1_vs_postboard
+ORDER BY
+    match_id DESC,
+    game_number ASC,
+    game_result_id ASC
+LIMIT ? OFFSET ?
+"""
 
 _MATCH_HISTORY_QUERY = """
 SELECT

@@ -3,12 +3,14 @@ import { describe, expect, it, vi } from "vitest";
 import {
   fetchGameplayActionReview,
   AnalyticsHistoryApiError,
+  fetchGame1PostboardSplitReview,
   fetchManualImportJob,
   fetchGameHistory,
   fetchMatchHistory,
   fetchMulliganHistory,
   fetchOpponentCardObservationReview,
   fetchOpeningHandHistory,
+  fetchPlayDrawSplitReview,
   fetchSetupStatus,
   getApiBaseUrl,
   ManualImportApiError,
@@ -21,6 +23,7 @@ import {
   ANALYTICS_HISTORY_SCHEMA_VERSION,
   EARLY_GAME_HISTORY_SCHEMA_VERSION,
   GAME_HISTORY_OBJECT,
+  GAME1_POSTBOARD_SPLIT_REVIEW_OBJECT,
   GAMEPLAY_ACTION_REVIEW_OBJECT,
   LEGACY_JSONL_IMPORT_QUALITY_OBJECT,
   LEGACY_JSONL_IMPORT_QUALITY_SCHEMA_VERSION,
@@ -30,8 +33,11 @@ import {
   MULLIGAN_HISTORY_OBJECT,
   OPPONENT_CARD_OBSERVATION_REVIEW_OBJECT,
   OPENING_HAND_HISTORY_OBJECT,
+  PLAY_DRAW_SPLIT_REVIEW_OBJECT,
   SETUP_STATUS_OBJECT,
   SETUP_STATUS_SCHEMA_VERSION,
+  SPLIT_REVIEW_SCHEMA_VERSION,
+  type Game1PostboardSplitReviewResponse,
   type GameHistoryResponse,
   type GameplayActionReviewResponse,
   type LegacyJsonlImportQuality,
@@ -40,6 +46,7 @@ import {
   type OpeningHandHistoryResponse,
   type MatchHistoryResponse,
   type OpponentCardObservationReviewResponse,
+  type PlayDrawSplitReviewResponse,
   type SetupStatusResponse
 } from "./types";
 
@@ -269,6 +276,56 @@ describe("api helpers", () => {
       })
     ) as unknown as typeof fetch;
     await expect(fetchOpponentCardObservationReview(malformedFlagsFetch)).rejects.toMatchObject({
+      code: "malformed_response"
+    });
+  });
+
+  it("fetches and validates play-draw and game1-postboard split review responses", async () => {
+    const playDrawPayload = buildPlayDrawSplitReviewPayload();
+    const postboardPayload = buildGame1PostboardSplitReviewPayload();
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input).endsWith("/api/analytics/play-draw-splits")) {
+        return jsonResponse(playDrawPayload);
+      }
+      return jsonResponse(postboardPayload);
+    }) as unknown as typeof fetch;
+
+    await expect(fetchPlayDrawSplitReview(fetchImpl)).resolves.toEqual(playDrawPayload);
+    await expect(fetchGame1PostboardSplitReview(fetchImpl)).resolves.toEqual(postboardPayload);
+    expect(fetchImpl).toHaveBeenCalledWith("/api/analytics/play-draw-splits", {
+      headers: { Accept: "application/json" }
+    });
+    expect(fetchImpl).toHaveBeenCalledWith("/api/analytics/game1-postboard-splits", {
+      headers: { Accept: "application/json" }
+    });
+  });
+
+  it("rejects malformed split review responses safely", async () => {
+    const wrongSchemaFetch = vi.fn(async () =>
+      jsonResponse({ ...buildPlayDrawSplitReviewPayload(), schema_version: ACTION_REVIEW_SCHEMA_VERSION })
+    ) as unknown as typeof fetch;
+    await expect(fetchPlayDrawSplitReview(wrongSchemaFetch)).rejects.toMatchObject({
+      code: "incompatible_response"
+    });
+
+    const wrongObjectFetch = vi.fn(async () =>
+      jsonResponse({ ...buildGame1PostboardSplitReviewPayload(), object: PLAY_DRAW_SPLIT_REVIEW_OBJECT })
+    ) as unknown as typeof fetch;
+    await expect(fetchGame1PostboardSplitReview(wrongObjectFetch)).rejects.toMatchObject({
+      code: "malformed_response"
+    });
+
+    const malformedSummaryFetch = vi.fn(async () =>
+      jsonResponse({ ...buildPlayDrawSplitReviewPayload(), summary: { row_count: 1 } })
+    ) as unknown as typeof fetch;
+    await expect(fetchPlayDrawSplitReview(malformedSummaryFetch)).rejects.toMatchObject({
+      code: "malformed_response"
+    });
+
+    const malformedRowsFetch = vi.fn(async () =>
+      jsonResponse({ ...buildGame1PostboardSplitReviewPayload(), rows: [{ game_result_id: "result:1" }] })
+    ) as unknown as typeof fetch;
+    await expect(fetchGame1PostboardSplitReview(malformedRowsFetch)).rejects.toMatchObject({
       code: "malformed_response"
     });
   });
@@ -829,6 +886,121 @@ function buildOpponentObservationReviewPayload(): OpponentCardObservationReviewR
         game_result_status: buildHistoryStatus(),
         match_result_status: buildHistoryStatus(),
         context_status: buildHistoryStatus()
+      }
+    ],
+    warnings: [],
+    errors: []
+  };
+}
+
+function buildPlayDrawSplitReviewPayload(): PlayDrawSplitReviewResponse {
+  return {
+    object: PLAY_DRAW_SPLIT_REVIEW_OBJECT,
+    schema_version: SPLIT_REVIEW_SCHEMA_VERSION,
+    status: "ok",
+    database: {
+      display_path: "<app_data>\\db\\mythic_edge.sqlite3",
+      exists: true,
+      schema_status: "schema_current",
+      status: "ok"
+    },
+    pagination: {
+      limit: 50,
+      offset: 0,
+      returned: 2
+    },
+    summary: {
+      row_count: 2,
+      total_game_count: 12,
+      known_result_count: 11,
+      wins: 7,
+      losses: 4,
+      unknown_result_count: 1,
+      unavailable_result_count: 1,
+      degraded_result_count: 1,
+      small_sample_group_count: 1
+    },
+    rows: [
+      {
+        play_draw: "play",
+        game_count: 10,
+        known_result_count: 10,
+        wins: 6,
+        losses: 4,
+        unknown_result_count: 0,
+        unavailable_result_count: 0,
+        degraded_result_count: 0,
+        win_rate: 0.6,
+        sample_size_warning: "ok"
+      },
+      {
+        play_draw: "draw",
+        game_count: 2,
+        known_result_count: 1,
+        wins: 1,
+        losses: 0,
+        unknown_result_count: 1,
+        unavailable_result_count: 1,
+        degraded_result_count: 1,
+        win_rate: 1,
+        sample_size_warning: "small_sample"
+      }
+    ],
+    warnings: [],
+    errors: []
+  };
+}
+
+function buildGame1PostboardSplitReviewPayload(): Game1PostboardSplitReviewResponse {
+  return {
+    object: GAME1_POSTBOARD_SPLIT_REVIEW_OBJECT,
+    schema_version: SPLIT_REVIEW_SCHEMA_VERSION,
+    status: "ok",
+    database: {
+      display_path: "<app_data>\\db\\mythic_edge.sqlite3",
+      exists: true,
+      schema_status: "schema_current",
+      status: "ok"
+    },
+    pagination: {
+      limit: 50,
+      offset: 0,
+      returned: 2
+    },
+    summary: {
+      row_count: 2,
+      game1_row_count: 1,
+      postboard_row_count: 1,
+      known_result_count: 2,
+      unknown_result_count: 0,
+      degraded_row_count: 0,
+      unavailable_row_count: 0,
+      conflict_row_count: 0
+    },
+    rows: [
+      {
+        game_result_id: "match:history:1:g1:game_result",
+        match_id: "match:history:1",
+        game_id: "match:history:1:g1",
+        game_number: 1,
+        pre_postboard_label: "game1",
+        local_result: "win",
+        play_draw: "play",
+        turn_count: 8,
+        game_duration_seconds: 900,
+        game_result_status: buildHistoryStatus()
+      },
+      {
+        game_result_id: "match:history:1:g2:game_result",
+        match_id: "match:history:1",
+        game_id: "match:history:1:g2",
+        game_number: 2,
+        pre_postboard_label: "postboard",
+        local_result: "loss",
+        play_draw: "draw",
+        turn_count: null,
+        game_duration_seconds: null,
+        game_result_status: buildHistoryStatus()
       }
     ],
     warnings: [],

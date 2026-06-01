@@ -49,6 +49,8 @@ def test_read_only_endpoint_inventory_and_no_wildcard_cors(tmp_path) -> None:
         "/api/analytics/mulligans",
         "/api/analytics/gameplay-actions",
         "/api/analytics/opponent-card-observations",
+        "/api/analytics/play-draw-splits",
+        "/api/analytics/game1-postboard-splits",
         "/api/runtime/status",
         "/api/imports/jsonl",
         "/api/imports/jobs/{job_id}",

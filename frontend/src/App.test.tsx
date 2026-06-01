@@ -7,6 +7,7 @@ import {
   ACTION_REVIEW_SCHEMA_VERSION,
   ANALYTICS_HISTORY_SCHEMA_VERSION,
   EARLY_GAME_HISTORY_SCHEMA_VERSION,
+  GAME1_POSTBOARD_SPLIT_REVIEW_OBJECT,
   GAME_HISTORY_OBJECT,
   GAMEPLAY_ACTION_REVIEW_OBJECT,
   LEGACY_JSONL_IMPORT_QUALITY_OBJECT,
@@ -17,8 +18,11 @@ import {
   MULLIGAN_HISTORY_OBJECT,
   OPPONENT_CARD_OBSERVATION_REVIEW_OBJECT,
   OPENING_HAND_HISTORY_OBJECT,
+  PLAY_DRAW_SPLIT_REVIEW_OBJECT,
   SETUP_STATUS_OBJECT,
   SETUP_STATUS_SCHEMA_VERSION,
+  SPLIT_REVIEW_SCHEMA_VERSION,
+  type Game1PostboardSplitReviewResponse,
   type GameHistoryResponse,
   type GameplayActionReviewResponse,
   type LegacyJsonlImportQuality,
@@ -28,6 +32,7 @@ import {
   type MulliganHistoryResponse,
   type OpeningHandHistoryResponse,
   type OpponentCardObservationReviewResponse,
+  type PlayDrawSplitReviewResponse,
   type SetupStatusResponse
 } from "./types";
 
@@ -147,6 +152,41 @@ describe("SetupStatusApp", () => {
     });
   });
 
+  it("renders read-only play-draw and game1-postboard split review with a refresh control", async () => {
+    const fetchPlayDrawSplits = vi.fn(async () => buildPlayDrawSplitReviewPayload());
+    const fetchGame1PostboardSplits = vi.fn(async () => buildGame1PostboardSplitReviewPayload());
+    render(
+      <SetupStatusApp
+        fetchGame1PostboardSplits={fetchGame1PostboardSplits}
+        fetchGames={() => Promise.resolve(buildGameHistoryPayload())}
+        fetchGameplayActions={() => Promise.resolve(buildGameplayActionReviewPayload())}
+        fetchMatches={() => Promise.resolve(buildMatchHistoryPayload())}
+        fetchMulligans={() => Promise.resolve(buildMulliganHistoryPayload())}
+        fetchOpeningHands={() => Promise.resolve(buildOpeningHandHistoryPayload())}
+        fetchOpponentObservations={() => Promise.resolve(buildOpponentObservationReviewPayload())}
+        fetchPlayDrawSplits={fetchPlayDrawSplits}
+        fetchStatus={() => Promise.resolve(buildPayload())}
+      />
+    );
+
+    expect(await screen.findByRole("heading", { name: "Split Review" })).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { name: "Play/Draw Splits" }).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByRole("heading", { name: "Game 1/Postboard Rows" })).toBeInTheDocument();
+    expect(await screen.findByText("60 percent")).toBeInTheDocument();
+    expect(screen.getByText("small_sample")).toBeInTheDocument();
+    expect(screen.getAllByText("match:history:1 game 1").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("900 seconds")).toBeInTheDocument();
+    expect(screen.queryByText(/best line|mistake|advice|line tracer|hidden card|archetype|causation/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /reset|delete|wipe|cancel|retry|start|stop|git|sheets|ai/i })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Refresh Splits" }));
+
+    await waitFor(() => {
+      expect(fetchPlayDrawSplits).toHaveBeenCalledTimes(2);
+      expect(fetchGame1PostboardSplits).toHaveBeenCalledTimes(2);
+    });
+  });
+
   it("renders empty and degraded history states safely", async () => {
     render(
       <SetupStatusApp
@@ -197,6 +237,28 @@ describe("SetupStatusApp", () => {
     expect(screen.getByText("opponent observation history schema not current")).toBeInTheDocument();
   });
 
+  it("renders empty and degraded split review states safely", async () => {
+    render(
+      <SetupStatusApp
+        fetchGame1PostboardSplits={() =>
+          Promise.resolve({ ...buildGame1PostboardSplitReviewPayload(), status: "degraded", rows: [] })
+        }
+        fetchGames={() => Promise.resolve(buildGameHistoryPayload())}
+        fetchGameplayActions={() => Promise.resolve(buildGameplayActionReviewPayload())}
+        fetchMatches={() => Promise.resolve(buildMatchHistoryPayload())}
+        fetchMulligans={() => Promise.resolve(buildMulliganHistoryPayload())}
+        fetchOpeningHands={() => Promise.resolve(buildOpeningHandHistoryPayload())}
+        fetchOpponentObservations={() => Promise.resolve(buildOpponentObservationReviewPayload())}
+        fetchPlayDrawSplits={() => Promise.resolve({ ...buildPlayDrawSplitReviewPayload(), status: "empty", rows: [] })}
+        fetchStatus={() => Promise.resolve(buildPayload())}
+      />
+    );
+
+    expect(await screen.findByRole("heading", { name: "Split Review" })).toBeInTheDocument();
+    expect(screen.getByText("No play/draw split rows")).toBeInTheDocument();
+    expect(screen.getByText("game 1/postboard split history schema not current")).toBeInTheDocument();
+  });
+
   it("renders malformed history responses without raw backend details", async () => {
     render(
       <SetupStatusApp
@@ -242,6 +304,26 @@ describe("SetupStatusApp", () => {
     expect(await screen.findByRole("heading", { name: "Malformed history response" })).toBeInTheDocument();
     expect(screen.queryByText(`Expected schema: ${ACTION_REVIEW_SCHEMA_VERSION}`)).not.toBeInTheDocument();
     expect(screen.queryByText(/stack|error:|select \*/i)).not.toBeInTheDocument();
+  });
+
+  it("renders malformed split review responses without raw backend details", async () => {
+    render(
+      <SetupStatusApp
+        fetchGame1PostboardSplits={() => Promise.resolve(buildGame1PostboardSplitReviewPayload())}
+        fetchGames={() => Promise.resolve(buildGameHistoryPayload())}
+        fetchGameplayActions={() => Promise.resolve(buildGameplayActionReviewPayload())}
+        fetchMatches={() => Promise.resolve(buildMatchHistoryPayload())}
+        fetchMulligans={() => Promise.resolve(buildMulliganHistoryPayload())}
+        fetchOpeningHands={() => Promise.resolve(buildOpeningHandHistoryPayload())}
+        fetchOpponentObservations={() => Promise.resolve(buildOpponentObservationReviewPayload())}
+        fetchPlayDrawSplits={() => Promise.reject(new AnalyticsHistoryApiError("malformed_response", "Malformed history"))}
+        fetchStatus={() => Promise.resolve(buildPayload())}
+      />
+    );
+
+    expect(await screen.findByRole("heading", { name: "Malformed history response" })).toBeInTheDocument();
+    expect(screen.queryByText(`Expected schema: ${SPLIT_REVIEW_SCHEMA_VERSION}`)).not.toBeInTheDocument();
+    expect(screen.queryByText(/error:|select \*/i)).not.toBeInTheDocument();
   });
 
   it("renders a backend-unavailable state without stack traces", async () => {
@@ -1036,6 +1118,121 @@ function buildOpponentObservationReviewPayload(): OpponentCardObservationReviewR
         game_result_status: buildHistoryStatus(),
         match_result_status: buildHistoryStatus(),
         context_status: buildHistoryStatus()
+      }
+    ],
+    warnings: [],
+    errors: []
+  };
+}
+
+function buildPlayDrawSplitReviewPayload(): PlayDrawSplitReviewResponse {
+  return {
+    object: PLAY_DRAW_SPLIT_REVIEW_OBJECT,
+    schema_version: SPLIT_REVIEW_SCHEMA_VERSION,
+    status: "ok",
+    database: {
+      display_path: "<app_data>\\db\\mythic_edge.sqlite3",
+      exists: true,
+      schema_status: "schema_current",
+      status: "ok"
+    },
+    pagination: {
+      limit: 50,
+      offset: 0,
+      returned: 2
+    },
+    summary: {
+      row_count: 2,
+      total_game_count: 12,
+      known_result_count: 11,
+      wins: 7,
+      losses: 4,
+      unknown_result_count: 1,
+      unavailable_result_count: 1,
+      degraded_result_count: 1,
+      small_sample_group_count: 1
+    },
+    rows: [
+      {
+        play_draw: "play",
+        game_count: 10,
+        known_result_count: 10,
+        wins: 6,
+        losses: 4,
+        unknown_result_count: 0,
+        unavailable_result_count: 0,
+        degraded_result_count: 0,
+        win_rate: 0.6,
+        sample_size_warning: "ok"
+      },
+      {
+        play_draw: "draw",
+        game_count: 2,
+        known_result_count: 1,
+        wins: 1,
+        losses: 0,
+        unknown_result_count: 1,
+        unavailable_result_count: 1,
+        degraded_result_count: 1,
+        win_rate: 1,
+        sample_size_warning: "small_sample"
+      }
+    ],
+    warnings: [],
+    errors: []
+  };
+}
+
+function buildGame1PostboardSplitReviewPayload(): Game1PostboardSplitReviewResponse {
+  return {
+    object: GAME1_POSTBOARD_SPLIT_REVIEW_OBJECT,
+    schema_version: SPLIT_REVIEW_SCHEMA_VERSION,
+    status: "ok",
+    database: {
+      display_path: "<app_data>\\db\\mythic_edge.sqlite3",
+      exists: true,
+      schema_status: "schema_current",
+      status: "ok"
+    },
+    pagination: {
+      limit: 50,
+      offset: 0,
+      returned: 2
+    },
+    summary: {
+      row_count: 2,
+      game1_row_count: 1,
+      postboard_row_count: 1,
+      known_result_count: 2,
+      unknown_result_count: 0,
+      degraded_row_count: 0,
+      unavailable_row_count: 0,
+      conflict_row_count: 0
+    },
+    rows: [
+      {
+        game_result_id: "match:history:1:g1:game_result",
+        match_id: "match:history:1",
+        game_id: "match:history:1:g1",
+        game_number: 1,
+        pre_postboard_label: "game1",
+        local_result: "win",
+        play_draw: "play",
+        turn_count: 8,
+        game_duration_seconds: 900,
+        game_result_status: buildHistoryStatus()
+      },
+      {
+        game_result_id: "match:history:1:g2:game_result",
+        match_id: "match:history:1",
+        game_id: "match:history:1:g2",
+        game_number: 2,
+        pre_postboard_label: "postboard",
+        local_result: "loss",
+        play_draw: "draw",
+        turn_count: null,
+        game_duration_seconds: null,
+        game_result_status: buildHistoryStatus()
       }
     ],
     warnings: [],

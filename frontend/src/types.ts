@@ -13,6 +13,9 @@ export const MULLIGAN_HISTORY_OBJECT = "mythic_edge_local_app_mulligan_history";
 export const ACTION_REVIEW_SCHEMA_VERSION = "analytics_app_gameplay_action_opponent_observation_views.v1";
 export const GAMEPLAY_ACTION_REVIEW_OBJECT = "mythic_edge_local_app_gameplay_action_review";
 export const OPPONENT_CARD_OBSERVATION_REVIEW_OBJECT = "mythic_edge_local_app_opponent_card_observation_review";
+export const SPLIT_REVIEW_SCHEMA_VERSION = "analytics_app_play_draw_postboard_split_views.v1";
+export const PLAY_DRAW_SPLIT_REVIEW_OBJECT = "mythic_edge_local_app_play_draw_split_review";
+export const GAME1_POSTBOARD_SPLIT_REVIEW_OBJECT = "mythic_edge_local_app_game1_postboard_split_review";
 
 export type SetupStatusTone =
   | "ok"
@@ -237,6 +240,29 @@ export type EarlyGameHistorySummary = AnalyticsHistorySummary & {
 
 export type ActionReviewSummary = EarlyGameHistorySummary & {
   review_required_row_count: number;
+};
+
+export type PlayDrawSplitSummary = {
+  row_count: number;
+  total_game_count: number;
+  known_result_count: number;
+  wins: number;
+  losses: number;
+  unknown_result_count: number;
+  unavailable_result_count: number;
+  degraded_result_count: number;
+  small_sample_group_count: number;
+};
+
+export type Game1PostboardSplitSummary = {
+  row_count: number;
+  game1_row_count: number;
+  postboard_row_count: number;
+  known_result_count: number;
+  unknown_result_count: number;
+  degraded_row_count: number;
+  unavailable_row_count: number;
+  conflict_row_count: number;
 };
 
 export type MatchHistoryRow = {
@@ -538,6 +564,56 @@ export type OpponentCardObservationReviewResponse = {
   pagination: AnalyticsHistoryPagination;
   summary: ActionReviewSummary;
   rows: OpponentCardObservationReviewRow[];
+  warnings: string[];
+  errors: string[];
+};
+
+export type PlayDrawSplitRow = {
+  play_draw: string;
+  game_count: number;
+  known_result_count: number;
+  wins: number;
+  losses: number;
+  unknown_result_count: number;
+  unavailable_result_count: number;
+  degraded_result_count: number;
+  win_rate: number | null;
+  sample_size_warning: string | null;
+};
+
+export type Game1PostboardSplitRow = {
+  game_result_id: string;
+  match_id: string;
+  game_id: string;
+  game_number: number;
+  pre_postboard_label: string | null;
+  local_result: string | null;
+  play_draw: string | null;
+  turn_count: number | null;
+  game_duration_seconds: number | null;
+  game_result_status: AnalyticsHistoryStatusObject;
+};
+
+export type PlayDrawSplitReviewResponse = {
+  object: typeof PLAY_DRAW_SPLIT_REVIEW_OBJECT;
+  schema_version: typeof SPLIT_REVIEW_SCHEMA_VERSION;
+  status: AnalyticsHistoryStatus;
+  database: AnalyticsHistoryDatabase;
+  pagination: AnalyticsHistoryPagination;
+  summary: PlayDrawSplitSummary;
+  rows: PlayDrawSplitRow[];
+  warnings: string[];
+  errors: string[];
+};
+
+export type Game1PostboardSplitReviewResponse = {
+  object: typeof GAME1_POSTBOARD_SPLIT_REVIEW_OBJECT;
+  schema_version: typeof SPLIT_REVIEW_SCHEMA_VERSION;
+  status: AnalyticsHistoryStatus;
+  database: AnalyticsHistoryDatabase;
+  pagination: AnalyticsHistoryPagination;
+  summary: Game1PostboardSplitSummary;
+  rows: Game1PostboardSplitRow[];
   warnings: string[];
   errors: string[];
 };
