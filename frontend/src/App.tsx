@@ -2,6 +2,9 @@ import { useEffect, useRef, useState, type FormEvent, type ReactNode, type RefOb
 
 import "./App.css";
 import {
+  AnalyticsHistoryApiError,
+  fetchGameHistory,
+  fetchMatchHistory,
   fetchSetupStatus,
   ManualImportApiError,
   SetupStatusApiError,
@@ -11,10 +14,16 @@ import {
 import { safeDisplayValue, statusTone } from "./status";
 import {
   MANUAL_IMPORT_JOB_SCHEMA_VERSION,
+  ANALYTICS_HISTORY_SCHEMA_VERSION,
   SETUP_STATUS_SCHEMA_VERSION,
+  type AnalyticsHistoryStatus,
+  type AnalyticsHistoryStatusObject,
+  type GameHistoryResponse,
   type ManualImportJob,
   type ManualImportRequest,
   type ManualImportUploadRequest,
+  type MatchHistoryResponse,
+  type MatchHistoryRow,
   type LegacyJsonlImportQuality,
   type LegacyJsonlRoutingHint,
   type ManualImportSourceArtifact,
@@ -29,6 +38,8 @@ type LoadState =
 
 type SetupStatusAppProps = {
   fetchStatus?: () => Promise<SetupStatusResponse>;
+  fetchMatches?: () => Promise<MatchHistoryResponse>;
+  fetchGames?: () => Promise<GameHistoryResponse>;
   submitImport?: (request: ManualImportRequest) => Promise<ManualImportJob>;
   submitUpload?: (request: ManualImportUploadRequest) => Promise<ManualImportJob>;
 };
@@ -39,6 +50,11 @@ type ImportState =
   | { state: "result"; job: ManualImportJob }
   | { state: "error"; code: ManualImportApiError["code"]; message: string };
 
+type HistoryState =
+  | { state: "loading" }
+  | { state: "ready"; matches: MatchHistoryResponse; games: GameHistoryResponse; unsafeCount: number }
+  | { state: "error"; code: AnalyticsHistoryApiError["code"]; message: string };
+
 type Panel = {
   title: string;
   status: string;
@@ -47,10 +63,13 @@ type Panel = {
 
 export function SetupStatusApp({
   fetchStatus = fetchSetupStatus,
+  fetchMatches = fetchMatchHistory,
+  fetchGames = fetchGameHistory,
   submitImport = submitManualJsonlImport,
   submitUpload = submitManualJsonlUpload
 }: SetupStatusAppProps) {
   const [loadState, setLoadState] = useState<LoadState>({ state: "loading" });
+  const [historyState, setHistoryState] = useState<HistoryState>({ state: "loading" });
   const [sourcePath, setSourcePath] = useState("");
   const [sourcePathsText, setSourcePathsText] = useState("");
   const [uploadFiles, setUploadFiles] = useState<File[]>([]);
@@ -92,6 +111,70 @@ export function SetupStatusApp({
       active = false;
     };
   }, [fetchStatus]);
+
+  useEffect(() => {
+    let active = true;
+
+    loadHistory();
+
+    return () => {
+      active = false;
+    };
+
+    function loadHistory() {
+      setHistoryState({ state: "loading" });
+      Promise.all([fetchMatches(), fetchGames()])
+        .then(([matches, games]) => {
+          if (!active) {
+            return;
+          }
+          setHistoryState({
+            state: "ready",
+            matches,
+            games,
+            unsafeCount: countUnsafeHistoryValues(matches, games)
+          });
+        })
+        .catch((error: unknown) => {
+          if (!active) {
+            return;
+          }
+          if (error instanceof AnalyticsHistoryApiError) {
+            setHistoryState({ state: "error", code: error.code, message: error.message });
+            return;
+          }
+          setHistoryState({
+            state: "error",
+            code: "backend_unavailable",
+            message: "Analytics history backend is unavailable."
+          });
+        });
+    }
+  }, [fetchGames, fetchMatches]);
+
+  function refreshHistory() {
+    setHistoryState({ state: "loading" });
+    Promise.all([fetchMatches(), fetchGames()])
+      .then(([matches, games]) => {
+        setHistoryState({
+          state: "ready",
+          matches,
+          games,
+          unsafeCount: countUnsafeHistoryValues(matches, games)
+        });
+      })
+      .catch((error: unknown) => {
+        if (error instanceof AnalyticsHistoryApiError) {
+          setHistoryState({ state: "error", code: error.code, message: error.message });
+          return;
+        }
+        setHistoryState({
+          state: "error",
+          code: "backend_unavailable",
+          message: "Analytics history backend is unavailable."
+        });
+      });
+  }
 
   async function handleManualImport(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -275,8 +358,9 @@ export function SetupStatusApp({
         uploadSelectionMessage={uploadSelectionMessage}
       />
 
+      <AnalyticsHistorySection historyState={historyState} onRefresh={refreshHistory} />
+
       <section className="panelGrid futureGrid" aria-label="Deferred local app sections">
-        <StatusPanel title="Analytics Views" status="deferred" details={[{ label: "state", value: "deferred" }]} />
         <StatusPanel title="Live Watcher" status="deferred" details={[{ label: "state", value: "deferred" }]} />
       </section>
     </Shell>
@@ -443,6 +527,174 @@ function ManualImportPanel({
       {importState.state === "result" ? <ManualImportJobSummary job={importState.job} /> : null}
     </section>
   );
+}
+
+function AnalyticsHistorySection({
+  historyState,
+  onRefresh
+}: {
+  historyState: HistoryState;
+  onRefresh: () => void;
+}) {
+  const status = analyticsHistoryStatus(historyState);
+  const tone = statusTone(status);
+  return (
+    <section className={`analyticsHistorySection tone-${tone}`} aria-labelledby="analytics-history-title">
+      <div className="panelHeader analyticsHistoryHeader">
+        <div>
+          <h2 id="analytics-history-title">Analytics History</h2>
+        </div>
+        <div className="historyHeaderActions">
+          <StatusPill label={status} tone={tone} />
+          <button disabled={historyState.state === "loading"} onClick={onRefresh} type="button">
+            Refresh
+          </button>
+        </div>
+      </div>
+      {historyState.state === "loading" ? <p className="historyStateMessage">Loading history</p> : null}
+      {historyState.state === "error" ? <AnalyticsHistoryErrorNotice historyState={historyState} /> : null}
+      {historyState.state === "ready" ? (
+        <>
+          {historyState.unsafeCount > 0 ? (
+            <p className="historyStateMessage">{historyState.unsafeCount} history value was redacted.</p>
+          ) : null}
+          <div className="historySummaryGrid" aria-label="Analytics history summary">
+            <HistorySummaryPanel title="Matches" response={historyState.matches} />
+            <HistorySummaryPanel title="Games" response={historyState.games} />
+          </div>
+          <MatchHistoryTable response={historyState.matches} />
+          <GameHistoryTable response={historyState.games} />
+        </>
+      ) : null}
+    </section>
+  );
+}
+
+function AnalyticsHistoryErrorNotice({ historyState }: { historyState: Extract<HistoryState, { state: "error" }> }) {
+  return (
+    <section className={`historyNotice tone-${errorTone(historyState.code)}`} aria-label="Analytics history error">
+      <div className="panelHeader">
+        <h3>{analyticsHistoryErrorTitle(historyState.code)}</h3>
+        <StatusPill label={errorTone(historyState.code)} tone={errorTone(historyState.code)} />
+      </div>
+      <p>
+        {historyState.code === "incompatible_response"
+          ? `Expected schema: ${ANALYTICS_HISTORY_SCHEMA_VERSION}`
+          : historyState.message}
+      </p>
+    </section>
+  );
+}
+
+function HistorySummaryPanel({
+  title,
+  response
+}: {
+  title: string;
+  response: MatchHistoryResponse | GameHistoryResponse;
+}) {
+  return (
+    <article className={`historySummaryPanel tone-${statusTone(response.status)}`}>
+      <div className="panelHeader">
+        <h3>{title}</h3>
+        <StatusPill label={response.status} tone={statusTone(response.status)} />
+      </div>
+      <dl>
+        <SummaryRow label="rows" value={response.summary.row_count} />
+        <SummaryRow label="degraded" value={response.summary.degraded_row_count} />
+        <SummaryRow label="unavailable" value={response.summary.unavailable_row_count} />
+        <SummaryRow label="conflict" value={response.summary.conflict_row_count} />
+        <SummaryRow label="schema" value={response.database.schema_status} />
+      </dl>
+    </article>
+  );
+}
+
+function MatchHistoryTable({ response }: { response: MatchHistoryResponse }) {
+  return (
+    <section className="historyTableSection" aria-labelledby="match-history-title">
+      <div className="panelHeader">
+        <h3 id="match-history-title">Match History</h3>
+        <StatusPill label={response.status} tone={statusTone(response.status)} />
+      </div>
+      {response.rows.length === 0 ? (
+        <p className="historyStateMessage">{historyEmptyLabel("match", response.status)}</p>
+      ) : (
+        <div className="historyTableWrap">
+          <table className="historyTable">
+            <thead>
+              <tr>
+                <th scope="col">Match</th>
+                <th scope="col">Completed</th>
+                <th scope="col">Result</th>
+                <th scope="col">Games</th>
+                <th scope="col">Queue</th>
+                <th scope="col">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {response.rows.map((row) => (
+                <tr key={row.match_id}>
+                  <SafeCell value={row.match_id} />
+                  <SafeCell value={row.match_completed_at ?? row.match_started_at} />
+                  <SafeCell value={row.match_result ?? matchWinLabel(row.match_win)} />
+                  <SafeCell value={gamesSummary(row)} />
+                  <SafeCell value={row.queue_name ?? row.format_name} />
+                  <SafeCell value={statusSummary(row.match_status, row.result_status, row.context_status)} />
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function GameHistoryTable({ response }: { response: GameHistoryResponse }) {
+  return (
+    <section className="historyTableSection" aria-labelledby="game-history-title">
+      <div className="panelHeader">
+        <h3 id="game-history-title">Game History</h3>
+        <StatusPill label={response.status} tone={statusTone(response.status)} />
+      </div>
+      {response.rows.length === 0 ? (
+        <p className="historyStateMessage">{historyEmptyLabel("game", response.status)}</p>
+      ) : (
+        <div className="historyTableWrap">
+          <table className="historyTable">
+            <thead>
+              <tr>
+                <th scope="col">Game</th>
+                <th scope="col">Completed</th>
+                <th scope="col">Result</th>
+                <th scope="col">Play/Draw</th>
+                <th scope="col">Turns</th>
+                <th scope="col">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {response.rows.map((row) => (
+                <tr key={row.game_id}>
+                  <SafeCell value={`${row.match_id} game ${row.game_number}`} />
+                  <SafeCell value={row.game_completed_at ?? row.game_started_at} />
+                  <SafeCell value={row.local_result} />
+                  <SafeCell value={row.play_draw} />
+                  <SafeCell value={row.turn_count} />
+                  <SafeCell value={statusSummary(row.game_status, row.result_status, row.context_status)} />
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function SafeCell({ value }: { value: unknown }) {
+  const safe = safeDisplayValue(value ?? "unknown");
+  return <td className={safe.redacted ? "redactedRow" : undefined}>{safe.text}</td>;
 }
 
 function ManualImportErrorNotice({ importState }: { importState: Extract<ImportState, { state: "error" }> }) {
@@ -620,6 +872,117 @@ function countUnsafeValues(payload: SetupStatusResponse): number {
   }, 0);
 }
 
+function countUnsafeHistoryValues(matches: MatchHistoryResponse, games: GameHistoryResponse): number {
+  const values: unknown[] = [
+    matches.database.display_path,
+    games.database.display_path,
+    ...matches.warnings,
+    ...matches.errors,
+    ...games.warnings,
+    ...games.errors
+  ];
+  for (const row of matches.rows) {
+    values.push(
+      row.match_id,
+      row.parser_match_key,
+      row.match_started_at,
+      row.match_completed_at,
+      row.match_result,
+      row.queue_name,
+      row.format_name,
+      row.event_id,
+      statusSummary(row.match_status, row.result_status, row.context_status)
+    );
+  }
+  for (const row of games.rows) {
+    values.push(
+      row.game_id,
+      row.match_id,
+      row.game_started_at,
+      row.game_completed_at,
+      row.local_result,
+      row.pre_postboard_label,
+      row.play_draw,
+      row.queue_name,
+      row.format_name,
+      row.event_id,
+      statusSummary(row.game_status, row.result_status, row.context_status)
+    );
+  }
+  return values.filter((value) => safeDisplayValue(value ?? "unknown").redacted).length;
+}
+
+function analyticsHistoryStatus(historyState: HistoryState): string {
+  if (historyState.state === "loading") {
+    return "loading";
+  }
+  if (historyState.state === "error") {
+    return errorTone(historyState.code);
+  }
+  if (historyState.unsafeCount > 0) {
+    return "degraded";
+  }
+  const statuses: AnalyticsHistoryStatus[] = [historyState.matches.status, historyState.games.status];
+  const priorityStatuses: AnalyticsHistoryStatus[] = ["error", "unavailable", "degraded", "missing"];
+  for (const status of priorityStatuses) {
+    if (statuses.includes(status)) {
+      return status;
+    }
+  }
+  if (statuses.every((status) => status === "empty")) {
+    return "empty";
+  }
+  return "ok";
+}
+
+function historyEmptyLabel(kind: "match" | "game", status: string): string {
+  if (status === "missing") {
+    return `No ${kind} history database`;
+  }
+  if (status === "degraded") {
+    return `${kind} history schema not current`;
+  }
+  if (status === "error") {
+    return `${kind} history unavailable`;
+  }
+  return `No ${kind} rows`;
+}
+
+function matchWinLabel(value: number | null): string {
+  if (value === 1) {
+    return "win";
+  }
+  if (value === 0) {
+    return "loss";
+  }
+  return "unknown";
+}
+
+function gamesSummary(row: MatchHistoryRow): string {
+  const won = row.games_won ?? "unknown";
+  const lost = row.games_lost ?? "unknown";
+  const total = row.total_games ?? "unknown";
+  return `${won}-${lost} of ${total}`;
+}
+
+function statusSummary(...statuses: Array<AnalyticsHistoryStatusObject | null>): string {
+  const included = statuses.filter((status): status is AnalyticsHistoryStatusObject => status !== null);
+  if (included.length === 0) {
+    return "not joined";
+  }
+  const priority = included.find(
+    (status) =>
+      status.drift_status === "conflict" ||
+      status.value_source === "conflict" ||
+      status.drift_status === "degraded" ||
+      status.confidence === "low" ||
+      status.confidence === "unknown" ||
+      status.availability_status !== "available"
+  );
+  const status = priority ?? included[0];
+  return `${status.value_source} ${status.confidence} ${status.finality} ${status.drift_status} ${status.availability_status}`;
+}
+
 function manualImportStatus(importState: ImportState): string {
   if (importState.state === "submitting") {
     return "running";
@@ -709,6 +1072,19 @@ function manualImportErrorTitle(code: ManualImportApiError["code"]): string {
     return "Unsafe API base URL";
   }
   return "Backend unavailable";
+}
+
+function analyticsHistoryErrorTitle(code: AnalyticsHistoryApiError["code"]): string {
+  if (code === "malformed_response") {
+    return "Malformed history response";
+  }
+  if (code === "incompatible_response") {
+    return "Incompatible history schema";
+  }
+  if (code === "unsafe_api_base_url") {
+    return "Unsafe API base URL";
+  }
+  return "Analytics history unavailable";
 }
 
 function errorTitle(code: SetupStatusApiError["code"]): string {

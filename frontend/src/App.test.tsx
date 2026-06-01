@@ -1,18 +1,23 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { ManualImportApiError, SetupStatusApiError } from "./api";
+import { AnalyticsHistoryApiError, ManualImportApiError, SetupStatusApiError } from "./api";
 import { SetupStatusApp } from "./App";
 import {
+  ANALYTICS_HISTORY_SCHEMA_VERSION,
+  GAME_HISTORY_OBJECT,
   LEGACY_JSONL_IMPORT_QUALITY_OBJECT,
   LEGACY_JSONL_IMPORT_QUALITY_SCHEMA_VERSION,
   MANUAL_IMPORT_JOB_OBJECT,
   MANUAL_IMPORT_JOB_SCHEMA_VERSION,
+  MATCH_HISTORY_OBJECT,
   SETUP_STATUS_OBJECT,
   SETUP_STATUS_SCHEMA_VERSION,
+  type GameHistoryResponse,
   type LegacyJsonlImportQuality,
   type ManualImportJob,
   type ManualImportSourceArtifact,
+  type MatchHistoryResponse,
   type SetupStatusResponse
 } from "./types";
 
@@ -33,6 +38,62 @@ describe("SetupStatusApp", () => {
     expect(screen.getByText("<app_data>\\db\\mythic_edge.sqlite3")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Import JSONL" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /reset|delete|wipe|cancel|retry|start|stop|git|sheets|ai/i })).not.toBeInTheDocument();
+  });
+
+  it("renders read-only match and game history with a refresh control", async () => {
+    const fetchMatches = vi.fn(async () => buildMatchHistoryPayload());
+    const fetchGames = vi.fn(async () => buildGameHistoryPayload());
+    render(
+      <SetupStatusApp
+        fetchGames={fetchGames}
+        fetchMatches={fetchMatches}
+        fetchStatus={() => Promise.resolve(buildPayload())}
+      />
+    );
+
+    expect(await screen.findByRole("heading", { name: "Analytics History" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Match History" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Game History" })).toBeInTheDocument();
+    expect(screen.getByText("match:history:1")).toBeInTheDocument();
+    expect(screen.getByText("match:history:1 game 1")).toBeInTheDocument();
+    expect(screen.getByText("2-1 of 3")).toBeInTheDocument();
+    expect(screen.getAllByText("observed high final none available").length).toBeGreaterThanOrEqual(2);
+    expect(screen.queryByText("Analytics Views")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /reset|delete|wipe|cancel|retry|start|stop|git|sheets|ai/i })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+
+    await waitFor(() => {
+      expect(fetchMatches).toHaveBeenCalledTimes(2);
+      expect(fetchGames).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it("renders empty and degraded history states safely", async () => {
+    render(
+      <SetupStatusApp
+        fetchGames={() => Promise.resolve({ ...buildGameHistoryPayload(), status: "degraded", rows: [] })}
+        fetchMatches={() => Promise.resolve({ ...buildMatchHistoryPayload(), status: "empty", rows: [] })}
+        fetchStatus={() => Promise.resolve(buildPayload())}
+      />
+    );
+
+    expect(await screen.findByRole("heading", { name: "Analytics History" })).toBeInTheDocument();
+    expect(screen.getByText("No match rows")).toBeInTheDocument();
+    expect(screen.getByText("game history schema not current")).toBeInTheDocument();
+  });
+
+  it("renders malformed history responses without raw backend details", async () => {
+    render(
+      <SetupStatusApp
+        fetchGames={() => Promise.resolve(buildGameHistoryPayload())}
+        fetchMatches={() => Promise.reject(new AnalyticsHistoryApiError("malformed_response", "Malformed history"))}
+        fetchStatus={() => Promise.resolve(buildPayload())}
+      />
+    );
+
+    expect(await screen.findByRole("heading", { name: "Malformed history response" })).toBeInTheDocument();
+    expect(screen.queryByText(/stack|error:|select \*/i)).not.toBeInTheDocument();
   });
 
   it("renders a backend-unavailable state without stack traces", async () => {
@@ -415,6 +476,114 @@ function buildPayload(overrides: Partial<SetupStatusResponse> = {}): SetupStatus
       live_watcher: "disabled"
     },
     ...overrides
+  };
+}
+
+function buildHistoryStatus() {
+  return {
+    value_source: "observed",
+    confidence: "high",
+    finality: "final",
+    drift_status: "none",
+    availability_status: "available",
+    source_parser_surface: "synthetic_history_test",
+    source_fact_key: "synthetic_fact",
+    ingest_run_id: "ingest:history:test"
+  };
+}
+
+function buildMatchHistoryPayload(): MatchHistoryResponse {
+  return {
+    object: MATCH_HISTORY_OBJECT,
+    schema_version: ANALYTICS_HISTORY_SCHEMA_VERSION,
+    status: "ok",
+    database: {
+      display_path: "<app_data>\\db\\mythic_edge.sqlite3",
+      exists: true,
+      schema_status: "schema_current",
+      status: "ok"
+    },
+    pagination: {
+      limit: 50,
+      offset: 0,
+      returned: 1
+    },
+    summary: {
+      row_count: 1,
+      degraded_row_count: 0,
+      unavailable_row_count: 0,
+      conflict_row_count: 0
+    },
+    rows: [
+      {
+        match_id: "match:history:1",
+        parser_match_key: "match:history:1",
+        match_started_at: "2026-05-30T00:00:00Z",
+        match_completed_at: "2026-05-30T00:30:00Z",
+        match_result: "W",
+        match_win: 1,
+        games_won: 2,
+        games_lost: 1,
+        total_games: 3,
+        game_win_rate: 0.667,
+        queue_name: "Ranked",
+        format_name: "Standard",
+        event_id: "PremierDraft",
+        match_status: buildHistoryStatus(),
+        result_status: buildHistoryStatus(),
+        context_status: buildHistoryStatus()
+      }
+    ],
+    warnings: [],
+    errors: []
+  };
+}
+
+function buildGameHistoryPayload(): GameHistoryResponse {
+  return {
+    object: GAME_HISTORY_OBJECT,
+    schema_version: ANALYTICS_HISTORY_SCHEMA_VERSION,
+    status: "ok",
+    database: {
+      display_path: "<app_data>\\db\\mythic_edge.sqlite3",
+      exists: true,
+      schema_status: "schema_current",
+      status: "ok"
+    },
+    pagination: {
+      limit: 50,
+      offset: 0,
+      returned: 1
+    },
+    summary: {
+      row_count: 1,
+      degraded_row_count: 0,
+      unavailable_row_count: 0,
+      conflict_row_count: 0
+    },
+    rows: [
+      {
+        game_id: "match:history:1:g1",
+        match_id: "match:history:1",
+        game_number: 1,
+        game_started_at: "2026-05-30T00:00:00Z",
+        game_completed_at: "2026-05-30T00:10:00Z",
+        local_result: "win",
+        winner_team_id: 1,
+        pre_postboard_label: "game1",
+        play_draw: "play",
+        turn_count: 8,
+        game_duration_seconds: 900,
+        queue_name: "Ranked",
+        format_name: "Standard",
+        event_id: "PremierDraft",
+        game_status: buildHistoryStatus(),
+        result_status: buildHistoryStatus(),
+        context_status: buildHistoryStatus()
+      }
+    ],
+    warnings: [],
+    errors: []
   };
 }
 

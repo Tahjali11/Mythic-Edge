@@ -4,10 +4,14 @@ export const MANUAL_IMPORT_JOB_OBJECT = "mythic_edge_local_app_manual_jsonl_impo
 export const MANUAL_IMPORT_JOB_SCHEMA_VERSION = "analytics_manual_jsonl_import_ui_job_status.v1";
 export const LEGACY_JSONL_IMPORT_QUALITY_OBJECT = "mythic_edge_legacy_jsonl_import_quality";
 export const LEGACY_JSONL_IMPORT_QUALITY_SCHEMA_VERSION = "analytics_legacy_jsonl_import_quality_breakdown.v1";
+export const ANALYTICS_HISTORY_SCHEMA_VERSION = "analytics_app_match_game_history_views.v1";
+export const MATCH_HISTORY_OBJECT = "mythic_edge_local_app_match_history";
+export const GAME_HISTORY_OBJECT = "mythic_edge_local_app_game_history";
 
 export type SetupStatusTone =
   | "ok"
   | "degraded"
+  | "empty"
   | "missing"
   | "unavailable"
   | "error"
@@ -181,3 +185,105 @@ export type ManualImportErrorCode =
   | "malformed_response"
   | "incompatible_response"
   | "unsafe_api_base_url";
+
+export type AnalyticsHistoryErrorCode =
+  | "backend_unavailable"
+  | "malformed_response"
+  | "incompatible_response"
+  | "unsafe_api_base_url";
+
+export type AnalyticsHistoryStatus = "ok" | "empty" | "missing" | "unavailable" | "degraded" | "error";
+
+export type AnalyticsHistoryStatusObject = {
+  value_source: string;
+  confidence: string;
+  finality: string;
+  drift_status: string;
+  availability_status: string;
+  source_parser_surface: string;
+  source_fact_key: string;
+  ingest_run_id: string;
+};
+
+export type AnalyticsHistoryDatabase = {
+  display_path: string;
+  exists: boolean;
+  schema_status: string;
+  status: string;
+};
+
+export type AnalyticsHistoryPagination = {
+  limit: number;
+  offset: number;
+  returned: number;
+};
+
+export type AnalyticsHistorySummary = {
+  row_count: number;
+  degraded_row_count: number;
+  unavailable_row_count: number;
+  conflict_row_count: number;
+};
+
+export type MatchHistoryRow = {
+  match_id: string;
+  parser_match_key: string | null;
+  match_started_at: string | null;
+  match_completed_at: string | null;
+  match_result: string | null;
+  match_win: number | null;
+  games_won: number | null;
+  games_lost: number | null;
+  total_games: number | null;
+  game_win_rate: number | null;
+  queue_name: string | null;
+  format_name: string | null;
+  event_id: string | null;
+  match_status: AnalyticsHistoryStatusObject;
+  result_status: AnalyticsHistoryStatusObject | null;
+  context_status: AnalyticsHistoryStatusObject | null;
+};
+
+export type GameHistoryRow = {
+  game_id: string;
+  match_id: string;
+  game_number: number;
+  game_started_at: string | null;
+  game_completed_at: string | null;
+  local_result: string | null;
+  winner_team_id: number | null;
+  pre_postboard_label: string | null;
+  play_draw: string | null;
+  turn_count: number | null;
+  game_duration_seconds: number | null;
+  queue_name: string | null;
+  format_name: string | null;
+  event_id: string | null;
+  game_status: AnalyticsHistoryStatusObject;
+  result_status: AnalyticsHistoryStatusObject | null;
+  context_status: AnalyticsHistoryStatusObject | null;
+};
+
+export type MatchHistoryResponse = {
+  object: typeof MATCH_HISTORY_OBJECT;
+  schema_version: typeof ANALYTICS_HISTORY_SCHEMA_VERSION;
+  status: AnalyticsHistoryStatus;
+  database: AnalyticsHistoryDatabase;
+  pagination: AnalyticsHistoryPagination;
+  summary: AnalyticsHistorySummary;
+  rows: MatchHistoryRow[];
+  warnings: string[];
+  errors: string[];
+};
+
+export type GameHistoryResponse = {
+  object: typeof GAME_HISTORY_OBJECT;
+  schema_version: typeof ANALYTICS_HISTORY_SCHEMA_VERSION;
+  status: AnalyticsHistoryStatus;
+  database: AnalyticsHistoryDatabase;
+  pagination: AnalyticsHistoryPagination;
+  summary: AnalyticsHistorySummary;
+  rows: GameHistoryRow[];
+  warnings: string[];
+  errors: string[];
+};

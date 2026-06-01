@@ -43,6 +43,8 @@ def test_read_only_endpoint_inventory_and_no_wildcard_cors(tmp_path) -> None:
         "/api/app/config",
         "/api/app/paths",
         "/api/analytics/database/status",
+        "/api/analytics/matches",
+        "/api/analytics/games",
         "/api/runtime/status",
         "/api/imports/jsonl",
         "/api/imports/jobs/{job_id}",

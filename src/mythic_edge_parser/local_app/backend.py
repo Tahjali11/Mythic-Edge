@@ -9,6 +9,7 @@ from fastapi import Body, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.datastructures import UploadFile
 
+from .analytics_history import build_game_history, build_match_history
 from .config import load_local_app_config_status
 from .import_jobs import (
     BrowserJsonlUploadFile,
@@ -28,6 +29,8 @@ from .setup_status import (
 FRONTEND_ORIGIN_ENV = "MYTHIC_EDGE_LOCAL_APP_FRONTEND_ORIGIN"
 DEFAULT_FRONTEND_ORIGINS = ("http://127.0.0.1:5173", "http://localhost:5173")
 LOOPBACK_HOSTS = {"127.0.0.1", "localhost"}
+HISTORY_QUERY_PARAM_INVALID = "analytics_history_query_parameter_invalid"
+HISTORY_QUERY_PARAM_NOT_ALLOWED = "analytics_history_query_parameter_not_allowed"
 
 
 def create_app(
@@ -72,6 +75,16 @@ def create_app(
     @app.get("/api/analytics/database/status")
     def analytics_database_status() -> dict[str, object]:
         return build_analytics_database_status(build_local_app_paths(app_data_root))
+
+    @app.get("/api/analytics/matches")
+    def analytics_match_history(request: Request) -> dict[str, object]:
+        limit, offset = _history_pagination(request)
+        return build_match_history(build_local_app_paths(app_data_root), limit=limit, offset=offset)
+
+    @app.get("/api/analytics/games")
+    def analytics_game_history(request: Request) -> dict[str, object]:
+        limit, offset = _history_pagination(request)
+        return build_game_history(build_local_app_paths(app_data_root), limit=limit, offset=offset)
 
     @app.get("/api/runtime/status")
     def runtime_state() -> dict[str, object]:
@@ -141,6 +154,43 @@ def create_app(
         return job
 
     return app
+
+
+def _reject_unknown_history_query_params(request: Request) -> None:
+    allowed = {"limit", "offset"}
+    if any(key not in allowed for key in request.query_params.keys()):
+        raise HTTPException(status_code=422, detail={"error": HISTORY_QUERY_PARAM_NOT_ALLOWED})
+
+
+def _history_pagination(request: Request) -> tuple[int, int]:
+    _reject_unknown_history_query_params(request)
+    limit = _history_query_int(request, "limit", default=50, minimum=1, maximum=100)
+    offset = _history_query_int(request, "offset", default=0, minimum=0)
+    return limit, offset
+
+
+def _history_query_int(
+    request: Request,
+    key: str,
+    *,
+    default: int,
+    minimum: int,
+    maximum: int | None = None,
+) -> int:
+    values = request.query_params.getlist(key)
+    if not values:
+        return default
+    if len(values) != 1:
+        raise HTTPException(status_code=422, detail={"error": HISTORY_QUERY_PARAM_INVALID})
+
+    raw_value = values[0]
+    if not raw_value.isdecimal():
+        raise HTTPException(status_code=422, detail={"error": HISTORY_QUERY_PARAM_INVALID})
+
+    value = int(raw_value)
+    if value < minimum or (maximum is not None and value > maximum):
+        raise HTTPException(status_code=422, detail={"error": HISTORY_QUERY_PARAM_INVALID})
+    return value
 
 
 def resolve_frontend_origins(

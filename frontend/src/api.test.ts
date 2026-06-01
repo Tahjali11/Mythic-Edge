@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  AnalyticsHistoryApiError,
   fetchManualImportJob,
+  fetchGameHistory,
+  fetchMatchHistory,
   fetchSetupStatus,
   getApiBaseUrl,
   ManualImportApiError,
@@ -10,14 +13,19 @@ import {
   submitManualJsonlUpload
 } from "./api";
 import {
+  ANALYTICS_HISTORY_SCHEMA_VERSION,
+  GAME_HISTORY_OBJECT,
   LEGACY_JSONL_IMPORT_QUALITY_OBJECT,
   LEGACY_JSONL_IMPORT_QUALITY_SCHEMA_VERSION,
   MANUAL_IMPORT_JOB_OBJECT,
   MANUAL_IMPORT_JOB_SCHEMA_VERSION,
+  MATCH_HISTORY_OBJECT,
   SETUP_STATUS_OBJECT,
   SETUP_STATUS_SCHEMA_VERSION,
+  type GameHistoryResponse,
   type LegacyJsonlImportQuality,
   type ManualImportJob,
+  type MatchHistoryResponse,
   type SetupStatusResponse
 } from "./types";
 
@@ -75,6 +83,72 @@ describe("api helpers", () => {
     }) as unknown as typeof fetch;
 
     await expect(fetchSetupStatus(fetchImpl)).rejects.toMatchObject({ code: "backend_unavailable" });
+  });
+
+  it("fetches and validates match and game history responses", async () => {
+    const matchPayload = buildMatchHistoryPayload();
+    const gamePayload = buildGameHistoryPayload();
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input).endsWith("/api/analytics/matches")) {
+        return jsonResponse(matchPayload);
+      }
+      return jsonResponse(gamePayload);
+    }) as unknown as typeof fetch;
+
+    await expect(fetchMatchHistory(fetchImpl)).resolves.toEqual(matchPayload);
+    await expect(fetchGameHistory(fetchImpl)).resolves.toEqual(gamePayload);
+    expect(fetchImpl).toHaveBeenCalledWith("/api/analytics/matches", {
+      headers: { Accept: "application/json" }
+    });
+    expect(fetchImpl).toHaveBeenCalledWith("/api/analytics/games", {
+      headers: { Accept: "application/json" }
+    });
+  });
+
+  it("rejects incompatible or malformed history responses safely", async () => {
+    const wrongSchemaFetch = vi.fn(async () =>
+      jsonResponse({ ...buildMatchHistoryPayload(), schema_version: "future.schema" })
+    ) as unknown as typeof fetch;
+    await expect(fetchMatchHistory(wrongSchemaFetch)).rejects.toMatchObject({ code: "incompatible_response" });
+
+    const wrongObjectFetch = vi.fn(async () =>
+      jsonResponse({ ...buildGameHistoryPayload(), object: MATCH_HISTORY_OBJECT })
+    ) as unknown as typeof fetch;
+    await expect(fetchGameHistory(wrongObjectFetch)).rejects.toMatchObject({ code: "malformed_response" });
+
+    const malformedRowsFetch = vi.fn(async () =>
+      jsonResponse({ ...buildMatchHistoryPayload(), rows: [{ match_id: "match:1" }] })
+    ) as unknown as typeof fetch;
+    await expect(fetchMatchHistory(malformedRowsFetch)).rejects.toMatchObject({ code: "malformed_response" });
+  });
+
+  it("rejects unsupported or private-marker history status labels safely", async () => {
+    const privateStatus = "C:\\secret\\Player.log";
+    const privateStatusFetch = vi.fn(async () =>
+      jsonResponse({ ...buildMatchHistoryPayload(), status: privateStatus })
+    ) as unknown as typeof fetch;
+    await expect(fetchMatchHistory(privateStatusFetch)).rejects.toMatchObject({ code: "malformed_response" });
+
+    try {
+      await fetchMatchHistory(privateStatusFetch);
+    } catch (error) {
+      expect(String(error)).not.toContain(privateStatus);
+      expect(String(error)).not.toContain("Player.log");
+    }
+
+    const unsupportedStatusFetch = vi.fn(async () =>
+      jsonResponse({ ...buildGameHistoryPayload(), status: "stale_unknown_status" })
+    ) as unknown as typeof fetch;
+    await expect(fetchGameHistory(unsupportedStatusFetch)).rejects.toMatchObject({ code: "malformed_response" });
+  });
+
+  it("maps history request failures to history API errors", async () => {
+    const fetchImpl = vi.fn(async () => {
+      throw new Error("synthetic network failure");
+    }) as unknown as typeof fetch;
+
+    await expect(fetchMatchHistory(fetchImpl)).rejects.toBeInstanceOf(AnalyticsHistoryApiError);
+    await expect(fetchMatchHistory(fetchImpl)).rejects.toMatchObject({ code: "backend_unavailable" });
   });
 
   it("submits manual JSONL import requests without exposing raw payloads in errors", async () => {
@@ -221,6 +295,114 @@ function buildSetupStatusPayload(): SetupStatusResponse {
     migrations: { status: "ok" },
     runtime: { status: "ok" },
     capabilities: { setup_status: "enabled" }
+  };
+}
+
+function buildHistoryStatus() {
+  return {
+    value_source: "observed",
+    confidence: "high",
+    finality: "final",
+    drift_status: "none",
+    availability_status: "available",
+    source_parser_surface: "synthetic_history_test",
+    source_fact_key: "synthetic_fact",
+    ingest_run_id: "ingest:history:test"
+  };
+}
+
+function buildMatchHistoryPayload(): MatchHistoryResponse {
+  return {
+    object: MATCH_HISTORY_OBJECT,
+    schema_version: ANALYTICS_HISTORY_SCHEMA_VERSION,
+    status: "ok",
+    database: {
+      display_path: "<app_data>\\db\\mythic_edge.sqlite3",
+      exists: true,
+      schema_status: "schema_current",
+      status: "ok"
+    },
+    pagination: {
+      limit: 50,
+      offset: 0,
+      returned: 1
+    },
+    summary: {
+      row_count: 1,
+      degraded_row_count: 0,
+      unavailable_row_count: 0,
+      conflict_row_count: 0
+    },
+    rows: [
+      {
+        match_id: "match:history:1",
+        parser_match_key: "match:history:1",
+        match_started_at: "2026-05-30T00:00:00Z",
+        match_completed_at: "2026-05-30T00:30:00Z",
+        match_result: "W",
+        match_win: 1,
+        games_won: 2,
+        games_lost: 1,
+        total_games: 3,
+        game_win_rate: 0.667,
+        queue_name: "Ranked",
+        format_name: "Standard",
+        event_id: "PremierDraft",
+        match_status: buildHistoryStatus(),
+        result_status: buildHistoryStatus(),
+        context_status: buildHistoryStatus()
+      }
+    ],
+    warnings: [],
+    errors: []
+  };
+}
+
+function buildGameHistoryPayload(): GameHistoryResponse {
+  return {
+    object: GAME_HISTORY_OBJECT,
+    schema_version: ANALYTICS_HISTORY_SCHEMA_VERSION,
+    status: "ok",
+    database: {
+      display_path: "<app_data>\\db\\mythic_edge.sqlite3",
+      exists: true,
+      schema_status: "schema_current",
+      status: "ok"
+    },
+    pagination: {
+      limit: 50,
+      offset: 0,
+      returned: 1
+    },
+    summary: {
+      row_count: 1,
+      degraded_row_count: 0,
+      unavailable_row_count: 0,
+      conflict_row_count: 0
+    },
+    rows: [
+      {
+        game_id: "match:history:1:g1",
+        match_id: "match:history:1",
+        game_number: 1,
+        game_started_at: "2026-05-30T00:00:00Z",
+        game_completed_at: "2026-05-30T00:10:00Z",
+        local_result: "win",
+        winner_team_id: 1,
+        pre_postboard_label: "game1",
+        play_draw: "play",
+        turn_count: 8,
+        game_duration_seconds: 900,
+        queue_name: "Ranked",
+        format_name: "Standard",
+        event_id: "PremierDraft",
+        game_status: buildHistoryStatus(),
+        result_status: buildHistoryStatus(),
+        context_status: buildHistoryStatus()
+      }
+    ],
+    warnings: [],
+    errors: []
   };
 }
 

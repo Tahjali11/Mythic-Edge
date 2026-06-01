@@ -112,6 +112,96 @@ h3 {
   padding: 18px;
 }
 
+.analyticsHistorySection {
+  margin-top: 20px;
+  border: 1px solid #d9ded7;
+  border-top: 5px solid #73808b;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 18px;
+}
+
+.analyticsHistoryHeader {
+  align-items: center;
+}
+
+.historyStateMessage {
+  color: #596067;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.historyHeaderActions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.historyHeaderActions button {
+  border: 1px solid #2f6d4a;
+  border-radius: 6px;
+  padding: 8px 12px;
+  color: #ffffff;
+  background: #2f6d4a;
+  font-weight: 700;
+}
+
+.historyHeaderActions button:disabled {
+  border-color: #9fa9a2;
+  background: #9fa9a2;
+}
+
+.historyNotice,
+.historySummaryPanel,
+.historyTableSection {
+  margin-top: 16px;
+  border: 1px solid #d9ded7;
+  border-top: 5px solid #73808b;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.historySummaryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.historyTableWrap {
+  max-width: 100%;
+  margin-top: 14px;
+  overflow-x: auto;
+}
+
+.historyTable {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.historyTable th,
+.historyTable td {
+  border-bottom: 1px solid #d9ded7;
+  padding: 10px 12px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.historyTable th {
+  color: #596067;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.historyTable td {
+  color: #20242a;
+  overflow-wrap: anywhere;
+}
+
 .manualImportForm {
   display: grid;
   grid-template-columns: minmax(120px, 160px) minmax(0, 1fr);
@@ -253,6 +343,7 @@ dd {
 }
 
 .tone-degraded,
+.tone-empty,
 .tone-missing {
   color: #8a5a00;
   border-top-color: #b7791f;

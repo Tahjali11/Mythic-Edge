@@ -22,6 +22,9 @@ export function statusTone(status: string): SetupStatusTone {
   if (normalized === "degraded") {
     return "degraded";
   }
+  if (normalized === "empty") {
+    return "empty";
+  }
   if (normalized === "missing" || normalized.endsWith("_missing")) {
     return "missing";
   }
