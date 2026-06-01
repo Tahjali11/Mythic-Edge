@@ -344,6 +344,21 @@ def test_journal_bundle_reads_local_repository_data_only() -> None:
     assert service.get_journal_bundle({"parser_match_id": "missing-parser-match"}) is not None
 
 
+def test_journal_bundle_reads_parser_game_only_context() -> None:
+    _connection, service = _service()
+    context = {"parser_match_id": "parser-match-1", "parser_game_id": "parser-game-1", "game_number": 1}
+    service.record_game_note(context, "Synthetic game note.")
+
+    bundle = service.get_journal_bundle({"parser_game_id": "parser-game-1"})
+
+    assert bundle is not None
+    assert bundle["match"]["parser_match_id"] == "parser-match-1"
+    assert len(bundle["games"]) == 1
+    assert bundle["games"][0]["parser_game_id"] == "parser-game-1"
+    assert len(bundle["notes"]) == 1
+    assert bundle["notes"][0]["parser_game_id"] == "parser-game-1"
+
+
 def test_service_validation_failures_do_not_create_partial_rows() -> None:
     connection, service = _service()
     before = _journal_row_counts(connection)

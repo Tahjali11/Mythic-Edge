@@ -362,19 +362,11 @@ class MatchJournalService:
         )
 
     def get_journal_bundle(self, context: Mapping[str, object]) -> Mapping[str, object] | None:
-        resolved = self._resolve_attachment_context(context, allow_create=False, prefer_game=False)
-        if not resolved.journal_match_id and not resolved.parser_match_id:
+        resolved = self._resolve_attachment_context(context, allow_create=False, prefer_game=True)
+        filters = self._journal_bundle_filters(resolved)
+        if filters is None:
             return None
-        filters = (
-            {"journal_match_id": resolved.journal_match_id}
-            if resolved.journal_match_id
-            else {"parser_match_id": resolved.parser_match_id}
-        )
-        match = (
-            self._call_repo(lambda: self.repository.get_match(resolved.journal_match_id))
-            if resolved.journal_match_id
-            else None
-        )
+        match = self._journal_bundle_match(resolved)
         return {
             "match": match,
             "games": self._call_repo(lambda: self.repository.list_games(filters)),
@@ -384,6 +376,29 @@ class MatchJournalService:
             "field_overrides": self._call_repo(lambda: self.repository.list_field_overrides(filters)),
             "warnings": list(resolved.warnings),
         }
+
+    def _journal_bundle_filters(self, resolved: _ResolvedContext) -> dict[str, object] | None:
+        if resolved.journal_game_id:
+            return {"journal_game_id": resolved.journal_game_id}
+        if resolved.parser_game_id:
+            return {"parser_game_id": resolved.parser_game_id}
+        if resolved.journal_match_id:
+            return {"journal_match_id": resolved.journal_match_id}
+        if resolved.parser_match_id:
+            return {"parser_match_id": resolved.parser_match_id}
+        return None
+
+    def _journal_bundle_match(self, resolved: _ResolvedContext) -> Row | None:
+        if resolved.journal_match_id:
+            return self._call_repo(lambda: self.repository.get_match(resolved.journal_match_id))
+        if not resolved.parser_match_id:
+            return None
+        matches = self._call_repo(lambda: self.repository.list_matches({"parser_match_id": resolved.parser_match_id}))
+        if len(matches) > 1:
+            raise MatchJournalServiceConflictError("parser_match_id maps to multiple journal matches")
+        if len(matches) == 1:
+            return matches[0]
+        return None
 
     def _resolve_attachment_context(
         self,
