@@ -25,8 +25,21 @@ for partial, planning-only, contract-only, tracker, or follow-up work.
 
 ## Layer Ownership
 
-Name the truth-producing layer and any downstream transport, workbook, display,
-deployment, or workflow layers touched.
+Name the internal project area, truth-producing layer, bridge-code status, and
+any downstream transport, workbook, display, deployment, workflow, or
+collaboration surfaces touched.
+
+- Internal project area:
+- Truth owner:
+- Bridge-code status:
+- Downstream consumers touched:
+
+These fields are routing and review metadata. They do not authorize protected
+surface changes and do not replace issue, contract, review, or deployer gates.
+If the internal project area is Future AI Integration, it is deferred
+vocabulary only and does not authorize OpenAI or model-provider runtime
+integration, AI coaching evaluation, AI-owned parser truth, AI-owned analytics
+truth, hidden-card truth, gameplay correctness truth, or strategic certainty.
 
 ## Drift Budget
 

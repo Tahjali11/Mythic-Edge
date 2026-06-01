@@ -40,6 +40,31 @@ Choose the main layer:
 - AI analysis
 - repository coordination and agent workflow
 
+## Internal Project Area
+
+Choose the main ADR-0006/internal-project-map area when it helps route the
+work:
+
+- Parser
+- Corpus / Provenance
+- Analytics
+- Local App / UI
+- Workbook / Transport
+- Quality / Governance
+- Future AI Integration
+- Shared Support
+- Generated / Local Artifacts
+- External / Collaboration Surface
+- N/A / unclear
+
+Future AI Integration is deferred vocabulary only. Naming it does not authorize
+OpenAI or model-provider runtime integration, AI coaching evaluation, AI-owned
+parser truth, AI-owned analytics truth, hidden-card truth, gameplay correctness
+truth, or strategic certainty.
+
+If this is bridge-code work, name both the source project area and the
+consuming project area.
+
 ## First Bad Value
 
 Name the first observed place where the data becomes wrong or ambiguous.
