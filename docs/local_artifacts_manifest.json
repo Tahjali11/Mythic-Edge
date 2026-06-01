@@ -33,6 +33,7 @@
         "frontend_vite_cache",
         "frontend_coverage",
         "python_caches",
+        "env_example_template",
         "env_files",
         "credential_json_files",
         "webhook_url_files",
@@ -115,6 +116,45 @@
         "app_jobs_dir",
         "env_files"
       ]
+    },
+    "clean_install_transition_audit": {
+      "label": "Clean-install transition audit",
+      "description": "Report-only pre-v1 checkout retirement readiness audit. It summarizes safe Git metadata and local artifact categories without cleanup or private payload reads.",
+      "artifacts": [
+        "git_working_tree_state",
+        "git_branch_upstream_state",
+        "git_stash_count",
+        "git_untracked_unignored_count",
+        "agents_md",
+        "pyproject_toml",
+        "gitignore",
+        "source_package",
+        "tests_tree",
+        "tools_tree",
+        "frontend_package_json",
+        "frontend_source",
+        "dev_app_tools",
+        "local_app_package",
+        "env_example_template",
+        "env_files",
+        "private_output_match_logs",
+        "private_output_runtime_logs",
+        "private_output_status_snapshots",
+        "private_output_transport_failures",
+        "private_output_bad_events",
+        "private_output_decklists",
+        "generated_analytics_data",
+        "generated_card_catalog",
+        "generated_tier_source_latest",
+        "frontend_node_modules",
+        "frontend_build_output",
+        "frontend_vite_cache",
+        "frontend_coverage",
+        "python_caches",
+        "app_data_root",
+        "analytics_sqlite_database",
+        "sqlite_sidecar_files"
+      ]
     }
   },
   "artifact_classes": {
@@ -144,6 +184,66 @@
     }
   },
   "artifacts": [
+    {
+      "id": "git_working_tree_state",
+      "label": "Git working tree state",
+      "classification": "Repo-Owned Source Files",
+      "path_scope": "git_metadata",
+      "path_pattern": "<git_working_tree>",
+      "git_policy": "external_only",
+      "privacy": "public_repo_source",
+      "profiles": {
+        "clean_install_transition_audit": {"required": false, "missing_severity": "warning", "present_severity": "warning"}
+      },
+      "safe_checks": ["git_status_count"],
+      "forbidden_checks": ["print_changed_paths", "stash_changes", "reset_changes", "clean_files"],
+      "notes": "Reports clean versus dirty status by count only; does not print changed paths."
+    },
+    {
+      "id": "git_branch_upstream_state",
+      "label": "Git branch upstream state",
+      "classification": "Repo-Owned Source Files",
+      "path_scope": "git_metadata",
+      "path_pattern": "<git_branch_upstream>",
+      "git_policy": "external_only",
+      "privacy": "public_repo_source",
+      "profiles": {
+        "clean_install_transition_audit": {"required": false, "missing_severity": "warning", "present_severity": "warning"}
+      },
+      "safe_checks": ["git_upstream_count"],
+      "forbidden_checks": ["fetch_remotes", "push_branch", "change_branch"],
+      "notes": "Reports upstream presence and ahead/behind counts only."
+    },
+    {
+      "id": "git_stash_count",
+      "label": "Git stash count",
+      "classification": "Private Local Inputs",
+      "path_scope": "git_metadata",
+      "path_pattern": "<git_stash_count>",
+      "git_policy": "external_only",
+      "privacy": "unknown_private",
+      "profiles": {
+        "clean_install_transition_audit": {"required": false, "missing_severity": "info", "present_severity": "warning"}
+      },
+      "safe_checks": ["git_stash_count"],
+      "forbidden_checks": ["print_stash_contents", "stash_pop", "stash_drop", "stash_apply"],
+      "notes": "Reports stash count only because stash contents may contain private or unreviewed work."
+    },
+    {
+      "id": "git_untracked_unignored_count",
+      "label": "Git untracked unignored count",
+      "classification": "Private Local Inputs",
+      "path_scope": "git_metadata",
+      "path_pattern": "<git_untracked_unignored_count>",
+      "git_policy": "external_only",
+      "privacy": "unknown_private",
+      "profiles": {
+        "clean_install_transition_audit": {"required": false, "missing_severity": "info", "present_severity": "warning"}
+      },
+      "safe_checks": ["git_untracked_count"],
+      "forbidden_checks": ["print_untracked_filenames", "stage_files", "delete_files"],
+      "notes": "Reports untracked unignored count only; filenames require manual review outside the report."
+    },
     {
       "id": "agents_md",
       "label": "Agent entrypoint",
@@ -938,6 +1038,23 @@
       "safe_checks": ["exists", "git_ignored"],
       "forbidden_checks": ["read_values", "print_values", "create_secrets", "rotate_secrets"],
       "notes": "Secret-like local env files must never be committed. This pass records ignore-policy evidence only."
+    },
+    {
+      "id": "env_example_template",
+      "label": "Tracked env example template",
+      "classification": "Repo-Owned Source Files",
+      "path_scope": "repo_relative",
+      "path_pattern": ".env.example",
+      "git_policy": "tracked_allowed",
+      "privacy": "public_repo_source",
+      "profiles": {
+        "clean_clone": {"required": true},
+        "clean_install_transition_audit": {"required": true}
+      },
+      "gitignore_expectation": "not_applicable",
+      "safe_checks": ["exists", "file_kind", "git_tracked", "git_modified"],
+      "forbidden_checks": ["read_values", "print_values", "create_secrets", "rotate_secrets"],
+      "notes": "Exact tracked .env.example is allowed as a blank/placeholder template; secret scanning owns value validation."
     },
     {
       "id": "credential_json_files",

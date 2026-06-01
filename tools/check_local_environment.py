@@ -268,6 +268,8 @@ def evaluate_artifact(artifact: dict[str, Any], *, profile: str, options: CheckO
         )
     elif scope == "env_relative":
         severity, observed, message, remediation = _evaluate_env_artifact(artifact, profile=profile)
+    elif scope == "git_metadata":
+        severity, observed, message, remediation = _evaluate_git_metadata_artifact(artifact, options=options)
     else:
         severity, observed, message, remediation = (
             _missing_severity(artifact, profile),
@@ -380,6 +382,17 @@ def _evaluate_present_repo_artifact(
                     "Repo-owned source path exists but is not currently tracked by Git.",
                     "Review whether this path should be staged in the scoped submitter thread.",
                 )
+            if artifact["id"] == "env_example_template":
+                modified, git_error = _has_git_status(options.repo_root, relative)
+                if git_error:
+                    return (SEVERITY_ERROR, "git_metadata_unavailable", git_error, "Verify Git is available locally.")
+                if modified:
+                    return (
+                        SEVERITY_WARNING,
+                        "present_tracked_modified",
+                        "The env example template is tracked but has local modifications.",
+                        "Review the template and run the secret/private-marker scanner before submitter work.",
+                    )
         return (
             SEVERITY_OK,
             "present_tracked",
@@ -415,7 +428,16 @@ def _matching_repo_path_patterns(repo_root: Path, pattern: str) -> tuple[str, ..
     if clean != ".env*":
         return ()
     try:
-        return tuple(sorted(path.name for path in repo_root.glob(".env*") if _path_exists(path)))
+        matches: list[str] = []
+        for path in repo_root.glob(".env*"):
+            if not _path_exists(path):
+                continue
+            if path.name == ".env.example":
+                tracked, git_error = _is_git_tracked(repo_root, path.name)
+                if tracked and not git_error:
+                    continue
+            matches.append(path.name)
+        return tuple(sorted(matches))
     except OSError:
         return ()
 
@@ -582,6 +604,108 @@ def _evaluate_env_artifact(artifact: dict[str, Any], *, profile: str) -> tuple[s
     )
 
 
+def _evaluate_git_metadata_artifact(
+    artifact: dict[str, Any],
+    *,
+    options: CheckOptions,
+) -> tuple[str, str, str, str]:
+    artifact_id = artifact["id"]
+    if artifact_id == "git_working_tree_state":
+        lines, git_error = _git_lines(options.repo_root, ["status", "--porcelain", "--untracked-files=all"])
+        if git_error:
+            return (SEVERITY_ERROR, "git_metadata_unavailable", git_error, "Verify Git is available locally.")
+        changed_count = len(lines)
+        if changed_count:
+            return (
+                SEVERITY_WARNING,
+                f"manual_review_required_changed_count_{changed_count}",
+                "Working tree has uncommitted or untracked items. Paths were not printed.",
+                "Manually review current status before any checkout retirement decision.",
+            )
+        return (
+            SEVERITY_OK,
+            "clean",
+            "Working tree has no porcelain status entries.",
+            "No action required.",
+        )
+
+    if artifact_id == "git_branch_upstream_state":
+        upstream_lines, upstream_error = _git_lines(
+            options.repo_root,
+            ["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"],
+        )
+        if upstream_error:
+            return (
+                SEVERITY_WARNING,
+                "upstream_unavailable",
+                "No upstream tracking branch was available for count-only comparison.",
+                "Confirm branch tracking manually before submitter or retirement work.",
+            )
+        counts, count_error = _git_lines(options.repo_root, ["rev-list", "--left-right", "--count", "HEAD...@{u}"])
+        if count_error:
+            return (SEVERITY_ERROR, "git_metadata_unavailable", count_error, "Verify Git is available locally.")
+        ahead, behind = _parse_ahead_behind(counts)
+        if ahead == 0 and behind == 0:
+            observed = "upstream_configured_ahead_0_behind_0"
+            severity = SEVERITY_OK
+            message = "Current branch is aligned with its upstream by count."
+        else:
+            observed = f"upstream_configured_ahead_{ahead}_behind_{behind}"
+            severity = SEVERITY_WARNING
+            message = "Current branch differs from its upstream by count."
+        return (
+            severity,
+            observed,
+            message,
+            "Resolve branch sync intentionally before submitter or retirement work.",
+        )
+
+    if artifact_id == "git_stash_count":
+        lines, git_error = _git_lines(options.repo_root, ["stash", "list"])
+        if git_error:
+            return (SEVERITY_ERROR, "git_metadata_unavailable", git_error, "Verify Git is available locally.")
+        stash_count = len(lines)
+        if stash_count:
+            return (
+                SEVERITY_WARNING,
+                f"manual_review_required_stash_count_{stash_count}",
+                "Git stashes exist. Stash contents were not printed.",
+                "Manually decide whether stashes must be preserved before retirement.",
+            )
+        return (
+            SEVERITY_OK,
+            "stash_count_0",
+            "No Git stashes were reported.",
+            "No action required.",
+        )
+
+    if artifact_id == "git_untracked_unignored_count":
+        lines, git_error = _git_lines(options.repo_root, ["ls-files", "-o", "--exclude-standard"])
+        if git_error:
+            return (SEVERITY_ERROR, "git_metadata_unavailable", git_error, "Verify Git is available locally.")
+        untracked_count = len(lines)
+        if untracked_count:
+            return (
+                SEVERITY_WARNING,
+                f"manual_review_required_untracked_count_{untracked_count}",
+                "Untracked unignored files exist. Filenames were not printed.",
+                "Manually classify untracked files before retirement.",
+            )
+        return (
+            SEVERITY_OK,
+            "untracked_unignored_count_0",
+            "No untracked unignored files were reported.",
+            "No action required.",
+        )
+
+    return (
+        SEVERITY_INFO,
+        "not_checked",
+        "Unknown Git metadata artifact is documented but not checked.",
+        "Add a scoped test before expanding transition audit metadata.",
+    )
+
+
 def _selected_path_for_artifact(artifact: dict[str, Any], options: CheckOptions) -> str | None:
     artifact_id = artifact["id"]
     if artifact_id == "private_input_player_log":
@@ -687,6 +811,53 @@ def _is_git_tracked(repo_root: Path, relative: str) -> tuple[bool, str]:
     if result.returncode not in (0,):
         return False, result.stderr.strip() or "git ls-files failed"
     return bool(result.stdout.strip()), ""
+
+
+def _has_git_status(repo_root: Path, relative: str) -> tuple[bool, str]:
+    path = relative.replace("\\", "/").rstrip("/")
+    if not path:
+        return False, ""
+    try:
+        result = subprocess.run(
+            ["git", "status", "--porcelain", "--", path],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError as exc:
+        return False, str(exc)
+    if result.returncode != 0:
+        return False, result.stderr.strip() or "git status failed"
+    return bool(result.stdout.strip()), ""
+
+
+def _git_lines(repo_root: Path, args: list[str]) -> tuple[tuple[str, ...], str]:
+    try:
+        result = subprocess.run(
+            ["git", *args],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError as exc:
+        return (), str(exc)
+    if result.returncode != 0:
+        return (), result.stderr.strip() or f"git {' '.join(args)} failed"
+    return tuple(line for line in result.stdout.splitlines() if line.strip()), ""
+
+
+def _parse_ahead_behind(lines: tuple[str, ...]) -> tuple[int, int]:
+    if not lines:
+        return 0, 0
+    parts = lines[0].split()
+    if len(parts) < 2:
+        return 0, 0
+    try:
+        return int(parts[0]), int(parts[1])
+    except ValueError:
+        return 0, 0
 
 
 def _is_git_ignored(repo_root: Path, relative: str) -> tuple[bool, str]:

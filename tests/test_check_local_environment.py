@@ -22,6 +22,7 @@ REQUIRED_PROFILES = {
     "analytics_development",
     "live_parser_readiness",
     "historical_import_readiness",
+    "clean_install_transition_audit",
 }
 
 
@@ -75,7 +76,21 @@ def _write_manifest(tmp_path: Path, manifest: dict[str, object]) -> Path:
 
 def _init_git_repo(path: Path) -> None:
     path.mkdir()
-    subprocess.run(["git", "init"], cwd=path, capture_output=True, text=True, check=True)
+    _git(path, "init")
+    _git(path, "config", "user.email", "local-test@example.invalid")
+    _git(path, "config", "user.name", "Local Test")
+
+
+def _git(repo_root: Path, *args: str) -> None:
+    subprocess.run(["git", *args], cwd=repo_root, capture_output=True, text=True, check=True)
+
+
+def _commit_file(repo_root: Path, relative_path: str, text: str) -> None:
+    path = repo_root / relative_path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+    _git(repo_root, "add", relative_path)
+    _git(repo_root, "commit", "-m", "initial test commit")
 
 
 def test_manifest_has_required_schema_profiles_classes_and_artifact_fields() -> None:
@@ -155,6 +170,84 @@ def test_clean_clone_does_not_require_private_artifacts() -> None:
             assert settings.get("required") is not True
 
 
+def test_tracked_env_example_is_accepted_as_clean_clone_template(capsys) -> None:
+    exit_code = checker.main(["--repo-root", str(REPO_ROOT), "--profile", "clean_clone", "--format", "json"])
+
+    captured = capsys.readouterr()
+    report = json.loads(captured.out)
+    env_example = next(item for item in report["findings"] if item["artifact_id"] == "env_example_template")
+    env_files = next(item for item in report["findings"] if item["artifact_id"] == "env_files")
+    assert exit_code == 0
+    assert env_example["severity"] == "ok"
+    assert env_example["observed"] == "present_tracked"
+    assert env_files["severity"] != "blocked"
+    assert env_files["observed"] != "present_not_ignored"
+
+
+def test_untracked_env_example_requires_manual_review_without_reading_values(capsys, tmp_path: Path) -> None:
+    repo_root = tmp_path / "untracked_env_example"
+    _init_git_repo(repo_root)
+    secret_value = "example-template-value-must-not-print"
+    (repo_root / ".env.example").write_text(f"MYTHICEDGE_SHEETS_WEBHOOK={secret_value}", encoding="utf-8")
+
+    exit_code = checker.main(
+        [
+            "--repo-root",
+            str(repo_root),
+            "--manifest",
+            str(MANIFEST_PATH),
+            "--profile",
+            "clean_clone",
+            "--format",
+            "json",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    report = json.loads(captured.out)
+    env_example = next(item for item in report["findings"] if item["artifact_id"] == "env_example_template")
+    env_files = next(item for item in report["findings"] if item["artifact_id"] == "env_files")
+    assert exit_code == 0
+    assert env_example["severity"] == "warning"
+    assert env_example["observed"] == "present_untracked"
+    assert env_files["severity"] == "blocked"
+    assert env_files["observed"] == "present_not_ignored"
+    assert secret_value not in captured.out
+    assert "MYTHICEDGE_SHEETS_WEBHOOK" not in captured.out
+
+
+def test_modified_tracked_env_example_warns_without_reading_values(capsys, tmp_path: Path) -> None:
+    repo_root = tmp_path / "modified_env_example"
+    _init_git_repo(repo_root)
+    _commit_file(repo_root, ".env.example", "MYTHICEDGE_SHEETS_WEBHOOK=\n")
+    changed_value = "changed-example-value-must-not-print"
+    (repo_root / ".env.example").write_text(f"MYTHICEDGE_SHEETS_WEBHOOK={changed_value}", encoding="utf-8")
+
+    exit_code = checker.main(
+        [
+            "--repo-root",
+            str(repo_root),
+            "--manifest",
+            str(MANIFEST_PATH),
+            "--profile",
+            "clean_clone",
+            "--format",
+            "json",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    report = json.loads(captured.out)
+    env_example = next(item for item in report["findings"] if item["artifact_id"] == "env_example_template")
+    env_files = next(item for item in report["findings"] if item["artifact_id"] == "env_files")
+    assert exit_code == 0
+    assert env_example["severity"] == "warning"
+    assert env_example["observed"] == "present_tracked_modified"
+    assert env_files["observed"] in {"missing", "missing_ignored", "missing_not_ignored"}
+    assert changed_value not in captured.out
+    assert "MYTHICEDGE_SHEETS_WEBHOOK" not in captured.out
+
+
 def test_dotenv_pattern_detects_env_variants_without_reading_values(capsys, tmp_path: Path) -> None:
     secret_value = "secret-value-should-not-appear"
     for env_filename in (".env", ".env.local", ".env.production"):
@@ -188,6 +281,75 @@ def test_dotenv_pattern_detects_env_variants_without_reading_values(capsys, tmp_
         assert "MYTHIC_EDGE_SECRET" not in captured.out
         if env_filename != ".env":
             assert env_filename not in captured.out
+
+
+def test_clean_install_transition_audit_profile_reports_only(capsys) -> None:
+    exit_code = checker.main(
+        [
+            "--repo-root",
+            str(REPO_ROOT),
+            "--profile",
+            "clean_install_transition_audit",
+            "--format",
+            "json",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    report = json.loads(captured.out)
+    artifact_ids = {finding["artifact_id"] for finding in report["findings"]}
+    assert exit_code == 0
+    assert report["profile"] == "clean_install_transition_audit"
+    assert report["privacy"] == {
+        "raw_paths_echoed": False,
+        "private_contents_read": False,
+        "files_modified": False,
+    }
+    assert {
+        "git_working_tree_state",
+        "git_branch_upstream_state",
+        "git_stash_count",
+        "git_untracked_unignored_count",
+    }.issubset(artifact_ids)
+
+
+def test_transition_audit_counts_git_state_without_printing_private_names(capsys, tmp_path: Path) -> None:
+    repo_root = tmp_path / "transition_repo"
+    _init_git_repo(repo_root)
+    _commit_file(repo_root, "tracked.txt", "base\n")
+    (repo_root / "tracked.txt").write_text("changed\n", encoding="utf-8")
+    _git(repo_root, "stash", "push", "-m", "local-only-review-marker")
+    private_untracked_name = "local-only-review-note.txt"
+    private_untracked_content = "private-payload-token-should-not-appear"
+    (repo_root / private_untracked_name).write_text(f"{private_untracked_content}\n", encoding="utf-8")
+
+    exit_code = checker.main(
+        [
+            "--repo-root",
+            str(repo_root),
+            "--manifest",
+            str(MANIFEST_PATH),
+            "--profile",
+            "clean_install_transition_audit",
+            "--format",
+            "json",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    report = json.loads(captured.out)
+    stash_finding = next(item for item in report["findings"] if item["artifact_id"] == "git_stash_count")
+    untracked_finding = next(
+        item for item in report["findings"] if item["artifact_id"] == "git_untracked_unignored_count"
+    )
+    assert exit_code == 0
+    assert stash_finding["severity"] == "warning"
+    assert stash_finding["observed"] == "manual_review_required_stash_count_1"
+    assert untracked_finding["severity"] == "warning"
+    assert untracked_finding["observed"] == "manual_review_required_untracked_count_1"
+    assert private_untracked_name not in captured.out
+    assert "local-only-review-marker" not in captured.out
+    assert private_untracked_content not in captured.out
 
 
 def test_missing_required_artifact_reports_blocked_but_exits_0(capsys, tmp_path: Path) -> None:
