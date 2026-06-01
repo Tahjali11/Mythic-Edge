@@ -54,9 +54,12 @@ export function SetupStatusApp({
   const [sourcePath, setSourcePath] = useState("");
   const [sourcePathsText, setSourcePathsText] = useState("");
   const [uploadFiles, setUploadFiles] = useState<File[]>([]);
+  const [uploadIgnoredFileCount, setUploadIgnoredFileCount] = useState(0);
+  const [uploadSelectionMessage, setUploadSelectionMessage] = useState("");
   const [sourceLabel, setSourceLabel] = useState("");
   const [importState, setImportState] = useState<ImportState>({ state: "idle" });
   const uploadFileInputRef = useRef<HTMLInputElement>(null);
+  const uploadFolderInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let active = true;
@@ -167,12 +170,37 @@ export function SetupStatusApp({
 
   function handleUploadFilesChange(fileList: FileList | null) {
     setUploadFiles(Array.from(fileList ?? []));
+    setUploadIgnoredFileCount(0);
+    setUploadSelectionMessage("");
+  }
+
+  function handleUploadFolderFilesChange(fileList: FileList | null) {
+    const selectedFiles = Array.from(fileList ?? []);
+    const jsonlFiles = selectedFiles.filter((file) => isJsonlFileName(file.name));
+    setUploadFiles(jsonlFiles);
+    setUploadIgnoredFileCount(selectedFiles.length - jsonlFiles.length);
+    setUploadSelectionMessage(
+      selectedFiles.length > 0 && jsonlFiles.length === 0 ? "No JSONL files found in the selected folder." : ""
+    );
   }
 
   function clearUploadSelection() {
     setUploadFiles([]);
+    setUploadIgnoredFileCount(0);
+    setUploadSelectionMessage("");
     if (uploadFileInputRef.current) {
       uploadFileInputRef.current.value = "";
+    }
+    if (uploadFolderInputRef.current) {
+      uploadFolderInputRef.current.value = "";
+    }
+  }
+
+  function assignUploadFolderInputRef(node: HTMLInputElement | null) {
+    uploadFolderInputRef.current = node;
+    if (node) {
+      node.setAttribute("webkitdirectory", "");
+      node.setAttribute("directory", "");
     }
   }
 
@@ -230,6 +258,7 @@ export function SetupStatusApp({
 
       <ManualImportPanel
         importState={importState}
+        onUploadFolderFilesChange={handleUploadFolderFilesChange}
         onSubmit={handleManualImport}
         onUploadFilesChange={handleUploadFilesChange}
         onUploadSubmit={handleBrowserUpload}
@@ -240,7 +269,10 @@ export function SetupStatusApp({
         setSourcePath={setSourcePath}
         setSourcePathsText={setSourcePathsText}
         uploadFileInputRef={uploadFileInputRef}
+        uploadFolderInputRef={assignUploadFolderInputRef}
         uploadFiles={uploadFiles}
+        uploadIgnoredFileCount={uploadIgnoredFileCount}
+        uploadSelectionMessage={uploadSelectionMessage}
       />
 
       <section className="panelGrid futureGrid" aria-label="Deferred local app sections">
@@ -298,6 +330,7 @@ function StatusPanel({ title, status, details }: Panel) {
 
 function ManualImportPanel({
   importState,
+  onUploadFolderFilesChange,
   onUploadFilesChange,
   onUploadSubmit,
   onSubmit,
@@ -308,10 +341,14 @@ function ManualImportPanel({
   setSourcePath,
   setSourcePathsText,
   uploadFileInputRef,
-  uploadFiles
+  uploadFolderInputRef,
+  uploadFiles,
+  uploadIgnoredFileCount,
+  uploadSelectionMessage
 }: {
   importState: ImportState;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onUploadFolderFilesChange: (fileList: FileList | null) => void;
   onUploadFilesChange: (fileList: FileList | null) => void;
   onUploadSubmit: (event: FormEvent<HTMLFormElement>) => void;
   sourceLabel: string;
@@ -321,7 +358,10 @@ function ManualImportPanel({
   setSourcePath: (value: string) => void;
   setSourcePathsText: (value: string) => void;
   uploadFileInputRef: RefObject<HTMLInputElement | null>;
+  uploadFolderInputRef: (node: HTMLInputElement | null) => void;
   uploadFiles: File[];
+  uploadIgnoredFileCount: number;
+  uploadSelectionMessage: string;
 }) {
   const busy = importState.state === "submitting";
   const status = manualImportStatus(importState);
@@ -377,12 +417,26 @@ function ManualImportPanel({
           ref={uploadFileInputRef}
           type="file"
         />
+        <label htmlFor="manual-import-upload-folder">Upload JSONL folder</label>
+        <input
+          accept=".jsonl"
+          disabled={busy}
+          id="manual-import-upload-folder"
+          multiple
+          onChange={(event) => onUploadFolderFilesChange(event.target.files)}
+          ref={uploadFolderInputRef}
+          type="file"
+        />
         <button disabled={busy || uploadFiles.length === 0} type="submit">
           Upload JSONL Files
         </button>
         {uploadFiles.length > 0 ? (
           <p className="uploadSelection">{formatUploadSelection(uploadFiles)}</p>
         ) : null}
+        {uploadIgnoredFileCount > 0 ? (
+          <p className="uploadSelection">{formatIgnoredUploadFiles(uploadIgnoredFileCount)}</p>
+        ) : null}
+        {uploadSelectionMessage ? <p className="uploadSelection">{uploadSelectionMessage}</p> : null}
       </form>
       {importState.state === "submitting" ? <p className="jobMessage">Import running</p> : null}
       {importState.state === "error" ? <ManualImportErrorNotice importState={importState} /> : null}
@@ -609,6 +663,14 @@ function formatSourceArtifact(artifact: ManualImportSourceArtifact): string {
 function formatUploadSelection(files: File[]): string {
   const labels = files.map((file) => safeUploadFileName(file.name)).join(" ");
   return `${files.length} files selected ${labels}`;
+}
+
+function formatIgnoredUploadFiles(count: number): string {
+  return count === 1 ? "1 non-JSONL file ignored" : `${count} non-JSONL files ignored`;
+}
+
+function isJsonlFileName(value: string): boolean {
+  return value.trim().toLowerCase().endsWith(".jsonl");
 }
 
 function safeUploadFileName(value: string): string {
