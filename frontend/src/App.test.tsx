@@ -5,12 +5,15 @@ import { AnalyticsHistoryApiError, ManualImportApiError, SetupStatusApiError } f
 import { SetupStatusApp } from "./App";
 import {
   ANALYTICS_HISTORY_SCHEMA_VERSION,
+  EARLY_GAME_HISTORY_SCHEMA_VERSION,
   GAME_HISTORY_OBJECT,
   LEGACY_JSONL_IMPORT_QUALITY_OBJECT,
   LEGACY_JSONL_IMPORT_QUALITY_SCHEMA_VERSION,
   MANUAL_IMPORT_JOB_OBJECT,
   MANUAL_IMPORT_JOB_SCHEMA_VERSION,
   MATCH_HISTORY_OBJECT,
+  MULLIGAN_HISTORY_OBJECT,
+  OPENING_HAND_HISTORY_OBJECT,
   SETUP_STATUS_OBJECT,
   SETUP_STATUS_SCHEMA_VERSION,
   type GameHistoryResponse,
@@ -18,6 +21,8 @@ import {
   type ManualImportJob,
   type ManualImportSourceArtifact,
   type MatchHistoryResponse,
+  type MulliganHistoryResponse,
+  type OpeningHandHistoryResponse,
   type SetupStatusResponse
 } from "./types";
 
@@ -43,10 +48,14 @@ describe("SetupStatusApp", () => {
   it("renders read-only match and game history with a refresh control", async () => {
     const fetchMatches = vi.fn(async () => buildMatchHistoryPayload());
     const fetchGames = vi.fn(async () => buildGameHistoryPayload());
+    const fetchOpeningHands = vi.fn(async () => buildOpeningHandHistoryPayload());
+    const fetchMulligans = vi.fn(async () => buildMulliganHistoryPayload());
     render(
       <SetupStatusApp
         fetchGames={fetchGames}
         fetchMatches={fetchMatches}
+        fetchMulligans={fetchMulligans}
+        fetchOpeningHands={fetchOpeningHands}
         fetchStatus={() => Promise.resolve(buildPayload())}
       />
     );
@@ -55,17 +64,48 @@ describe("SetupStatusApp", () => {
     expect(screen.getByRole("heading", { name: "Match History" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Game History" })).toBeInTheDocument();
     expect(screen.getByText("match:history:1")).toBeInTheDocument();
-    expect(screen.getByText("match:history:1 game 1")).toBeInTheDocument();
+    expect(screen.getAllByText("match:history:1 game 1").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("2-1 of 3")).toBeInTheDocument();
     expect(screen.getAllByText("observed high final none available").length).toBeGreaterThanOrEqual(2);
     expect(screen.queryByText("Analytics Views")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /reset|delete|wipe|cancel|retry|start|stop|git|sheets|ai/i })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+    fireEvent.click(screen.getByRole("button", { name: "Refresh History" }));
 
     await waitFor(() => {
       expect(fetchMatches).toHaveBeenCalledTimes(2);
       expect(fetchGames).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it("renders read-only opening hand and mulligan history with a refresh control", async () => {
+    const fetchOpeningHands = vi.fn(async () => buildOpeningHandHistoryPayload());
+    const fetchMulligans = vi.fn(async () => buildMulliganHistoryPayload());
+    render(
+      <SetupStatusApp
+        fetchGames={() => Promise.resolve(buildGameHistoryPayload())}
+        fetchMatches={() => Promise.resolve(buildMatchHistoryPayload())}
+        fetchMulligans={fetchMulligans}
+        fetchOpeningHands={fetchOpeningHands}
+        fetchStatus={() => Promise.resolve(buildPayload())}
+      />
+    );
+
+    expect(await screen.findByRole("heading", { name: "Early Game History" })).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { name: "Opening Hands" }).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByRole("heading", { name: "Mulligans" }).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("7 cards count 1")).toBeInTheDocument();
+    expect(screen.getByText("1: Forest resolved 1001")).toBeInTheDocument();
+    expect(screen.getByText("mulliganed_to_six")).toBeInTheDocument();
+    expect(screen.getByText("1: bottomed Island direct_grp_id 1002")).toBeInTheDocument();
+    expect(screen.queryByText(/best keep|mistake|advice|line tracer|hidden card/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /reset|delete|wipe|cancel|retry|start|stop|git|sheets|ai/i })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Refresh Early Game" }));
+
+    await waitFor(() => {
+      expect(fetchOpeningHands).toHaveBeenCalledTimes(2);
+      expect(fetchMulligans).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -83,6 +123,22 @@ describe("SetupStatusApp", () => {
     expect(screen.getByText("game history schema not current")).toBeInTheDocument();
   });
 
+  it("renders empty and degraded early-game states safely", async () => {
+    render(
+      <SetupStatusApp
+        fetchGames={() => Promise.resolve(buildGameHistoryPayload())}
+        fetchMatches={() => Promise.resolve(buildMatchHistoryPayload())}
+        fetchMulligans={() => Promise.resolve({ ...buildMulliganHistoryPayload(), status: "degraded", rows: [] })}
+        fetchOpeningHands={() => Promise.resolve({ ...buildOpeningHandHistoryPayload(), status: "empty", rows: [] })}
+        fetchStatus={() => Promise.resolve(buildPayload())}
+      />
+    );
+
+    expect(await screen.findByRole("heading", { name: "Early Game History" })).toBeInTheDocument();
+    expect(screen.getByText("No opening hand rows")).toBeInTheDocument();
+    expect(screen.getByText("mulligan history schema not current")).toBeInTheDocument();
+  });
+
   it("renders malformed history responses without raw backend details", async () => {
     render(
       <SetupStatusApp
@@ -93,6 +149,22 @@ describe("SetupStatusApp", () => {
     );
 
     expect(await screen.findByRole("heading", { name: "Malformed history response" })).toBeInTheDocument();
+    expect(screen.queryByText(/stack|error:|select \*/i)).not.toBeInTheDocument();
+  });
+
+  it("renders malformed early-game history responses without raw backend details", async () => {
+    render(
+      <SetupStatusApp
+        fetchGames={() => Promise.resolve(buildGameHistoryPayload())}
+        fetchMatches={() => Promise.resolve(buildMatchHistoryPayload())}
+        fetchMulligans={() => Promise.resolve(buildMulliganHistoryPayload())}
+        fetchOpeningHands={() => Promise.reject(new AnalyticsHistoryApiError("malformed_response", "Malformed history"))}
+        fetchStatus={() => Promise.resolve(buildPayload())}
+      />
+    );
+
+    expect(await screen.findByRole("heading", { name: "Malformed history response" })).toBeInTheDocument();
+    expect(screen.queryByText(`Expected schema: ${EARLY_GAME_HISTORY_SCHEMA_VERSION}`)).not.toBeInTheDocument();
     expect(screen.queryByText(/stack|error:|select \*/i)).not.toBeInTheDocument();
   });
 
@@ -579,6 +651,131 @@ function buildGameHistoryPayload(): GameHistoryResponse {
         event_id: "PremierDraft",
         game_status: buildHistoryStatus(),
         result_status: buildHistoryStatus(),
+        context_status: buildHistoryStatus()
+      }
+    ],
+    warnings: [],
+    errors: []
+  };
+}
+
+function buildOpeningHandHistoryPayload(): OpeningHandHistoryResponse {
+  return {
+    object: OPENING_HAND_HISTORY_OBJECT,
+    schema_version: EARLY_GAME_HISTORY_SCHEMA_VERSION,
+    status: "ok",
+    database: {
+      display_path: "<app_data>\\db\\mythic_edge.sqlite3",
+      exists: true,
+      schema_status: "schema_current",
+      status: "ok"
+    },
+    pagination: {
+      limit: 50,
+      offset: 0,
+      returned: 1
+    },
+    summary: {
+      row_count: 1,
+      card_row_count: 1,
+      degraded_row_count: 0,
+      unavailable_row_count: 0,
+      conflict_row_count: 0
+    },
+    rows: [
+      {
+        opening_hand_id: "match:history:1:g1:opening_hand",
+        match_id: "match:history:1",
+        game_id: "match:history:1:g1",
+        game_number: 1,
+        hand_size: 7,
+        exact_card_count: 1,
+        local_result: "win",
+        play_draw: "play",
+        pre_postboard_label: "game1",
+        match_result: "W",
+        match_win: 1,
+        queue_name: "Ranked",
+        format_name: "Standard",
+        event_id: "PremierDraft",
+        cards: [
+          {
+            opening_hand_card_id: "match:history:1:g1:opening_hand:slot1",
+            card_position: 1,
+            grp_id: 1001,
+            card_name: "Forest",
+            identity_hint_source: "direct_grp_id",
+            name_resolution_status: "resolved",
+            card_status: buildHistoryStatus()
+          }
+        ],
+        opening_hand_status: buildHistoryStatus(),
+        game_status: buildHistoryStatus(),
+        game_result_status: buildHistoryStatus(),
+        match_result_status: buildHistoryStatus(),
+        context_status: buildHistoryStatus()
+      }
+    ],
+    warnings: [],
+    errors: []
+  };
+}
+
+function buildMulliganHistoryPayload(): MulliganHistoryResponse {
+  return {
+    object: MULLIGAN_HISTORY_OBJECT,
+    schema_version: EARLY_GAME_HISTORY_SCHEMA_VERSION,
+    status: "ok",
+    database: {
+      display_path: "<app_data>\\db\\mythic_edge.sqlite3",
+      exists: true,
+      schema_status: "schema_current",
+      status: "ok"
+    },
+    pagination: {
+      limit: 50,
+      offset: 0,
+      returned: 1
+    },
+    summary: {
+      row_count: 1,
+      card_row_count: 1,
+      degraded_row_count: 0,
+      unavailable_row_count: 0,
+      conflict_row_count: 0
+    },
+    rows: [
+      {
+        mulligan_event_id: "match:history:1:g1:mulligan:1",
+        match_id: "match:history:1",
+        game_id: "match:history:1:g1",
+        game_number: 1,
+        ordinal_or_count: "1",
+        mulligan_count: 1,
+        decision_detail: "mulliganed_to_six",
+        local_result: "win",
+        play_draw: "play",
+        pre_postboard_label: "game1",
+        match_result: "W",
+        match_win: 1,
+        queue_name: "Ranked",
+        format_name: "Standard",
+        event_id: "PremierDraft",
+        cards: [
+          {
+            mulligan_card_id: "match:history:1:g1:mulligan:1:card1",
+            card_position: 1,
+            card_action: "bottomed",
+            grp_id: 1002,
+            card_name: "Island",
+            identity_hint_source: "direct_grp_id",
+            card_status: buildHistoryStatus()
+          }
+        ],
+        mulligan_status: buildHistoryStatus(),
+        game_status: buildHistoryStatus(),
+        game_result_status: buildHistoryStatus(),
+        match_result_status: buildHistoryStatus(),
         context_status: buildHistoryStatus()
       }
     ],

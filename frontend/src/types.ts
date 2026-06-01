@@ -7,6 +7,9 @@ export const LEGACY_JSONL_IMPORT_QUALITY_SCHEMA_VERSION = "analytics_legacy_json
 export const ANALYTICS_HISTORY_SCHEMA_VERSION = "analytics_app_match_game_history_views.v1";
 export const MATCH_HISTORY_OBJECT = "mythic_edge_local_app_match_history";
 export const GAME_HISTORY_OBJECT = "mythic_edge_local_app_game_history";
+export const EARLY_GAME_HISTORY_SCHEMA_VERSION = "analytics_app_opening_hand_mulligan_views.v1";
+export const OPENING_HAND_HISTORY_OBJECT = "mythic_edge_local_app_opening_hand_history";
+export const MULLIGAN_HISTORY_OBJECT = "mythic_edge_local_app_mulligan_history";
 
 export type SetupStatusTone =
   | "ok"
@@ -225,6 +228,10 @@ export type AnalyticsHistorySummary = {
   conflict_row_count: number;
 };
 
+export type EarlyGameHistorySummary = AnalyticsHistorySummary & {
+  card_row_count: number;
+};
+
 export type MatchHistoryRow = {
   match_id: string;
   parser_match_key: string | null;
@@ -284,6 +291,97 @@ export type GameHistoryResponse = {
   pagination: AnalyticsHistoryPagination;
   summary: AnalyticsHistorySummary;
   rows: GameHistoryRow[];
+  warnings: string[];
+  errors: string[];
+};
+
+export type OpeningHandCardRow = {
+  opening_hand_card_id: string;
+  card_position: number;
+  grp_id: number | null;
+  card_name: string | null;
+  identity_hint_source: string | null;
+  name_resolution_status: string | null;
+  card_status: AnalyticsHistoryStatusObject;
+};
+
+export type OpeningHandHistoryRow = {
+  opening_hand_id: string;
+  match_id: string;
+  game_id: string;
+  game_number: number;
+  hand_size: number | null;
+  exact_card_count: number | null;
+  local_result: string | null;
+  play_draw: string | null;
+  pre_postboard_label: string | null;
+  match_result: string | null;
+  match_win: number | null;
+  queue_name: string | null;
+  format_name: string | null;
+  event_id: string | null;
+  cards: OpeningHandCardRow[];
+  opening_hand_status: AnalyticsHistoryStatusObject;
+  game_status: AnalyticsHistoryStatusObject | null;
+  game_result_status: AnalyticsHistoryStatusObject | null;
+  match_result_status: AnalyticsHistoryStatusObject | null;
+  context_status: AnalyticsHistoryStatusObject | null;
+};
+
+export type MulliganCardRow = {
+  mulligan_card_id: string;
+  card_position: number;
+  card_action: "bottomed" | "discarded" | "unknown";
+  grp_id: number | null;
+  card_name: string | null;
+  identity_hint_source: string | null;
+  card_status: AnalyticsHistoryStatusObject;
+};
+
+export type MulliganHistoryRow = {
+  mulligan_event_id: string;
+  match_id: string;
+  game_id: string;
+  game_number: number;
+  ordinal_or_count: string;
+  mulligan_count: number | null;
+  decision_detail: string | null;
+  local_result: string | null;
+  play_draw: string | null;
+  pre_postboard_label: string | null;
+  match_result: string | null;
+  match_win: number | null;
+  queue_name: string | null;
+  format_name: string | null;
+  event_id: string | null;
+  cards: MulliganCardRow[];
+  mulligan_status: AnalyticsHistoryStatusObject;
+  game_status: AnalyticsHistoryStatusObject | null;
+  game_result_status: AnalyticsHistoryStatusObject | null;
+  match_result_status: AnalyticsHistoryStatusObject | null;
+  context_status: AnalyticsHistoryStatusObject | null;
+};
+
+export type OpeningHandHistoryResponse = {
+  object: typeof OPENING_HAND_HISTORY_OBJECT;
+  schema_version: typeof EARLY_GAME_HISTORY_SCHEMA_VERSION;
+  status: AnalyticsHistoryStatus;
+  database: AnalyticsHistoryDatabase;
+  pagination: AnalyticsHistoryPagination;
+  summary: EarlyGameHistorySummary;
+  rows: OpeningHandHistoryRow[];
+  warnings: string[];
+  errors: string[];
+};
+
+export type MulliganHistoryResponse = {
+  object: typeof MULLIGAN_HISTORY_OBJECT;
+  schema_version: typeof EARLY_GAME_HISTORY_SCHEMA_VERSION;
+  status: AnalyticsHistoryStatus;
+  database: AnalyticsHistoryDatabase;
+  pagination: AnalyticsHistoryPagination;
+  summary: EarlyGameHistorySummary;
+  rows: MulliganHistoryRow[];
   warnings: string[];
   errors: string[];
 };

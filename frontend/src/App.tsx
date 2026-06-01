@@ -5,6 +5,8 @@ import {
   AnalyticsHistoryApiError,
   fetchGameHistory,
   fetchMatchHistory,
+  fetchMulliganHistory,
+  fetchOpeningHandHistory,
   fetchSetupStatus,
   ManualImportApiError,
   SetupStatusApiError,
@@ -13,8 +15,9 @@ import {
 } from "./api";
 import { safeDisplayValue, statusTone } from "./status";
 import {
-  MANUAL_IMPORT_JOB_SCHEMA_VERSION,
   ANALYTICS_HISTORY_SCHEMA_VERSION,
+  EARLY_GAME_HISTORY_SCHEMA_VERSION,
+  MANUAL_IMPORT_JOB_SCHEMA_VERSION,
   SETUP_STATUS_SCHEMA_VERSION,
   type AnalyticsHistoryStatus,
   type AnalyticsHistoryStatusObject,
@@ -24,6 +27,10 @@ import {
   type ManualImportUploadRequest,
   type MatchHistoryResponse,
   type MatchHistoryRow,
+  type MulliganHistoryResponse,
+  type MulliganHistoryRow,
+  type OpeningHandHistoryResponse,
+  type OpeningHandHistoryRow,
   type LegacyJsonlImportQuality,
   type LegacyJsonlRoutingHint,
   type ManualImportSourceArtifact,
@@ -40,6 +47,8 @@ type SetupStatusAppProps = {
   fetchStatus?: () => Promise<SetupStatusResponse>;
   fetchMatches?: () => Promise<MatchHistoryResponse>;
   fetchGames?: () => Promise<GameHistoryResponse>;
+  fetchOpeningHands?: () => Promise<OpeningHandHistoryResponse>;
+  fetchMulligans?: () => Promise<MulliganHistoryResponse>;
   submitImport?: (request: ManualImportRequest) => Promise<ManualImportJob>;
   submitUpload?: (request: ManualImportUploadRequest) => Promise<ManualImportJob>;
 };
@@ -55,6 +64,16 @@ type HistoryState =
   | { state: "ready"; matches: MatchHistoryResponse; games: GameHistoryResponse; unsafeCount: number }
   | { state: "error"; code: AnalyticsHistoryApiError["code"]; message: string };
 
+type EarlyGameHistoryState =
+  | { state: "loading" }
+  | {
+      state: "ready";
+      openingHands: OpeningHandHistoryResponse;
+      mulligans: MulliganHistoryResponse;
+      unsafeCount: number;
+    }
+  | { state: "error"; code: AnalyticsHistoryApiError["code"]; message: string };
+
 type Panel = {
   title: string;
   status: string;
@@ -65,11 +84,14 @@ export function SetupStatusApp({
   fetchStatus = fetchSetupStatus,
   fetchMatches = fetchMatchHistory,
   fetchGames = fetchGameHistory,
+  fetchOpeningHands = fetchOpeningHandHistory,
+  fetchMulligans = fetchMulliganHistory,
   submitImport = submitManualJsonlImport,
   submitUpload = submitManualJsonlUpload
 }: SetupStatusAppProps) {
   const [loadState, setLoadState] = useState<LoadState>({ state: "loading" });
   const [historyState, setHistoryState] = useState<HistoryState>({ state: "loading" });
+  const [earlyGameState, setEarlyGameState] = useState<EarlyGameHistoryState>({ state: "loading" });
   const [sourcePath, setSourcePath] = useState("");
   const [sourcePathsText, setSourcePathsText] = useState("");
   const [uploadFiles, setUploadFiles] = useState<File[]>([]);
@@ -148,9 +170,49 @@ export function SetupStatusApp({
             code: "backend_unavailable",
             message: "Analytics history backend is unavailable."
           });
-        });
+      });
     }
   }, [fetchGames, fetchMatches]);
+
+  useEffect(() => {
+    let active = true;
+
+    loadEarlyGameHistory();
+
+    return () => {
+      active = false;
+    };
+
+    function loadEarlyGameHistory() {
+      setEarlyGameState({ state: "loading" });
+      Promise.all([fetchOpeningHands(), fetchMulligans()])
+        .then(([openingHands, mulligans]) => {
+          if (!active) {
+            return;
+          }
+          setEarlyGameState({
+            state: "ready",
+            openingHands,
+            mulligans,
+            unsafeCount: countUnsafeEarlyGameHistoryValues(openingHands, mulligans)
+          });
+        })
+        .catch((error: unknown) => {
+          if (!active) {
+            return;
+          }
+          if (error instanceof AnalyticsHistoryApiError) {
+            setEarlyGameState({ state: "error", code: error.code, message: error.message });
+            return;
+          }
+          setEarlyGameState({
+            state: "error",
+            code: "backend_unavailable",
+            message: "Analytics history backend is unavailable."
+          });
+        });
+    }
+  }, [fetchMulligans, fetchOpeningHands]);
 
   function refreshHistory() {
     setHistoryState({ state: "loading" });
@@ -169,6 +231,30 @@ export function SetupStatusApp({
           return;
         }
         setHistoryState({
+          state: "error",
+          code: "backend_unavailable",
+          message: "Analytics history backend is unavailable."
+        });
+      });
+  }
+
+  function refreshEarlyGameHistory() {
+    setEarlyGameState({ state: "loading" });
+    Promise.all([fetchOpeningHands(), fetchMulligans()])
+      .then(([openingHands, mulligans]) => {
+        setEarlyGameState({
+          state: "ready",
+          openingHands,
+          mulligans,
+          unsafeCount: countUnsafeEarlyGameHistoryValues(openingHands, mulligans)
+        });
+      })
+      .catch((error: unknown) => {
+        if (error instanceof AnalyticsHistoryApiError) {
+          setEarlyGameState({ state: "error", code: error.code, message: error.message });
+          return;
+        }
+        setEarlyGameState({
           state: "error",
           code: "backend_unavailable",
           message: "Analytics history backend is unavailable."
@@ -359,6 +445,7 @@ export function SetupStatusApp({
       />
 
       <AnalyticsHistorySection historyState={historyState} onRefresh={refreshHistory} />
+      <EarlyGameHistorySection earlyGameState={earlyGameState} onRefresh={refreshEarlyGameHistory} />
 
       <section className="panelGrid futureGrid" aria-label="Deferred local app sections">
         <StatusPanel title="Live Watcher" status="deferred" details={[{ label: "state", value: "deferred" }]} />
@@ -547,7 +634,7 @@ function AnalyticsHistorySection({
         <div className="historyHeaderActions">
           <StatusPill label={status} tone={tone} />
           <button disabled={historyState.state === "loading"} onClick={onRefresh} type="button">
-            Refresh
+            Refresh History
           </button>
         </div>
       </div>
@@ -570,6 +657,67 @@ function AnalyticsHistorySection({
   );
 }
 
+function EarlyGameHistorySection({
+  earlyGameState,
+  onRefresh
+}: {
+  earlyGameState: EarlyGameHistoryState;
+  onRefresh: () => void;
+}) {
+  const status = earlyGameHistoryStatus(earlyGameState);
+  const tone = statusTone(status);
+  return (
+    <section className={`analyticsHistorySection tone-${tone}`} aria-labelledby="early-game-history-title">
+      <div className="panelHeader analyticsHistoryHeader">
+        <div>
+          <h2 id="early-game-history-title">Early Game History</h2>
+        </div>
+        <div className="historyHeaderActions">
+          <StatusPill label={status} tone={tone} />
+          <button disabled={earlyGameState.state === "loading"} onClick={onRefresh} type="button">
+            Refresh Early Game
+          </button>
+        </div>
+      </div>
+      {earlyGameState.state === "loading" ? <p className="historyStateMessage">Loading early game history</p> : null}
+      {earlyGameState.state === "error" ? <EarlyGameHistoryErrorNotice earlyGameState={earlyGameState} /> : null}
+      {earlyGameState.state === "ready" ? (
+        <>
+          {earlyGameState.unsafeCount > 0 ? (
+            <p className="historyStateMessage">{earlyGameState.unsafeCount} early game value was redacted.</p>
+          ) : null}
+          <div className="historySummaryGrid" aria-label="Early game history summary">
+            <EarlyGameSummaryPanel title="Opening Hands" response={earlyGameState.openingHands} />
+            <EarlyGameSummaryPanel title="Mulligans" response={earlyGameState.mulligans} />
+          </div>
+          <OpeningHandHistoryTable response={earlyGameState.openingHands} />
+          <MulliganHistoryTable response={earlyGameState.mulligans} />
+        </>
+      ) : null}
+    </section>
+  );
+}
+
+function EarlyGameHistoryErrorNotice({
+  earlyGameState
+}: {
+  earlyGameState: Extract<EarlyGameHistoryState, { state: "error" }>;
+}) {
+  return (
+    <section className={`historyNotice tone-${errorTone(earlyGameState.code)}`} aria-label="Early game history error">
+      <div className="panelHeader">
+        <h3>{analyticsHistoryErrorTitle(earlyGameState.code)}</h3>
+        <StatusPill label={errorTone(earlyGameState.code)} tone={errorTone(earlyGameState.code)} />
+      </div>
+      <p>
+        {earlyGameState.code === "incompatible_response"
+          ? `Expected schema: ${EARLY_GAME_HISTORY_SCHEMA_VERSION}`
+          : earlyGameState.message}
+      </p>
+    </section>
+  );
+}
+
 function AnalyticsHistoryErrorNotice({ historyState }: { historyState: Extract<HistoryState, { state: "error" }> }) {
   return (
     <section className={`historyNotice tone-${errorTone(historyState.code)}`} aria-label="Analytics history error">
@@ -583,6 +731,31 @@ function AnalyticsHistoryErrorNotice({ historyState }: { historyState: Extract<H
           : historyState.message}
       </p>
     </section>
+  );
+}
+
+function EarlyGameSummaryPanel({
+  title,
+  response
+}: {
+  title: string;
+  response: OpeningHandHistoryResponse | MulliganHistoryResponse;
+}) {
+  return (
+    <article className={`historySummaryPanel tone-${statusTone(response.status)}`}>
+      <div className="panelHeader">
+        <h3>{title}</h3>
+        <StatusPill label={response.status} tone={statusTone(response.status)} />
+      </div>
+      <dl>
+        <SummaryRow label="rows" value={response.summary.row_count} />
+        <SummaryRow label="cards" value={response.summary.card_row_count} />
+        <SummaryRow label="degraded" value={response.summary.degraded_row_count} />
+        <SummaryRow label="unavailable" value={response.summary.unavailable_row_count} />
+        <SummaryRow label="conflict" value={response.summary.conflict_row_count} />
+        <SummaryRow label="schema" value={response.database.schema_status} />
+      </dl>
+    </article>
   );
 }
 
@@ -607,6 +780,104 @@ function HistorySummaryPanel({
         <SummaryRow label="schema" value={response.database.schema_status} />
       </dl>
     </article>
+  );
+}
+
+function OpeningHandHistoryTable({ response }: { response: OpeningHandHistoryResponse }) {
+  return (
+    <section className="historyTableSection" aria-labelledby="opening-hand-history-title">
+      <div className="panelHeader">
+        <h3 id="opening-hand-history-title">Opening Hands</h3>
+        <StatusPill label={response.status} tone={statusTone(response.status)} />
+      </div>
+      {response.rows.length === 0 ? (
+        <p className="historyStateMessage">{historyEmptyLabel("opening hand", response.status)}</p>
+      ) : (
+        <div className="historyTableWrap">
+          <table className="historyTable">
+            <thead>
+              <tr>
+                <th scope="col">Game</th>
+                <th scope="col">Result</th>
+                <th scope="col">Hand</th>
+                <th scope="col">Cards</th>
+                <th scope="col">Queue</th>
+                <th scope="col">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {response.rows.map((row) => (
+                <tr key={row.opening_hand_id}>
+                  <SafeCell value={`${row.match_id} game ${row.game_number}`} />
+                  <SafeCell value={row.local_result ?? row.match_result ?? matchWinLabel(row.match_win)} />
+                  <SafeCell value={openingHandSizeSummary(row)} />
+                  <SafeCell value={openingHandCardsSummary(row)} />
+                  <SafeCell value={row.queue_name ?? row.format_name} />
+                  <SafeCell
+                    value={statusSummary(
+                      row.opening_hand_status,
+                      row.game_status,
+                      row.game_result_status,
+                      row.match_result_status,
+                      row.context_status
+                    )}
+                  />
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function MulliganHistoryTable({ response }: { response: MulliganHistoryResponse }) {
+  return (
+    <section className="historyTableSection" aria-labelledby="mulligan-history-title">
+      <div className="panelHeader">
+        <h3 id="mulligan-history-title">Mulligans</h3>
+        <StatusPill label={response.status} tone={statusTone(response.status)} />
+      </div>
+      {response.rows.length === 0 ? (
+        <p className="historyStateMessage">{historyEmptyLabel("mulligan", response.status)}</p>
+      ) : (
+        <div className="historyTableWrap">
+          <table className="historyTable">
+            <thead>
+              <tr>
+                <th scope="col">Game</th>
+                <th scope="col">Count</th>
+                <th scope="col">Decision</th>
+                <th scope="col">Cards</th>
+                <th scope="col">Result</th>
+                <th scope="col">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {response.rows.map((row) => (
+                <tr key={row.mulligan_event_id}>
+                  <SafeCell value={`${row.match_id} game ${row.game_number}`} />
+                  <SafeCell value={row.mulligan_count ?? row.ordinal_or_count} />
+                  <SafeCell value={row.decision_detail} />
+                  <SafeCell value={mulliganCardsSummary(row)} />
+                  <SafeCell value={row.local_result ?? row.match_result ?? matchWinLabel(row.match_win)} />
+                  <SafeCell
+                    value={statusSummary(
+                      row.mulligan_status,
+                      row.game_status,
+                      row.game_result_status,
+                      row.match_result_status,
+                      row.context_status
+                    )}
+                  />
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -912,6 +1183,67 @@ function countUnsafeHistoryValues(matches: MatchHistoryResponse, games: GameHist
   return values.filter((value) => safeDisplayValue(value ?? "unknown").redacted).length;
 }
 
+function countUnsafeEarlyGameHistoryValues(
+  openingHands: OpeningHandHistoryResponse,
+  mulligans: MulliganHistoryResponse
+): number {
+  const values: unknown[] = [
+    openingHands.database.display_path,
+    mulligans.database.display_path,
+    ...openingHands.warnings,
+    ...openingHands.errors,
+    ...mulligans.warnings,
+    ...mulligans.errors
+  ];
+  for (const row of openingHands.rows) {
+    values.push(
+      row.opening_hand_id,
+      row.match_id,
+      row.game_id,
+      row.local_result,
+      row.play_draw,
+      row.pre_postboard_label,
+      row.match_result,
+      row.queue_name,
+      row.format_name,
+      row.event_id,
+      openingHandCardsSummary(row),
+      statusSummary(
+        row.opening_hand_status,
+        row.game_status,
+        row.game_result_status,
+        row.match_result_status,
+        row.context_status
+      )
+    );
+  }
+  for (const row of mulligans.rows) {
+    values.push(
+      row.mulligan_event_id,
+      row.match_id,
+      row.game_id,
+      row.ordinal_or_count,
+      row.decision_detail,
+      row.local_result,
+      row.play_draw,
+      row.pre_postboard_label,
+      row.match_result,
+      row.queue_name,
+      row.format_name,
+      row.event_id,
+      mulliganCardsSummary(row),
+      statusSummary(
+        row.mulligan_status,
+        row.game_status,
+        row.game_result_status,
+        row.match_result_status,
+        row.context_status
+      )
+    );
+  }
+  return values.filter((value) => safeDisplayValue(value ?? "unknown").redacted).length;
+}
+
 function analyticsHistoryStatus(historyState: HistoryState): string {
   if (historyState.state === "loading") {
     return "loading";
@@ -935,7 +1267,30 @@ function analyticsHistoryStatus(historyState: HistoryState): string {
   return "ok";
 }
 
-function historyEmptyLabel(kind: "match" | "game", status: string): string {
+function earlyGameHistoryStatus(earlyGameState: EarlyGameHistoryState): string {
+  if (earlyGameState.state === "loading") {
+    return "loading";
+  }
+  if (earlyGameState.state === "error") {
+    return errorTone(earlyGameState.code);
+  }
+  if (earlyGameState.unsafeCount > 0) {
+    return "degraded";
+  }
+  const statuses: AnalyticsHistoryStatus[] = [earlyGameState.openingHands.status, earlyGameState.mulligans.status];
+  const priorityStatuses: AnalyticsHistoryStatus[] = ["error", "unavailable", "degraded", "missing"];
+  for (const status of priorityStatuses) {
+    if (statuses.includes(status)) {
+      return status;
+    }
+  }
+  if (statuses.every((status) => status === "empty")) {
+    return "empty";
+  }
+  return "ok";
+}
+
+function historyEmptyLabel(kind: string, status: string): string {
   if (status === "missing") {
     return `No ${kind} history database`;
   }
@@ -946,6 +1301,34 @@ function historyEmptyLabel(kind: "match" | "game", status: string): string {
     return `${kind} history unavailable`;
   }
   return `No ${kind} rows`;
+}
+
+function openingHandSizeSummary(row: OpeningHandHistoryRow): string {
+  const handSize = row.hand_size ?? "unknown";
+  const exactCount = row.exact_card_count ?? "unknown";
+  return `${handSize} cards count ${exactCount}`;
+}
+
+function openingHandCardsSummary(row: OpeningHandHistoryRow): string {
+  if (row.cards.length === 0) {
+    return "no cards";
+  }
+  return row.cards.map((card) => {
+    const identity = card.card_name ?? (card.grp_id === null ? "unknown" : `grp ${card.grp_id}`);
+    const resolution = card.name_resolution_status ?? card.identity_hint_source ?? "unknown";
+    return `${card.card_position}: ${identity} ${resolution} ${card.grp_id ?? "unknown"}`;
+  }).join(" ");
+}
+
+function mulliganCardsSummary(row: MulliganHistoryRow): string {
+  if (row.cards.length === 0) {
+    return "no cards";
+  }
+  return row.cards.map((card) => {
+    const identity = card.card_name ?? (card.grp_id === null ? "unknown" : `grp ${card.grp_id}`);
+    const source = card.identity_hint_source ?? "unknown";
+    return `${card.card_position}: ${card.card_action} ${identity} ${source} ${card.grp_id ?? "unknown"}`;
+  }).join(" ");
 }
 
 function matchWinLabel(value: number | null): string {

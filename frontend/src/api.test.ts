@@ -5,6 +5,8 @@ import {
   fetchManualImportJob,
   fetchGameHistory,
   fetchMatchHistory,
+  fetchMulliganHistory,
+  fetchOpeningHandHistory,
   fetchSetupStatus,
   getApiBaseUrl,
   ManualImportApiError,
@@ -14,17 +16,22 @@ import {
 } from "./api";
 import {
   ANALYTICS_HISTORY_SCHEMA_VERSION,
+  EARLY_GAME_HISTORY_SCHEMA_VERSION,
   GAME_HISTORY_OBJECT,
   LEGACY_JSONL_IMPORT_QUALITY_OBJECT,
   LEGACY_JSONL_IMPORT_QUALITY_SCHEMA_VERSION,
   MANUAL_IMPORT_JOB_OBJECT,
   MANUAL_IMPORT_JOB_SCHEMA_VERSION,
   MATCH_HISTORY_OBJECT,
+  MULLIGAN_HISTORY_OBJECT,
+  OPENING_HAND_HISTORY_OBJECT,
   SETUP_STATUS_OBJECT,
   SETUP_STATUS_SCHEMA_VERSION,
   type GameHistoryResponse,
   type LegacyJsonlImportQuality,
   type ManualImportJob,
+  type MulliganHistoryResponse,
+  type OpeningHandHistoryResponse,
   type MatchHistoryResponse,
   type SetupStatusResponse
 } from "./types";
@@ -149,6 +156,58 @@ describe("api helpers", () => {
 
     await expect(fetchMatchHistory(fetchImpl)).rejects.toBeInstanceOf(AnalyticsHistoryApiError);
     await expect(fetchMatchHistory(fetchImpl)).rejects.toMatchObject({ code: "backend_unavailable" });
+  });
+
+  it("fetches and validates opening hand and mulligan history responses", async () => {
+    const openingPayload = buildOpeningHandHistoryPayload();
+    const mulliganPayload = buildMulliganHistoryPayload();
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input).endsWith("/api/analytics/opening-hands")) {
+        return jsonResponse(openingPayload);
+      }
+      return jsonResponse(mulliganPayload);
+    }) as unknown as typeof fetch;
+
+    await expect(fetchOpeningHandHistory(fetchImpl)).resolves.toEqual(openingPayload);
+    await expect(fetchMulliganHistory(fetchImpl)).resolves.toEqual(mulliganPayload);
+    expect(fetchImpl).toHaveBeenCalledWith("/api/analytics/opening-hands", {
+      headers: { Accept: "application/json" }
+    });
+    expect(fetchImpl).toHaveBeenCalledWith("/api/analytics/mulligans", {
+      headers: { Accept: "application/json" }
+    });
+  });
+
+  it("rejects malformed early-game history responses safely", async () => {
+    const wrongSchemaFetch = vi.fn(async () =>
+      jsonResponse({ ...buildOpeningHandHistoryPayload(), schema_version: ANALYTICS_HISTORY_SCHEMA_VERSION })
+    ) as unknown as typeof fetch;
+    await expect(fetchOpeningHandHistory(wrongSchemaFetch)).rejects.toMatchObject({ code: "incompatible_response" });
+
+    const wrongObjectFetch = vi.fn(async () =>
+      jsonResponse({ ...buildMulliganHistoryPayload(), object: OPENING_HAND_HISTORY_OBJECT })
+    ) as unknown as typeof fetch;
+    await expect(fetchMulliganHistory(wrongObjectFetch)).rejects.toMatchObject({ code: "malformed_response" });
+
+    const malformedRowsFetch = vi.fn(async () =>
+      jsonResponse({ ...buildOpeningHandHistoryPayload(), rows: [{ opening_hand_id: "opening:1" }] })
+    ) as unknown as typeof fetch;
+    await expect(fetchOpeningHandHistory(malformedRowsFetch)).rejects.toMatchObject({ code: "malformed_response" });
+
+    const unsupportedCardActionFetch = vi.fn(async () =>
+      jsonResponse({
+        ...buildMulliganHistoryPayload(),
+        rows: [
+          {
+            ...buildMulliganHistoryPayload().rows[0],
+            cards: [{ ...buildMulliganHistoryPayload().rows[0].cards[0], card_action: "coaching_label" }]
+          }
+        ]
+      })
+    ) as unknown as typeof fetch;
+    await expect(fetchMulliganHistory(unsupportedCardActionFetch)).rejects.toMatchObject({
+      code: "malformed_response"
+    });
   });
 
   it("submits manual JSONL import requests without exposing raw payloads in errors", async () => {
@@ -398,6 +457,131 @@ function buildGameHistoryPayload(): GameHistoryResponse {
         event_id: "PremierDraft",
         game_status: buildHistoryStatus(),
         result_status: buildHistoryStatus(),
+        context_status: buildHistoryStatus()
+      }
+    ],
+    warnings: [],
+    errors: []
+  };
+}
+
+function buildOpeningHandHistoryPayload(): OpeningHandHistoryResponse {
+  return {
+    object: OPENING_HAND_HISTORY_OBJECT,
+    schema_version: EARLY_GAME_HISTORY_SCHEMA_VERSION,
+    status: "ok",
+    database: {
+      display_path: "<app_data>\\db\\mythic_edge.sqlite3",
+      exists: true,
+      schema_status: "schema_current",
+      status: "ok"
+    },
+    pagination: {
+      limit: 50,
+      offset: 0,
+      returned: 1
+    },
+    summary: {
+      row_count: 1,
+      card_row_count: 1,
+      degraded_row_count: 0,
+      unavailable_row_count: 0,
+      conflict_row_count: 0
+    },
+    rows: [
+      {
+        opening_hand_id: "match:history:1:g1:opening_hand",
+        match_id: "match:history:1",
+        game_id: "match:history:1:g1",
+        game_number: 1,
+        hand_size: 7,
+        exact_card_count: 1,
+        local_result: "win",
+        play_draw: "play",
+        pre_postboard_label: "game1",
+        match_result: "W",
+        match_win: 1,
+        queue_name: "Ranked",
+        format_name: "Standard",
+        event_id: "PremierDraft",
+        cards: [
+          {
+            opening_hand_card_id: "match:history:1:g1:opening_hand:slot1",
+            card_position: 1,
+            grp_id: 1001,
+            card_name: "Forest",
+            identity_hint_source: "direct_grp_id",
+            name_resolution_status: "resolved",
+            card_status: buildHistoryStatus()
+          }
+        ],
+        opening_hand_status: buildHistoryStatus(),
+        game_status: buildHistoryStatus(),
+        game_result_status: buildHistoryStatus(),
+        match_result_status: buildHistoryStatus(),
+        context_status: buildHistoryStatus()
+      }
+    ],
+    warnings: [],
+    errors: []
+  };
+}
+
+function buildMulliganHistoryPayload(): MulliganHistoryResponse {
+  return {
+    object: MULLIGAN_HISTORY_OBJECT,
+    schema_version: EARLY_GAME_HISTORY_SCHEMA_VERSION,
+    status: "ok",
+    database: {
+      display_path: "<app_data>\\db\\mythic_edge.sqlite3",
+      exists: true,
+      schema_status: "schema_current",
+      status: "ok"
+    },
+    pagination: {
+      limit: 50,
+      offset: 0,
+      returned: 1
+    },
+    summary: {
+      row_count: 1,
+      card_row_count: 1,
+      degraded_row_count: 0,
+      unavailable_row_count: 0,
+      conflict_row_count: 0
+    },
+    rows: [
+      {
+        mulligan_event_id: "match:history:1:g1:mulligan:1",
+        match_id: "match:history:1",
+        game_id: "match:history:1:g1",
+        game_number: 1,
+        ordinal_or_count: "1",
+        mulligan_count: 1,
+        decision_detail: "mulliganed_to_six",
+        local_result: "win",
+        play_draw: "play",
+        pre_postboard_label: "game1",
+        match_result: "W",
+        match_win: 1,
+        queue_name: "Ranked",
+        format_name: "Standard",
+        event_id: "PremierDraft",
+        cards: [
+          {
+            mulligan_card_id: "match:history:1:g1:mulligan:1:card1",
+            card_position: 1,
+            card_action: "bottomed",
+            grp_id: 1002,
+            card_name: "Island",
+            identity_hint_source: "direct_grp_id",
+            card_status: buildHistoryStatus()
+          }
+        ],
+        mulligan_status: buildHistoryStatus(),
+        game_status: buildHistoryStatus(),
+        game_result_status: buildHistoryStatus(),
+        match_result_status: buildHistoryStatus(),
         context_status: buildHistoryStatus()
       }
     ],

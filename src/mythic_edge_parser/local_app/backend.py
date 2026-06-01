@@ -9,7 +9,12 @@ from fastapi import Body, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.datastructures import UploadFile
 
-from .analytics_history import build_game_history, build_match_history
+from .analytics_history import (
+    build_game_history,
+    build_match_history,
+    build_mulligan_history,
+    build_opening_hand_history,
+)
 from .config import load_local_app_config_status
 from .import_jobs import (
     BrowserJsonlUploadFile,
@@ -85,6 +90,16 @@ def create_app(
     def analytics_game_history(request: Request) -> dict[str, object]:
         limit, offset = _history_pagination(request)
         return build_game_history(build_local_app_paths(app_data_root), limit=limit, offset=offset)
+
+    @app.get("/api/analytics/opening-hands")
+    def analytics_opening_hand_history(request: Request) -> dict[str, object]:
+        limit, offset = _history_pagination(request)
+        return build_opening_hand_history(build_local_app_paths(app_data_root), limit=limit, offset=offset)
+
+    @app.get("/api/analytics/mulligans")
+    def analytics_mulligan_history(request: Request) -> dict[str, object]:
+        limit, offset = _history_pagination(request)
+        return build_mulligan_history(build_local_app_paths(app_data_root), limit=limit, offset=offset)
 
     @app.get("/api/runtime/status")
     def runtime_state() -> dict[str, object]:

@@ -1,11 +1,14 @@
 import {
   ANALYTICS_HISTORY_SCHEMA_VERSION,
+  EARLY_GAME_HISTORY_SCHEMA_VERSION,
   GAME_HISTORY_OBJECT,
   LEGACY_JSONL_IMPORT_QUALITY_OBJECT,
   LEGACY_JSONL_IMPORT_QUALITY_SCHEMA_VERSION,
   MANUAL_IMPORT_JOB_OBJECT,
   MANUAL_IMPORT_JOB_SCHEMA_VERSION,
   MATCH_HISTORY_OBJECT,
+  MULLIGAN_HISTORY_OBJECT,
+  OPENING_HAND_HISTORY_OBJECT,
   SETUP_STATUS_OBJECT,
   SETUP_STATUS_SCHEMA_VERSION,
   type AnalyticsHistoryErrorCode,
@@ -16,6 +19,8 @@ import {
   type ManualImportRequest,
   type ManualImportUploadRequest,
   type MatchHistoryResponse,
+  type MulliganHistoryResponse,
+  type OpeningHandHistoryResponse,
   type SetupStatusErrorCode,
   type SetupStatusResponse
 } from "./types";
@@ -23,6 +28,8 @@ import {
 const SETUP_STATUS_PATH = "/api/app/setup-status";
 const MATCH_HISTORY_PATH = "/api/analytics/matches";
 const GAME_HISTORY_PATH = "/api/analytics/games";
+const OPENING_HAND_HISTORY_PATH = "/api/analytics/opening-hands";
+const MULLIGAN_HISTORY_PATH = "/api/analytics/mulligans";
 const MANUAL_IMPORT_PATH = "/api/imports/jsonl";
 const MANUAL_IMPORT_UPLOAD_PATH = "/api/imports/jsonl/upload";
 const MANUAL_IMPORT_JOB_PATH = "/api/imports/jobs";
@@ -161,6 +168,24 @@ export async function fetchGameHistory(fetchImpl: typeof fetch = fetch): Promise
     validateGameHistoryRows,
     fetchImpl
   ) as Promise<GameHistoryResponse>;
+}
+
+export async function fetchOpeningHandHistory(fetchImpl: typeof fetch = fetch): Promise<OpeningHandHistoryResponse> {
+  return fetchEarlyGameHistory(
+    OPENING_HAND_HISTORY_PATH,
+    OPENING_HAND_HISTORY_OBJECT,
+    validateOpeningHandHistoryRows,
+    fetchImpl
+  ) as Promise<OpeningHandHistoryResponse>;
+}
+
+export async function fetchMulliganHistory(fetchImpl: typeof fetch = fetch): Promise<MulliganHistoryResponse> {
+  return fetchEarlyGameHistory(
+    MULLIGAN_HISTORY_PATH,
+    MULLIGAN_HISTORY_OBJECT,
+    validateMulliganHistoryRows,
+    fetchImpl
+  ) as Promise<MulliganHistoryResponse>;
 }
 
 export async function submitManualJsonlImport(
@@ -324,6 +349,36 @@ async function fetchAnalyticsHistory(
   return validateAnalyticsHistoryResponse(payload, objectName, validateRows);
 }
 
+async function fetchEarlyGameHistory(
+  path: string,
+  objectName: string,
+  validateRows: (rows: unknown) => void,
+  fetchImpl: typeof fetch
+): Promise<OpeningHandHistoryResponse | MulliganHistoryResponse> {
+  const baseUrl = getAnalyticsHistoryApiBaseUrl();
+  let response: Response;
+  try {
+    response = await fetchImpl(`${baseUrl}${path}`, {
+      headers: { Accept: "application/json" }
+    });
+  } catch {
+    throw new AnalyticsHistoryApiError("backend_unavailable", "Analytics history backend is unavailable.");
+  }
+
+  if (!response.ok) {
+    throw new AnalyticsHistoryApiError("backend_unavailable", "Analytics history backend is unavailable.");
+  }
+
+  let payload: unknown;
+  try {
+    payload = await response.json();
+  } catch {
+    throw new AnalyticsHistoryApiError("malformed_response", "Analytics history returned malformed JSON.");
+  }
+
+  return validateEarlyGameHistoryResponse(payload, objectName, validateRows);
+}
+
 function getAnalyticsHistoryApiBaseUrl(): string {
   try {
     return getApiBaseUrl();
@@ -372,6 +427,48 @@ function validateAnalyticsHistoryResponse(
   validateRows(payload.rows);
 
   return payload as MatchHistoryResponse | GameHistoryResponse;
+}
+
+function validateEarlyGameHistoryResponse(
+  payload: unknown,
+  objectName: string,
+  validateRows: (rows: unknown) => void
+): OpeningHandHistoryResponse | MulliganHistoryResponse {
+  if (!isRecord(payload)) {
+    throw new AnalyticsHistoryApiError("malformed_response", "Analytics history must be a JSON object.");
+  }
+
+  for (const field of REQUIRED_ANALYTICS_HISTORY_FIELDS) {
+    if (!(field in payload)) {
+      throw new AnalyticsHistoryApiError("malformed_response", "Analytics history is missing required fields.");
+    }
+  }
+
+  if (payload.schema_version !== EARLY_GAME_HISTORY_SCHEMA_VERSION) {
+    throw new AnalyticsHistoryApiError(
+      "incompatible_response",
+      `Expected analytics history schema ${EARLY_GAME_HISTORY_SCHEMA_VERSION}.`
+    );
+  }
+
+  if (payload.object !== objectName) {
+    throw new AnalyticsHistoryApiError("malformed_response", "Analytics history object is unsupported.");
+  }
+
+  if (
+    !isAnalyticsHistoryStatus(payload.status) ||
+    !isHistoryDatabase(payload.database) ||
+    !isHistoryPagination(payload.pagination) ||
+    !isEarlyGameHistorySummary(payload.summary) ||
+    !isStringArray(payload.warnings) ||
+    !isStringArray(payload.errors)
+  ) {
+    throw new AnalyticsHistoryApiError("malformed_response", "Analytics history has an unsupported shape.");
+  }
+
+  validateRows(payload.rows);
+
+  return payload as OpeningHandHistoryResponse | MulliganHistoryResponse;
 }
 
 function isAnalyticsHistoryStatus(value: unknown): value is AnalyticsHistoryStatus {
@@ -440,6 +537,73 @@ function validateGameHistoryRows(rows: unknown): void {
       !isHistoryStatusOrNull(row.context_status)
     ) {
       throw new AnalyticsHistoryApiError("malformed_response", "Game history row has an unsupported shape.");
+    }
+  }
+}
+
+function validateOpeningHandHistoryRows(rows: unknown): void {
+  if (!Array.isArray(rows)) {
+    throw new AnalyticsHistoryApiError("malformed_response", "Opening hand history rows must be an array.");
+  }
+  for (const row of rows) {
+    if (
+      !isRecord(row) ||
+      typeof row.opening_hand_id !== "string" ||
+      typeof row.match_id !== "string" ||
+      typeof row.game_id !== "string" ||
+      typeof row.game_number !== "number" ||
+      !isNumberOrNull(row.hand_size) ||
+      !isNumberOrNull(row.exact_card_count) ||
+      !isStringOrNull(row.local_result) ||
+      !isStringOrNull(row.play_draw) ||
+      !isStringOrNull(row.pre_postboard_label) ||
+      !isStringOrNull(row.match_result) ||
+      !isNumberOrNull(row.match_win) ||
+      !isStringOrNull(row.queue_name) ||
+      !isStringOrNull(row.format_name) ||
+      !isStringOrNull(row.event_id) ||
+      !isOpeningHandCards(row.cards) ||
+      !isHistoryStatus(row.opening_hand_status) ||
+      !isHistoryStatusOrNull(row.game_status) ||
+      !isHistoryStatusOrNull(row.game_result_status) ||
+      !isHistoryStatusOrNull(row.match_result_status) ||
+      !isHistoryStatusOrNull(row.context_status)
+    ) {
+      throw new AnalyticsHistoryApiError("malformed_response", "Opening hand history row has an unsupported shape.");
+    }
+  }
+}
+
+function validateMulliganHistoryRows(rows: unknown): void {
+  if (!Array.isArray(rows)) {
+    throw new AnalyticsHistoryApiError("malformed_response", "Mulligan history rows must be an array.");
+  }
+  for (const row of rows) {
+    if (
+      !isRecord(row) ||
+      typeof row.mulligan_event_id !== "string" ||
+      typeof row.match_id !== "string" ||
+      typeof row.game_id !== "string" ||
+      typeof row.game_number !== "number" ||
+      typeof row.ordinal_or_count !== "string" ||
+      !isNumberOrNull(row.mulligan_count) ||
+      !isStringOrNull(row.decision_detail) ||
+      !isStringOrNull(row.local_result) ||
+      !isStringOrNull(row.play_draw) ||
+      !isStringOrNull(row.pre_postboard_label) ||
+      !isStringOrNull(row.match_result) ||
+      !isNumberOrNull(row.match_win) ||
+      !isStringOrNull(row.queue_name) ||
+      !isStringOrNull(row.format_name) ||
+      !isStringOrNull(row.event_id) ||
+      !isMulliganCards(row.cards) ||
+      !isHistoryStatus(row.mulligan_status) ||
+      !isHistoryStatusOrNull(row.game_status) ||
+      !isHistoryStatusOrNull(row.game_result_status) ||
+      !isHistoryStatusOrNull(row.match_result_status) ||
+      !isHistoryStatusOrNull(row.context_status)
+    ) {
+      throw new AnalyticsHistoryApiError("malformed_response", "Mulligan history row has an unsupported shape.");
     }
   }
 }
@@ -618,6 +782,10 @@ function isHistorySummary(value: unknown): boolean {
   );
 }
 
+function isEarlyGameHistorySummary(value: unknown): boolean {
+  return isHistorySummary(value) && isRecord(value) && typeof value.card_row_count === "number";
+}
+
 function isHistoryStatus(value: unknown): boolean {
   return (
     isRecord(value) &&
@@ -634,6 +802,44 @@ function isHistoryStatus(value: unknown): boolean {
 
 function isHistoryStatusOrNull(value: unknown): boolean {
   return value === null || isHistoryStatus(value);
+}
+
+function isOpeningHandCards(value: unknown): boolean {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (entry) =>
+        isRecord(entry) &&
+        typeof entry.opening_hand_card_id === "string" &&
+        typeof entry.card_position === "number" &&
+        isNumberOrNull(entry.grp_id) &&
+        isStringOrNull(entry.card_name) &&
+        isStringOrNull(entry.identity_hint_source) &&
+        isStringOrNull(entry.name_resolution_status) &&
+        isHistoryStatus(entry.card_status)
+    )
+  );
+}
+
+function isMulliganCards(value: unknown): boolean {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (entry) =>
+        isRecord(entry) &&
+        typeof entry.mulligan_card_id === "string" &&
+        typeof entry.card_position === "number" &&
+        isMulliganCardAction(entry.card_action) &&
+        isNumberOrNull(entry.grp_id) &&
+        isStringOrNull(entry.card_name) &&
+        isStringOrNull(entry.identity_hint_source) &&
+        isHistoryStatus(entry.card_status)
+    )
+  );
+}
+
+function isMulliganCardAction(value: unknown): value is "bottomed" | "discarded" | "unknown" {
+  return value === "bottomed" || value === "discarded" || value === "unknown";
 }
 
 function isQualityStatus(value: unknown): value is "complete" | "degraded" | "failed" {
