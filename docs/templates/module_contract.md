@@ -16,6 +16,36 @@ Link to the tracker issue, if any.
 
 State which project layer owns the truth for this contract.
 
+## Internal Project Area
+
+Choose the primary internal project area from `docs/internal_project_map.md`.
+Use `N/A / unclear` only when the classification is genuinely ambiguous and
+explain the ambiguity.
+
+Future AI Integration is deferred vocabulary only. Naming it does not authorize
+OpenAI or model-provider runtime integration, AI coaching evaluation, AI-owned
+parser truth, AI-owned analytics truth, hidden-card truth, gameplay correctness
+truth, or strategic certainty.
+
+## Truth Owner
+
+Name the layer or artifact that owns truth for the fields, behavior, workflow
+state, or documentation vocabulary covered by this contract.
+
+## Bridge-Code Status
+
+Choose one:
+
+- `not_bridge_code`
+- `bridge_code`
+- `shared_support`
+- `ambiguous_pending_follow_up`
+- `deferred_future_boundary`
+
+For bridge-code work, name the source internal project area, consuming internal
+project area, allowed data flow, forbidden reverse-flow, and protected surfaces
+touched or explicitly not touched.
+
 ## Files Owned By This Contract
 
 - TODO
