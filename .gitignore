@@ -12,6 +12,7 @@ data/status/
 data/failed_posts/
 data/bad_events/
 data/analytics/
+data/match_journal/
 data/oracle_data/
 data/tier_sources/latest_tier_snapshot.json
 
