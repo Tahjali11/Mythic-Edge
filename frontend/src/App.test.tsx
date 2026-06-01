@@ -173,6 +173,58 @@ describe("SetupStatusApp", () => {
     expect(screen.queryByRole("button", { name: /reset|delete|wipe|cancel|retry|git|sheets|ai/i })).not.toBeInTheDocument();
   });
 
+  it("uploads folder-selected JSONL files as a flat filtered batch without displaying folder paths", async () => {
+    const jsonlFile = withRelativePath(
+      new File(['{"kind":"MatchState"}\n'], "a_events.JSONL", { type: "application/jsonl" }),
+      "private-day-folder/nested/a_events.JSONL"
+    );
+    const ignoredFile = withRelativePath(
+      new File(["not-jsonl"], "notes.txt", { type: "text/plain" }),
+      "private-day-folder/nested/notes.txt"
+    );
+    const submitUpload = vi.fn(async () => buildUploadedManualImportJob());
+    render(<SetupStatusApp fetchStatus={() => Promise.resolve(buildPayload())} submitUpload={submitUpload} />);
+
+    const folderInput = (await screen.findByLabelText("Upload JSONL folder")) as HTMLInputElement;
+    expect(folderInput).toHaveAttribute("webkitdirectory");
+
+    fireEvent.change(folderInput, { target: { files: [ignoredFile, jsonlFile] } });
+    fireEvent.change(screen.getByLabelText("Source label"), { target: { value: "safe_folder_upload" } });
+
+    expect(screen.getByText("1 files selected a_events.JSONL")).toBeInTheDocument();
+    expect(screen.getByText("1 non-JSONL file ignored")).toBeInTheDocument();
+    expect(screen.queryByText(/private-day-folder|nested|notes\.txt/i)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Upload JSONL Files" }));
+
+    await waitFor(() => {
+      expect(submitUpload).toHaveBeenCalledWith({
+        files: [jsonlFile],
+        source_artifact_label: "safe_folder_upload"
+      });
+    });
+    expect(await screen.findByRole("heading", { name: "Import Job" })).toBeInTheDocument();
+    expect(screen.getByText("uploaded_file_batch")).toBeInTheDocument();
+    expect(screen.queryByText(/private-day-folder|nested|notes\.txt/i)).not.toBeInTheDocument();
+  });
+
+  it("does not start folder upload when selection contains no JSONL files", async () => {
+    const ignoredFile = withRelativePath(
+      new File(["not-jsonl"], "notes.txt", { type: "text/plain" }),
+      "private-day-folder/notes.txt"
+    );
+    const submitUpload = vi.fn(async () => buildUploadedManualImportJob());
+    render(<SetupStatusApp fetchStatus={() => Promise.resolve(buildPayload())} submitUpload={submitUpload} />);
+
+    fireEvent.change(await screen.findByLabelText("Upload JSONL folder"), { target: { files: [ignoredFile] } });
+
+    expect(screen.getByText("1 non-JSONL file ignored")).toBeInTheDocument();
+    expect(screen.getByText("No JSONL files found in the selected folder.")).toBeInTheDocument();
+    expect(screen.queryByText(/private-day-folder|notes\.txt/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Upload JSONL Files" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Upload JSONL Files" }));
+    expect(submitUpload).not.toHaveBeenCalled();
+  });
+
   it("renders upload API errors safely and clears selected files", async () => {
     const rawFileName = "secret_token_dump.jsonl";
     const selectedFile = new File(['{"raw":"private"}\n'], rawFileName, { type: "application/jsonl" });
@@ -314,6 +366,14 @@ describe("SetupStatusApp", () => {
     expect(screen.queryByText(rawPath)).not.toBeInTheDocument();
   });
 });
+
+function withRelativePath(file: File, relativePath: string): File {
+  Object.defineProperty(file, "webkitRelativePath", {
+    configurable: true,
+    value: relativePath
+  });
+  return file;
+}
 
 function buildPayload(overrides: Partial<SetupStatusResponse> = {}): SetupStatusResponse {
   return {
