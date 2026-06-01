@@ -11,9 +11,11 @@ from starlette.datastructures import UploadFile
 
 from .analytics_history import (
     build_game_history,
+    build_gameplay_action_review,
     build_match_history,
     build_mulligan_history,
     build_opening_hand_history,
+    build_opponent_card_observation_review,
 )
 from .config import load_local_app_config_status
 from .import_jobs import (
@@ -100,6 +102,16 @@ def create_app(
     def analytics_mulligan_history(request: Request) -> dict[str, object]:
         limit, offset = _history_pagination(request)
         return build_mulligan_history(build_local_app_paths(app_data_root), limit=limit, offset=offset)
+
+    @app.get("/api/analytics/gameplay-actions")
+    def analytics_gameplay_action_review(request: Request) -> dict[str, object]:
+        limit, offset = _history_pagination(request)
+        return build_gameplay_action_review(build_local_app_paths(app_data_root), limit=limit, offset=offset)
+
+    @app.get("/api/analytics/opponent-card-observations")
+    def analytics_opponent_card_observation_review(request: Request) -> dict[str, object]:
+        limit, offset = _history_pagination(request)
+        return build_opponent_card_observation_review(build_local_app_paths(app_data_root), limit=limit, offset=offset)
 
     @app.get("/api/runtime/status")
     def runtime_state() -> dict[str, object]:

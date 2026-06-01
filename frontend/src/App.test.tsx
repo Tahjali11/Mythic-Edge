@@ -4,25 +4,30 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { AnalyticsHistoryApiError, ManualImportApiError, SetupStatusApiError } from "./api";
 import { SetupStatusApp } from "./App";
 import {
+  ACTION_REVIEW_SCHEMA_VERSION,
   ANALYTICS_HISTORY_SCHEMA_VERSION,
   EARLY_GAME_HISTORY_SCHEMA_VERSION,
   GAME_HISTORY_OBJECT,
+  GAMEPLAY_ACTION_REVIEW_OBJECT,
   LEGACY_JSONL_IMPORT_QUALITY_OBJECT,
   LEGACY_JSONL_IMPORT_QUALITY_SCHEMA_VERSION,
   MANUAL_IMPORT_JOB_OBJECT,
   MANUAL_IMPORT_JOB_SCHEMA_VERSION,
   MATCH_HISTORY_OBJECT,
   MULLIGAN_HISTORY_OBJECT,
+  OPPONENT_CARD_OBSERVATION_REVIEW_OBJECT,
   OPENING_HAND_HISTORY_OBJECT,
   SETUP_STATUS_OBJECT,
   SETUP_STATUS_SCHEMA_VERSION,
   type GameHistoryResponse,
+  type GameplayActionReviewResponse,
   type LegacyJsonlImportQuality,
   type ManualImportJob,
   type ManualImportSourceArtifact,
   type MatchHistoryResponse,
   type MulliganHistoryResponse,
   type OpeningHandHistoryResponse,
+  type OpponentCardObservationReviewResponse,
   type SetupStatusResponse
 } from "./types";
 
@@ -109,6 +114,39 @@ describe("SetupStatusApp", () => {
     });
   });
 
+  it("renders read-only gameplay action and opponent observation review with a refresh control", async () => {
+    const fetchGameplayActions = vi.fn(async () => buildGameplayActionReviewPayload());
+    const fetchOpponentObservations = vi.fn(async () => buildOpponentObservationReviewPayload());
+    render(
+      <SetupStatusApp
+        fetchGames={() => Promise.resolve(buildGameHistoryPayload())}
+        fetchGameplayActions={fetchGameplayActions}
+        fetchMatches={() => Promise.resolve(buildMatchHistoryPayload())}
+        fetchMulligans={() => Promise.resolve(buildMulliganHistoryPayload())}
+        fetchOpeningHands={() => Promise.resolve(buildOpeningHandHistoryPayload())}
+        fetchOpponentObservations={fetchOpponentObservations}
+        fetchStatus={() => Promise.resolve(buildPayload())}
+      />
+    );
+
+    expect(await screen.findByRole("heading", { name: "Action Review" })).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { name: "Gameplay Actions" }).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByRole("heading", { name: "Opponent Observations" }).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("opponent cast hand to stack observed")).toBeInTheDocument();
+    expect(screen.getByText("1: Forest direct_grp_id 1001")).toBeInTheDocument();
+    expect(screen.getByText("Island public visible missing_expected_evidence review required")).toBeInTheDocument();
+    expect(screen.getByText("turn 2 opponent cast hand to stack")).toBeInTheDocument();
+    expect(screen.queryByText(/best line|mistake|advice|line tracer|hidden card|archetype/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /reset|delete|wipe|cancel|retry|start|stop|git|sheets|ai/i })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Refresh Actions" }));
+
+    await waitFor(() => {
+      expect(fetchGameplayActions).toHaveBeenCalledTimes(2);
+      expect(fetchOpponentObservations).toHaveBeenCalledTimes(2);
+    });
+  });
+
   it("renders empty and degraded history states safely", async () => {
     render(
       <SetupStatusApp
@@ -139,6 +177,26 @@ describe("SetupStatusApp", () => {
     expect(screen.getByText("mulligan history schema not current")).toBeInTheDocument();
   });
 
+  it("renders empty and degraded action review states safely", async () => {
+    render(
+      <SetupStatusApp
+        fetchGames={() => Promise.resolve(buildGameHistoryPayload())}
+        fetchGameplayActions={() => Promise.resolve({ ...buildGameplayActionReviewPayload(), status: "empty", rows: [] })}
+        fetchMatches={() => Promise.resolve(buildMatchHistoryPayload())}
+        fetchMulligans={() => Promise.resolve(buildMulliganHistoryPayload())}
+        fetchOpeningHands={() => Promise.resolve(buildOpeningHandHistoryPayload())}
+        fetchOpponentObservations={() =>
+          Promise.resolve({ ...buildOpponentObservationReviewPayload(), status: "degraded", rows: [] })
+        }
+        fetchStatus={() => Promise.resolve(buildPayload())}
+      />
+    );
+
+    expect(await screen.findByRole("heading", { name: "Action Review" })).toBeInTheDocument();
+    expect(screen.getByText("No gameplay action rows")).toBeInTheDocument();
+    expect(screen.getByText("opponent observation history schema not current")).toBeInTheDocument();
+  });
+
   it("renders malformed history responses without raw backend details", async () => {
     render(
       <SetupStatusApp
@@ -165,6 +223,24 @@ describe("SetupStatusApp", () => {
 
     expect(await screen.findByRole("heading", { name: "Malformed history response" })).toBeInTheDocument();
     expect(screen.queryByText(`Expected schema: ${EARLY_GAME_HISTORY_SCHEMA_VERSION}`)).not.toBeInTheDocument();
+    expect(screen.queryByText(/stack|error:|select \*/i)).not.toBeInTheDocument();
+  });
+
+  it("renders malformed action review responses without raw backend details", async () => {
+    render(
+      <SetupStatusApp
+        fetchGames={() => Promise.resolve(buildGameHistoryPayload())}
+        fetchGameplayActions={() => Promise.reject(new AnalyticsHistoryApiError("malformed_response", "Malformed history"))}
+        fetchMatches={() => Promise.resolve(buildMatchHistoryPayload())}
+        fetchMulligans={() => Promise.resolve(buildMulliganHistoryPayload())}
+        fetchOpeningHands={() => Promise.resolve(buildOpeningHandHistoryPayload())}
+        fetchOpponentObservations={() => Promise.resolve(buildOpponentObservationReviewPayload())}
+        fetchStatus={() => Promise.resolve(buildPayload())}
+      />
+    );
+
+    expect(await screen.findByRole("heading", { name: "Malformed history response" })).toBeInTheDocument();
+    expect(screen.queryByText(`Expected schema: ${ACTION_REVIEW_SCHEMA_VERSION}`)).not.toBeInTheDocument();
     expect(screen.queryByText(/stack|error:|select \*/i)).not.toBeInTheDocument();
   });
 
@@ -773,6 +849,189 @@ function buildMulliganHistoryPayload(): MulliganHistoryResponse {
           }
         ],
         mulligan_status: buildHistoryStatus(),
+        game_status: buildHistoryStatus(),
+        game_result_status: buildHistoryStatus(),
+        match_result_status: buildHistoryStatus(),
+        context_status: buildHistoryStatus()
+      }
+    ],
+    warnings: [],
+    errors: []
+  };
+}
+
+function buildGameplayActionReviewPayload(): GameplayActionReviewResponse {
+  return {
+    object: GAMEPLAY_ACTION_REVIEW_OBJECT,
+    schema_version: ACTION_REVIEW_SCHEMA_VERSION,
+    status: "ok",
+    database: {
+      display_path: "<app_data>\\db\\mythic_edge.sqlite3",
+      exists: true,
+      schema_status: "schema_current",
+      status: "ok"
+    },
+    pagination: {
+      limit: 50,
+      offset: 0,
+      returned: 1
+    },
+    summary: {
+      row_count: 1,
+      card_row_count: 1,
+      degraded_row_count: 0,
+      unavailable_row_count: 0,
+      conflict_row_count: 0,
+      review_required_row_count: 0
+    },
+    rows: [
+      {
+        gameplay_action_id: "match:history:1:g1:action:cast",
+        match_id: "match:history:1",
+        game_id: "match:history:1:g1",
+        game_number: 1,
+        timestamp: "2026-05-30T00:05:00Z",
+        game_state_id: 123,
+        turn_number: 2,
+        action_type: "cast",
+        actor_relation: "opponent",
+        from_zone_type: "hand",
+        to_zone_type: "stack",
+        source_status: "observed",
+        annotation_context_label: "gameplay_action",
+        raw_action_type_labels: "cast",
+        annotation_type_labels: "spell",
+        visible_in_log: true,
+        card_count: 1,
+        grp_ids: [1001],
+        local_result: "win",
+        play_draw: "play",
+        pre_postboard_label: "game1",
+        match_result: "W",
+        match_win: 1,
+        queue_name: "Ranked",
+        format_name: "Standard",
+        event_id: "PremierDraft",
+        cards: [
+          {
+            gameplay_action_card_id: "match:history:1:g1:action:cast:card1",
+            card_ordinal: 1,
+            instance_id: 10001,
+            grp_id: 1001,
+            observed_grp_id: 1001,
+            overlay_grp_id: null,
+            object_source_grp_id: 1001,
+            identity_hint_source: "direct_grp_id",
+            card_name: "Forest",
+            display_name: "Forest",
+            name_resolution_status: "resolved",
+            enrichment_status: "not_needed",
+            card_status: buildHistoryStatus()
+          }
+        ],
+        gameplay_action_status: buildHistoryStatus(),
+        game_status: buildHistoryStatus(),
+        game_result_status: buildHistoryStatus(),
+        match_result_status: buildHistoryStatus(),
+        context_status: buildHistoryStatus()
+      }
+    ],
+    warnings: [],
+    errors: []
+  };
+}
+
+function buildOpponentObservationReviewPayload(): OpponentCardObservationReviewResponse {
+  return {
+    object: OPPONENT_CARD_OBSERVATION_REVIEW_OBJECT,
+    schema_version: ACTION_REVIEW_SCHEMA_VERSION,
+    status: "ok",
+    database: {
+      display_path: "<app_data>\\db\\mythic_edge.sqlite3",
+      exists: true,
+      schema_status: "schema_current",
+      status: "ok"
+    },
+    pagination: {
+      limit: 50,
+      offset: 0,
+      returned: 1
+    },
+    summary: {
+      row_count: 1,
+      card_row_count: 1,
+      degraded_row_count: 1,
+      unavailable_row_count: 0,
+      conflict_row_count: 0,
+      review_required_row_count: 1
+    },
+    rows: [
+      {
+        opponent_card_observation_id: "match:history:1:g1:observation:2",
+        gameplay_action_id: "match:history:1:g1:action:cast",
+        match_id: "match:history:1",
+        game_id: "match:history:1:g1",
+        game_number: 1,
+        timestamp: "2026-05-30T00:05:01Z",
+        game_state_id: 124,
+        turn_number: 2,
+        actor_relation: "opponent",
+        actor_seat_id: 2,
+        local_seat_id: 1,
+        instance_id: 20001,
+        grp_id: 2001,
+        observed_grp_id: 2001,
+        overlay_grp_id: null,
+        object_source_grp_id: 2001,
+        parent_id: null,
+        identity_hint_source: "visible_object",
+        card_name: "Island",
+        display_name: "Island",
+        resolution_status: "resolved",
+        name_resolution_source: "local_catalog",
+        action_type: "cast",
+        cast_mode: "normal",
+        source_evidence: "gameplay_action",
+        evidence_status: "visible",
+        visibility: "public",
+        from_zone_type: "hand",
+        to_zone_type: "stack",
+        degradation_flags: ["missing_expected_evidence"],
+        review_required: true,
+        linked_gameplay_action: {
+          gameplay_action_id: "match:history:1:g1:action:cast",
+          turn_number: 2,
+          action_type: "cast",
+          actor_relation: "opponent",
+          from_zone_type: "hand",
+          to_zone_type: "stack",
+          visible_in_log: true
+        },
+        local_result: "win",
+        play_draw: "play",
+        pre_postboard_label: "game1",
+        match_result: "W",
+        match_win: 1,
+        queue_name: "Ranked",
+        format_name: "Standard",
+        event_id: "PremierDraft",
+        cards: [
+          {
+            opponent_card_observation_card_id: "match:history:1:g1:observation:2:card1",
+            card_ordinal: 1,
+            grp_id: 2001,
+            observed_grp_id: 2001,
+            overlay_grp_id: null,
+            object_source_grp_id: 2001,
+            identity_hint_source: "visible_object",
+            card_name: "Island",
+            resolution_status: "resolved",
+            visibility: "public",
+            card_status: buildHistoryStatus()
+          }
+        ],
+        opponent_card_observation_status: buildHistoryStatus(),
+        linked_gameplay_action_status: buildHistoryStatus(),
         game_status: buildHistoryStatus(),
         game_result_status: buildHistoryStatus(),
         match_result_status: buildHistoryStatus(),

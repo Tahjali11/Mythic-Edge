@@ -10,6 +10,9 @@ export const GAME_HISTORY_OBJECT = "mythic_edge_local_app_game_history";
 export const EARLY_GAME_HISTORY_SCHEMA_VERSION = "analytics_app_opening_hand_mulligan_views.v1";
 export const OPENING_HAND_HISTORY_OBJECT = "mythic_edge_local_app_opening_hand_history";
 export const MULLIGAN_HISTORY_OBJECT = "mythic_edge_local_app_mulligan_history";
+export const ACTION_REVIEW_SCHEMA_VERSION = "analytics_app_gameplay_action_opponent_observation_views.v1";
+export const GAMEPLAY_ACTION_REVIEW_OBJECT = "mythic_edge_local_app_gameplay_action_review";
+export const OPPONENT_CARD_OBSERVATION_REVIEW_OBJECT = "mythic_edge_local_app_opponent_card_observation_review";
 
 export type SetupStatusTone =
   | "ok"
@@ -232,6 +235,10 @@ export type EarlyGameHistorySummary = AnalyticsHistorySummary & {
   card_row_count: number;
 };
 
+export type ActionReviewSummary = EarlyGameHistorySummary & {
+  review_required_row_count: number;
+};
+
 export type MatchHistoryRow = {
   match_id: string;
   parser_match_key: string | null;
@@ -382,6 +389,155 @@ export type MulliganHistoryResponse = {
   pagination: AnalyticsHistoryPagination;
   summary: EarlyGameHistorySummary;
   rows: MulliganHistoryRow[];
+  warnings: string[];
+  errors: string[];
+};
+
+export type GameplayActionCardRow = {
+  gameplay_action_card_id: string;
+  card_ordinal: number;
+  instance_id: number | null;
+  grp_id: number | null;
+  observed_grp_id: number | null;
+  overlay_grp_id: number | null;
+  object_source_grp_id: number | null;
+  identity_hint_source: string | null;
+  card_name: string | null;
+  display_name: string | null;
+  name_resolution_status: string | null;
+  enrichment_status: string | null;
+  card_status: AnalyticsHistoryStatusObject;
+};
+
+export type GameplayActionReviewRow = {
+  gameplay_action_id: string;
+  match_id: string;
+  game_id: string;
+  game_number: number;
+  timestamp: string | null;
+  game_state_id: number | null;
+  turn_number: number | null;
+  action_type: string;
+  actor_relation: string;
+  from_zone_type: string | null;
+  to_zone_type: string | null;
+  source_status: string | null;
+  annotation_context_label: string | null;
+  raw_action_type_labels: string | null;
+  annotation_type_labels: string | null;
+  visible_in_log: boolean | null;
+  card_count: number;
+  grp_ids: number[];
+  local_result: string | null;
+  play_draw: string | null;
+  pre_postboard_label: string | null;
+  match_result: string | null;
+  match_win: number | null;
+  queue_name: string | null;
+  format_name: string | null;
+  event_id: string | null;
+  cards: GameplayActionCardRow[];
+  gameplay_action_status: AnalyticsHistoryStatusObject;
+  game_status: AnalyticsHistoryStatusObject | null;
+  game_result_status: AnalyticsHistoryStatusObject | null;
+  match_result_status: AnalyticsHistoryStatusObject | null;
+  context_status: AnalyticsHistoryStatusObject | null;
+};
+
+export type LinkedGameplayAction = {
+  gameplay_action_id: string;
+  turn_number: number | null;
+  action_type: string;
+  actor_relation: string;
+  from_zone_type: string | null;
+  to_zone_type: string | null;
+  visible_in_log: boolean | null;
+};
+
+export type OpponentCardObservationCardRow = {
+  opponent_card_observation_card_id: string;
+  card_ordinal: number;
+  grp_id: number | null;
+  observed_grp_id: number | null;
+  overlay_grp_id: number | null;
+  object_source_grp_id: number | null;
+  identity_hint_source: string | null;
+  card_name: string | null;
+  resolution_status: string | null;
+  visibility: string | null;
+  card_status: AnalyticsHistoryStatusObject;
+};
+
+export type OpponentCardObservationReviewRow = {
+  opponent_card_observation_id: string;
+  gameplay_action_id: string | null;
+  match_id: string;
+  game_id: string;
+  game_number: number;
+  timestamp: string | null;
+  game_state_id: number | null;
+  turn_number: number | null;
+  actor_relation: string;
+  actor_seat_id: number | null;
+  local_seat_id: number | null;
+  instance_id: number | null;
+  grp_id: number | null;
+  observed_grp_id: number | null;
+  overlay_grp_id: number | null;
+  object_source_grp_id: number | null;
+  parent_id: number | null;
+  identity_hint_source: string | null;
+  card_name: string | null;
+  display_name: string | null;
+  resolution_status: string | null;
+  name_resolution_source: string | null;
+  action_type: string | null;
+  cast_mode: string | null;
+  source_evidence: string | null;
+  evidence_status: string | null;
+  visibility: string | null;
+  from_zone_type: string | null;
+  to_zone_type: string | null;
+  degradation_flags: string[];
+  review_required: boolean;
+  linked_gameplay_action: LinkedGameplayAction | null;
+  local_result: string | null;
+  play_draw: string | null;
+  pre_postboard_label: string | null;
+  match_result: string | null;
+  match_win: number | null;
+  queue_name: string | null;
+  format_name: string | null;
+  event_id: string | null;
+  cards: OpponentCardObservationCardRow[];
+  opponent_card_observation_status: AnalyticsHistoryStatusObject;
+  linked_gameplay_action_status: AnalyticsHistoryStatusObject | null;
+  game_status: AnalyticsHistoryStatusObject | null;
+  game_result_status: AnalyticsHistoryStatusObject | null;
+  match_result_status: AnalyticsHistoryStatusObject | null;
+  context_status: AnalyticsHistoryStatusObject | null;
+};
+
+export type GameplayActionReviewResponse = {
+  object: typeof GAMEPLAY_ACTION_REVIEW_OBJECT;
+  schema_version: typeof ACTION_REVIEW_SCHEMA_VERSION;
+  status: AnalyticsHistoryStatus;
+  database: AnalyticsHistoryDatabase;
+  pagination: AnalyticsHistoryPagination;
+  summary: ActionReviewSummary;
+  rows: GameplayActionReviewRow[];
+  warnings: string[];
+  errors: string[];
+};
+
+export type OpponentCardObservationReviewResponse = {
+  object: typeof OPPONENT_CARD_OBSERVATION_REVIEW_OBJECT;
+  schema_version: typeof ACTION_REVIEW_SCHEMA_VERSION;
+  status: AnalyticsHistoryStatus;
+  database: AnalyticsHistoryDatabase;
+  pagination: AnalyticsHistoryPagination;
+  summary: ActionReviewSummary;
+  rows: OpponentCardObservationReviewRow[];
   warnings: string[];
   errors: string[];
 };

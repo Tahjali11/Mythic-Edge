@@ -4,8 +4,10 @@ import "./App.css";
 import {
   AnalyticsHistoryApiError,
   fetchGameHistory,
+  fetchGameplayActionReview,
   fetchMatchHistory,
   fetchMulliganHistory,
+  fetchOpponentCardObservationReview,
   fetchOpeningHandHistory,
   fetchSetupStatus,
   ManualImportApiError,
@@ -15,6 +17,7 @@ import {
 } from "./api";
 import { safeDisplayValue, statusTone } from "./status";
 import {
+  ACTION_REVIEW_SCHEMA_VERSION,
   ANALYTICS_HISTORY_SCHEMA_VERSION,
   EARLY_GAME_HISTORY_SCHEMA_VERSION,
   MANUAL_IMPORT_JOB_SCHEMA_VERSION,
@@ -22,6 +25,8 @@ import {
   type AnalyticsHistoryStatus,
   type AnalyticsHistoryStatusObject,
   type GameHistoryResponse,
+  type GameplayActionReviewResponse,
+  type GameplayActionReviewRow,
   type ManualImportJob,
   type ManualImportRequest,
   type ManualImportUploadRequest,
@@ -31,6 +36,8 @@ import {
   type MulliganHistoryRow,
   type OpeningHandHistoryResponse,
   type OpeningHandHistoryRow,
+  type OpponentCardObservationReviewResponse,
+  type OpponentCardObservationReviewRow,
   type LegacyJsonlImportQuality,
   type LegacyJsonlRoutingHint,
   type ManualImportSourceArtifact,
@@ -49,6 +56,8 @@ type SetupStatusAppProps = {
   fetchGames?: () => Promise<GameHistoryResponse>;
   fetchOpeningHands?: () => Promise<OpeningHandHistoryResponse>;
   fetchMulligans?: () => Promise<MulliganHistoryResponse>;
+  fetchGameplayActions?: () => Promise<GameplayActionReviewResponse>;
+  fetchOpponentObservations?: () => Promise<OpponentCardObservationReviewResponse>;
   submitImport?: (request: ManualImportRequest) => Promise<ManualImportJob>;
   submitUpload?: (request: ManualImportUploadRequest) => Promise<ManualImportJob>;
 };
@@ -74,6 +83,16 @@ type EarlyGameHistoryState =
     }
   | { state: "error"; code: AnalyticsHistoryApiError["code"]; message: string };
 
+type ActionReviewState =
+  | { state: "loading" }
+  | {
+      state: "ready";
+      gameplayActions: GameplayActionReviewResponse;
+      opponentObservations: OpponentCardObservationReviewResponse;
+      unsafeCount: number;
+    }
+  | { state: "error"; code: AnalyticsHistoryApiError["code"]; message: string };
+
 type Panel = {
   title: string;
   status: string;
@@ -86,12 +105,15 @@ export function SetupStatusApp({
   fetchGames = fetchGameHistory,
   fetchOpeningHands = fetchOpeningHandHistory,
   fetchMulligans = fetchMulliganHistory,
+  fetchGameplayActions = fetchGameplayActionReview,
+  fetchOpponentObservations = fetchOpponentCardObservationReview,
   submitImport = submitManualJsonlImport,
   submitUpload = submitManualJsonlUpload
 }: SetupStatusAppProps) {
   const [loadState, setLoadState] = useState<LoadState>({ state: "loading" });
   const [historyState, setHistoryState] = useState<HistoryState>({ state: "loading" });
   const [earlyGameState, setEarlyGameState] = useState<EarlyGameHistoryState>({ state: "loading" });
+  const [actionReviewState, setActionReviewState] = useState<ActionReviewState>({ state: "loading" });
   const [sourcePath, setSourcePath] = useState("");
   const [sourcePathsText, setSourcePathsText] = useState("");
   const [uploadFiles, setUploadFiles] = useState<File[]>([]);
@@ -214,6 +236,46 @@ export function SetupStatusApp({
     }
   }, [fetchMulligans, fetchOpeningHands]);
 
+  useEffect(() => {
+    let active = true;
+
+    loadActionReview();
+
+    return () => {
+      active = false;
+    };
+
+    function loadActionReview() {
+      setActionReviewState({ state: "loading" });
+      Promise.all([fetchGameplayActions(), fetchOpponentObservations()])
+        .then(([gameplayActions, opponentObservations]) => {
+          if (!active) {
+            return;
+          }
+          setActionReviewState({
+            state: "ready",
+            gameplayActions,
+            opponentObservations,
+            unsafeCount: countUnsafeActionReviewValues(gameplayActions, opponentObservations)
+          });
+        })
+        .catch((error: unknown) => {
+          if (!active) {
+            return;
+          }
+          if (error instanceof AnalyticsHistoryApiError) {
+            setActionReviewState({ state: "error", code: error.code, message: error.message });
+            return;
+          }
+          setActionReviewState({
+            state: "error",
+            code: "backend_unavailable",
+            message: "Analytics history backend is unavailable."
+          });
+        });
+    }
+  }, [fetchGameplayActions, fetchOpponentObservations]);
+
   function refreshHistory() {
     setHistoryState({ state: "loading" });
     Promise.all([fetchMatches(), fetchGames()])
@@ -255,6 +317,30 @@ export function SetupStatusApp({
           return;
         }
         setEarlyGameState({
+          state: "error",
+          code: "backend_unavailable",
+          message: "Analytics history backend is unavailable."
+        });
+      });
+  }
+
+  function refreshActionReview() {
+    setActionReviewState({ state: "loading" });
+    Promise.all([fetchGameplayActions(), fetchOpponentObservations()])
+      .then(([gameplayActions, opponentObservations]) => {
+        setActionReviewState({
+          state: "ready",
+          gameplayActions,
+          opponentObservations,
+          unsafeCount: countUnsafeActionReviewValues(gameplayActions, opponentObservations)
+        });
+      })
+      .catch((error: unknown) => {
+        if (error instanceof AnalyticsHistoryApiError) {
+          setActionReviewState({ state: "error", code: error.code, message: error.message });
+          return;
+        }
+        setActionReviewState({
           state: "error",
           code: "backend_unavailable",
           message: "Analytics history backend is unavailable."
@@ -446,6 +532,7 @@ export function SetupStatusApp({
 
       <AnalyticsHistorySection historyState={historyState} onRefresh={refreshHistory} />
       <EarlyGameHistorySection earlyGameState={earlyGameState} onRefresh={refreshEarlyGameHistory} />
+      <ActionReviewSection actionReviewState={actionReviewState} onRefresh={refreshActionReview} />
 
       <section className="panelGrid futureGrid" aria-label="Deferred local app sections">
         <StatusPanel title="Live Watcher" status="deferred" details={[{ label: "state", value: "deferred" }]} />
@@ -718,6 +805,69 @@ function EarlyGameHistoryErrorNotice({
   );
 }
 
+function ActionReviewSection({
+  actionReviewState,
+  onRefresh
+}: {
+  actionReviewState: ActionReviewState;
+  onRefresh: () => void;
+}) {
+  const status = actionReviewStatus(actionReviewState);
+  const tone = statusTone(status);
+  return (
+    <section className={`analyticsHistorySection tone-${tone}`} aria-labelledby="action-review-title">
+      <div className="panelHeader analyticsHistoryHeader">
+        <div>
+          <h2 id="action-review-title">Action Review</h2>
+        </div>
+        <div className="historyHeaderActions">
+          <StatusPill label={status} tone={tone} />
+          <button disabled={actionReviewState.state === "loading"} onClick={onRefresh} type="button">
+            Refresh Actions
+          </button>
+        </div>
+      </div>
+      {actionReviewState.state === "loading" ? <p className="historyStateMessage">Loading action review</p> : null}
+      {actionReviewState.state === "error" ? (
+        <ActionReviewErrorNotice actionReviewState={actionReviewState} />
+      ) : null}
+      {actionReviewState.state === "ready" ? (
+        <>
+          {actionReviewState.unsafeCount > 0 ? (
+            <p className="historyStateMessage">{actionReviewState.unsafeCount} action review value was redacted.</p>
+          ) : null}
+          <div className="historySummaryGrid" aria-label="Action review summary">
+            <ActionReviewSummaryPanel title="Gameplay Actions" response={actionReviewState.gameplayActions} />
+            <ActionReviewSummaryPanel title="Opponent Observations" response={actionReviewState.opponentObservations} />
+          </div>
+          <GameplayActionReviewTable response={actionReviewState.gameplayActions} />
+          <OpponentObservationReviewTable response={actionReviewState.opponentObservations} />
+        </>
+      ) : null}
+    </section>
+  );
+}
+
+function ActionReviewErrorNotice({
+  actionReviewState
+}: {
+  actionReviewState: Extract<ActionReviewState, { state: "error" }>;
+}) {
+  return (
+    <section className={`historyNotice tone-${errorTone(actionReviewState.code)}`} aria-label="Action review error">
+      <div className="panelHeader">
+        <h3>{analyticsHistoryErrorTitle(actionReviewState.code)}</h3>
+        <StatusPill label={errorTone(actionReviewState.code)} tone={errorTone(actionReviewState.code)} />
+      </div>
+      <p>
+        {actionReviewState.code === "incompatible_response"
+          ? `Expected schema: ${ACTION_REVIEW_SCHEMA_VERSION}`
+          : actionReviewState.message}
+      </p>
+    </section>
+  );
+}
+
 function AnalyticsHistoryErrorNotice({ historyState }: { historyState: Extract<HistoryState, { state: "error" }> }) {
   return (
     <section className={`historyNotice tone-${errorTone(historyState.code)}`} aria-label="Analytics history error">
@@ -753,6 +903,32 @@ function EarlyGameSummaryPanel({
         <SummaryRow label="degraded" value={response.summary.degraded_row_count} />
         <SummaryRow label="unavailable" value={response.summary.unavailable_row_count} />
         <SummaryRow label="conflict" value={response.summary.conflict_row_count} />
+        <SummaryRow label="schema" value={response.database.schema_status} />
+      </dl>
+    </article>
+  );
+}
+
+function ActionReviewSummaryPanel({
+  title,
+  response
+}: {
+  title: string;
+  response: GameplayActionReviewResponse | OpponentCardObservationReviewResponse;
+}) {
+  return (
+    <article className={`historySummaryPanel tone-${statusTone(response.status)}`}>
+      <div className="panelHeader">
+        <h3>{title}</h3>
+        <StatusPill label={response.status} tone={statusTone(response.status)} />
+      </div>
+      <dl>
+        <SummaryRow label="rows" value={response.summary.row_count} />
+        <SummaryRow label="cards" value={response.summary.card_row_count} />
+        <SummaryRow label="degraded" value={response.summary.degraded_row_count} />
+        <SummaryRow label="unavailable" value={response.summary.unavailable_row_count} />
+        <SummaryRow label="conflict" value={response.summary.conflict_row_count} />
+        <SummaryRow label="review" value={response.summary.review_required_row_count} />
         <SummaryRow label="schema" value={response.database.schema_status} />
       </dl>
     </article>
@@ -865,6 +1041,105 @@ function MulliganHistoryTable({ response }: { response: MulliganHistoryResponse 
                   <SafeCell
                     value={statusSummary(
                       row.mulligan_status,
+                      row.game_status,
+                      row.game_result_status,
+                      row.match_result_status,
+                      row.context_status
+                    )}
+                  />
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function GameplayActionReviewTable({ response }: { response: GameplayActionReviewResponse }) {
+  return (
+    <section className="historyTableSection" aria-labelledby="gameplay-action-review-title">
+      <div className="panelHeader">
+        <h3 id="gameplay-action-review-title">Gameplay Actions</h3>
+        <StatusPill label={response.status} tone={statusTone(response.status)} />
+      </div>
+      {response.rows.length === 0 ? (
+        <p className="historyStateMessage">{historyEmptyLabel("gameplay action", response.status)}</p>
+      ) : (
+        <div className="historyTableWrap">
+          <table className="historyTable">
+            <thead>
+              <tr>
+                <th scope="col">Game</th>
+                <th scope="col">Turn</th>
+                <th scope="col">Action</th>
+                <th scope="col">Cards</th>
+                <th scope="col">Result</th>
+                <th scope="col">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {response.rows.map((row) => (
+                <tr key={row.gameplay_action_id}>
+                  <SafeCell value={`${row.match_id} game ${row.game_number}`} />
+                  <SafeCell value={row.turn_number ?? "unknown"} />
+                  <SafeCell value={gameplayActionSummary(row)} />
+                  <SafeCell value={gameplayActionCardsSummary(row)} />
+                  <SafeCell value={row.local_result ?? row.match_result ?? matchWinLabel(row.match_win)} />
+                  <SafeCell
+                    value={statusSummary(
+                      row.gameplay_action_status,
+                      row.game_status,
+                      row.game_result_status,
+                      row.match_result_status,
+                      row.context_status
+                    )}
+                  />
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function OpponentObservationReviewTable({ response }: { response: OpponentCardObservationReviewResponse }) {
+  return (
+    <section className="historyTableSection" aria-labelledby="opponent-observation-review-title">
+      <div className="panelHeader">
+        <h3 id="opponent-observation-review-title">Opponent Observations</h3>
+        <StatusPill label={response.status} tone={statusTone(response.status)} />
+      </div>
+      {response.rows.length === 0 ? (
+        <p className="historyStateMessage">{historyEmptyLabel("opponent observation", response.status)}</p>
+      ) : (
+        <div className="historyTableWrap">
+          <table className="historyTable">
+            <thead>
+              <tr>
+                <th scope="col">Game</th>
+                <th scope="col">Turn</th>
+                <th scope="col">Observation</th>
+                <th scope="col">Cards</th>
+                <th scope="col">Link</th>
+                <th scope="col">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {response.rows.map((row) => (
+                <tr key={row.opponent_card_observation_id}>
+                  <SafeCell value={`${row.match_id} game ${row.game_number}`} />
+                  <SafeCell value={row.turn_number ?? "unknown"} />
+                  <SafeCell value={opponentObservationSummary(row)} />
+                  <SafeCell value={opponentObservationCardsSummary(row)} />
+                  <SafeCell value={linkedGameplayActionSummary(row)} />
+                  <SafeCell
+                    value={statusSummary(
+                      row.opponent_card_observation_status,
+                      row.linked_gameplay_action_status,
                       row.game_status,
                       row.game_result_status,
                       row.match_result_status,
@@ -1244,6 +1519,74 @@ function countUnsafeEarlyGameHistoryValues(
   return values.filter((value) => safeDisplayValue(value ?? "unknown").redacted).length;
 }
 
+function countUnsafeActionReviewValues(
+  gameplayActions: GameplayActionReviewResponse,
+  opponentObservations: OpponentCardObservationReviewResponse
+): number {
+  const values: unknown[] = [
+    gameplayActions.database.display_path,
+    opponentObservations.database.display_path,
+    ...gameplayActions.warnings,
+    ...gameplayActions.errors,
+    ...opponentObservations.warnings,
+    ...opponentObservations.errors
+  ];
+  for (const row of gameplayActions.rows) {
+    values.push(
+      row.gameplay_action_id,
+      row.match_id,
+      row.game_id,
+      row.timestamp,
+      row.action_type,
+      row.actor_relation,
+      row.from_zone_type,
+      row.to_zone_type,
+      row.source_status,
+      row.annotation_context_label,
+      row.raw_action_type_labels,
+      row.annotation_type_labels,
+      gameplayActionCardsSummary(row),
+      statusSummary(
+        row.gameplay_action_status,
+        row.game_status,
+        row.game_result_status,
+        row.match_result_status,
+        row.context_status
+      )
+    );
+  }
+  for (const row of opponentObservations.rows) {
+    values.push(
+      row.opponent_card_observation_id,
+      row.gameplay_action_id,
+      row.match_id,
+      row.game_id,
+      row.timestamp,
+      row.card_name,
+      row.display_name,
+      row.action_type,
+      row.cast_mode,
+      row.source_evidence,
+      row.evidence_status,
+      row.visibility,
+      row.from_zone_type,
+      row.to_zone_type,
+      row.degradation_flags.join(" "),
+      opponentObservationCardsSummary(row),
+      linkedGameplayActionSummary(row),
+      statusSummary(
+        row.opponent_card_observation_status,
+        row.linked_gameplay_action_status,
+        row.game_status,
+        row.game_result_status,
+        row.match_result_status,
+        row.context_status
+      )
+    );
+  }
+  return values.filter((value) => safeDisplayValue(value ?? "unknown").redacted).length;
+}
+
 function analyticsHistoryStatus(historyState: HistoryState): string {
   if (historyState.state === "loading") {
     return "loading";
@@ -1278,6 +1621,32 @@ function earlyGameHistoryStatus(earlyGameState: EarlyGameHistoryState): string {
     return "degraded";
   }
   const statuses: AnalyticsHistoryStatus[] = [earlyGameState.openingHands.status, earlyGameState.mulligans.status];
+  const priorityStatuses: AnalyticsHistoryStatus[] = ["error", "unavailable", "degraded", "missing"];
+  for (const status of priorityStatuses) {
+    if (statuses.includes(status)) {
+      return status;
+    }
+  }
+  if (statuses.every((status) => status === "empty")) {
+    return "empty";
+  }
+  return "ok";
+}
+
+function actionReviewStatus(actionReviewState: ActionReviewState): string {
+  if (actionReviewState.state === "loading") {
+    return "loading";
+  }
+  if (actionReviewState.state === "error") {
+    return errorTone(actionReviewState.code);
+  }
+  if (actionReviewState.unsafeCount > 0) {
+    return "degraded";
+  }
+  const statuses: AnalyticsHistoryStatus[] = [
+    actionReviewState.gameplayActions.status,
+    actionReviewState.opponentObservations.status
+  ];
   const priorityStatuses: AnalyticsHistoryStatus[] = ["error", "unavailable", "degraded", "missing"];
   for (const status of priorityStatuses) {
     if (statuses.includes(status)) {
@@ -1329,6 +1698,64 @@ function mulliganCardsSummary(row: MulliganHistoryRow): string {
     const source = card.identity_hint_source ?? "unknown";
     return `${card.card_position}: ${card.card_action} ${identity} ${source} ${card.grp_id ?? "unknown"}`;
   }).join(" ");
+}
+
+function gameplayActionSummary(row: GameplayActionReviewRow): string {
+  const actor = row.actor_relation || "unknown";
+  const source = row.source_status ?? row.annotation_context_label ?? "unknown";
+  const movement = `${row.from_zone_type ?? "unknown"} to ${row.to_zone_type ?? "unknown"}`;
+  return `${actor} ${row.action_type} ${movement} ${source}`;
+}
+
+function gameplayActionCardsSummary(row: GameplayActionReviewRow): string {
+  if (row.cards.length === 0) {
+    return "no cards";
+  }
+  return row.cards.map((card) => {
+    const identity = card.display_name ?? card.card_name ?? (card.grp_id === null ? "unknown" : `grp ${card.grp_id}`);
+    const source = card.identity_hint_source ?? card.name_resolution_status ?? "unknown";
+    return `${card.card_ordinal}: ${identity} ${source} ${card.grp_id ?? "unknown"}`;
+  }).join(" ");
+}
+
+function opponentObservationSummary(row: OpponentCardObservationReviewRow): string {
+  const identity = row.display_name ?? row.card_name ?? (row.grp_id === null ? "unknown" : `grp ${row.grp_id}`);
+  const flags = degradationFlagsSummary(row);
+  const review = row.review_required ? "review required" : "review clear";
+  return `${identity} ${visibilityEvidenceSummary(row)} ${flags} ${review}`;
+}
+
+function opponentObservationCardsSummary(row: OpponentCardObservationReviewRow): string {
+  if (row.cards.length === 0) {
+    return "no cards";
+  }
+  return row.cards.map((card) => {
+    const identity = card.card_name ?? (card.grp_id === null ? "unknown" : `grp ${card.grp_id}`);
+    const source = card.identity_hint_source ?? card.resolution_status ?? "unknown";
+    return `${card.card_ordinal}: ${identity} ${source} ${card.visibility ?? "unknown"} ${card.grp_id ?? "unknown"}`;
+  }).join(" ");
+}
+
+function linkedGameplayActionSummary(row: OpponentCardObservationReviewRow): string {
+  if (row.linked_gameplay_action === null) {
+    return "not linked";
+  }
+  const action = row.linked_gameplay_action;
+  const movement = `${action.from_zone_type ?? "unknown"} to ${action.to_zone_type ?? "unknown"}`;
+  return `turn ${action.turn_number ?? "unknown"} ${action.actor_relation} ${action.action_type} ${movement}`;
+}
+
+function visibilityEvidenceSummary(row: OpponentCardObservationReviewRow): string {
+  const visibility = row.visibility ?? "unknown visibility";
+  const evidence = row.evidence_status ?? row.source_evidence ?? "unknown evidence";
+  return `${visibility} ${evidence}`;
+}
+
+function degradationFlagsSummary(row: OpponentCardObservationReviewRow): string {
+  if (row.degradation_flags.length === 0) {
+    return "no flags";
+  }
+  return row.degradation_flags.join(" ");
 }
 
 function matchWinLabel(value: number | null): string {

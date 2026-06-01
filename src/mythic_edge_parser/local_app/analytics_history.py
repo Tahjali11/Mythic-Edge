@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 from pathlib import Path
 from typing import Any
@@ -9,10 +10,13 @@ from .setup_status import build_analytics_database_status
 
 HISTORY_SCHEMA_VERSION = "analytics_app_match_game_history_views.v1"
 EARLY_GAME_HISTORY_SCHEMA_VERSION = "analytics_app_opening_hand_mulligan_views.v1"
+ACTION_REVIEW_SCHEMA_VERSION = "analytics_app_gameplay_action_opponent_observation_views.v1"
 MATCH_HISTORY_OBJECT = "mythic_edge_local_app_match_history"
 GAME_HISTORY_OBJECT = "mythic_edge_local_app_game_history"
 OPENING_HAND_HISTORY_OBJECT = "mythic_edge_local_app_opening_hand_history"
 MULLIGAN_HISTORY_OBJECT = "mythic_edge_local_app_mulligan_history"
+GAMEPLAY_ACTION_REVIEW_OBJECT = "mythic_edge_local_app_gameplay_action_review"
+OPPONENT_CARD_OBSERVATION_REVIEW_OBJECT = "mythic_edge_local_app_opponent_card_observation_review"
 DEFAULT_HISTORY_LIMIT = 50
 MAX_HISTORY_LIMIT = 100
 DEGRADED_DRIFT_STATUSES = {"degraded", "conflict", "missing_expected_evidence", "redacted"}
@@ -26,6 +30,20 @@ STATUS_OBJECT_KEYS = {
     "source_fact_key",
     "ingest_run_id",
 }
+REDACTED_DEGRADATION_FLAG = "opponent_observation_degradation_flag_redacted"
+PRIVATE_DEGRADATION_FLAG_MARKERS = (
+    "player.log",
+    "script.google.com",
+    "hooks.",
+    "webhook",
+    "api_key",
+    "apikey",
+    "access_token",
+    "bearer ",
+    "secret",
+    "password",
+    "token",
+)
 
 
 def build_match_history(
@@ -95,6 +113,47 @@ def build_mulligan_history(
         parent_id_column="mulligan_event_id",
         child_query=_query_mulligan_cards,
         row_mapper=_mulligan_row,
+    )
+
+
+def build_gameplay_action_review(
+    paths: LocalAppPaths,
+    *,
+    limit: int = DEFAULT_HISTORY_LIMIT,
+    offset: int = 0,
+) -> dict[str, object]:
+    return _build_history_with_children(
+        paths,
+        object_name=GAMEPLAY_ACTION_REVIEW_OBJECT,
+        schema_version=ACTION_REVIEW_SCHEMA_VERSION,
+        limit=limit,
+        offset=offset,
+        parent_query=_GAMEPLAY_ACTION_REVIEW_QUERY,
+        parent_id_column="gameplay_action_id",
+        child_query=_query_gameplay_action_cards,
+        row_mapper=_gameplay_action_row,
+        include_review_required_count=True,
+    )
+
+
+def build_opponent_card_observation_review(
+    paths: LocalAppPaths,
+    *,
+    limit: int = DEFAULT_HISTORY_LIMIT,
+    offset: int = 0,
+) -> dict[str, object]:
+    return _build_history_with_children(
+        paths,
+        object_name=OPPONENT_CARD_OBSERVATION_REVIEW_OBJECT,
+        schema_version=ACTION_REVIEW_SCHEMA_VERSION,
+        limit=limit,
+        offset=offset,
+        parent_query=_OPPONENT_CARD_OBSERVATION_REVIEW_QUERY,
+        parent_id_column="opponent_card_observation_id",
+        child_query=_query_opponent_card_observation_cards,
+        row_mapper=_opponent_card_observation_row,
+        row_warning_mapper=_opponent_card_observation_warnings,
+        include_review_required_count=True,
     )
 
 
@@ -198,6 +257,8 @@ def _build_history_with_children(
     parent_id_column: str,
     child_query: Any,
     row_mapper: Any,
+    row_warning_mapper: Any | None = None,
+    include_review_required_count: bool = False,
 ) -> dict[str, object]:
     normalized_limit = _normalize_limit(limit)
     normalized_offset = _normalize_offset(offset)
@@ -216,6 +277,7 @@ def _build_history_with_children(
             offset=normalized_offset,
             rows=[],
             card_row_count=0,
+            include_review_required_count=include_review_required_count,
         )
     if status == "error":
         return _payload(
@@ -229,6 +291,7 @@ def _build_history_with_children(
             warnings=[],
             errors=_stable_codes(database_status.get("errors"), fallback="analytics_history_database_unavailable"),
             card_row_count=0,
+            include_review_required_count=include_review_required_count,
         )
     if schema_status != "schema_current":
         return _payload(
@@ -241,6 +304,7 @@ def _build_history_with_children(
             rows=[],
             warnings=["analytics_schema_not_current"],
             card_row_count=0,
+            include_review_required_count=include_review_required_count,
         )
 
     database_path = paths.analytics_database
@@ -255,6 +319,7 @@ def _build_history_with_children(
             rows=[],
             errors=["app_data_root_unavailable"],
             card_row_count=0,
+            include_review_required_count=include_review_required_count,
         )
 
     try:
@@ -279,9 +344,11 @@ def _build_history_with_children(
             rows=[],
             errors=["analytics_history_query_failed"],
             card_row_count=0,
+            include_review_required_count=include_review_required_count,
         )
 
     mapped_rows = [row_mapper(row, child_rows.get(str(row[parent_id_column]), [])) for row in parent_rows]
+    warnings = _collect_row_warnings(parent_rows, mapped_rows, row_warning_mapper)
     return _payload(
         object_name=object_name,
         schema_version=schema_version,
@@ -290,7 +357,9 @@ def _build_history_with_children(
         limit=normalized_limit,
         offset=normalized_offset,
         rows=mapped_rows,
+        warnings=warnings,
         card_row_count=sum(len(row["cards"]) for row in mapped_rows if isinstance(row.get("cards"), list)),
+        include_review_required_count=include_review_required_count,
     )
 
 
@@ -378,6 +447,96 @@ ORDER BY
     )
 
 
+def _query_gameplay_action_cards(
+    database_path: Path,
+    gameplay_action_ids: tuple[str, ...],
+) -> dict[str, list[sqlite3.Row]]:
+    if not gameplay_action_ids:
+        return {}
+
+    placeholders = ", ".join("?" for _ in gameplay_action_ids)
+    query = f"""
+SELECT
+    gameplay_action_id,
+    gameplay_action_card_id,
+    card_ordinal,
+    instance_id,
+    grp_id,
+    observed_grp_id,
+    overlay_grp_id,
+    object_source_grp_id,
+    identity_hint_source,
+    card_name,
+    display_name,
+    name_resolution_status,
+    enrichment_status,
+    value_source AS card_value_source,
+    confidence AS card_confidence,
+    finality AS card_finality,
+    drift_status AS card_drift_status,
+    availability_status AS card_availability_status,
+    source_parser_surface AS card_source_parser_surface,
+    source_fact_key AS card_source_fact_key,
+    ingest_run_id AS card_ingest_run_id
+FROM gameplay_action_cards
+WHERE gameplay_action_id IN ({placeholders})
+ORDER BY
+    gameplay_action_id ASC,
+    card_ordinal ASC,
+    gameplay_action_card_id ASC
+"""
+    return _query_child_rows(
+        database_path,
+        query=query,
+        parent_ids=gameplay_action_ids,
+        parent_column="gameplay_action_id",
+    )
+
+
+def _query_opponent_card_observation_cards(
+    database_path: Path,
+    opponent_card_observation_ids: tuple[str, ...],
+) -> dict[str, list[sqlite3.Row]]:
+    if not opponent_card_observation_ids:
+        return {}
+
+    placeholders = ", ".join("?" for _ in opponent_card_observation_ids)
+    query = f"""
+SELECT
+    opponent_card_observation_id,
+    opponent_card_observation_card_id,
+    card_ordinal,
+    grp_id,
+    observed_grp_id,
+    overlay_grp_id,
+    object_source_grp_id,
+    identity_hint_source,
+    card_name,
+    resolution_status,
+    visibility,
+    value_source AS card_value_source,
+    confidence AS card_confidence,
+    finality AS card_finality,
+    drift_status AS card_drift_status,
+    availability_status AS card_availability_status,
+    source_parser_surface AS card_source_parser_surface,
+    source_fact_key AS card_source_fact_key,
+    ingest_run_id AS card_ingest_run_id
+FROM opponent_card_observation_cards
+WHERE opponent_card_observation_id IN ({placeholders})
+ORDER BY
+    opponent_card_observation_id ASC,
+    card_ordinal ASC,
+    opponent_card_observation_card_id ASC
+"""
+    return _query_child_rows(
+        database_path,
+        query=query,
+        parent_ids=opponent_card_observation_ids,
+        parent_column="opponent_card_observation_id",
+    )
+
+
 def _query_child_rows(
     database_path: Path,
     *,
@@ -411,6 +570,7 @@ def _payload(
     warnings: list[str] | None = None,
     errors: list[str] | None = None,
     card_row_count: int | None = None,
+    include_review_required_count: bool = False,
 ) -> dict[str, object]:
     return {
         "object": object_name,
@@ -422,7 +582,11 @@ def _payload(
             "offset": offset,
             "returned": len(rows),
         },
-        "summary": _summary(rows, card_row_count=card_row_count),
+        "summary": _summary(
+            rows,
+            card_row_count=card_row_count,
+            include_review_required_count=include_review_required_count,
+        ),
         "rows": rows,
         "warnings": warnings or [],
         "errors": errors or [],
@@ -446,7 +610,12 @@ def _history_database(database_status: dict[str, object]) -> dict[str, object]:
     }
 
 
-def _summary(rows: list[dict[str, object]], *, card_row_count: int | None = None) -> dict[str, int]:
+def _summary(
+    rows: list[dict[str, object]],
+    *,
+    card_row_count: int | None = None,
+    include_review_required_count: bool = False,
+) -> dict[str, int]:
     summary = {
         "row_count": len(rows),
     }
@@ -459,6 +628,8 @@ def _summary(rows: list[dict[str, object]], *, card_row_count: int | None = None
             "conflict_row_count": sum(1 for row in rows if _row_is_conflict(row)),
         }
     )
+    if include_review_required_count:
+        summary["review_required_row_count"] = sum(1 for row in rows if _row_requires_review(row))
     return summary
 
 
@@ -480,6 +651,11 @@ def _row_is_conflict(row: dict[str, object]) -> bool:
         _status_value(status, "drift_status") == "conflict" or _status_value(status, "value_source") == "conflict"
         for status in _included_statuses(row)
     )
+
+
+def _row_requires_review(row: dict[str, object]) -> bool:
+    flags = row.get("degradation_flags")
+    return row.get("review_required") is True or (isinstance(flags, list) and len(flags) > 0)
 
 
 def _included_statuses(row: dict[str, object]) -> list[dict[str, object]]:
@@ -640,6 +816,243 @@ def _mulligan_card_row(row: sqlite3.Row) -> dict[str, object]:
         "identity_hint_source": row["identity_hint_source"],
         "card_status": _status_object(row, "card"),
     }
+
+
+def _gameplay_action_row(row: sqlite3.Row, card_rows: list[sqlite3.Row]) -> dict[str, object]:
+    return {
+        "gameplay_action_id": row["gameplay_action_id"],
+        "match_id": row["match_id"],
+        "game_id": row["game_id"],
+        "game_number": row["game_number"],
+        "timestamp": row["timestamp"],
+        "game_state_id": row["game_state_id"],
+        "turn_number": row["turn_number"],
+        "action_type": row["action_type"],
+        "actor_relation": row["actor_relation"],
+        "from_zone_type": row["from_zone_type"],
+        "to_zone_type": row["to_zone_type"],
+        "source_status": row["source_status"],
+        "annotation_context_label": row["annotation_context_label"],
+        "raw_action_type_labels": row["raw_action_type_labels"],
+        "annotation_type_labels": row["annotation_type_labels"],
+        "visible_in_log": _optional_bool(row["visible_in_log"]),
+        "card_count": row["card_count"],
+        "grp_ids": _integer_csv(row["grp_ids"]),
+        "local_result": row["local_result"],
+        "play_draw": row["play_draw"],
+        "pre_postboard_label": row["pre_postboard_label"],
+        "match_result": row["match_result"],
+        "match_win": row["match_win"],
+        "queue_name": row["queue_name"],
+        "format_name": row["format_name"],
+        "event_id": row["event_id"],
+        "cards": [_gameplay_action_card_row(card_row) for card_row in card_rows],
+        "gameplay_action_status": _status_object(row, "gameplay_action"),
+        "game_status": _optional_status_object(row, "joined_game_id", "game"),
+        "game_result_status": _optional_status_object(row, "game_result_id", "game_result"),
+        "match_result_status": _optional_status_object(row, "match_result_id", "match_result"),
+        "context_status": _optional_status_object(row, "context_id", "context"),
+    }
+
+
+def _gameplay_action_card_row(row: sqlite3.Row) -> dict[str, object]:
+    return {
+        "gameplay_action_card_id": row["gameplay_action_card_id"],
+        "card_ordinal": row["card_ordinal"],
+        "instance_id": row["instance_id"],
+        "grp_id": row["grp_id"],
+        "observed_grp_id": row["observed_grp_id"],
+        "overlay_grp_id": row["overlay_grp_id"],
+        "object_source_grp_id": row["object_source_grp_id"],
+        "identity_hint_source": row["identity_hint_source"],
+        "card_name": row["card_name"],
+        "display_name": row["display_name"],
+        "name_resolution_status": row["name_resolution_status"],
+        "enrichment_status": row["enrichment_status"],
+        "card_status": _status_object(row, "card"),
+    }
+
+
+def _opponent_card_observation_row(row: sqlite3.Row, card_rows: list[sqlite3.Row]) -> dict[str, object]:
+    return {
+        "opponent_card_observation_id": row["opponent_card_observation_id"],
+        "gameplay_action_id": row["gameplay_action_id"],
+        "match_id": row["match_id"],
+        "game_id": row["game_id"],
+        "game_number": row["game_number"],
+        "timestamp": row["timestamp"],
+        "game_state_id": row["game_state_id"],
+        "turn_number": row["turn_number"],
+        "actor_relation": row["actor_relation"],
+        "actor_seat_id": row["actor_seat_id"],
+        "local_seat_id": row["local_seat_id"],
+        "instance_id": row["instance_id"],
+        "grp_id": row["grp_id"],
+        "observed_grp_id": row["observed_grp_id"],
+        "overlay_grp_id": row["overlay_grp_id"],
+        "object_source_grp_id": row["object_source_grp_id"],
+        "parent_id": row["parent_id"],
+        "identity_hint_source": row["identity_hint_source"],
+        "card_name": row["card_name"],
+        "display_name": row["display_name"],
+        "resolution_status": row["resolution_status"],
+        "name_resolution_source": row["name_resolution_source"],
+        "action_type": row["action_type"],
+        "cast_mode": row["cast_mode"],
+        "source_evidence": row["source_evidence"],
+        "evidence_status": row["evidence_status"],
+        "visibility": row["visibility"],
+        "from_zone_type": row["from_zone_type"],
+        "to_zone_type": row["to_zone_type"],
+        "degradation_flags": _degradation_flags(row["degradation_flags"]),
+        "review_required": bool(row["review_required"]),
+        "linked_gameplay_action": _linked_gameplay_action(row),
+        "local_result": row["local_result"],
+        "play_draw": row["play_draw"],
+        "pre_postboard_label": row["pre_postboard_label"],
+        "match_result": row["match_result"],
+        "match_win": row["match_win"],
+        "queue_name": row["queue_name"],
+        "format_name": row["format_name"],
+        "event_id": row["event_id"],
+        "cards": [_opponent_card_observation_card_row(card_row) for card_row in card_rows],
+        "opponent_card_observation_status": _status_object(row, "opponent_card_observation"),
+        "linked_gameplay_action_status": _optional_status_object(
+            row,
+            "linked_gameplay_action_id",
+            "linked_gameplay_action",
+        ),
+        "game_status": _optional_status_object(row, "joined_game_id", "game"),
+        "game_result_status": _optional_status_object(row, "game_result_id", "game_result"),
+        "match_result_status": _optional_status_object(row, "match_result_id", "match_result"),
+        "context_status": _optional_status_object(row, "context_id", "context"),
+    }
+
+
+def _opponent_card_observation_card_row(row: sqlite3.Row) -> dict[str, object]:
+    return {
+        "opponent_card_observation_card_id": row["opponent_card_observation_card_id"],
+        "card_ordinal": row["card_ordinal"],
+        "grp_id": row["grp_id"],
+        "observed_grp_id": row["observed_grp_id"],
+        "overlay_grp_id": row["overlay_grp_id"],
+        "object_source_grp_id": row["object_source_grp_id"],
+        "identity_hint_source": row["identity_hint_source"],
+        "card_name": row["card_name"],
+        "resolution_status": row["resolution_status"],
+        "visibility": row["visibility"],
+        "card_status": _status_object(row, "card"),
+    }
+
+
+def _linked_gameplay_action(row: sqlite3.Row) -> dict[str, object] | None:
+    if row["linked_gameplay_action_id"] is None:
+        return None
+    return {
+        "gameplay_action_id": row["linked_gameplay_action_id"],
+        "turn_number": row["linked_turn_number"],
+        "action_type": row["linked_action_type"],
+        "actor_relation": row["linked_actor_relation"],
+        "from_zone_type": row["linked_from_zone_type"],
+        "to_zone_type": row["linked_to_zone_type"],
+        "visible_in_log": _optional_bool(row["linked_visible_in_log"]),
+    }
+
+
+def _opponent_card_observation_warnings(row: sqlite3.Row, mapped_row: dict[str, object]) -> list[str]:
+    if _degradation_flags_malformed(row["degradation_flags"]):
+        return ["opponent_observation_degradation_flags_malformed"]
+    return []
+
+
+def _collect_row_warnings(
+    parent_rows: list[sqlite3.Row],
+    mapped_rows: list[dict[str, object]],
+    row_warning_mapper: Any | None,
+) -> list[str]:
+    if row_warning_mapper is None:
+        return []
+    warnings: list[str] = []
+    for parent_row, mapped_row in zip(parent_rows, mapped_rows, strict=False):
+        warnings.extend(row_warning_mapper(parent_row, mapped_row))
+    return _unique_codes(warnings)
+
+
+def _unique_codes(codes: list[str]) -> list[str]:
+    unique: list[str] = []
+    for code in codes:
+        if code not in unique:
+            unique.append(code)
+    return unique
+
+
+def _optional_bool(value: object) -> bool | None:
+    if value is None:
+        return None
+    return bool(value)
+
+
+def _integer_csv(value: object) -> list[int]:
+    if not isinstance(value, str) or not value:
+        return []
+    integers: list[int] = []
+    for raw_entry in value.split(","):
+        try:
+            integers.append(int(raw_entry))
+        except ValueError:
+            continue
+    return integers
+
+
+def _degradation_flags(value: object) -> list[str]:
+    parsed = _parsed_degradation_flags(value)
+    if parsed is None:
+        return []
+    return _safe_degradation_flags(parsed)
+
+
+def _parsed_degradation_flags(value: object) -> list[str] | None:
+    if value is None or value == "":
+        return []
+    if not isinstance(value, str):
+        return None
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(parsed, list) or not all(isinstance(entry, str) for entry in parsed):
+        return None
+    return parsed
+
+
+def _degradation_flags_malformed(value: object) -> bool:
+    return _parsed_degradation_flags(value) is None
+
+
+def _safe_degradation_flags(flags: list[str]) -> list[str]:
+    safe_flags: list[str] = []
+    redacted = False
+    for flag in flags:
+        if _is_safe_degradation_flag(flag):
+            safe_flags.append(flag)
+        else:
+            redacted = True
+    if redacted and REDACTED_DEGRADATION_FLAG not in safe_flags:
+        safe_flags.append(REDACTED_DEGRADATION_FLAG)
+    return safe_flags
+
+
+def _is_safe_degradation_flag(value: str) -> bool:
+    if not value or len(value) > 100:
+        return False
+    if value[0].isalpha() and value[1:2] == ":":
+        return False
+    if "://" in value or "\\" in value or "/" in value or "#" in value:
+        return False
+    marker_text = value.lower()
+    if any(marker in marker_text for marker in PRIVATE_DEGRADATION_FLAG_MARKERS):
+        return False
+    return all(char.isalnum() or char in "_.:-" for char in value)
 
 
 def _normalize_limit(value: int) -> int:
@@ -861,6 +1274,229 @@ ORDER BY
     me.game_number ASC,
     me.ordinal_or_count ASC,
     me.mulligan_event_id ASC
+LIMIT ? OFFSET ?
+"""
+
+_GAMEPLAY_ACTION_REVIEW_QUERY = """
+SELECT
+    ga.gameplay_action_id,
+    ga.match_id,
+    ga.game_id,
+    ga.game_number,
+    ga.timestamp,
+    ga.game_state_id,
+    ga.turn_number,
+    ga.action_type,
+    ga.actor_relation,
+    ga.from_zone_type,
+    ga.to_zone_type,
+    ga.source_status,
+    ga.annotation_context_label,
+    ga.raw_action_type_labels,
+    ga.annotation_type_labels,
+    ga.visible_in_log,
+    (
+        SELECT COUNT(*)
+        FROM gameplay_action_cards AS gac
+        WHERE gac.gameplay_action_id = ga.gameplay_action_id
+    ) AS card_count,
+    (
+        SELECT GROUP_CONCAT(card_identity.grp_id)
+        FROM (
+            SELECT grp_id
+            FROM gameplay_action_cards
+            WHERE gameplay_action_id = ga.gameplay_action_id
+              AND grp_id IS NOT NULL
+            ORDER BY card_ordinal
+        ) AS card_identity
+    ) AS grp_ids,
+    gr.local_result,
+    gr.play_draw,
+    gr.pre_postboard_label,
+    mr.match_result,
+    mr.match_win,
+    mc.queue_name,
+    mc.format_name,
+    mc.event_id,
+    ga.value_source AS gameplay_action_value_source,
+    ga.confidence AS gameplay_action_confidence,
+    ga.finality AS gameplay_action_finality,
+    ga.drift_status AS gameplay_action_drift_status,
+    ga.availability_status AS gameplay_action_availability_status,
+    ga.source_parser_surface AS gameplay_action_source_parser_surface,
+    ga.source_fact_key AS gameplay_action_source_fact_key,
+    ga.ingest_run_id AS gameplay_action_ingest_run_id,
+    g.game_id AS joined_game_id,
+    g.value_source AS game_value_source,
+    g.confidence AS game_confidence,
+    g.finality AS game_finality,
+    g.drift_status AS game_drift_status,
+    g.availability_status AS game_availability_status,
+    g.source_parser_surface AS game_source_parser_surface,
+    g.source_fact_key AS game_source_fact_key,
+    g.ingest_run_id AS game_ingest_run_id,
+    gr.game_result_id AS game_result_id,
+    gr.value_source AS game_result_value_source,
+    gr.confidence AS game_result_confidence,
+    gr.finality AS game_result_finality,
+    gr.drift_status AS game_result_drift_status,
+    gr.availability_status AS game_result_availability_status,
+    gr.source_parser_surface AS game_result_source_parser_surface,
+    gr.source_fact_key AS game_result_source_fact_key,
+    gr.ingest_run_id AS game_result_ingest_run_id,
+    mr.match_result_id AS match_result_id,
+    mr.value_source AS match_result_value_source,
+    mr.confidence AS match_result_confidence,
+    mr.finality AS match_result_finality,
+    mr.drift_status AS match_result_drift_status,
+    mr.availability_status AS match_result_availability_status,
+    mr.source_parser_surface AS match_result_source_parser_surface,
+    mr.source_fact_key AS match_result_source_fact_key,
+    mr.ingest_run_id AS match_result_ingest_run_id,
+    mc.match_context_id AS context_id,
+    mc.value_source AS context_value_source,
+    mc.confidence AS context_confidence,
+    mc.finality AS context_finality,
+    mc.drift_status AS context_drift_status,
+    mc.availability_status AS context_availability_status,
+    mc.source_parser_surface AS context_source_parser_surface,
+    mc.source_fact_key AS context_source_fact_key,
+    mc.ingest_run_id AS context_ingest_run_id
+FROM gameplay_actions AS ga
+LEFT JOIN games AS g
+    ON g.game_id = ga.game_id
+LEFT JOIN game_results AS gr
+    ON gr.game_id = ga.game_id
+LEFT JOIN match_results AS mr
+    ON mr.match_id = ga.match_id
+LEFT JOIN match_context AS mc
+    ON mc.match_id = ga.match_id
+ORDER BY
+    COALESCE(ga.timestamp, g.game_completed_at, gr.game_completed_at, g.game_started_at, g.updated_at) DESC,
+    ga.match_id DESC,
+    ga.game_number ASC,
+    ga.turn_number ASC,
+    ga.gameplay_action_id ASC
+LIMIT ? OFFSET ?
+"""
+
+_OPPONENT_CARD_OBSERVATION_REVIEW_QUERY = """
+SELECT
+    oco.opponent_card_observation_id,
+    oco.gameplay_action_id,
+    oco.match_id,
+    oco.game_id,
+    oco.game_number,
+    oco.timestamp,
+    oco.game_state_id,
+    oco.turn_number,
+    oco.actor_relation,
+    oco.actor_seat_id,
+    oco.local_seat_id,
+    oco.instance_id,
+    oco.grp_id,
+    oco.observed_grp_id,
+    oco.overlay_grp_id,
+    oco.object_source_grp_id,
+    oco.parent_id,
+    oco.identity_hint_source,
+    oco.card_name,
+    oco.display_name,
+    oco.resolution_status,
+    oco.name_resolution_source,
+    oco.action_type,
+    oco.cast_mode,
+    oco.source_evidence,
+    oco.evidence_status,
+    oco.visibility,
+    oco.from_zone_type,
+    oco.to_zone_type,
+    oco.degradation_flags,
+    oco.review_required,
+    linked.gameplay_action_id AS linked_gameplay_action_id,
+    linked.turn_number AS linked_turn_number,
+    linked.action_type AS linked_action_type,
+    linked.actor_relation AS linked_actor_relation,
+    linked.from_zone_type AS linked_from_zone_type,
+    linked.to_zone_type AS linked_to_zone_type,
+    linked.visible_in_log AS linked_visible_in_log,
+    gr.local_result,
+    gr.play_draw,
+    gr.pre_postboard_label,
+    mr.match_result,
+    mr.match_win,
+    mc.queue_name,
+    mc.format_name,
+    mc.event_id,
+    oco.value_source AS opponent_card_observation_value_source,
+    oco.confidence AS opponent_card_observation_confidence,
+    oco.finality AS opponent_card_observation_finality,
+    oco.drift_status AS opponent_card_observation_drift_status,
+    oco.availability_status AS opponent_card_observation_availability_status,
+    oco.source_parser_surface AS opponent_card_observation_source_parser_surface,
+    oco.source_fact_key AS opponent_card_observation_source_fact_key,
+    oco.ingest_run_id AS opponent_card_observation_ingest_run_id,
+    linked.value_source AS linked_gameplay_action_value_source,
+    linked.confidence AS linked_gameplay_action_confidence,
+    linked.finality AS linked_gameplay_action_finality,
+    linked.drift_status AS linked_gameplay_action_drift_status,
+    linked.availability_status AS linked_gameplay_action_availability_status,
+    linked.source_parser_surface AS linked_gameplay_action_source_parser_surface,
+    linked.source_fact_key AS linked_gameplay_action_source_fact_key,
+    linked.ingest_run_id AS linked_gameplay_action_ingest_run_id,
+    g.game_id AS joined_game_id,
+    g.value_source AS game_value_source,
+    g.confidence AS game_confidence,
+    g.finality AS game_finality,
+    g.drift_status AS game_drift_status,
+    g.availability_status AS game_availability_status,
+    g.source_parser_surface AS game_source_parser_surface,
+    g.source_fact_key AS game_source_fact_key,
+    g.ingest_run_id AS game_ingest_run_id,
+    gr.game_result_id AS game_result_id,
+    gr.value_source AS game_result_value_source,
+    gr.confidence AS game_result_confidence,
+    gr.finality AS game_result_finality,
+    gr.drift_status AS game_result_drift_status,
+    gr.availability_status AS game_result_availability_status,
+    gr.source_parser_surface AS game_result_source_parser_surface,
+    gr.source_fact_key AS game_result_source_fact_key,
+    gr.ingest_run_id AS game_result_ingest_run_id,
+    mr.match_result_id AS match_result_id,
+    mr.value_source AS match_result_value_source,
+    mr.confidence AS match_result_confidence,
+    mr.finality AS match_result_finality,
+    mr.drift_status AS match_result_drift_status,
+    mr.availability_status AS match_result_availability_status,
+    mr.source_parser_surface AS match_result_source_parser_surface,
+    mr.source_fact_key AS match_result_source_fact_key,
+    mr.ingest_run_id AS match_result_ingest_run_id,
+    mc.match_context_id AS context_id,
+    mc.value_source AS context_value_source,
+    mc.confidence AS context_confidence,
+    mc.finality AS context_finality,
+    mc.drift_status AS context_drift_status,
+    mc.availability_status AS context_availability_status,
+    mc.source_parser_surface AS context_source_parser_surface,
+    mc.source_fact_key AS context_source_fact_key,
+    mc.ingest_run_id AS context_ingest_run_id
+FROM opponent_card_observations AS oco
+LEFT JOIN gameplay_actions AS linked
+    ON linked.gameplay_action_id = oco.gameplay_action_id
+LEFT JOIN games AS g
+    ON g.game_id = oco.game_id
+LEFT JOIN game_results AS gr
+    ON gr.game_id = oco.game_id
+LEFT JOIN match_results AS mr
+    ON mr.match_id = oco.match_id
+LEFT JOIN match_context AS mc
+    ON mc.match_id = oco.match_id
+ORDER BY
+    COALESCE(oco.timestamp, g.game_completed_at, gr.game_completed_at, g.game_started_at, g.updated_at) DESC,
+    oco.match_id DESC,
+    oco.game_number ASC,
+    oco.turn_number ASC,
+    oco.opponent_card_observation_id ASC
 LIMIT ? OFFSET ?
 """
 

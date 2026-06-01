@@ -1,19 +1,23 @@
 import {
+  ACTION_REVIEW_SCHEMA_VERSION,
   ANALYTICS_HISTORY_SCHEMA_VERSION,
   EARLY_GAME_HISTORY_SCHEMA_VERSION,
   GAME_HISTORY_OBJECT,
+  GAMEPLAY_ACTION_REVIEW_OBJECT,
   LEGACY_JSONL_IMPORT_QUALITY_OBJECT,
   LEGACY_JSONL_IMPORT_QUALITY_SCHEMA_VERSION,
   MANUAL_IMPORT_JOB_OBJECT,
   MANUAL_IMPORT_JOB_SCHEMA_VERSION,
   MATCH_HISTORY_OBJECT,
   MULLIGAN_HISTORY_OBJECT,
+  OPPONENT_CARD_OBSERVATION_REVIEW_OBJECT,
   OPENING_HAND_HISTORY_OBJECT,
   SETUP_STATUS_OBJECT,
   SETUP_STATUS_SCHEMA_VERSION,
   type AnalyticsHistoryErrorCode,
   type AnalyticsHistoryStatus,
   type GameHistoryResponse,
+  type GameplayActionReviewResponse,
   type ManualImportErrorCode,
   type ManualImportJob,
   type ManualImportRequest,
@@ -21,6 +25,7 @@ import {
   type MatchHistoryResponse,
   type MulliganHistoryResponse,
   type OpeningHandHistoryResponse,
+  type OpponentCardObservationReviewResponse,
   type SetupStatusErrorCode,
   type SetupStatusResponse
 } from "./types";
@@ -30,6 +35,8 @@ const MATCH_HISTORY_PATH = "/api/analytics/matches";
 const GAME_HISTORY_PATH = "/api/analytics/games";
 const OPENING_HAND_HISTORY_PATH = "/api/analytics/opening-hands";
 const MULLIGAN_HISTORY_PATH = "/api/analytics/mulligans";
+const GAMEPLAY_ACTION_REVIEW_PATH = "/api/analytics/gameplay-actions";
+const OPPONENT_CARD_OBSERVATION_REVIEW_PATH = "/api/analytics/opponent-card-observations";
 const MANUAL_IMPORT_PATH = "/api/imports/jsonl";
 const MANUAL_IMPORT_UPLOAD_PATH = "/api/imports/jsonl/upload";
 const MANUAL_IMPORT_JOB_PATH = "/api/imports/jobs";
@@ -186,6 +193,26 @@ export async function fetchMulliganHistory(fetchImpl: typeof fetch = fetch): Pro
     validateMulliganHistoryRows,
     fetchImpl
   ) as Promise<MulliganHistoryResponse>;
+}
+
+export async function fetchGameplayActionReview(fetchImpl: typeof fetch = fetch): Promise<GameplayActionReviewResponse> {
+  return fetchActionReviewHistory(
+    GAMEPLAY_ACTION_REVIEW_PATH,
+    GAMEPLAY_ACTION_REVIEW_OBJECT,
+    validateGameplayActionReviewRows,
+    fetchImpl
+  ) as Promise<GameplayActionReviewResponse>;
+}
+
+export async function fetchOpponentCardObservationReview(
+  fetchImpl: typeof fetch = fetch
+): Promise<OpponentCardObservationReviewResponse> {
+  return fetchActionReviewHistory(
+    OPPONENT_CARD_OBSERVATION_REVIEW_PATH,
+    OPPONENT_CARD_OBSERVATION_REVIEW_OBJECT,
+    validateOpponentCardObservationReviewRows,
+    fetchImpl
+  ) as Promise<OpponentCardObservationReviewResponse>;
 }
 
 export async function submitManualJsonlImport(
@@ -379,6 +406,36 @@ async function fetchEarlyGameHistory(
   return validateEarlyGameHistoryResponse(payload, objectName, validateRows);
 }
 
+async function fetchActionReviewHistory(
+  path: string,
+  objectName: string,
+  validateRows: (rows: unknown) => void,
+  fetchImpl: typeof fetch
+): Promise<GameplayActionReviewResponse | OpponentCardObservationReviewResponse> {
+  const baseUrl = getAnalyticsHistoryApiBaseUrl();
+  let response: Response;
+  try {
+    response = await fetchImpl(`${baseUrl}${path}`, {
+      headers: { Accept: "application/json" }
+    });
+  } catch {
+    throw new AnalyticsHistoryApiError("backend_unavailable", "Analytics history backend is unavailable.");
+  }
+
+  if (!response.ok) {
+    throw new AnalyticsHistoryApiError("backend_unavailable", "Analytics history backend is unavailable.");
+  }
+
+  let payload: unknown;
+  try {
+    payload = await response.json();
+  } catch {
+    throw new AnalyticsHistoryApiError("malformed_response", "Analytics history returned malformed JSON.");
+  }
+
+  return validateActionReviewHistoryResponse(payload, objectName, validateRows);
+}
+
 function getAnalyticsHistoryApiBaseUrl(): string {
   try {
     return getApiBaseUrl();
@@ -469,6 +526,48 @@ function validateEarlyGameHistoryResponse(
   validateRows(payload.rows);
 
   return payload as OpeningHandHistoryResponse | MulliganHistoryResponse;
+}
+
+function validateActionReviewHistoryResponse(
+  payload: unknown,
+  objectName: string,
+  validateRows: (rows: unknown) => void
+): GameplayActionReviewResponse | OpponentCardObservationReviewResponse {
+  if (!isRecord(payload)) {
+    throw new AnalyticsHistoryApiError("malformed_response", "Analytics history must be a JSON object.");
+  }
+
+  for (const field of REQUIRED_ANALYTICS_HISTORY_FIELDS) {
+    if (!(field in payload)) {
+      throw new AnalyticsHistoryApiError("malformed_response", "Analytics history is missing required fields.");
+    }
+  }
+
+  if (payload.schema_version !== ACTION_REVIEW_SCHEMA_VERSION) {
+    throw new AnalyticsHistoryApiError(
+      "incompatible_response",
+      `Expected analytics history schema ${ACTION_REVIEW_SCHEMA_VERSION}.`
+    );
+  }
+
+  if (payload.object !== objectName) {
+    throw new AnalyticsHistoryApiError("malformed_response", "Analytics history object is unsupported.");
+  }
+
+  if (
+    !isAnalyticsHistoryStatus(payload.status) ||
+    !isHistoryDatabase(payload.database) ||
+    !isHistoryPagination(payload.pagination) ||
+    !isActionReviewSummary(payload.summary) ||
+    !isStringArray(payload.warnings) ||
+    !isStringArray(payload.errors)
+  ) {
+    throw new AnalyticsHistoryApiError("malformed_response", "Analytics history has an unsupported shape.");
+  }
+
+  validateRows(payload.rows);
+
+  return payload as GameplayActionReviewResponse | OpponentCardObservationReviewResponse;
 }
 
 function isAnalyticsHistoryStatus(value: unknown): value is AnalyticsHistoryStatus {
@@ -604,6 +703,111 @@ function validateMulliganHistoryRows(rows: unknown): void {
       !isHistoryStatusOrNull(row.context_status)
     ) {
       throw new AnalyticsHistoryApiError("malformed_response", "Mulligan history row has an unsupported shape.");
+    }
+  }
+}
+
+function validateGameplayActionReviewRows(rows: unknown): void {
+  if (!Array.isArray(rows)) {
+    throw new AnalyticsHistoryApiError("malformed_response", "Gameplay action rows must be an array.");
+  }
+  for (const row of rows) {
+    if (
+      !isRecord(row) ||
+      typeof row.gameplay_action_id !== "string" ||
+      typeof row.match_id !== "string" ||
+      typeof row.game_id !== "string" ||
+      typeof row.game_number !== "number" ||
+      !isStringOrNull(row.timestamp) ||
+      !isNumberOrNull(row.game_state_id) ||
+      !isNumberOrNull(row.turn_number) ||
+      typeof row.action_type !== "string" ||
+      typeof row.actor_relation !== "string" ||
+      !isStringOrNull(row.from_zone_type) ||
+      !isStringOrNull(row.to_zone_type) ||
+      !isStringOrNull(row.source_status) ||
+      !isStringOrNull(row.annotation_context_label) ||
+      !isStringOrNull(row.raw_action_type_labels) ||
+      !isStringOrNull(row.annotation_type_labels) ||
+      !isBooleanOrNull(row.visible_in_log) ||
+      typeof row.card_count !== "number" ||
+      !isNumberArray(row.grp_ids) ||
+      !isStringOrNull(row.local_result) ||
+      !isStringOrNull(row.play_draw) ||
+      !isStringOrNull(row.pre_postboard_label) ||
+      !isStringOrNull(row.match_result) ||
+      !isNumberOrNull(row.match_win) ||
+      !isStringOrNull(row.queue_name) ||
+      !isStringOrNull(row.format_name) ||
+      !isStringOrNull(row.event_id) ||
+      !isGameplayActionCards(row.cards) ||
+      !isHistoryStatus(row.gameplay_action_status) ||
+      !isHistoryStatusOrNull(row.game_status) ||
+      !isHistoryStatusOrNull(row.game_result_status) ||
+      !isHistoryStatusOrNull(row.match_result_status) ||
+      !isHistoryStatusOrNull(row.context_status)
+    ) {
+      throw new AnalyticsHistoryApiError("malformed_response", "Gameplay action row has an unsupported shape.");
+    }
+  }
+}
+
+function validateOpponentCardObservationReviewRows(rows: unknown): void {
+  if (!Array.isArray(rows)) {
+    throw new AnalyticsHistoryApiError("malformed_response", "Opponent observation rows must be an array.");
+  }
+  for (const row of rows) {
+    if (
+      !isRecord(row) ||
+      typeof row.opponent_card_observation_id !== "string" ||
+      !isStringOrNull(row.gameplay_action_id) ||
+      typeof row.match_id !== "string" ||
+      typeof row.game_id !== "string" ||
+      typeof row.game_number !== "number" ||
+      !isStringOrNull(row.timestamp) ||
+      !isNumberOrNull(row.game_state_id) ||
+      !isNumberOrNull(row.turn_number) ||
+      typeof row.actor_relation !== "string" ||
+      !isNumberOrNull(row.actor_seat_id) ||
+      !isNumberOrNull(row.local_seat_id) ||
+      !isNumberOrNull(row.instance_id) ||
+      !isNumberOrNull(row.grp_id) ||
+      !isNumberOrNull(row.observed_grp_id) ||
+      !isNumberOrNull(row.overlay_grp_id) ||
+      !isNumberOrNull(row.object_source_grp_id) ||
+      !isNumberOrNull(row.parent_id) ||
+      !isStringOrNull(row.identity_hint_source) ||
+      !isStringOrNull(row.card_name) ||
+      !isStringOrNull(row.display_name) ||
+      !isStringOrNull(row.resolution_status) ||
+      !isStringOrNull(row.name_resolution_source) ||
+      !isStringOrNull(row.action_type) ||
+      !isStringOrNull(row.cast_mode) ||
+      !isStringOrNull(row.source_evidence) ||
+      !isStringOrNull(row.evidence_status) ||
+      !isStringOrNull(row.visibility) ||
+      !isStringOrNull(row.from_zone_type) ||
+      !isStringOrNull(row.to_zone_type) ||
+      !isStringArray(row.degradation_flags) ||
+      typeof row.review_required !== "boolean" ||
+      !isLinkedGameplayActionOrNull(row.linked_gameplay_action) ||
+      !isStringOrNull(row.local_result) ||
+      !isStringOrNull(row.play_draw) ||
+      !isStringOrNull(row.pre_postboard_label) ||
+      !isStringOrNull(row.match_result) ||
+      !isNumberOrNull(row.match_win) ||
+      !isStringOrNull(row.queue_name) ||
+      !isStringOrNull(row.format_name) ||
+      !isStringOrNull(row.event_id) ||
+      !isOpponentObservationCards(row.cards) ||
+      !isHistoryStatus(row.opponent_card_observation_status) ||
+      !isHistoryStatusOrNull(row.linked_gameplay_action_status) ||
+      !isHistoryStatusOrNull(row.game_status) ||
+      !isHistoryStatusOrNull(row.game_result_status) ||
+      !isHistoryStatusOrNull(row.match_result_status) ||
+      !isHistoryStatusOrNull(row.context_status)
+    ) {
+      throw new AnalyticsHistoryApiError("malformed_response", "Opponent observation row has an unsupported shape.");
     }
   }
 }
@@ -749,8 +953,16 @@ function isNumberOrNull(value: unknown): value is number | null {
   return typeof value === "number" || value === null;
 }
 
+function isBooleanOrNull(value: unknown): value is boolean | null {
+  return typeof value === "boolean" || value === null;
+}
+
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((entry) => typeof entry === "string");
+}
+
+function isNumberArray(value: unknown): value is number[] {
+  return Array.isArray(value) && value.every((entry) => typeof entry === "number");
 }
 
 function isHistoryDatabase(value: unknown): boolean {
@@ -784,6 +996,14 @@ function isHistorySummary(value: unknown): boolean {
 
 function isEarlyGameHistorySummary(value: unknown): boolean {
   return isHistorySummary(value) && isRecord(value) && typeof value.card_row_count === "number";
+}
+
+function isActionReviewSummary(value: unknown): boolean {
+  return (
+    isEarlyGameHistorySummary(value) &&
+    isRecord(value) &&
+    typeof value.review_required_row_count === "number"
+  );
 }
 
 function isHistoryStatus(value: unknown): boolean {
@@ -835,6 +1055,64 @@ function isMulliganCards(value: unknown): boolean {
         isStringOrNull(entry.identity_hint_source) &&
         isHistoryStatus(entry.card_status)
     )
+  );
+}
+
+function isGameplayActionCards(value: unknown): boolean {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (entry) =>
+        isRecord(entry) &&
+        typeof entry.gameplay_action_card_id === "string" &&
+        typeof entry.card_ordinal === "number" &&
+        isNumberOrNull(entry.instance_id) &&
+        isNumberOrNull(entry.grp_id) &&
+        isNumberOrNull(entry.observed_grp_id) &&
+        isNumberOrNull(entry.overlay_grp_id) &&
+        isNumberOrNull(entry.object_source_grp_id) &&
+        isStringOrNull(entry.identity_hint_source) &&
+        isStringOrNull(entry.card_name) &&
+        isStringOrNull(entry.display_name) &&
+        isStringOrNull(entry.name_resolution_status) &&
+        isStringOrNull(entry.enrichment_status) &&
+        isHistoryStatus(entry.card_status)
+    )
+  );
+}
+
+function isOpponentObservationCards(value: unknown): boolean {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (entry) =>
+        isRecord(entry) &&
+        typeof entry.opponent_card_observation_card_id === "string" &&
+        typeof entry.card_ordinal === "number" &&
+        isNumberOrNull(entry.grp_id) &&
+        isNumberOrNull(entry.observed_grp_id) &&
+        isNumberOrNull(entry.overlay_grp_id) &&
+        isNumberOrNull(entry.object_source_grp_id) &&
+        isStringOrNull(entry.identity_hint_source) &&
+        isStringOrNull(entry.card_name) &&
+        isStringOrNull(entry.resolution_status) &&
+        isStringOrNull(entry.visibility) &&
+        isHistoryStatus(entry.card_status)
+    )
+  );
+}
+
+function isLinkedGameplayActionOrNull(value: unknown): boolean {
+  return (
+    value === null ||
+    (isRecord(value) &&
+      typeof value.gameplay_action_id === "string" &&
+      isNumberOrNull(value.turn_number) &&
+      typeof value.action_type === "string" &&
+      typeof value.actor_relation === "string" &&
+      isStringOrNull(value.from_zone_type) &&
+      isStringOrNull(value.to_zone_type) &&
+      isBooleanOrNull(value.visible_in_log))
   );
 }
 
