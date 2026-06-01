@@ -42,6 +42,9 @@ PROTECTED_CATEGORY_GROUPS = {
 FOCUSED_TEST_MAPPINGS: tuple[tuple[str, str], ...] = (
     ("tools/select_validation.py", "python3 -m pytest -q tests/test_select_validation.py"),
     ("tests/test_select_validation.py", "python3 -m pytest -q tests/test_select_validation.py"),
+    ("docs/local_artifacts_manifest.json", "python3 -m pytest -q tests/test_check_local_environment.py"),
+    ("tools/check_local_environment.py", "python3 -m pytest -q tests/test_check_local_environment.py"),
+    ("tests/test_check_local_environment.py", "python3 -m pytest -q tests/test_check_local_environment.py"),
     ("tools/generate_hardening_report.py", "python3 -m pytest -q tests/test_hardening_report_generator.py"),
     ("tests/test_hardening_report_generator.py", "python3 -m pytest -q tests/test_hardening_report_generator.py"),
     ("tools/run_hardening_orchestrator.py", "python3 -m pytest -q tests/test_hardening_orchestrator.py"),
@@ -52,6 +55,9 @@ FOCUSED_TEST_MAPPINGS: tuple[tuple[str, str], ...] = (
     ("tests/test_check_protected_surfaces.py", "python3 -m pytest -q tests/test_check_protected_surfaces.py"),
     ("tools/check_surface_authorization.py", "python3 -m pytest -q tests/test_check_surface_authorization.py"),
     ("tests/test_check_surface_authorization.py", "python3 -m pytest -q tests/test_check_surface_authorization.py"),
+    ("tools/dev_app/dev_app_launcher.py", "python3 -m pytest -q tests/test_analytics_dev_app_launcher.py"),
+    ("tools/dev_app/start_mythic_edge_dev_app.ps1", "python3 -m pytest -q tests/test_analytics_dev_app_launcher.py"),
+    ("tests/test_analytics_dev_app_launcher.py", "python3 -m pytest -q tests/test_analytics_dev_app_launcher.py"),
     (
         "src/mythic_edge_parser/parsers/gre/connect_resp.py",
         "python3 -m pytest -q tests/test_gre_connect_resp_parser.py",
@@ -87,6 +93,56 @@ FOCUSED_TEST_MAPPINGS: tuple[tuple[str, str], ...] = (
     ("src/mythic_edge_parser/app/diagnostics.py", "python3 -m pytest -q tests/test_diagnostics.py"),
     ("src/mythic_edge_parser/app/log_drift_sensor.py", "python3 -m pytest -q tests/test_log_drift_sensor.py"),
     ("src/mythic_edge_parser/app/status_api.py", "python3 -m pytest -q tests/test_status_api.py"),
+    (
+        "src/mythic_edge_parser/app/analytics_migration_loader.py",
+        "python3 -m pytest -q tests/test_analytics_migration_loader.py tests/test_analytics_schema.py",
+    ),
+    (
+        "src/mythic_edge_parser/app/analytics_migrations/__init__.py",
+        "python3 -m pytest -q tests/test_analytics_migration_loader.py tests/test_analytics_schema.py",
+    ),
+    ("src/mythic_edge_parser/app/analytics_sidecar.py", "python3 -m pytest -q tests/test_analytics_sidecar.py"),
+    (
+        "src/mythic_edge_parser/app/analytics_ingest.py",
+        "python3 -m pytest -q tests/test_analytics_parser_normalized_replay_ingest.py "
+        "tests/test_analytics_gameplay_action_ingest.py tests/test_analytics_opponent_card_observation_ingest.py "
+        "tests/test_analytics_field_evidence_ingest.py",
+    ),
+    (
+        "src/mythic_edge_parser/app/analytics_legacy_jsonl_adapter.py",
+        "python3 -m pytest -q tests/test_analytics_legacy_jsonl_artifact_adapter.py "
+        "tests/test_analytics_manual_jsonl_import.py tests/test_analytics_browser_jsonl_upload.py",
+    ),
+    (
+        "src/mythic_edge_parser/local_app/config.py",
+        "python3 -m pytest -q tests/test_analytics_local_app_config.py",
+    ),
+    (
+        "src/mythic_edge_parser/local_app/paths.py",
+        "python3 -m pytest -q tests/test_analytics_local_app_config.py",
+    ),
+    (
+        "src/mythic_edge_parser/local_app/setup_status.py",
+        "python3 -m pytest -q tests/test_analytics_local_app_config.py tests/test_analytics_local_app_backend.py",
+    ),
+    (
+        "src/mythic_edge_parser/local_app/backend.py",
+        "python3 -m pytest -q tests/test_analytics_local_app_backend.py tests/test_analytics_manual_jsonl_import.py "
+        "tests/test_analytics_app_match_game_history_views.py tests/test_analytics_app_opening_hand_mulligan_views.py "
+        "tests/test_analytics_app_play_draw_postboard_split_views.py "
+        "tests/test_analytics_app_gameplay_action_opponent_observation_views.py",
+    ),
+    (
+        "src/mythic_edge_parser/local_app/import_jobs.py",
+        "python3 -m pytest -q tests/test_analytics_manual_jsonl_import.py tests/test_analytics_browser_jsonl_upload.py",
+    ),
+    (
+        "src/mythic_edge_parser/local_app/analytics_history.py",
+        "python3 -m pytest -q tests/test_analytics_app_match_game_history_views.py "
+        "tests/test_analytics_app_opening_hand_mulligan_views.py "
+        "tests/test_analytics_app_play_draw_postboard_split_views.py "
+        "tests/test_analytics_app_gameplay_action_opponent_observation_views.py",
+    ),
     (
         "src/mythic_edge_parser/stream.py",
         "python3 -m pytest -q tests/test_stream_unit.py tests/test_stream_integration.py",
@@ -210,6 +266,63 @@ def _matches(path: str, pattern: str) -> bool:
 
 def categorize_path(path: str) -> tuple[str, ...]:
     categories: set[str] = set()
+    if _matches(path, "frontend/**"):
+        categories.add("frontend_surface")
+    if _matches(path, "src/mythic_edge_parser/local_app/**"):
+        categories.add("local_app_surface")
+    if _matches(path, "tools/dev_app/**"):
+        categories.add("developer_launcher_surface")
+    if (
+        path == "docs/local_artifacts_manifest.json"
+        or path == "tools/check_local_environment.py"
+        or path == "tests/test_check_local_environment.py"
+        or "pre_v1_clean_install_transition" in path
+    ):
+        categories.add("local_artifact_policy_surface")
+    if path in {
+        "docs/contracts/validation_matrix_reconciliation.md",
+        "docs/internal_project_map.md",
+        "docs/validation_matrix.md",
+    }:
+        categories.add("validation_reference_surface")
+    if (
+        path == "src/mythic_edge_parser/app/analytics_migration_loader.py"
+        or _matches(path, "src/mythic_edge_parser/app/analytics_migrations/**")
+        or path in {"tests/test_analytics_migration_loader.py", "tests/test_analytics_schema.py"}
+    ):
+        categories.add("analytics_schema_surface")
+    if (
+        path == "src/mythic_edge_parser/app/analytics_ingest.py"
+        or path in {
+            "tests/test_analytics_parser_normalized_replay_ingest.py",
+            "tests/test_analytics_gameplay_action_ingest.py",
+            "tests/test_analytics_opponent_card_observation_ingest.py",
+            "tests/test_analytics_field_evidence_ingest.py",
+        }
+    ):
+        categories.add("analytics_ingest_surface")
+    if (
+        path == "src/mythic_edge_parser/app/analytics_legacy_jsonl_adapter.py"
+        or path in {
+            "tests/test_analytics_legacy_jsonl_artifact_adapter.py",
+            "tests/test_analytics_manual_jsonl_import.py",
+            "tests/test_analytics_browser_jsonl_upload.py",
+        }
+    ):
+        categories.add("analytics_import_surface")
+    if (
+        path == "src/mythic_edge_parser/app/analytics_sidecar.py"
+        or path == "src/mythic_edge_parser/local_app/analytics_history.py"
+        or path in {
+            "tests/test_analytics_derived_views.py",
+            "tests/test_analytics_replay_view_harness.py",
+            "tests/test_analytics_app_match_game_history_views.py",
+            "tests/test_analytics_app_opening_hand_mulligan_views.py",
+            "tests/test_analytics_app_play_draw_postboard_split_views.py",
+            "tests/test_analytics_app_gameplay_action_opponent_observation_views.py",
+        }
+    ):
+        categories.add("analytics_view_surface")
     if _matches(path, "src/mythic_edge_parser/parsers/**") or path == "src/mythic_edge_parser/events.py":
         categories.add("parser_surface")
     if path in {"src/mythic_edge_parser/app/state.py", "src/mythic_edge_parser/app/models.py"}:
@@ -252,6 +365,7 @@ def categorize_path(path: str) -> tuple[str, ...]:
         or path in {"docs/agent_constitution.md", "docs/agent_rules.yml", "docs/codex_module_workflow.md"}
         or _matches(path, "docs/agent_threads/**")
         or _matches(path, "docs/templates/**")
+        or path in {"docs/internal_project_map.md", "docs/validation_matrix.md"}
         or _matches(path, ".github/ISSUE_TEMPLATE/**")
         or path == ".github/pull_request_template.md"
     ):
@@ -356,6 +470,8 @@ def classify_protected_warnings(paths: Iterable[str]) -> tuple[SelectorWarning, 
 def _command_id_for_pytest(command: str) -> str:
     if "tests/test_select_validation.py" in command:
         return "select_validation_tests"
+    if "tests/test_check_local_environment.py" in command:
+        return "local_environment_tests"
     if "tests/test_hardening_report_generator.py" in command:
         return "hardening_report_generator_tests"
     if "tests/test_hardening_orchestrator.py" in command:
@@ -366,6 +482,20 @@ def _command_id_for_pytest(command: str) -> str:
         return "protected_surface_tests"
     if "tests/test_check_surface_authorization.py" in command:
         return "surface_authorization_tests"
+    if "tests/test_analytics_dev_app_launcher.py" in command:
+        return "dev_app_launcher_tests"
+    if "tests/test_analytics_migration_loader.py" in command:
+        return "analytics_migration_tests"
+    if "tests/test_analytics_derived_views.py" in command:
+        return "analytics_derived_view_tests"
+    if "tests/test_analytics_parser_normalized_replay_ingest.py" in command:
+        return "analytics_ingest_tests"
+    if "tests/test_analytics_legacy_jsonl_artifact_adapter.py" in command:
+        return "analytics_import_adapter_tests"
+    if "tests/test_analytics_local_app_backend.py" in command:
+        return "local_app_backend_tests"
+    if "tests/test_analytics_local_app_config.py" in command:
+        return "local_app_config_tests"
     if "tests/test_event_schema_snapshots.py" in command:
         return "schema_snapshot_tests"
     if "tests/test_parser_regressions.py" in command:
@@ -414,6 +544,13 @@ def _focused_test_for_path(path: str) -> str:
     for exact_path, command in FOCUSED_TEST_MAPPINGS:
         if path == exact_path:
             return command
+    if _matches(path, "src/mythic_edge_parser/app/analytics_migrations/**"):
+        return (
+            "python3 -m pytest -q tests/test_analytics_migration_loader.py tests/test_analytics_schema.py "
+            "tests/test_analytics_derived_views.py"
+        )
+    if path.startswith("src/mythic_edge_parser/local_app/") and path.endswith(".py"):
+        return "python3 -m pytest -q tests/test_analytics_local_app_config.py tests/test_analytics_local_app_backend.py"
     if fnmatch.fnmatchcase(path, "tests/fixtures/parser_regression_*"):
         return "python3 -m pytest -q tests/test_parser_regressions.py"
     if _matches(path, "tests/fixtures/schema_snapshots/**"):
@@ -498,7 +635,7 @@ def select_recommendations(
     if pyright_paths:
         _add_recommendation(
             recommendations,
-            priority=PRIORITY_RECOMMENDED,
+            priority=PRIORITY_ADVISORY,
             command_id="pyright_advisory",
             command="python3 tools/run_pyright_advisory_report.py",
             reason=(
@@ -508,6 +645,35 @@ def select_recommendations(
             categories=categories,
             paths=pyright_paths,
         )
+
+    frontend_paths = tuple(path for path, cats in path_categories.items() if "frontend_surface" in cats)
+    if frontend_paths:
+        for command_id, command, reason in (
+            (
+                "frontend_typecheck",
+                "npm --prefix frontend run typecheck",
+                "Frontend source or configuration changed; run the Vite/TypeScript typecheck.",
+            ),
+            (
+                "frontend_tests",
+                "npm --prefix frontend run test -- --run",
+                "Frontend source or configuration changed; run the frontend test suite in non-watch mode.",
+            ),
+            (
+                "frontend_build",
+                "npm --prefix frontend run build",
+                "Frontend source or configuration changed; verify the production frontend build still compiles.",
+            ),
+        ):
+            _add_recommendation(
+                recommendations,
+                priority=PRIORITY_REQUIRED,
+                command_id=command_id,
+                command=command,
+                reason=reason,
+                categories=("frontend_surface",),
+                paths=frontend_paths,
+            )
 
     source_without_mapping: list[str] = []
     for path, item_categories in path_categories.items():
@@ -546,6 +712,32 @@ def select_recommendations(
             categories=("ci_or_dependency_surface",),
             paths=tuple(path for path, cats in path_categories.items() if "ci_or_dependency_surface" in cats),
         )
+
+    local_artifact_policy_paths = tuple(
+        path for path, cats in path_categories.items() if "local_artifact_policy_surface" in cats
+    )
+    if local_artifact_policy_paths:
+        for command_id, command, reason in (
+            (
+                "local_environment_clean_clone",
+                "python3 tools/check_local_environment.py --profile clean_clone --format json",
+                "Local artifact policy changed; produce a clean-clone readiness report.",
+            ),
+            (
+                "local_environment_clean_install_transition",
+                "python3 tools/check_local_environment.py --profile clean_install_transition_audit --format json",
+                "Clean-install or local artifact policy changed; produce a transition audit report.",
+            ),
+        ):
+            _add_recommendation(
+                recommendations,
+                priority=PRIORITY_RECOMMENDED,
+                command_id=command_id,
+                command=command,
+                reason=reason,
+                categories=("local_artifact_policy_surface",),
+                paths=local_artifact_policy_paths,
+            )
 
     touched_protected_groups = categories and (set(categories) & PROTECTED_CATEGORY_GROUPS)
     if len(touched_protected_groups) > 1:

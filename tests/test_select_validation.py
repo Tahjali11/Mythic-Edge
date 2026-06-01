@@ -20,6 +20,10 @@ def _commands(result) -> dict[str, str]:
     return {item.command_id: item.command for item in result.recommendations}
 
 
+def _recommendation(result, command_id: str):
+    return next(item for item in result.recommendations if item.command_id == command_id)
+
+
 def test_missing_base_exits_two(capsys) -> None:
     assert selector.main([]) == 2
 
@@ -231,6 +235,7 @@ def test_parser_module_change_selects_focused_tests_ruff_and_pyright() -> None:
     assert expected in command_values
     assert "python3 -m ruff check src tests tools" in command_values
     assert "python3 tools/run_pyright_advisory_report.py" in command_values
+    assert _recommendation(result, "pyright_advisory").priority == "advisory"
 
 
 def test_workbook_schema_export_change_selects_schema_snapshot_tests() -> None:
@@ -268,6 +273,125 @@ def test_ci_or_dependency_change_recommends_broader_tests_and_pyright() -> None:
     assert commands["full_pytest"] == "python3 -m pytest -q tests"
     assert commands["pyright_advisory"] == "python3 tools/run_pyright_advisory_report.py"
     assert commands["ruff"] == "python3 -m ruff check src tests tools"
+    assert _recommendation(result, "pyright_advisory").priority == "advisory"
+
+
+def test_frontend_paths_select_frontend_checks_without_claiming_results() -> None:
+    result = selector.run_selector_for_paths(
+        ["frontend/src/App.tsx", "frontend/package.json"],
+        base="origin/main",
+    )
+    commands = _commands(result)
+
+    assert commands["frontend_typecheck"] == "npm --prefix frontend run typecheck"
+    assert commands["frontend_tests"] == "npm --prefix frontend run test -- --run"
+    assert commands["frontend_build"] == "npm --prefix frontend run build"
+    assert _recommendation(result, "frontend_typecheck").priority == "required"
+    assert "frontend_surface" in result.categories
+    assert "full_pytest" not in commands
+
+
+def test_local_app_backend_paths_select_focused_backend_and_history_tests() -> None:
+    result = selector.run_selector_for_paths(
+        ["src/mythic_edge_parser/local_app/backend.py"],
+        base="origin/main",
+    )
+    commands = _commands(result)
+
+    expected = (
+        "python3 -m pytest -q tests/test_analytics_local_app_backend.py tests/test_analytics_manual_jsonl_import.py "
+        "tests/test_analytics_app_match_game_history_views.py tests/test_analytics_app_opening_hand_mulligan_views.py "
+        "tests/test_analytics_app_play_draw_postboard_split_views.py "
+        "tests/test_analytics_app_gameplay_action_opponent_observation_views.py"
+    )
+    assert commands["local_app_backend_tests"] == expected
+    assert commands["ruff"] == "python3 -m ruff check src tests tools"
+    assert _recommendation(result, "pyright_advisory").priority == "advisory"
+    assert "local_app_surface" in result.categories
+    assert "full_pytest" not in commands
+
+
+def test_developer_launcher_paths_select_launcher_tests() -> None:
+    result = selector.run_selector_for_paths(
+        ["tools/dev_app/dev_app_launcher.py", "tools/dev_app/start_mythic_edge_dev_app.ps1"],
+        base="origin/main",
+    )
+    commands = _commands(result)
+
+    assert commands["dev_app_launcher_tests"] == "python3 -m pytest -q tests/test_analytics_dev_app_launcher.py"
+    recommendation = _recommendation(result, "dev_app_launcher_tests")
+    assert recommendation.categories == ("developer_launcher_surface",)
+    assert recommendation.paths == (
+        "tools/dev_app/dev_app_launcher.py",
+        "tools/dev_app/start_mythic_edge_dev_app.ps1",
+    )
+
+
+def test_analytics_migration_paths_select_schema_loader_and_view_tests() -> None:
+    result = selector.run_selector_for_paths(
+        ["src/mythic_edge_parser/app/analytics_migrations/0001_initial_analytics_schema.sql"],
+        base="origin/main",
+    )
+    commands = _commands(result)
+
+    assert (
+        commands["analytics_migration_tests"]
+        == "python3 -m pytest -q tests/test_analytics_migration_loader.py tests/test_analytics_schema.py "
+        "tests/test_analytics_derived_views.py"
+    )
+    assert "analytics_schema_surface" in result.categories
+    assert "full_pytest" not in commands
+
+
+def test_analytics_ingest_paths_select_all_focused_ingest_tests() -> None:
+    result = selector.run_selector_for_paths(
+        ["src/mythic_edge_parser/app/analytics_ingest.py"],
+        base="origin/main",
+    )
+    commands = _commands(result)
+
+    assert commands["analytics_ingest_tests"] == (
+        "python3 -m pytest -q tests/test_analytics_parser_normalized_replay_ingest.py "
+        "tests/test_analytics_gameplay_action_ingest.py tests/test_analytics_opponent_card_observation_ingest.py "
+        "tests/test_analytics_field_evidence_ingest.py"
+    )
+    assert "analytics_ingest_surface" in result.categories
+    assert _recommendation(result, "pyright_advisory").priority == "advisory"
+
+
+def test_local_artifact_policy_paths_select_checker_tests_and_profile_reports() -> None:
+    result = selector.run_selector_for_paths(
+        ["docs/local_artifacts_manifest.json"],
+        base="origin/main",
+    )
+    commands = _commands(result)
+
+    assert commands["local_environment_tests"] == "python3 -m pytest -q tests/test_check_local_environment.py"
+    assert (
+        commands["local_environment_clean_clone"]
+        == "python3 tools/check_local_environment.py --profile clean_clone --format json"
+    )
+    assert (
+        commands["local_environment_clean_install_transition"]
+        == "python3 tools/check_local_environment.py --profile clean_install_transition_audit --format json"
+    )
+    assert _recommendation(result, "local_environment_clean_clone").priority == "recommended"
+    assert "local_artifact_policy_surface" in result.categories
+
+
+def test_validation_reference_docs_select_agent_docs_checker_when_tracked(monkeypatch) -> None:
+    monkeypatch.setattr(selector, "is_tracked_file", lambda path, *, repo_root=".": True)
+
+    result = selector.run_selector_for_paths(
+        ["docs/validation_matrix.md", "docs/internal_project_map.md"],
+        base="origin/main",
+    )
+
+    agent_docs = _recommendation(result, "agent_docs_checker")
+    assert agent_docs.priority == "required"
+    assert agent_docs.categories == ("governance_docs_surface",)
+    assert agent_docs.paths == ("docs/internal_project_map.md", "docs/validation_matrix.md")
+    assert "validation_reference_surface" in result.categories
 
 
 def test_protected_and_forbidden_path_classifications_are_warnings() -> None:
