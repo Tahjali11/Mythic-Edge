@@ -32,6 +32,8 @@ import {
   EARLY_GAME_HISTORY_SCHEMA_VERSION,
   LIVE_PLAYER_LOG_STATUS_OBJECT,
   LIVE_STATUS_SCHEMA_VERSION,
+  LIVE_WATCHER_PROCESS_OBJECT,
+  LIVE_WATCHER_PROCESS_SCHEMA_VERSION,
   LIVE_WATCHER_STATUS_OBJECT,
   SPLIT_REVIEW_SCHEMA_VERSION,
   MANUAL_IMPORT_JOB_SCHEMA_VERSION,
@@ -45,6 +47,7 @@ import {
   type GameplayActionReviewResponse,
   type GameplayActionReviewRow,
   type LivePlayerLogStatusResponse,
+  type LiveWatcherProcessStatusResponse,
   type LiveWatcherStatusResponse,
   type ManualImportJob,
   type ManualImportRequest,
@@ -2497,6 +2500,7 @@ function matchJournalErrorTitle(code: MatchJournalApiError["code"]): string {
 function buildPanels(payload: SetupStatusResponse): Panel[] {
   const livePlayerLogPanel = buildLivePlayerLogPanel(payload.live_player_log);
   const liveWatcherPanel = buildLiveWatcherPanel(payload.live_watcher);
+  const liveWatcherProcessPanel = buildLiveWatcherProcessPanel(payload.live_watcher_process);
   return [
     {
       title: "App Data",
@@ -2524,6 +2528,7 @@ function buildPanels(payload: SetupStatusResponse): Panel[] {
     },
     ...(livePlayerLogPanel ? [livePlayerLogPanel] : []),
     ...(liveWatcherPanel ? [liveWatcherPanel] : []),
+    ...(liveWatcherProcessPanel ? [liveWatcherProcessPanel] : []),
     {
       title: "Analytics Database",
       status: statusFromSection(payload.analytics_database),
@@ -2594,6 +2599,28 @@ function buildLiveWatcherPanel(payload: unknown): Panel | null {
       { label: "stop", value: payload.watcher.stop_allowed ? "allowed" : "disabled" },
       { label: "tailing", value: payload.watcher.tailing_started ? "started" : "not_started" },
       { label: "reason", value: payload.watcher.reason ?? "none" }
+    ]
+  };
+}
+
+function buildLiveWatcherProcessPanel(payload: unknown): Panel | null {
+  if (!isLiveWatcherProcessStatusResponse(payload)) {
+    return null;
+  }
+  return {
+    title: "Live Watcher Process",
+    status: payload.status,
+    details: [
+      { label: "mode", value: payload.process_control.mode },
+      { label: "state", value: payload.state.status },
+      { label: "control", value: payload.process_control.implementation_status },
+      { label: "running", value: payload.watcher.running ? "running" : "not_running" },
+      { label: "start route", value: payload.process_control.start_route_enabled ? "enabled" : "disabled" },
+      { label: "stop route", value: payload.process_control.stop_route_enabled ? "enabled" : "disabled" },
+      { label: "ui controls", value: payload.process_control.ui_controls_allowed ? "enabled" : "disabled" },
+      { label: "guard", value: payload.watcher.single_instance_guard },
+      { label: "state path", value: payload.state.display_path ?? "none" },
+      { label: "reason", value: payload.process_control.reason ?? "none" }
     ]
   };
 }
@@ -3210,6 +3237,32 @@ function isLiveWatcherStatusResponse(value: unknown): value is LiveWatcherStatus
     typeof value.status === "string" &&
     isRecord(value.watcher) &&
     isRecord(value.player_log)
+  );
+}
+
+function isLiveWatcherProcessStatusResponse(value: unknown): value is LiveWatcherProcessStatusResponse {
+  return (
+    isRecord(value) &&
+    value.object === LIVE_WATCHER_PROCESS_OBJECT &&
+    value.schema_version === LIVE_WATCHER_PROCESS_SCHEMA_VERSION &&
+    typeof value.status === "string" &&
+    isRecord(value.process_control) &&
+    isRecord(value.watcher) &&
+    isLiveWatcherProcessPreconditions(value.preconditions) &&
+    isRecord(value.state)
+  );
+}
+
+function isLiveWatcherProcessPreconditions(value: unknown): boolean {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (entry) =>
+        isRecord(entry) &&
+        typeof entry.key === "string" &&
+        typeof entry.status === "string" &&
+        (typeof entry.reason === "string" || entry.reason === null)
+    )
   );
 }
 

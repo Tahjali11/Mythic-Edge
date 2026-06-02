@@ -5,6 +5,7 @@ import {
   AnalyticsHistoryApiError,
   fetchGame1PostboardSplitReview,
   fetchLivePlayerLogStatus,
+  fetchLiveWatcherProcessStatus,
   fetchLiveWatcherStatus,
   fetchManualImportJob,
   fetchGameHistory,
@@ -39,6 +40,8 @@ import {
   LEGACY_JSONL_IMPORT_QUALITY_SCHEMA_VERSION,
   LIVE_PLAYER_LOG_STATUS_OBJECT,
   LIVE_STATUS_SCHEMA_VERSION,
+  LIVE_WATCHER_PROCESS_OBJECT,
+  LIVE_WATCHER_PROCESS_SCHEMA_VERSION,
   LIVE_WATCHER_STATUS_OBJECT,
   MANUAL_IMPORT_JOB_OBJECT,
   MANUAL_IMPORT_JOB_SCHEMA_VERSION,
@@ -57,6 +60,7 @@ import {
   type GameplayActionReviewResponse,
   type LegacyJsonlImportQuality,
   type LivePlayerLogStatusResponse,
+  type LiveWatcherProcessStatusResponse,
   type LiveWatcherStatusResponse,
   type ManualImportJob,
   type MatchJournalResponse,
@@ -92,19 +96,27 @@ describe("api helpers", () => {
   it("fetches and validates live Player.log and watcher status responses", async () => {
     const playerLogPayload = buildLivePlayerLogStatusPayload();
     const watcherPayload = buildLiveWatcherStatusPayload();
+    const processPayload = buildLiveWatcherProcessStatusPayload();
     const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
       if (String(input).endsWith("/api/live/player-log/status")) {
         return jsonResponse(playerLogPayload);
+      }
+      if (String(input).endsWith("/api/live/watcher/process")) {
+        return jsonResponse(processPayload);
       }
       return jsonResponse(watcherPayload);
     }) as unknown as typeof fetch;
 
     await expect(fetchLivePlayerLogStatus(fetchImpl)).resolves.toEqual(playerLogPayload);
     await expect(fetchLiveWatcherStatus(fetchImpl)).resolves.toEqual(watcherPayload);
+    await expect(fetchLiveWatcherProcessStatus(fetchImpl)).resolves.toEqual(processPayload);
     expect(fetchImpl).toHaveBeenCalledWith("/api/live/player-log/status", {
       headers: { Accept: "application/json" }
     });
     expect(fetchImpl).toHaveBeenCalledWith("/api/live/watcher/status", {
+      headers: { Accept: "application/json" }
+    });
+    expect(fetchImpl).toHaveBeenCalledWith("/api/live/watcher/process", {
       headers: { Accept: "application/json" }
     });
   });
@@ -126,6 +138,43 @@ describe("api helpers", () => {
       })
     ) as unknown as typeof fetch;
     await expect(fetchLiveWatcherStatus(rawPathFetch)).rejects.toMatchObject({ code: "malformed_response" });
+
+    const processControlFetch = vi.fn(async () =>
+      jsonResponse({
+        ...buildLiveWatcherProcessStatusPayload(),
+        process_control: {
+          ...buildLiveWatcherProcessStatusPayload().process_control,
+          start_allowed: true
+        }
+      })
+    ) as unknown as typeof fetch;
+    await expect(fetchLiveWatcherProcessStatus(processControlFetch)).rejects.toMatchObject({
+      code: "malformed_response"
+    });
+
+    const processPreconditionMapFetch = vi.fn(async () =>
+      jsonResponse({
+        ...buildLiveWatcherProcessStatusPayload(),
+        preconditions: {
+          player_log_ready: { status: "pass", reason: null }
+        }
+      })
+    ) as unknown as typeof fetch;
+    await expect(fetchLiveWatcherProcessStatus(processPreconditionMapFetch)).rejects.toMatchObject({
+      code: "malformed_response"
+    });
+
+    const processPreconditionMissingFieldFetch = vi.fn(async () =>
+      jsonResponse({
+        ...buildLiveWatcherProcessStatusPayload(),
+        preconditions: buildLiveWatcherProcessStatusPayload().preconditions.map((entry, index) =>
+          index === 0 ? { key: entry.key, status: entry.status } : entry
+        )
+      })
+    ) as unknown as typeof fetch;
+    await expect(fetchLiveWatcherProcessStatus(processPreconditionMissingFieldFetch)).rejects.toMatchObject({
+      code: "malformed_response"
+    });
   });
 
   it("classifies missing required schema fields as malformed responses", async () => {
@@ -695,6 +744,70 @@ function buildLiveWatcherStatusPayload(): LiveWatcherStatusResponse {
       last_modified_at: "2026-06-02T00:00:00Z",
       last_modified_age_seconds: 1,
       activity_hint: "recent"
+    },
+    warnings: [],
+    errors: []
+  };
+}
+
+function buildLiveWatcherProcessStatusPayload(): LiveWatcherProcessStatusResponse {
+  return {
+    object: LIVE_WATCHER_PROCESS_OBJECT,
+    schema_version: LIVE_WATCHER_PROCESS_SCHEMA_VERSION,
+    status: "not_initialized",
+    process_control: {
+      mode: "safeguards_only",
+      implementation_status: "not_implemented",
+      start_allowed: false,
+      stop_allowed: false,
+      start_route_enabled: false,
+      stop_route_enabled: false,
+      ui_controls_allowed: false,
+      automatic_start_enabled: false,
+      parser_runner_started: false,
+      tailing_started: false,
+      sqlite_live_writes_enabled: false,
+      external_transport_allowed: false,
+      reason: "watcher_state_missing"
+    },
+    watcher: {
+      status: "not_initialized",
+      running: false,
+      pid_verified: false,
+      single_instance_guard: "not_initialized",
+      supervisor_boundary: "local_app_supervisor_deferred"
+    },
+    player_log: {
+      object: LIVE_PLAYER_LOG_STATUS_OBJECT,
+      status: "configured_exists",
+      source: "configured",
+      display_path: "<configured_player_log>",
+      path_kind: "file",
+      metadata_access: "accessible",
+      exists: true,
+      contents_read: false,
+      tailing_started: false
+    },
+    preconditions: [
+      { key: "player_log_ready", status: "pass", reason: null },
+      { key: "app_data_root_available", status: "pass", reason: null },
+      { key: "state_directory_available", status: "deferred", reason: "state_directory_not_created_by_get" },
+      { key: "single_instance_guard_available", status: "deferred", reason: "single_instance_guard_deferred" },
+      { key: "supervisor_target_defined", status: "deferred", reason: "supervisor_target_deferred" },
+      { key: "external_transport_disabled", status: "pass", reason: null },
+      { key: "live_sqlite_ingest_contract_present", status: "deferred", reason: "live_sqlite_ingest_deferred" },
+      { key: "frontend_controls_authorized", status: "deferred", reason: "frontend_controls_not_authorized" }
+    ],
+    state: {
+      source: "none",
+      exists: false,
+      status: "not_initialized",
+      stale: false,
+      pid_present: false,
+      pid_verified: false,
+      supervisor_token_present: false,
+      display_path: "<app_data>\\jobs\\live_watcher_state.json",
+      raw_path_exposed: false
     },
     warnings: [],
     errors: []

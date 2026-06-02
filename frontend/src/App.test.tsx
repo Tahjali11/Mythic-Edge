@@ -14,6 +14,8 @@ import {
   LEGACY_JSONL_IMPORT_QUALITY_SCHEMA_VERSION,
   LIVE_PLAYER_LOG_STATUS_OBJECT,
   LIVE_STATUS_SCHEMA_VERSION,
+  LIVE_WATCHER_PROCESS_OBJECT,
+  LIVE_WATCHER_PROCESS_SCHEMA_VERSION,
   LIVE_WATCHER_STATUS_OBJECT,
   MANUAL_IMPORT_JOB_OBJECT,
   MANUAL_IMPORT_JOB_SCHEMA_VERSION,
@@ -32,6 +34,7 @@ import {
   type GameplayActionReviewResponse,
   type LegacyJsonlImportQuality,
   type LivePlayerLogStatusResponse,
+  type LiveWatcherProcessStatusResponse,
   type LiveWatcherStatusResponse,
   type ManualImportJob,
   type ManualImportSourceArtifact,
@@ -61,8 +64,11 @@ describe("SetupStatusApp", () => {
     expect(screen.getAllByText("<configured_player_log>").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("Live Player.log")).toBeInTheDocument();
     expect(screen.getByText("Live Watcher")).toBeInTheDocument();
+    expect(screen.getByText("Live Watcher Process")).toBeInTheDocument();
     expect(screen.getByText("readiness_only")).toBeInTheDocument();
+    expect(screen.getByText("safeguards_only")).toBeInTheDocument();
     expect(screen.getByText("not_capturing")).toBeInTheDocument();
+    expect(screen.getByText("not_running")).toBeInTheDocument();
     expect(screen.getByText("<app_data>\\db\\mythic_edge.sqlite3")).toBeInTheDocument();
     expect(screen.getByText("<app_data>\\db\\match_journal.sqlite3")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Import JSONL" })).toBeInTheDocument();
@@ -1050,6 +1056,7 @@ function buildPayload(overrides: Partial<SetupStatusResponse> = {}): SetupStatus
     },
     live_player_log: buildLivePlayerLogStatusPayload(),
     live_watcher: buildLiveWatcherStatusPayload(),
+    live_watcher_process: buildLiveWatcherProcessStatusPayload(),
     analytics_database: {
       status: "missing",
       database: { display_path: "<app_data>\\db\\mythic_edge.sqlite3", schema_status: "missing" }
@@ -1135,6 +1142,70 @@ function buildLiveWatcherStatusPayload(): LiveWatcherStatusResponse {
       last_modified_at: "2026-06-02T00:00:00Z",
       last_modified_age_seconds: 1,
       activity_hint: "recent"
+    },
+    warnings: [],
+    errors: []
+  };
+}
+
+function buildLiveWatcherProcessStatusPayload(): LiveWatcherProcessStatusResponse {
+  return {
+    object: LIVE_WATCHER_PROCESS_OBJECT,
+    schema_version: LIVE_WATCHER_PROCESS_SCHEMA_VERSION,
+    status: "not_initialized",
+    process_control: {
+      mode: "safeguards_only",
+      implementation_status: "not_implemented",
+      start_allowed: false,
+      stop_allowed: false,
+      start_route_enabled: false,
+      stop_route_enabled: false,
+      ui_controls_allowed: false,
+      automatic_start_enabled: false,
+      parser_runner_started: false,
+      tailing_started: false,
+      sqlite_live_writes_enabled: false,
+      external_transport_allowed: false,
+      reason: "watcher_state_missing"
+    },
+    watcher: {
+      status: "not_initialized",
+      running: false,
+      pid_verified: false,
+      single_instance_guard: "not_initialized",
+      supervisor_boundary: "local_app_supervisor_deferred"
+    },
+    player_log: {
+      object: LIVE_PLAYER_LOG_STATUS_OBJECT,
+      status: "configured_exists",
+      source: "configured",
+      display_path: "<configured_player_log>",
+      path_kind: "file",
+      metadata_access: "accessible",
+      exists: true,
+      contents_read: false,
+      tailing_started: false
+    },
+    preconditions: [
+      { key: "player_log_ready", status: "pass", reason: null },
+      { key: "app_data_root_available", status: "pass", reason: null },
+      { key: "state_directory_available", status: "deferred", reason: "state_directory_not_created_by_get" },
+      { key: "single_instance_guard_available", status: "deferred", reason: "single_instance_guard_deferred" },
+      { key: "supervisor_target_defined", status: "deferred", reason: "supervisor_target_deferred" },
+      { key: "external_transport_disabled", status: "pass", reason: null },
+      { key: "live_sqlite_ingest_contract_present", status: "deferred", reason: "live_sqlite_ingest_deferred" },
+      { key: "frontend_controls_authorized", status: "deferred", reason: "frontend_controls_not_authorized" }
+    ],
+    state: {
+      source: "none",
+      exists: false,
+      status: "not_initialized",
+      stale: false,
+      pid_present: false,
+      pid_verified: false,
+      supervisor_token_present: false,
+      display_path: "<app_data>\\jobs\\live_watcher_state.json",
+      raw_path_exposed: false
     },
     warnings: [],
     errors: []
