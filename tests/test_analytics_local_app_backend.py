@@ -274,6 +274,7 @@ def test_setup_status_get_routes_do_not_create_local_app_artifacts(tmp_path) -> 
         "/api/live/player-log/status",
         "/api/live/watcher/status",
         "/api/live/watcher/process",
+        "/api/live/ingest/status",
         "/api/runtime/status",
     ):
         response = client.get(route)
@@ -295,8 +296,14 @@ def test_live_status_routes_report_symbolic_metadata_and_readiness_only(tmp_path
     player_log_payload = client.get("/api/live/player-log/status").json()
     watcher_payload = client.get("/api/live/watcher/status").json()
     process_payload = client.get("/api/live/watcher/process").json()
+    ingest_payload = client.get("/api/live/ingest/status").json()
     encoded = json.dumps(
-        {"player_log": player_log_payload, "watcher": watcher_payload, "process": process_payload},
+        {
+            "player_log": player_log_payload,
+            "watcher": watcher_payload,
+            "process": process_payload,
+            "ingest": ingest_payload,
+        },
         sort_keys=True,
     )
 
@@ -333,6 +340,28 @@ def test_live_status_routes_report_symbolic_metadata_and_readiness_only(tmp_path
     assert process_payload["watcher"]["pid_verified"] is False
     assert process_payload["state"]["raw_path_exposed"] is False
     assert _preconditions_by_key(process_payload)["player_log_ready"]["status"] == "pass"
+    assert _preconditions_by_key(process_payload)["live_sqlite_ingest_contract_present"]["status"] == "pass"
+    assert ingest_payload["object"] == "mythic_edge_local_app_live_parser_sqlite_capture_status"
+    assert ingest_payload["schema_version"] == "live_app_parser_owned_fact_capture_sqlite.v1"
+    assert ingest_payload["status"] == "disabled"
+    assert ingest_payload["mode"] == "status_only"
+    assert ingest_payload["source_kind"] == "live_parser"
+    assert ingest_payload["database"] == {
+        "configured": True,
+        "display_path": "<app_data>\\db\\mythic_edge.sqlite3",
+    }
+    assert ingest_payload["capabilities"]["live_sqlite_capture_contract_present"] is True
+    assert ingest_payload["capabilities"]["final_match_game_fact_capture_supported"] is True
+    assert ingest_payload["capabilities"]["provisional_fact_capture_supported"] is False
+    assert ingest_payload["capabilities"]["gameplay_action_live_capture_supported"] is False
+    assert ingest_payload["capabilities"]["opponent_observation_live_capture_supported"] is False
+    assert ingest_payload["capabilities"]["field_evidence_live_capture_supported"] is False
+    assert ingest_payload["capabilities"]["raw_player_log_storage_supported"] is False
+    assert ingest_payload["capabilities"]["external_transport_allowed"] is False
+    assert ingest_payload["process_control"]["parser_runner_started"] is False
+    assert ingest_payload["process_control"]["tailing_started"] is False
+    assert ingest_payload["process_control"]["sqlite_live_writes_enabled"] is False
+    assert ingest_payload["last_result"] is None
     assert str(player_log_path) not in encoded
     assert "private log body" not in encoded
 

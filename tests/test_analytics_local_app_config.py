@@ -333,6 +333,7 @@ def test_live_watcher_process_status_is_safeguards_only_without_state_artifacts(
     assert status["state"]["display_path"] == "<app_data>\\jobs\\live_watcher_state.json"
     assert status["state"]["raw_path_exposed"] is False
     assert _preconditions_by_key(status)["player_log_ready"]["status"] == "pass"
+    assert _preconditions_by_key(status)["live_sqlite_ingest_contract_present"]["status"] == "pass"
     assert str(player_log_path) not in encoded
     assert "private log body" not in encoded
     assert not paths.jobs_dir.exists()

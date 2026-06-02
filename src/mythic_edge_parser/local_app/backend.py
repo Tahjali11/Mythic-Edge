@@ -40,6 +40,7 @@ from .setup_status import (
     build_analytics_database_status,
     build_health_status,
     build_live_player_log_status,
+    build_live_sqlite_capture_status,
     build_live_watcher_status,
     build_runtime_state,
     build_setup_status,
@@ -110,6 +111,10 @@ def create_app(
     @app.get("/api/live/watcher/process")
     def live_watcher_process_status() -> dict[str, object]:
         return build_live_watcher_process_status(local_app_paths)
+
+    @app.get("/api/live/ingest/status")
+    def live_ingest_status() -> dict[str, object]:
+        return build_live_sqlite_capture_status(local_app_paths)
 
     @app.get("/api/analytics/matches")
     def analytics_match_history(request: Request) -> dict[str, object]:

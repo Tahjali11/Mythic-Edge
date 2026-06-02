@@ -206,7 +206,7 @@ def _build_preconditions(paths: LocalAppPaths, watcher_status: dict[str, object]
         _precondition("single_instance_guard_available", "deferred", "single_instance_guard_deferred"),
         _precondition("supervisor_target_defined", "deferred", "supervisor_target_deferred"),
         _precondition("external_transport_disabled", "pass", None),
-        _precondition("live_sqlite_ingest_contract_present", "deferred", "live_sqlite_ingest_deferred"),
+        _precondition("live_sqlite_ingest_contract_present", "pass", None),
         _precondition("frontend_controls_authorized", "deferred", "frontend_controls_not_authorized"),
     ]
 
