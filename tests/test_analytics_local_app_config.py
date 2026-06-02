@@ -1,12 +1,14 @@
-from __future__ import annotations
-
+import inspect
 import json
 import sqlite3
+from datetime import UTC, datetime, timedelta
 
 from mythic_edge_parser.app.analytics_migration_loader import apply_analytics_migrations
 from mythic_edge_parser.app.match_journal_migration_loader import apply_match_journal_migrations
+from mythic_edge_parser.local_app import live_watcher_process
 from mythic_edge_parser.local_app import setup_status as setup_status_module
 from mythic_edge_parser.local_app.config import _is_safe_unexpected_field_name, load_local_app_config_status
+from mythic_edge_parser.local_app.live_watcher_process import build_live_watcher_process_status
 from mythic_edge_parser.local_app.paths import build_local_app_paths, build_path_status
 from mythic_edge_parser.local_app.setup_status import (
     build_analytics_database_status,
@@ -16,6 +18,26 @@ from mythic_edge_parser.local_app.setup_status import (
     build_migration_loader_status,
     build_player_log_path_status,
 )
+
+EXPECTED_PROCESS_PRECONDITION_KEYS = [
+    "player_log_ready",
+    "app_data_root_available",
+    "state_directory_available",
+    "single_instance_guard_available",
+    "supervisor_target_defined",
+    "external_transport_disabled",
+    "live_sqlite_ingest_contract_present",
+    "frontend_controls_authorized",
+]
+
+
+def _preconditions_by_key(status: dict[str, object]) -> dict[str, dict[str, object]]:
+    preconditions = status["preconditions"]
+    assert isinstance(preconditions, list)
+    assert [entry["key"] for entry in preconditions] == EXPECTED_PROCESS_PRECONDITION_KEYS
+    for entry in preconditions:
+        assert set(entry) >= {"key", "status", "reason"}
+    return {str(entry["key"]): entry for entry in preconditions}
 
 
 def test_build_local_app_paths_uses_temp_override_without_creating_folders(tmp_path) -> None:
@@ -277,6 +299,128 @@ def test_live_player_log_status_detects_default_path_without_exposing_it(tmp_pat
     assert status["player_log"]["contents_read"] is False
     assert str(default_log) not in encoded
     assert "private default body" not in encoded
+
+
+def test_live_watcher_process_status_is_safeguards_only_without_state_artifacts(tmp_path) -> None:
+    paths = build_local_app_paths(tmp_path / "app-data")
+    player_log_path = tmp_path / "Player.log"
+    player_log_path.write_text("private log body must not be read", encoding="utf-8")
+    paths.config_file.parent.mkdir(parents=True)
+    paths.config_file.write_text(json.dumps({"player_log_path": str(player_log_path)}), encoding="utf-8")
+
+    status = build_live_watcher_process_status(paths)
+    encoded = json.dumps(status, sort_keys=True)
+
+    assert status["object"] == "mythic_edge_local_app_live_watcher_process_status"
+    assert status["schema_version"] == "live_app_player_log_watcher_process_control_safeguards.v1"
+    assert status["status"] == "not_initialized"
+    assert status["process_control"]["mode"] == "safeguards_only"
+    for flag in (
+        "start_allowed",
+        "stop_allowed",
+        "start_route_enabled",
+        "stop_route_enabled",
+        "ui_controls_allowed",
+        "automatic_start_enabled",
+        "parser_runner_started",
+        "tailing_started",
+        "sqlite_live_writes_enabled",
+        "external_transport_allowed",
+    ):
+        assert status["process_control"][flag] is False
+    assert status["watcher"]["running"] is False
+    assert status["watcher"]["pid_verified"] is False
+    assert status["state"]["display_path"] == "<app_data>\\jobs\\live_watcher_state.json"
+    assert status["state"]["raw_path_exposed"] is False
+    assert _preconditions_by_key(status)["player_log_ready"]["status"] == "pass"
+    assert str(player_log_path) not in encoded
+    assert "private log body" not in encoded
+    assert not paths.jobs_dir.exists()
+
+
+def test_live_watcher_process_status_blocks_missing_and_invalid_inputs(tmp_path) -> None:
+    missing_paths = build_local_app_paths(tmp_path / "missing-app-data")
+    missing_paths.config_file.parent.mkdir(parents=True)
+    missing_paths.config_file.write_text(
+        json.dumps({"player_log_path": str(tmp_path / "missing" / "Player.log")}),
+        encoding="utf-8",
+    )
+
+    missing_status = build_live_watcher_process_status(missing_paths)
+
+    assert missing_status["status"] == "blocked_missing_log"
+    assert missing_status["process_control"]["reason"] == "player_log_missing"
+    assert missing_status["watcher"]["running"] is False
+
+    invalid_paths = build_local_app_paths(tmp_path / "invalid-app-data")
+    invalid_paths.config_file.parent.mkdir(parents=True)
+    invalid_paths.config_file.write_text(json.dumps({"player_log_path": []}), encoding="utf-8")
+
+    invalid_status = build_live_watcher_process_status(invalid_paths)
+
+    assert invalid_status["status"] == "blocked_invalid_config"
+    assert invalid_status["process_control"]["reason"] == "player_log_config_invalid"
+    assert invalid_status["process_control"]["start_route_enabled"] is False
+
+
+def test_live_watcher_process_status_fails_closed_for_malformed_and_stale_state(tmp_path) -> None:
+    paths = build_local_app_paths(tmp_path / "app-data")
+    player_log_path = tmp_path / "Player.log"
+    player_log_path.write_text("private log body must not be read", encoding="utf-8")
+    paths.config_file.parent.mkdir(parents=True)
+    paths.config_file.write_text(json.dumps({"player_log_path": str(player_log_path)}), encoding="utf-8")
+    paths.jobs_dir.mkdir(parents=True)
+    state_file = paths.jobs_dir / "live_watcher_state.json"
+    state_file.write_text("{", encoding="utf-8")
+
+    malformed_status = build_live_watcher_process_status(paths)
+    malformed_encoded = json.dumps(malformed_status, sort_keys=True)
+
+    assert malformed_status["status"] == "blocked"
+    assert malformed_status["process_control"]["reason"] == "watcher_state_malformed"
+    assert malformed_status["watcher"]["running"] is False
+    assert malformed_status["state"]["pid_verified"] is False
+    assert str(state_file) not in malformed_encoded
+
+    old_updated_at = (datetime.now(UTC) - timedelta(hours=1)).isoformat().replace("+00:00", "Z")
+    state_file.write_text(
+        json.dumps(
+            {
+                "source": "synthetic_test_state",
+                "updated_at": old_updated_at,
+                "pid": 12345,
+                "supervisor_token": "synthetic-supervisor-id",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    stale_status = build_live_watcher_process_status(paths)
+    stale_encoded = json.dumps(stale_status, sort_keys=True)
+
+    assert stale_status["status"] == "stale"
+    assert stale_status["process_control"]["reason"] == "watcher_state_stale"
+    assert stale_status["watcher"]["running"] is False
+    assert stale_status["watcher"]["pid_verified"] is False
+    assert stale_status["state"]["source"] == "synthetic_test_state"
+    assert stale_status["state"]["stale"] is True
+    assert stale_status["state"]["pid_present"] is True
+    assert stale_status["state"]["supervisor_token_present"] is True
+    assert stale_status["state"]["raw_path_exposed"] is False
+    assert str(state_file) not in stale_encoded
+
+
+def test_live_watcher_process_status_does_not_call_runner_or_tailer_entrypoints() -> None:
+    source = inspect.getsource(live_watcher_process)
+
+    for forbidden in (
+        "runner.main",
+        "MtgaEventStream.start",
+        "FileTailer.open_from",
+        "open_from_end",
+        "poll(",
+    ):
+        assert forbidden not in source
 
 
 def test_database_status_reports_missing_without_creating_sqlite_files(tmp_path) -> None:

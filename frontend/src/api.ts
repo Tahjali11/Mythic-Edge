@@ -9,6 +9,8 @@ import {
   LEGACY_JSONL_IMPORT_QUALITY_SCHEMA_VERSION,
   LIVE_PLAYER_LOG_STATUS_OBJECT,
   LIVE_STATUS_SCHEMA_VERSION,
+  LIVE_WATCHER_PROCESS_OBJECT,
+  LIVE_WATCHER_PROCESS_SCHEMA_VERSION,
   LIVE_WATCHER_STATUS_OBJECT,
   MANUAL_IMPORT_JOB_OBJECT,
   MANUAL_IMPORT_JOB_SCHEMA_VERSION,
@@ -29,6 +31,7 @@ import {
   type GameplayActionReviewResponse,
   type LivePlayerLogStatusResponse,
   type LiveStatusErrorCode,
+  type LiveWatcherProcessStatusResponse,
   type LiveWatcherStatusResponse,
   type ManualImportErrorCode,
   type ManualImportJob,
@@ -56,6 +59,7 @@ import {
 const SETUP_STATUS_PATH = "/api/app/setup-status";
 const LIVE_PLAYER_LOG_STATUS_PATH = "/api/live/player-log/status";
 const LIVE_WATCHER_STATUS_PATH = "/api/live/watcher/status";
+const LIVE_WATCHER_PROCESS_STATUS_PATH = "/api/live/watcher/process";
 const MATCH_HISTORY_PATH = "/api/analytics/matches";
 const GAME_HISTORY_PATH = "/api/analytics/games";
 const OPENING_HAND_HISTORY_PATH = "/api/analytics/opening-hands";
@@ -114,6 +118,16 @@ const REQUIRED_ANALYTICS_HISTORY_FIELDS = [
   "errors"
 ] as const;
 const REQUIRED_MATCH_JOURNAL_FIELDS = ["object", "schema_version", "status", "result", "warnings", "errors"] as const;
+const LIVE_WATCHER_PROCESS_PRECONDITION_KEYS = [
+  "player_log_ready",
+  "app_data_root_available",
+  "state_directory_available",
+  "single_instance_guard_available",
+  "supervisor_target_defined",
+  "external_transport_disabled",
+  "live_sqlite_ingest_contract_present",
+  "frontend_controls_authorized"
+] as const;
 
 export class SetupStatusApiError extends Error {
   code: SetupStatusErrorCode;
@@ -222,6 +236,17 @@ export async function fetchLivePlayerLogStatus(fetchImpl: typeof fetch = fetch):
 export async function fetchLiveWatcherStatus(fetchImpl: typeof fetch = fetch): Promise<LiveWatcherStatusResponse> {
   const payload = await fetchLiveStatusPayload(LIVE_WATCHER_STATUS_PATH, "Live watcher status", fetchImpl);
   return validateLiveWatcherStatusResponse(payload);
+}
+
+export async function fetchLiveWatcherProcessStatus(
+  fetchImpl: typeof fetch = fetch
+): Promise<LiveWatcherProcessStatusResponse> {
+  const payload = await fetchLiveStatusPayload(
+    LIVE_WATCHER_PROCESS_STATUS_PATH,
+    "Live watcher process status",
+    fetchImpl
+  );
+  return validateLiveWatcherProcessStatusResponse(payload);
 }
 
 export async function fetchMatchHistory(fetchImpl: typeof fetch = fetch): Promise<MatchHistoryResponse> {
@@ -636,6 +661,34 @@ function validateLiveWatcherStatusResponse(payload: unknown): LiveWatcherStatusR
     throw new LiveStatusApiError("malformed_response", "Live watcher status has an unsupported shape.");
   }
   return payload as LiveWatcherStatusResponse;
+}
+
+function validateLiveWatcherProcessStatusResponse(payload: unknown): LiveWatcherProcessStatusResponse {
+  if (!isRecord(payload)) {
+    throw new LiveStatusApiError("malformed_response", "Live watcher process status must be a JSON object.");
+  }
+  if (payload.schema_version !== LIVE_WATCHER_PROCESS_SCHEMA_VERSION) {
+    throw new LiveStatusApiError(
+      "incompatible_response",
+      `Expected live watcher process schema ${LIVE_WATCHER_PROCESS_SCHEMA_VERSION}.`
+    );
+  }
+  if (payload.object !== LIVE_WATCHER_PROCESS_OBJECT) {
+    throw new LiveStatusApiError("malformed_response", "Live watcher process status object is unsupported.");
+  }
+  if (
+    typeof payload.status !== "string" ||
+    !isLiveWatcherProcessControl(payload.process_control) ||
+    !isLiveWatcherProcessSummary(payload.watcher) ||
+    !isRecord(payload.player_log) ||
+    !isPreconditions(payload.preconditions) ||
+    !isLiveWatcherProcessState(payload.state) ||
+    !isStringArray(payload.warnings) ||
+    !isStringArray(payload.errors)
+  ) {
+    throw new LiveStatusApiError("malformed_response", "Live watcher process status has an unsupported shape.");
+  }
+  return payload as LiveWatcherProcessStatusResponse;
 }
 
 async function fetchAnalyticsHistory(
@@ -1464,6 +1517,69 @@ function isLiveWatcherSummary(value: unknown): boolean {
     value.tailing_started === false &&
     value.sqlite_live_writes_enabled === false &&
     isStringOrNull(value.reason)
+  );
+}
+
+function isLiveWatcherProcessControl(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    value.mode === "safeguards_only" &&
+    typeof value.implementation_status === "string" &&
+    value.start_allowed === false &&
+    value.stop_allowed === false &&
+    value.start_route_enabled === false &&
+    value.stop_route_enabled === false &&
+    value.ui_controls_allowed === false &&
+    value.automatic_start_enabled === false &&
+    value.parser_runner_started === false &&
+    value.tailing_started === false &&
+    value.sqlite_live_writes_enabled === false &&
+    value.external_transport_allowed === false &&
+    isStringOrNull(value.reason)
+  );
+}
+
+function isLiveWatcherProcessSummary(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.status === "string" &&
+    value.running === false &&
+    value.pid_verified === false &&
+    typeof value.single_instance_guard === "string" &&
+    typeof value.supervisor_boundary === "string"
+  );
+}
+
+function isLiveWatcherProcessState(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.source === "string" &&
+    typeof value.exists === "boolean" &&
+    typeof value.status === "string" &&
+    typeof value.stale === "boolean" &&
+    typeof value.pid_present === "boolean" &&
+    value.pid_verified === false &&
+    typeof value.supervisor_token_present === "boolean" &&
+    isStringOrNull(value.display_path) &&
+    value.raw_path_exposed === false
+  );
+}
+
+function isPreconditions(value: unknown): boolean {
+  if (!Array.isArray(value)) {
+    return false;
+  }
+  const keys = value.map((entry) => (isRecord(entry) ? entry.key : null));
+  return (
+    keys.length === LIVE_WATCHER_PROCESS_PRECONDITION_KEYS.length &&
+    LIVE_WATCHER_PROCESS_PRECONDITION_KEYS.every((key, index) => keys[index] === key) &&
+    value.every(
+      (entry) =>
+        isRecord(entry) &&
+        typeof entry.key === "string" &&
+        typeof entry.status === "string" &&
+        isStringOrNull(entry.reason)
+    )
   );
 }
 

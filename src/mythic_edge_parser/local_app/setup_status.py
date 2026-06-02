@@ -466,6 +466,9 @@ def build_setup_status(paths: LocalAppPaths) -> dict[str, object]:
     player_log_status = build_player_log_path_status(paths)
     live_player_log_status = build_live_player_log_status(paths)
     live_watcher_status = build_live_watcher_status(paths)
+    from .live_watcher_process import build_live_watcher_process_status
+
+    live_watcher_process_status = build_live_watcher_process_status(paths)
     database_status = build_analytics_database_status(paths)
     migration_status = build_migration_loader_status()
     match_journal_status = build_match_journal_write_status(paths)
@@ -480,6 +483,7 @@ def build_setup_status(paths: LocalAppPaths) -> dict[str, object]:
         "player_log": player_log_status,
         "live_player_log": live_player_log_status,
         "live_watcher": live_watcher_status,
+        "live_watcher_process": live_watcher_process_status,
         "analytics_database": database_status,
         "match_journal": match_journal_status,
         "migrations": migration_status,

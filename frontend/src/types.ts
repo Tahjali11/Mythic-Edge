@@ -3,6 +3,8 @@ export const SETUP_STATUS_SCHEMA_VERSION = "analytics_app_backend_setup_status.v
 export const LIVE_STATUS_SCHEMA_VERSION = "live_app_player_log_path_watcher_status.v1";
 export const LIVE_PLAYER_LOG_STATUS_OBJECT = "mythic_edge_local_app_live_player_log_status";
 export const LIVE_WATCHER_STATUS_OBJECT = "mythic_edge_local_app_live_watcher_status";
+export const LIVE_WATCHER_PROCESS_SCHEMA_VERSION = "live_app_player_log_watcher_process_control_safeguards.v1";
+export const LIVE_WATCHER_PROCESS_OBJECT = "mythic_edge_local_app_live_watcher_process_status";
 export const MANUAL_IMPORT_JOB_OBJECT = "mythic_edge_local_app_manual_jsonl_import_job";
 export const MANUAL_IMPORT_JOB_SCHEMA_VERSION = "analytics_manual_jsonl_import_ui_job_status.v1";
 export const LEGACY_JSONL_IMPORT_QUALITY_OBJECT = "mythic_edge_legacy_jsonl_import_quality";
@@ -90,6 +92,62 @@ export type LiveWatcherStatusResponse = {
   [key: string]: unknown;
 };
 
+export type LiveWatcherProcessControl = {
+  mode: "safeguards_only";
+  implementation_status: "not_implemented" | "state_only" | "deferred" | string;
+  start_allowed: false;
+  stop_allowed: false;
+  start_route_enabled: false;
+  stop_route_enabled: false;
+  ui_controls_allowed: false;
+  automatic_start_enabled: false;
+  parser_runner_started: false;
+  tailing_started: false;
+  sqlite_live_writes_enabled: false;
+  external_transport_allowed: false;
+  reason: string | null;
+};
+
+export type LiveWatcherProcessSummary = {
+  status: string;
+  running: false;
+  pid_verified: false;
+  single_instance_guard: string;
+  supervisor_boundary: string;
+};
+
+export type LiveWatcherProcessState = {
+  source: string;
+  exists: boolean;
+  status: string;
+  stale: boolean;
+  pid_present: boolean;
+  pid_verified: false;
+  supervisor_token_present: boolean;
+  display_path: string | null;
+  raw_path_exposed: false;
+};
+
+export type LiveWatcherProcessPrecondition = {
+  key: string;
+  status: string;
+  reason: string | null;
+};
+
+export type LiveWatcherProcessStatusResponse = {
+  object: typeof LIVE_WATCHER_PROCESS_OBJECT;
+  schema_version: typeof LIVE_WATCHER_PROCESS_SCHEMA_VERSION;
+  status: string;
+  process_control: LiveWatcherProcessControl;
+  watcher: LiveWatcherProcessSummary;
+  player_log: SectionStatus;
+  preconditions: LiveWatcherProcessPrecondition[];
+  state: LiveWatcherProcessState;
+  warnings: string[];
+  errors: string[];
+  [key: string]: unknown;
+};
+
 export type SetupStatusResponse = {
   object: typeof SETUP_STATUS_OBJECT;
   schema_version: typeof SETUP_STATUS_SCHEMA_VERSION;
@@ -99,6 +157,7 @@ export type SetupStatusResponse = {
   player_log: SectionStatus;
   live_player_log?: LivePlayerLogStatusResponse;
   live_watcher?: LiveWatcherStatusResponse;
+  live_watcher_process?: LiveWatcherProcessStatusResponse;
   analytics_database: SectionStatus;
   match_journal: SectionStatus;
   migrations: SectionStatus;

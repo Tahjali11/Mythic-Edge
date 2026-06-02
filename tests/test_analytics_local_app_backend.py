@@ -6,9 +6,29 @@ from fastapi.testclient import TestClient
 
 from mythic_edge_parser.local_app.backend import create_app
 
+EXPECTED_PROCESS_PRECONDITION_KEYS = [
+    "player_log_ready",
+    "app_data_root_available",
+    "state_directory_available",
+    "single_instance_guard_available",
+    "supervisor_target_defined",
+    "external_transport_disabled",
+    "live_sqlite_ingest_contract_present",
+    "frontend_controls_authorized",
+]
+
 
 def _client(app_data_root) -> TestClient:
     return TestClient(create_app(app_data_root=app_data_root))
+
+
+def _preconditions_by_key(payload: dict[str, object]) -> dict[str, dict[str, object]]:
+    preconditions = payload["preconditions"]
+    assert isinstance(preconditions, list)
+    assert [entry["key"] for entry in preconditions] == EXPECTED_PROCESS_PRECONDITION_KEYS
+    for entry in preconditions:
+        assert set(entry) >= {"key", "status", "reason"}
+    return {str(entry["key"]): entry for entry in preconditions}
 
 
 def test_health_endpoint_reports_setup_status_only_capabilities(tmp_path) -> None:
@@ -46,6 +66,7 @@ def test_read_only_endpoint_inventory_and_no_wildcard_cors(tmp_path) -> None:
         "/api/analytics/database/status",
         "/api/live/player-log/status",
         "/api/live/watcher/status",
+        "/api/live/watcher/process",
         "/api/analytics/matches",
         "/api/analytics/games",
         "/api/analytics/opening-hands",
@@ -252,6 +273,7 @@ def test_setup_status_get_routes_do_not_create_local_app_artifacts(tmp_path) -> 
         "/api/analytics/database/status",
         "/api/live/player-log/status",
         "/api/live/watcher/status",
+        "/api/live/watcher/process",
         "/api/runtime/status",
     ):
         response = client.get(route)
@@ -272,7 +294,11 @@ def test_live_status_routes_report_symbolic_metadata_and_readiness_only(tmp_path
 
     player_log_payload = client.get("/api/live/player-log/status").json()
     watcher_payload = client.get("/api/live/watcher/status").json()
-    encoded = json.dumps({"player_log": player_log_payload, "watcher": watcher_payload}, sort_keys=True)
+    process_payload = client.get("/api/live/watcher/process").json()
+    encoded = json.dumps(
+        {"player_log": player_log_payload, "watcher": watcher_payload, "process": process_payload},
+        sort_keys=True,
+    )
 
     assert player_log_payload["object"] == "mythic_edge_local_app_live_player_log_status"
     assert player_log_payload["schema_version"] == "live_app_player_log_path_watcher_status.v1"
@@ -289,8 +315,39 @@ def test_live_status_routes_report_symbolic_metadata_and_readiness_only(tmp_path
     assert watcher_payload["watcher"]["parser_runner_started"] is False
     assert watcher_payload["watcher"]["tailing_started"] is False
     assert watcher_payload["watcher"]["sqlite_live_writes_enabled"] is False
+    assert process_payload["object"] == "mythic_edge_local_app_live_watcher_process_status"
+    assert process_payload["schema_version"] == "live_app_player_log_watcher_process_control_safeguards.v1"
+    assert process_payload["status"] == "not_initialized"
+    assert process_payload["process_control"]["mode"] == "safeguards_only"
+    assert process_payload["process_control"]["start_allowed"] is False
+    assert process_payload["process_control"]["stop_allowed"] is False
+    assert process_payload["process_control"]["start_route_enabled"] is False
+    assert process_payload["process_control"]["stop_route_enabled"] is False
+    assert process_payload["process_control"]["ui_controls_allowed"] is False
+    assert process_payload["process_control"]["automatic_start_enabled"] is False
+    assert process_payload["process_control"]["parser_runner_started"] is False
+    assert process_payload["process_control"]["tailing_started"] is False
+    assert process_payload["process_control"]["sqlite_live_writes_enabled"] is False
+    assert process_payload["process_control"]["external_transport_allowed"] is False
+    assert process_payload["watcher"]["running"] is False
+    assert process_payload["watcher"]["pid_verified"] is False
+    assert process_payload["state"]["raw_path_exposed"] is False
+    assert _preconditions_by_key(process_payload)["player_log_ready"]["status"] == "pass"
     assert str(player_log_path) not in encoded
     assert "private log body" not in encoded
+
+
+def test_live_watcher_process_routes_do_not_expose_start_stop_controls(tmp_path) -> None:
+    client = _client(tmp_path / "app-data")
+
+    for route in (
+        "/api/live/watcher/process",
+        "/api/live/watcher/start",
+        "/api/live/watcher/stop",
+        "/api/live/watcher/restart",
+    ):
+        response = client.post(route)
+        assert response.status_code in {404, 405}
 
 
 def test_live_watcher_blocks_configured_missing_player_log(tmp_path) -> None:
@@ -302,12 +359,16 @@ def test_live_watcher_blocks_configured_missing_player_log(tmp_path) -> None:
     client = _client(app_root)
 
     watcher_payload = client.get("/api/live/watcher/status").json()
-    encoded = json.dumps(watcher_payload, sort_keys=True)
+    process_payload = client.get("/api/live/watcher/process").json()
+    encoded = json.dumps({"watcher": watcher_payload, "process": process_payload}, sort_keys=True)
 
     assert watcher_payload["watcher"]["status"] == "blocked_missing_log"
     assert watcher_payload["watcher"]["reason"] == "player_log_missing"
     assert watcher_payload["watcher"]["start_allowed"] is False
     assert watcher_payload["watcher"]["tailing_started"] is False
+    assert process_payload["status"] == "blocked_missing_log"
+    assert process_payload["process_control"]["reason"] == "player_log_missing"
+    assert process_payload["watcher"]["running"] is False
     assert str(missing_player_log) not in encoded
 
 
