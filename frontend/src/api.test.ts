@@ -5,6 +5,7 @@ import {
   AnalyticsHistoryApiError,
   fetchGame1PostboardSplitReview,
   fetchLivePlayerLogStatus,
+  fetchLiveWatcherDiagnosticsStatus,
   fetchLiveWatcherProcessStatus,
   fetchLiveWatcherStatus,
   fetchManualImportJob,
@@ -40,6 +41,8 @@ import {
   LEGACY_JSONL_IMPORT_QUALITY_SCHEMA_VERSION,
   LIVE_PLAYER_LOG_STATUS_OBJECT,
   LIVE_STATUS_SCHEMA_VERSION,
+  LIVE_WATCHER_DIAGNOSTICS_OBJECT,
+  LIVE_WATCHER_DIAGNOSTICS_SCHEMA_VERSION,
   LIVE_WATCHER_PROCESS_OBJECT,
   LIVE_WATCHER_PROCESS_SCHEMA_VERSION,
   LIVE_WATCHER_STATUS_OBJECT,
@@ -60,6 +63,7 @@ import {
   type GameplayActionReviewResponse,
   type LegacyJsonlImportQuality,
   type LivePlayerLogStatusResponse,
+  type LiveWatcherDiagnosticsResponse,
   type LiveWatcherProcessStatusResponse,
   type LiveWatcherStatusResponse,
   type ManualImportJob,
@@ -121,6 +125,16 @@ describe("api helpers", () => {
     });
   });
 
+  it("fetches and validates live watcher diagnostics responses", async () => {
+    const payload = buildLiveWatcherDiagnosticsPayload();
+    const fetchImpl = vi.fn(async () => jsonResponse(payload)) as unknown as typeof fetch;
+
+    await expect(fetchLiveWatcherDiagnosticsStatus(fetchImpl)).resolves.toEqual(payload);
+    expect(fetchImpl).toHaveBeenCalledWith("/api/live/watcher/diagnostics", {
+      headers: { Accept: "application/json" }
+    });
+  });
+
   it("rejects malformed live status responses safely", async () => {
     const wrongSchemaFetch = vi.fn(async () =>
       jsonResponse({ ...buildLivePlayerLogStatusPayload(), schema_version: "future.live.schema" })
@@ -174,6 +188,26 @@ describe("api helpers", () => {
     ) as unknown as typeof fetch;
     await expect(fetchLiveWatcherProcessStatus(processPreconditionMissingFieldFetch)).rejects.toMatchObject({
       code: "malformed_response"
+    });
+
+    const unsafeDiagnosticsFetch = vi.fn(async () =>
+      jsonResponse({
+        ...buildLiveWatcherDiagnosticsPayload(),
+        capabilities: {
+          ...buildLiveWatcherDiagnosticsPayload().capabilities,
+          starts_watcher: true
+        }
+      })
+    ) as unknown as typeof fetch;
+    await expect(fetchLiveWatcherDiagnosticsStatus(unsafeDiagnosticsFetch)).rejects.toMatchObject({
+      code: "malformed_response"
+    });
+
+    const wrongDiagnosticsSchemaFetch = vi.fn(async () =>
+      jsonResponse({ ...buildLiveWatcherDiagnosticsPayload(), schema_version: "future.diagnostics" })
+    ) as unknown as typeof fetch;
+    await expect(fetchLiveWatcherDiagnosticsStatus(wrongDiagnosticsSchemaFetch)).rejects.toMatchObject({
+      code: "incompatible_response"
     });
   });
 
@@ -795,7 +829,7 @@ function buildLiveWatcherProcessStatusPayload(): LiveWatcherProcessStatusRespons
       { key: "single_instance_guard_available", status: "deferred", reason: "single_instance_guard_deferred" },
       { key: "supervisor_target_defined", status: "deferred", reason: "supervisor_target_deferred" },
       { key: "external_transport_disabled", status: "pass", reason: null },
-      { key: "live_sqlite_ingest_contract_present", status: "deferred", reason: "live_sqlite_ingest_deferred" },
+      { key: "live_sqlite_ingest_contract_present", status: "pass", reason: null },
       { key: "frontend_controls_authorized", status: "deferred", reason: "frontend_controls_not_authorized" }
     ],
     state: {
@@ -810,6 +844,82 @@ function buildLiveWatcherProcessStatusPayload(): LiveWatcherProcessStatusRespons
       raw_path_exposed: false
     },
     warnings: [],
+    errors: []
+  };
+}
+
+function buildLiveWatcherDiagnosticsPayload(): LiveWatcherDiagnosticsResponse {
+  return {
+    object: LIVE_WATCHER_DIAGNOSTICS_OBJECT,
+    schema_version: LIVE_WATCHER_DIAGNOSTICS_SCHEMA_VERSION,
+    status: "degraded",
+    mode: "read_only_composition",
+    summary: {
+      info_count: 4,
+      warning_count: 1,
+      degraded_count: 0,
+      error_count: 0,
+      blocked_count: 0,
+      unknown_count: 0
+    },
+    diagnostics: [
+      {
+        category: "player_log_metadata",
+        key: "readability_not_probed",
+        severity: "info",
+        status: "readability_not_probed",
+        evidence_availability: "deferred",
+        source: "player_log_status",
+        message: "Readability was not checked because diagnostics do not read Player.log contents.",
+        count: null,
+        review_required: false
+      },
+      {
+        category: "player_log_metadata",
+        key: "player_log_stale",
+        severity: "warning",
+        status: "player_log_stale",
+        evidence_availability: "metadata_only",
+        source: "player_log_status",
+        message: "Player.log metadata indicates stale activity.",
+        count: null,
+        review_required: true
+      }
+    ],
+    sources: {
+      player_log_status: {
+        supplied: true,
+        status: "degraded",
+        schema_version: LIVE_STATUS_SCHEMA_VERSION,
+        evidence_availability: "metadata_only",
+        limitations: ["contents_not_read"]
+      },
+      tailer_event_bridge: {
+        supplied: false,
+        status: "deferred",
+        schema_version: null,
+        evidence_availability: "deferred",
+        limitations: ["tailer_not_called"]
+      }
+    },
+    privacy: {
+      raw_player_log_content_included: false,
+      raw_player_log_path_included: false,
+      raw_hashes_included: false,
+      raw_sql_included: false,
+      stack_traces_included: false,
+      secrets_or_environment_values_included: false
+    },
+    capabilities: {
+      read_only: true,
+      starts_watcher: false,
+      stops_watcher: false,
+      tails_player_log: false,
+      writes_sqlite: false,
+      writes_diagnostics_files: false,
+      external_transport_allowed: false
+    },
+    warnings: ["player_log_stale"],
     errors: []
   };
 }

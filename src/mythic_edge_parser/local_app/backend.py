@@ -27,6 +27,7 @@ from .import_jobs import (
     run_browser_jsonl_upload_import,
     run_manual_jsonl_import,
 )
+from .live_watcher_diagnostics import build_live_watcher_diagnostics_status
 from .live_watcher_process import build_live_watcher_process_status
 from .match_journal_cockpit import (
     JournalServiceFactory,
@@ -111,6 +112,10 @@ def create_app(
     @app.get("/api/live/watcher/process")
     def live_watcher_process_status() -> dict[str, object]:
         return build_live_watcher_process_status(local_app_paths)
+
+    @app.get("/api/live/watcher/diagnostics")
+    def live_watcher_diagnostics_status() -> dict[str, object]:
+        return build_live_watcher_diagnostics_status(local_app_paths)
 
     @app.get("/api/live/ingest/status")
     def live_ingest_status() -> dict[str, object]:

@@ -6,6 +6,7 @@ import {
   fetchGame1PostboardSplitReview,
   fetchGameHistory,
   fetchGameplayActionReview,
+  fetchLiveWatcherDiagnosticsStatus,
   fetchMatchJournal,
   fetchMatchJournalUnattachedNote,
   fetchMatchHistory,
@@ -14,6 +15,7 @@ import {
   fetchOpeningHandHistory,
   fetchPlayDrawSplitReview,
   fetchSetupStatus,
+  LiveStatusApiError,
   ManualImportApiError,
   MatchJournalApiError,
   SetupStatusApiError,
@@ -32,6 +34,8 @@ import {
   EARLY_GAME_HISTORY_SCHEMA_VERSION,
   LIVE_PLAYER_LOG_STATUS_OBJECT,
   LIVE_STATUS_SCHEMA_VERSION,
+  LIVE_WATCHER_DIAGNOSTICS_OBJECT,
+  LIVE_WATCHER_DIAGNOSTICS_SCHEMA_VERSION,
   LIVE_WATCHER_PROCESS_OBJECT,
   LIVE_WATCHER_PROCESS_SCHEMA_VERSION,
   LIVE_WATCHER_STATUS_OBJECT,
@@ -47,6 +51,7 @@ import {
   type GameplayActionReviewResponse,
   type GameplayActionReviewRow,
   type LivePlayerLogStatusResponse,
+  type LiveWatcherDiagnosticsResponse,
   type LiveWatcherProcessStatusResponse,
   type LiveWatcherStatusResponse,
   type ManualImportJob,
@@ -94,6 +99,7 @@ type SetupStatusAppProps = {
   fetchOpponentObservations?: () => Promise<OpponentCardObservationReviewResponse>;
   fetchPlayDrawSplits?: () => Promise<PlayDrawSplitReviewResponse>;
   fetchGame1PostboardSplits?: () => Promise<Game1PostboardSplitReviewResponse>;
+  fetchLiveDiagnostics?: () => Promise<LiveWatcherDiagnosticsResponse>;
   fetchJournal?: (context: MatchJournalContext) => Promise<MatchJournalResponse>;
   fetchJournalUnattachedNote?: (request: MatchJournalUnattachedNoteReadbackRequest) => Promise<MatchJournalResponse>;
   submitJournalNote?: (request: MatchJournalNoteRequest) => Promise<MatchJournalResponse>;
@@ -147,6 +153,11 @@ type SplitReviewState =
     }
   | { state: "error"; code: AnalyticsHistoryApiError["code"]; message: string };
 
+type LiveDiagnosticsState =
+  | { state: "loading" }
+  | { state: "ready"; payload: LiveWatcherDiagnosticsResponse; unsafeCount: number }
+  | { state: "error"; code: LiveStatusApiError["code"]; message: string };
+
 type MatchJournalState =
   | { state: "loading" }
   | { state: "ready"; payload: MatchJournalResponse; unsafeCount: number }
@@ -189,6 +200,7 @@ export function SetupStatusApp({
   fetchOpponentObservations = fetchOpponentCardObservationReview,
   fetchPlayDrawSplits = fetchPlayDrawSplitReview,
   fetchGame1PostboardSplits = fetchGame1PostboardSplitReview,
+  fetchLiveDiagnostics = fetchLiveWatcherDiagnosticsStatus,
   fetchJournal = fetchMatchJournal,
   fetchJournalUnattachedNote = fetchMatchJournalUnattachedNote,
   submitJournalNote = submitMatchJournalNote,
@@ -205,6 +217,7 @@ export function SetupStatusApp({
   const [earlyGameState, setEarlyGameState] = useState<EarlyGameHistoryState>({ state: "loading" });
   const [actionReviewState, setActionReviewState] = useState<ActionReviewState>({ state: "loading" });
   const [splitReviewState, setSplitReviewState] = useState<SplitReviewState>({ state: "loading" });
+  const [liveDiagnosticsState, setLiveDiagnosticsState] = useState<LiveDiagnosticsState>({ state: "loading" });
   const [journalState, setJournalState] = useState<MatchJournalState>({ state: "loading" });
   const [journalSubmitState, setJournalSubmitState] = useState<MatchJournalSubmitState>({ state: "idle" });
   const [journalSmokeReadbackState, setJournalSmokeReadbackState] = useState<MatchJournalSmokeReadbackState>({
@@ -251,6 +264,41 @@ export function SetupStatusApp({
       active = false;
     };
   }, [fetchStatus]);
+
+  useEffect(() => {
+    let active = true;
+    setLiveDiagnosticsState({ state: "loading" });
+
+    fetchLiveDiagnostics()
+      .then((payload) => {
+        if (!active) {
+          return;
+        }
+        setLiveDiagnosticsState({
+          state: "ready",
+          payload,
+          unsafeCount: countUnsafeLiveDiagnosticsValues(payload)
+        });
+      })
+      .catch((error: unknown) => {
+        if (!active) {
+          return;
+        }
+        if (error instanceof LiveStatusApiError) {
+          setLiveDiagnosticsState({ state: "error", code: error.code, message: error.message });
+          return;
+        }
+        setLiveDiagnosticsState({
+          state: "error",
+          code: "backend_unavailable",
+          message: "Live watcher diagnostics are unavailable."
+        });
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [fetchLiveDiagnostics]);
 
   useEffect(() => {
     let active = true;
@@ -898,6 +946,8 @@ export function SetupStatusApp({
         ))}
       </section>
 
+      <LiveDiagnosticsPanel diagnosticsState={liveDiagnosticsState} />
+
       <ManualImportPanel
         importState={importState}
         onUploadFolderFilesChange={handleUploadFolderFilesChange}
@@ -979,6 +1029,123 @@ function StatusPanel({ title, status, details }: Panel) {
         })}
       </dl>
     </article>
+  );
+}
+
+function LiveDiagnosticsPanel({ diagnosticsState }: { diagnosticsState: LiveDiagnosticsState }) {
+  if (diagnosticsState.state === "loading") {
+    return (
+      <section className="historySection" aria-labelledby="live-diagnostics-title">
+        <div className="historyHeader">
+          <h2 id="live-diagnostics-title">Live Diagnostics</h2>
+          <StatusPill label="loading" tone="unknown" />
+        </div>
+      </section>
+    );
+  }
+
+  if (diagnosticsState.state === "error") {
+    return (
+      <section className="historySection" aria-labelledby="live-diagnostics-title">
+        <div className="historyHeader">
+          <h2 id="live-diagnostics-title">Live Diagnostics</h2>
+          <StatusPill label={diagnosticsState.code} tone={errorTone(diagnosticsState.code)} />
+        </div>
+        <p>{diagnosticsState.message}</p>
+      </section>
+    );
+  }
+
+  const payload = diagnosticsState.payload;
+  if (!isLiveWatcherDiagnosticsResponse(payload)) {
+    return (
+      <section className="historySection" aria-labelledby="live-diagnostics-title">
+        <div className="historyHeader">
+          <h2 id="live-diagnostics-title">Live Diagnostics</h2>
+          <StatusPill label="malformed_response" tone="error" />
+        </div>
+      </section>
+    );
+  }
+  const diagnosticPreview = payload.diagnostics.slice(0, 6);
+  return (
+    <section className="historySection" aria-labelledby="live-diagnostics-title">
+      <div className="historyHeader">
+        <div>
+          <h2 id="live-diagnostics-title">Live Diagnostics</h2>
+          <p>Read-only watcher quality summary</p>
+        </div>
+        <StatusPill label={payload.status} tone={statusTone(payload.status)} />
+      </div>
+      {diagnosticsState.unsafeCount > 0 ? (
+        <StatusNotice title="Diagnostics value redacted" status="degraded">
+          <span>{diagnosticsState.unsafeCount} diagnostics value was replaced with &lt;redacted_path&gt;.</span>
+        </StatusNotice>
+      ) : null}
+      <div className="historySummaryGrid">
+        <article className={`historySummaryPanel tone-${statusTone(payload.status)}`}>
+          <h3>Summary</h3>
+          <dl>
+            <div>
+              <dt>warnings</dt>
+              <dd>{payload.summary.warning_count}</dd>
+            </div>
+            <div>
+              <dt>degraded</dt>
+              <dd>{payload.summary.degraded_count}</dd>
+            </div>
+            <div>
+              <dt>blocked</dt>
+              <dd>{payload.summary.blocked_count}</dd>
+            </div>
+          </dl>
+        </article>
+        <article className="historySummaryPanel tone-ok">
+          <h3>Privacy</h3>
+          <dl>
+            <div>
+              <dt>raw log</dt>
+              <dd>{payload.privacy.raw_player_log_content_included ? "included" : "excluded"}</dd>
+            </div>
+            <div>
+              <dt>tailing</dt>
+              <dd>{payload.capabilities.tails_player_log ? "enabled" : "disabled"}</dd>
+            </div>
+            <div>
+              <dt>writes</dt>
+              <dd>{payload.capabilities.writes_diagnostics_files ? "enabled" : "disabled"}</dd>
+            </div>
+          </dl>
+        </article>
+      </div>
+      <div className="historyTableWrap">
+        <table className="historyTable">
+          <thead>
+            <tr>
+              <th>Category</th>
+              <th>Severity</th>
+              <th>Status</th>
+              <th>Evidence</th>
+              <th>Message</th>
+            </tr>
+          </thead>
+          <tbody>
+            {diagnosticPreview.map((entry) => {
+              const safeMessage = safeDisplayValue(entry.message);
+              return (
+                <tr key={`${entry.category}-${entry.key}`}>
+                  <td>{safeDisplayValue(entry.category).text}</td>
+                  <td>{safeDisplayValue(entry.severity).text}</td>
+                  <td>{safeDisplayValue(entry.status).text}</td>
+                  <td>{safeDisplayValue(entry.evidence_availability).text}</td>
+                  <td className={safeMessage.redacted ? "redactedRow" : undefined}>{safeMessage.text}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 
@@ -2654,6 +2821,33 @@ function countUnsafeValues(payload: SetupStatusResponse): number {
   }, 0);
 }
 
+function countUnsafeLiveDiagnosticsValues(payload: LiveWatcherDiagnosticsResponse): number {
+  const values: unknown[] = [
+    payload.status,
+    payload.mode,
+    ...payload.warnings,
+    ...payload.errors,
+    ...Object.values(payload.sources).flatMap((source) => [
+      source.status,
+      source.schema_version ?? "none",
+      source.evidence_availability,
+      ...source.limitations
+    ])
+  ];
+  for (const entry of payload.diagnostics) {
+    values.push(
+      entry.category,
+      entry.key,
+      entry.severity,
+      entry.status,
+      entry.evidence_availability,
+      entry.source,
+      entry.message
+    );
+  }
+  return values.filter((value) => safeDisplayValue(value).redacted).length;
+}
+
 function countUnsafeHistoryValues(matches: MatchHistoryResponse, games: GameHistoryResponse): number {
   const values: unknown[] = [
     matches.database.display_path,
@@ -3250,6 +3444,20 @@ function isLiveWatcherProcessStatusResponse(value: unknown): value is LiveWatche
     isRecord(value.watcher) &&
     isLiveWatcherProcessPreconditions(value.preconditions) &&
     isRecord(value.state)
+  );
+}
+
+function isLiveWatcherDiagnosticsResponse(value: unknown): value is LiveWatcherDiagnosticsResponse {
+  return (
+    isRecord(value) &&
+    value.object === LIVE_WATCHER_DIAGNOSTICS_OBJECT &&
+    value.schema_version === LIVE_WATCHER_DIAGNOSTICS_SCHEMA_VERSION &&
+    typeof value.status === "string" &&
+    value.mode === "read_only_composition" &&
+    isRecord(value.summary) &&
+    Array.isArray(value.diagnostics) &&
+    isRecord(value.privacy) &&
+    isRecord(value.capabilities)
   );
 }
 
