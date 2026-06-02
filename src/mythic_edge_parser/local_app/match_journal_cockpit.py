@@ -16,6 +16,7 @@ from mythic_edge_parser.app.match_journal_service import (
 
 MATCH_JOURNAL_COCKPIT_OBJECT = "mythic_edge_local_app_match_journal"
 MATCH_JOURNAL_COCKPIT_SCHEMA_VERSION = "match_journal_cockpit_ui.v1"
+UNATTACHED_SMOKE_NOTE_PREFIX = "MYTHIC_EDGE_SMOKE_TEST_DO_NOT_USE_AS_GAME_REVIEW"
 
 JournalServiceFactory = Callable[[], Any | None]
 
@@ -30,6 +31,7 @@ _JOURNAL_CONTEXT_FIELDS = frozenset(
     }
 )
 _JOURNAL_QUERY_FIELDS = _JOURNAL_CONTEXT_FIELDS
+_UNATTACHED_NOTE_READBACK_QUERY_FIELDS = frozenset({"journal_note_id", "note_scope"})
 _COMMON_SERVICE_OPTIONS = frozenset(
     {
         "author_label",
@@ -111,6 +113,38 @@ async def match_journal_get_response(
         {"bundle": _json_safe(bundle)},
         warnings=list(warnings) if isinstance(warnings, list) else [],
     )
+
+
+async def match_journal_note_readback_response(
+    request: Request,
+    service_factory: JournalServiceFactory | None,
+) -> JSONResponse:
+    unsupported = sorted(set(request.query_params.keys()) - _UNATTACHED_NOTE_READBACK_QUERY_FIELDS)
+    if unsupported:
+        return _error_response(HTTPStatus.BAD_REQUEST, "error", "validation_error")
+    if any(len(request.query_params.getlist(key)) != 1 for key in _UNATTACHED_NOTE_READBACK_QUERY_FIELDS):
+        return _error_response(HTTPStatus.BAD_REQUEST, "error", "validation_error")
+    if request.query_params.get("note_scope") != "unattached":
+        return _error_response(HTTPStatus.BAD_REQUEST, "error", "validation_error")
+
+    journal_note_id, error = _journal_note_id(request.query_params.get("journal_note_id"))
+    if error is not None:
+        return error
+
+    service_or_error = _service_or_error(service_factory)
+    if isinstance(service_or_error, JSONResponse):
+        return service_or_error
+    readback = getattr(service_or_error, "get_unattached_note_summary", None)
+    if not callable(readback):
+        return _error_response(HTTPStatus.SERVICE_UNAVAILABLE, "unavailable", "service_unavailable")
+
+    try:
+        note = readback(journal_note_id, smoke_marker_prefix=UNATTACHED_SMOKE_NOTE_PREFIX)
+    except Exception as exc:
+        return _service_error_response(exc)
+    if note is None:
+        return _error_response(HTTPStatus.NOT_FOUND, "missing", "not_found")
+    return _response(HTTPStatus.OK, "ok", {"note": _json_safe(note)})
 
 
 async def match_journal_post_response(
@@ -315,6 +349,15 @@ def _positive_int(value: object) -> tuple[int | None, JSONResponse | None]:
     if number <= 0:
         return None, _error_response(HTTPStatus.BAD_REQUEST, "error", "validation_error")
     return number, None
+
+
+def _journal_note_id(value: object) -> tuple[str | None, JSONResponse | None]:
+    if not isinstance(value, str):
+        return None, _error_response(HTTPStatus.BAD_REQUEST, "error", "validation_error")
+    text = value.strip()
+    if _safe_service_summary_value(text) != text:
+        return None, _error_response(HTTPStatus.BAD_REQUEST, "error", "validation_error")
+    return text, None
 
 
 def _required_text(body: Mapping[str, Any], name: str) -> tuple[str | None, JSONResponse | None]:

@@ -30,6 +30,7 @@ from .import_jobs import (
 from .match_journal_cockpit import (
     JournalServiceFactory,
     match_journal_get_response,
+    match_journal_note_readback_response,
     match_journal_post_response,
 )
 from .match_journal_runtime import build_match_journal_service_factory
@@ -146,6 +147,10 @@ def create_app(
     @app.post("/api/journal/notes")
     async def match_journal_notes(request: Request) -> object:
         return await match_journal_post_response("notes", request, journal_service_factory)
+
+    @app.get("/api/journal/notes")
+    async def match_journal_note_readback(request: Request) -> object:
+        return await match_journal_note_readback_response(request, journal_service_factory)
 
     @app.post("/api/journal/opponent-labels")
     async def match_journal_opponent_labels(request: Request) -> object:

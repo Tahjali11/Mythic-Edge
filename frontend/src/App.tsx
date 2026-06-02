@@ -7,6 +7,7 @@ import {
   fetchGameHistory,
   fetchGameplayActionReview,
   fetchMatchJournal,
+  fetchMatchJournalUnattachedNote,
   fetchMatchHistory,
   fetchMulliganHistory,
   fetchOpponentCardObservationReview,
@@ -46,10 +47,13 @@ import {
   type MatchJournalContext,
   type MatchJournalDisplayCorrectionRequest,
   type MatchJournalExperimentLabelRequest,
+  type MatchJournalAttachedNoteRequest,
   type MatchJournalNoteRequest,
   type MatchJournalOpponentLabelsRequest,
   type MatchJournalResponse,
   type MatchJournalReviewFlagRequest,
+  type MatchJournalUnattachedNoteReadbackRequest,
+  type MatchJournalUnattachedNoteRequest,
   type MatchHistoryResponse,
   type MatchHistoryRow,
   type MulliganHistoryResponse,
@@ -83,7 +87,9 @@ type SetupStatusAppProps = {
   fetchPlayDrawSplits?: () => Promise<PlayDrawSplitReviewResponse>;
   fetchGame1PostboardSplits?: () => Promise<Game1PostboardSplitReviewResponse>;
   fetchJournal?: (context: MatchJournalContext) => Promise<MatchJournalResponse>;
+  fetchJournalUnattachedNote?: (request: MatchJournalUnattachedNoteReadbackRequest) => Promise<MatchJournalResponse>;
   submitJournalNote?: (request: MatchJournalNoteRequest) => Promise<MatchJournalResponse>;
+  submitJournalUnattachedNote?: (request: MatchJournalUnattachedNoteRequest) => Promise<MatchJournalResponse>;
   submitJournalOpponentLabels?: (request: MatchJournalOpponentLabelsRequest) => Promise<MatchJournalResponse>;
   submitJournalReviewFlag?: (request: MatchJournalReviewFlagRequest) => Promise<MatchJournalResponse>;
   submitJournalExperimentLabel?: (request: MatchJournalExperimentLabelRequest) => Promise<MatchJournalResponse>;
@@ -144,6 +150,12 @@ type MatchJournalSubmitState =
   | { state: "result"; payload: MatchJournalResponse }
   | { state: "error"; code: MatchJournalApiError["code"]; message: string };
 
+type MatchJournalSmokeReadbackState =
+  | { state: "idle" }
+  | { state: "loading"; journalNoteId: string }
+  | { state: "ready"; journalNoteId: string; payload: MatchJournalResponse }
+  | { state: "error"; journalNoteId?: string; code: MatchJournalApiError["code"]; message: string };
+
 type MatchJournalContextSummary = {
   context: MatchJournalContext | null;
   match: MatchHistoryRow | null;
@@ -156,6 +168,9 @@ type Panel = {
   details: Array<{ label: string; value: unknown }>;
 };
 
+const UNATTACHED_SMOKE_NOTE_PREFIX = "MYTHIC_EDGE_SMOKE_TEST_DO_NOT_USE_AS_GAME_REVIEW";
+const UNATTACHED_SMOKE_NOTE_STORAGE_KEY = "mythic_edge.match_journal.unattached_smoke_note_id";
+
 export function SetupStatusApp({
   fetchStatus = fetchSetupStatus,
   fetchMatches = fetchMatchHistory,
@@ -167,7 +182,9 @@ export function SetupStatusApp({
   fetchPlayDrawSplits = fetchPlayDrawSplitReview,
   fetchGame1PostboardSplits = fetchGame1PostboardSplitReview,
   fetchJournal = fetchMatchJournal,
+  fetchJournalUnattachedNote = fetchMatchJournalUnattachedNote,
   submitJournalNote = submitMatchJournalNote,
+  submitJournalUnattachedNote = submitMatchJournalNote,
   submitJournalOpponentLabels = submitMatchJournalOpponentLabels,
   submitJournalReviewFlag = submitMatchJournalReviewFlag,
   submitJournalExperimentLabel = submitMatchJournalExperimentLabel,
@@ -182,6 +199,9 @@ export function SetupStatusApp({
   const [splitReviewState, setSplitReviewState] = useState<SplitReviewState>({ state: "loading" });
   const [journalState, setJournalState] = useState<MatchJournalState>({ state: "loading" });
   const [journalSubmitState, setJournalSubmitState] = useState<MatchJournalSubmitState>({ state: "idle" });
+  const [journalSmokeReadbackState, setJournalSmokeReadbackState] = useState<MatchJournalSmokeReadbackState>({
+    state: "idle"
+  });
   const [sourcePath, setSourcePath] = useState("");
   const [sourcePathsText, setSourcePathsText] = useState("");
   const [uploadFiles, setUploadFiles] = useState<File[]>([]);
@@ -443,6 +463,54 @@ export function SetupStatusApp({
     };
   }, [fetchJournal, historyState]);
 
+  useEffect(() => {
+    let active = true;
+    const contextSummary = buildMatchJournalContextSummary(historyState);
+
+    if (historyState.state !== "ready" || contextSummary.context !== null) {
+      setJournalSmokeReadbackState({ state: "idle" });
+      return () => {
+        active = false;
+      };
+    }
+
+    const journalNoteId = readStoredUnattachedSmokeNoteId();
+    if (journalNoteId === null) {
+      setJournalSmokeReadbackState({ state: "idle" });
+      return () => {
+        active = false;
+      };
+    }
+
+    setJournalSmokeReadbackState({ state: "loading", journalNoteId });
+    fetchJournalUnattachedNote({ journal_note_id: journalNoteId, note_scope: "unattached" })
+      .then((payload) => {
+        if (!active) {
+          return;
+        }
+        setJournalSmokeReadbackState({ state: "ready", journalNoteId, payload });
+      })
+      .catch((error: unknown) => {
+        if (!active) {
+          return;
+        }
+        if (error instanceof MatchJournalApiError) {
+          setJournalSmokeReadbackState({ state: "error", journalNoteId, code: error.code, message: error.message });
+          return;
+        }
+        setJournalSmokeReadbackState({
+          state: "error",
+          journalNoteId,
+          code: "backend_unavailable",
+          message: "Match Journal unattached note readback is unavailable."
+        });
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [fetchJournalUnattachedNote, historyState]);
+
   function refreshHistory() {
     setHistoryState({ state: "loading" });
     Promise.all([fetchMatches(), fetchGames()])
@@ -641,8 +709,74 @@ export function SetupStatusApp({
     }
   }
 
-  function handleJournalNoteSubmit(request: Omit<MatchJournalNoteRequest, "context">): Promise<boolean> {
+  function handleJournalNoteSubmit(request: Omit<MatchJournalAttachedNoteRequest, "context">): Promise<boolean> {
     return runJournalMutation((context) => submitJournalNote({ ...request, context }));
+  }
+
+  async function handleUnattachedSmokeNoteSubmit(): Promise<boolean> {
+    if (journalSubmitState.state === "submitting" || buildMatchJournalContextSummary(historyState).context !== null) {
+      return false;
+    }
+    if (journalState.state !== "ready" || journalState.payload.status === "unavailable" || journalState.payload.status === "error") {
+      return false;
+    }
+
+    setJournalSubmitState({ state: "submitting" });
+    const noteText = `${UNATTACHED_SMOKE_NOTE_PREFIX} ${new Date().toISOString()}`;
+    try {
+      const payload = await submitJournalUnattachedNote({
+        note_scope: "unattached",
+        note_text: noteText,
+        author_label: "codex_smoke_test",
+        source_surface: "local_tool",
+        privacy_label: "sanitized_fixture",
+        note_format: "plain_text",
+        priority_label: "normal"
+      });
+      setJournalSubmitState({ state: "result", payload });
+      const journalNoteId = journalPrimaryRecordId(payload);
+      if (journalNoteId !== null) {
+        storeUnattachedSmokeNoteId(journalNoteId);
+        await readBackUnattachedSmokeNote(journalNoteId);
+      } else if (isSuccessfulMatchJournalSubmit(payload)) {
+        setJournalSmokeReadbackState({
+          state: "error",
+          code: "malformed_response",
+          message: "Match Journal response is missing a journal note id."
+        });
+      }
+      return isSuccessfulMatchJournalSubmit(payload);
+    } catch (error: unknown) {
+      if (error instanceof MatchJournalApiError) {
+        setJournalSubmitState({ state: "error", code: error.code, message: error.message });
+        return false;
+      }
+      setJournalSubmitState({
+        state: "error",
+        code: "backend_unavailable",
+        message: "Match Journal backend is unavailable."
+      });
+      return false;
+    }
+  }
+
+  async function readBackUnattachedSmokeNote(journalNoteId: string) {
+    setJournalSmokeReadbackState({ state: "loading", journalNoteId });
+    try {
+      const payload = await fetchJournalUnattachedNote({ journal_note_id: journalNoteId, note_scope: "unattached" });
+      setJournalSmokeReadbackState({ state: "ready", journalNoteId, payload });
+    } catch (error: unknown) {
+      if (error instanceof MatchJournalApiError) {
+        setJournalSmokeReadbackState({ state: "error", journalNoteId, code: error.code, message: error.message });
+        return;
+      }
+      setJournalSmokeReadbackState({
+        state: "error",
+        journalNoteId,
+        code: "backend_unavailable",
+        message: "Match Journal unattached note readback is unavailable."
+      });
+    }
   }
 
   function handleJournalOpponentLabelsSubmit(
@@ -784,6 +918,8 @@ export function SetupStatusApp({
         onNoteSubmit={handleJournalNoteSubmit}
         onOpponentLabelsSubmit={handleJournalOpponentLabelsSubmit}
         onReviewFlagSubmit={handleJournalReviewFlagSubmit}
+        onUnattachedSmokeNoteSubmit={handleUnattachedSmokeNoteSubmit}
+        smokeReadbackState={journalSmokeReadbackState}
         submitState={journalSubmitState}
       />
       <EarlyGameHistorySection earlyGameState={earlyGameState} onRefresh={refreshEarlyGameHistory} />
@@ -967,18 +1103,22 @@ function MatchJournalCockpit({
   onNoteSubmit,
   onOpponentLabelsSubmit,
   onReviewFlagSubmit,
+  onUnattachedSmokeNoteSubmit,
+  smokeReadbackState,
   submitState
 }: {
   contextSummary: MatchJournalContextSummary;
   journalState: MatchJournalState;
   onDisplayCorrectionSubmit: (request: Omit<MatchJournalDisplayCorrectionRequest, "context">) => Promise<boolean>;
   onExperimentLabelSubmit: (request: Omit<MatchJournalExperimentLabelRequest, "context">) => Promise<boolean>;
-  onNoteSubmit: (request: Omit<MatchJournalNoteRequest, "context">) => Promise<boolean>;
+  onNoteSubmit: (request: Omit<MatchJournalAttachedNoteRequest, "context">) => Promise<boolean>;
   onOpponentLabelsSubmit: (request: Omit<MatchJournalOpponentLabelsRequest, "context">) => Promise<boolean>;
   onReviewFlagSubmit: (request: Omit<MatchJournalReviewFlagRequest, "context">) => Promise<boolean>;
+  onUnattachedSmokeNoteSubmit: () => Promise<boolean>;
+  smokeReadbackState: MatchJournalSmokeReadbackState;
   submitState: MatchJournalSubmitState;
 }) {
-  const [noteScope, setNoteScope] = useState<MatchJournalNoteRequest["note_scope"]>("game");
+  const [noteScope, setNoteScope] = useState<MatchJournalAttachedNoteRequest["note_scope"]>("game");
   const [noteText, setNoteText] = useState("");
   const [opponentLabel, setOpponentLabel] = useState("");
   const [opponentTier, setOpponentTier] = useState("");
@@ -990,6 +1130,7 @@ function MatchJournalCockpit({
   const status = matchJournalStatus(journalState);
   const tone = statusTone(status);
   const disabled = matchJournalWriteDisabled(journalState, contextSummary.context, submitState);
+  const smokeDisabled = matchJournalSmokeWriteDisabled(journalState, contextSummary.context, submitState);
 
   async function handleNoteSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1000,6 +1141,14 @@ function MatchJournalCockpit({
     if (await onNoteSubmit({ note_scope: noteScope, note_text: trimmed })) {
       setNoteText("");
     }
+  }
+
+  async function handleUnattachedSmokeSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (smokeDisabled) {
+      return;
+    }
+    await onUnattachedSmokeNoteSubmit();
   }
 
   async function handleOpponentLabelsSubmit(event: FormEvent<HTMLFormElement>) {
@@ -1075,13 +1224,25 @@ function MatchJournalCockpit({
       {journalState.state === "ready" && journalState.payload.status === "unavailable" ? (
         <p className="historyStateMessage">Match Journal unavailable</p>
       ) : null}
+      {contextSummary.context === null ? (
+        <form
+          aria-label="Unattached smoke note"
+          className="manualImportForm journalForm"
+          onSubmit={handleUnattachedSmokeSubmit}
+        >
+          <button disabled={smokeDisabled} type="submit">
+            Save Unattached Smoke Note
+          </button>
+        </form>
+      ) : null}
+      <MatchJournalSmokeReadbackNotice smokeReadbackState={smokeReadbackState} />
       <div className="journalFormGrid" aria-label="Match Journal edit controls">
         <form className="manualImportForm journalForm" onSubmit={handleNoteSubmit}>
           <label htmlFor="journal-note-scope">Note scope</label>
           <select
             disabled={disabled}
             id="journal-note-scope"
-            onChange={(event) => setNoteScope(event.target.value as MatchJournalNoteRequest["note_scope"])}
+            onChange={(event) => setNoteScope(event.target.value as MatchJournalAttachedNoteRequest["note_scope"])}
             value={noteScope}
           >
             <option value="match">Match</option>
@@ -1281,6 +1442,49 @@ function MatchJournalSubmitNotice({ submitState }: { submitState: MatchJournalSu
       <dl>
         <SummaryRow label="warnings" value={formatLabels(submitState.payload.warnings)} />
         <SummaryRow label="errors" value={formatLabels(submitState.payload.errors)} />
+      </dl>
+    </section>
+  );
+}
+
+function MatchJournalSmokeReadbackNotice({
+  smokeReadbackState
+}: {
+  smokeReadbackState: MatchJournalSmokeReadbackState;
+}) {
+  if (smokeReadbackState.state === "idle") {
+    return null;
+  }
+  if (smokeReadbackState.state === "loading") {
+    return <p className="jobMessage">Reading unattached smoke note</p>;
+  }
+  if (smokeReadbackState.state === "error") {
+    return (
+      <section className={`jobResult tone-${errorTone(smokeReadbackState.code)}`} aria-label="Unattached smoke note readback error">
+        <div className="panelHeader">
+          <h2>{matchJournalErrorTitle(smokeReadbackState.code)}</h2>
+          <StatusPill label={errorTone(smokeReadbackState.code)} tone={errorTone(smokeReadbackState.code)} />
+        </div>
+        <p>{smokeReadbackState.message}</p>
+      </section>
+    );
+  }
+
+  const note = journalReadbackNote(smokeReadbackState.payload);
+  return (
+    <section className="jobResult tone-ok" aria-label="Unattached smoke note readback">
+      <div className="panelHeader">
+        <h2>Unattached Smoke Note</h2>
+        <StatusPill label={smokeReadbackState.payload.status} tone={statusTone(smokeReadbackState.payload.status)} />
+      </div>
+      <dl>
+        <SummaryRow label="journal note" value={note?.journal_note_id ?? smokeReadbackState.journalNoteId} />
+        <SummaryRow label="note scope" value={note?.note_scope ?? "unknown"} />
+        <SummaryRow label="attachment" value={note?.attachment_status ?? "unknown"} />
+        <SummaryRow label="author" value={note?.author_label ?? "unknown"} />
+        <SummaryRow label="source" value={note?.source_surface ?? "unknown"} />
+        <SummaryRow label="privacy" value={note?.privacy_label ?? "unknown"} />
+        <SummaryRow label="smoke marker" value={note?.smoke_marker_present ?? false} />
       </dl>
     </section>
   );
@@ -2211,9 +2415,61 @@ function matchJournalWriteDisabled(
   return journalState.payload.status === "unavailable" || journalState.payload.status === "error";
 }
 
+function matchJournalSmokeWriteDisabled(
+  journalState: MatchJournalState,
+  context: MatchJournalContext | null,
+  submitState: MatchJournalSubmitState
+): boolean {
+  if (submitState.state === "submitting" || context !== null || journalState.state !== "ready") {
+    return true;
+  }
+  return journalState.payload.status === "unavailable" || journalState.payload.status === "error";
+}
+
 function journalBundle(payload: MatchJournalResponse): Record<string, unknown> | null {
   const bundle = payload.result.bundle;
   return isRecord(bundle) ? bundle : null;
+}
+
+function journalReadbackNote(payload: MatchJournalResponse): Record<string, unknown> | null {
+  const note = payload.result.note;
+  return isRecord(note) ? note : null;
+}
+
+function journalPrimaryRecordId(payload: MatchJournalResponse): string | null {
+  const serviceResult = payload.result.service_result;
+  if (!isRecord(serviceResult) || typeof serviceResult.primary_record_id !== "string") {
+    return null;
+  }
+  const journalNoteId = serviceResult.primary_record_id.trim();
+  return isSafeJournalNoteId(journalNoteId) ? journalNoteId : null;
+}
+
+function readStoredUnattachedSmokeNoteId(): string | null {
+  try {
+    const journalNoteId = window.sessionStorage.getItem(UNATTACHED_SMOKE_NOTE_STORAGE_KEY);
+    if (journalNoteId === null || !isSafeJournalNoteId(journalNoteId)) {
+      return null;
+    }
+    return journalNoteId;
+  } catch {
+    return null;
+  }
+}
+
+function storeUnattachedSmokeNoteId(journalNoteId: string) {
+  if (!isSafeJournalNoteId(journalNoteId)) {
+    return;
+  }
+  try {
+    window.sessionStorage.setItem(UNATTACHED_SMOKE_NOTE_STORAGE_KEY, journalNoteId);
+  } catch {
+    return;
+  }
+}
+
+function isSafeJournalNoteId(value: string): boolean {
+  return value.length > 0 && value.length <= 160 && /^[A-Za-z0-9_.:-]+$/.test(value);
 }
 
 function bundleArrayCount(bundle: Record<string, unknown> | null, key: string): number {

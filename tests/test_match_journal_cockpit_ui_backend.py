@@ -13,6 +13,7 @@ from mythic_edge_parser.app.match_journal_service import (
     MatchJournalServiceValidationError,
 )
 from mythic_edge_parser.local_app.backend import create_app
+from mythic_edge_parser.local_app.match_journal_cockpit import UNATTACHED_SMOKE_NOTE_PREFIX
 
 
 class RecordingJournalService:
@@ -39,6 +40,24 @@ class RecordingJournalService:
         if self.error is not None:
             raise self.error
         return self.bundle
+
+    def get_unattached_note_summary(self, journal_note_id: str, *, smoke_marker_prefix: str) -> dict[str, Any] | None:
+        self.calls.append(
+            ("get_unattached_note_summary", (journal_note_id,), {"smoke_marker_prefix": smoke_marker_prefix})
+        )
+        if self.error is not None:
+            raise self.error
+        return {
+            "journal_note_id": journal_note_id,
+            "note_scope": "unattached",
+            "author_label": "codex_smoke_test",
+            "source_surface": "local_tool",
+            "privacy_label": "sanitized_fixture",
+            "created_at": "2026-06-01T00:00:00Z",
+            "updated_at": "2026-06-01T00:00:00Z",
+            "smoke_marker_present": True,
+            "attachment_status": "unattached",
+        }
 
     def record_match_note(self, context: dict[str, Any], note_text: str, **options: Any) -> dict[str, Any]:
         return self._record("record_match_note", context, note_text, **options)
@@ -107,6 +126,10 @@ def test_journal_route_inventory_has_browser_facade_routes_without_pilot_error_o
         "/api/journal/experiment-label",
         "/api/journal/display-corrections",
     } <= route_paths
+    notes_methods = {
+        method for route in client.app.routes if route.path == "/api/journal/notes" for method in route.methods
+    }
+    assert {"GET", "POST"} <= notes_methods
     assert "/api/journal/pilot-error" not in route_paths
     assert all("DELETE" not in route.methods for route in client.app.routes)
 
@@ -182,6 +205,84 @@ def test_default_journal_write_creates_only_app_owned_match_journal_database(tmp
         connection.close()
     assert note_count == 1
     assert migration_count == 1
+
+
+def test_unattached_smoke_note_readback_returns_safe_exact_id_metadata(tmp_path) -> None:
+    app_root = tmp_path / "app-data"
+    journal_database = app_root / "db" / "match_journal.sqlite3"
+    analytics_database = app_root / "db" / "mythic_edge.sqlite3"
+    client = TestClient(create_app(app_data_root=app_root))
+
+    write_response = client.post(
+        "/api/journal/notes",
+        json={
+            "note_scope": "unattached",
+            "note_text": f"{UNATTACHED_SMOKE_NOTE_PREFIX} backend readback",
+            "author_label": "codex_smoke_test",
+            "source_surface": "local_tool",
+            "privacy_label": "sanitized_fixture",
+            "note_format": "plain_text",
+            "priority_label": "normal",
+        },
+    )
+    journal_note_id = write_response.json()["result"]["service_result"]["primary_record_id"]
+
+    read_response = client.get(
+        f"/api/journal/notes?journal_note_id={journal_note_id}&note_scope=unattached"
+    )
+    payload = read_response.json()
+    serialized = json.dumps(payload, sort_keys=True)
+
+    assert write_response.status_code == 200
+    assert read_response.status_code == 200
+    assert payload["result"]["note"] == {
+        "journal_note_id": journal_note_id,
+        "note_scope": "unattached",
+        "author_label": "codex_smoke_test",
+        "source_surface": "local_tool",
+        "privacy_label": "sanitized_fixture",
+        "created_at": payload["result"]["note"]["created_at"],
+        "updated_at": payload["result"]["note"]["updated_at"],
+        "smoke_marker_present": True,
+        "attachment_status": "unattached",
+    }
+    assert "note_text" not in serialized
+    assert UNATTACHED_SMOKE_NOTE_PREFIX not in serialized
+    assert journal_database.is_file()
+    assert not analytics_database.exists()
+
+
+def test_unattached_smoke_note_readback_rejects_listing_context_and_malformed_queries(tmp_path) -> None:
+    service = RecordingJournalService()
+    client = _client(tmp_path, service)
+    cases = (
+        "/api/journal/notes",
+        "/api/journal/notes?journal_note_id=journal_note:smoke:1",
+        "/api/journal/notes?journal_note_id=journal_note:smoke:1&note_scope=match",
+        "/api/journal/notes?journal_note_id=journal_note:smoke:1&note_scope=unattached&parser_match_id=parser-match-1",
+        "/api/journal/notes?journal_note_id=journal_note:smoke:1&journal_note_id=journal_note:smoke:2&note_scope=unattached",
+        "/api/journal/notes?journal_note_id=bad/path&note_scope=unattached",
+    )
+
+    for path in cases:
+        response = client.get(path)
+        assert response.status_code == 400
+        assert response.json()["errors"] == ["validation_error"]
+
+    assert service.calls == []
+
+
+def test_unattached_smoke_note_readback_missing_database_does_not_create_artifacts(tmp_path) -> None:
+    app_root = tmp_path / "app-data"
+    client = TestClient(create_app(app_data_root=app_root))
+
+    response = client.get("/api/journal/notes?journal_note_id=journal_note:missing&note_scope=unattached")
+
+    assert response.status_code == 404
+    assert response.json()["status"] == "missing"
+    assert response.json()["errors"] == ["not_found"]
+    assert not app_root.exists()
+    assert list(tmp_path.rglob("*")) == []
 
 
 def test_malformed_and_invalid_journal_requests_do_not_call_service(tmp_path) -> None:
