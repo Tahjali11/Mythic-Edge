@@ -6,6 +6,7 @@ import {
   fetchGame1PostboardSplitReview,
   fetchGameHistory,
   fetchGameplayActionReview,
+  fetchMatchJournal,
   fetchMatchHistory,
   fetchMulliganHistory,
   fetchOpponentCardObservationReview,
@@ -13,7 +14,13 @@ import {
   fetchPlayDrawSplitReview,
   fetchSetupStatus,
   ManualImportApiError,
+  MatchJournalApiError,
   SetupStatusApiError,
+  submitMatchJournalDisplayCorrection,
+  submitMatchJournalExperimentLabel,
+  submitMatchJournalNote,
+  submitMatchJournalOpponentLabels,
+  submitMatchJournalReviewFlag,
   submitManualJsonlImport,
   submitManualJsonlUpload
 } from "./api";
@@ -30,11 +37,19 @@ import {
   type Game1PostboardSplitReviewResponse,
   type Game1PostboardSplitRow,
   type GameHistoryResponse,
+  type GameHistoryRow,
   type GameplayActionReviewResponse,
   type GameplayActionReviewRow,
   type ManualImportJob,
   type ManualImportRequest,
   type ManualImportUploadRequest,
+  type MatchJournalContext,
+  type MatchJournalDisplayCorrectionRequest,
+  type MatchJournalExperimentLabelRequest,
+  type MatchJournalNoteRequest,
+  type MatchJournalOpponentLabelsRequest,
+  type MatchJournalResponse,
+  type MatchJournalReviewFlagRequest,
   type MatchHistoryResponse,
   type MatchHistoryRow,
   type MulliganHistoryResponse,
@@ -67,6 +82,12 @@ type SetupStatusAppProps = {
   fetchOpponentObservations?: () => Promise<OpponentCardObservationReviewResponse>;
   fetchPlayDrawSplits?: () => Promise<PlayDrawSplitReviewResponse>;
   fetchGame1PostboardSplits?: () => Promise<Game1PostboardSplitReviewResponse>;
+  fetchJournal?: (context: MatchJournalContext) => Promise<MatchJournalResponse>;
+  submitJournalNote?: (request: MatchJournalNoteRequest) => Promise<MatchJournalResponse>;
+  submitJournalOpponentLabels?: (request: MatchJournalOpponentLabelsRequest) => Promise<MatchJournalResponse>;
+  submitJournalReviewFlag?: (request: MatchJournalReviewFlagRequest) => Promise<MatchJournalResponse>;
+  submitJournalExperimentLabel?: (request: MatchJournalExperimentLabelRequest) => Promise<MatchJournalResponse>;
+  submitJournalDisplayCorrection?: (request: MatchJournalDisplayCorrectionRequest) => Promise<MatchJournalResponse>;
   submitImport?: (request: ManualImportRequest) => Promise<ManualImportJob>;
   submitUpload?: (request: ManualImportUploadRequest) => Promise<ManualImportJob>;
 };
@@ -112,6 +133,23 @@ type SplitReviewState =
     }
   | { state: "error"; code: AnalyticsHistoryApiError["code"]; message: string };
 
+type MatchJournalState =
+  | { state: "loading" }
+  | { state: "ready"; payload: MatchJournalResponse; unsafeCount: number }
+  | { state: "error"; code: MatchJournalApiError["code"]; message: string };
+
+type MatchJournalSubmitState =
+  | { state: "idle" }
+  | { state: "submitting" }
+  | { state: "result"; payload: MatchJournalResponse }
+  | { state: "error"; code: MatchJournalApiError["code"]; message: string };
+
+type MatchJournalContextSummary = {
+  context: MatchJournalContext | null;
+  match: MatchHistoryRow | null;
+  game: GameHistoryRow | null;
+};
+
 type Panel = {
   title: string;
   status: string;
@@ -128,6 +166,12 @@ export function SetupStatusApp({
   fetchOpponentObservations = fetchOpponentCardObservationReview,
   fetchPlayDrawSplits = fetchPlayDrawSplitReview,
   fetchGame1PostboardSplits = fetchGame1PostboardSplitReview,
+  fetchJournal = fetchMatchJournal,
+  submitJournalNote = submitMatchJournalNote,
+  submitJournalOpponentLabels = submitMatchJournalOpponentLabels,
+  submitJournalReviewFlag = submitMatchJournalReviewFlag,
+  submitJournalExperimentLabel = submitMatchJournalExperimentLabel,
+  submitJournalDisplayCorrection = submitMatchJournalDisplayCorrection,
   submitImport = submitManualJsonlImport,
   submitUpload = submitManualJsonlUpload
 }: SetupStatusAppProps) {
@@ -136,6 +180,8 @@ export function SetupStatusApp({
   const [earlyGameState, setEarlyGameState] = useState<EarlyGameHistoryState>({ state: "loading" });
   const [actionReviewState, setActionReviewState] = useState<ActionReviewState>({ state: "loading" });
   const [splitReviewState, setSplitReviewState] = useState<SplitReviewState>({ state: "loading" });
+  const [journalState, setJournalState] = useState<MatchJournalState>({ state: "loading" });
+  const [journalSubmitState, setJournalSubmitState] = useState<MatchJournalSubmitState>({ state: "idle" });
   const [sourcePath, setSourcePath] = useState("");
   const [sourcePathsText, setSourcePathsText] = useState("");
   const [uploadFiles, setUploadFiles] = useState<File[]>([]);
@@ -338,6 +384,65 @@ export function SetupStatusApp({
     }
   }, [fetchGame1PostboardSplits, fetchPlayDrawSplits]);
 
+  useEffect(() => {
+    let active = true;
+    const contextSummary = buildMatchJournalContextSummary(historyState);
+
+    if (historyState.state === "loading") {
+      setJournalState({ state: "loading" });
+      return () => {
+        active = false;
+      };
+    }
+    if (historyState.state === "error") {
+      setJournalState({
+        state: "error",
+        code: "backend_unavailable",
+        message: "Match Journal context is unavailable."
+      });
+      return () => {
+        active = false;
+      };
+    }
+    if (contextSummary.context === null) {
+      setJournalState({
+        state: "ready",
+        payload: emptyMatchJournalPayload(),
+        unsafeCount: 0
+      });
+      return () => {
+        active = false;
+      };
+    }
+
+    setJournalState({ state: "loading" });
+    fetchJournal(contextSummary.context)
+      .then((payload) => {
+        if (!active) {
+          return;
+        }
+        setJournalState({ state: "ready", payload, unsafeCount: countUnsafeJournalValues(payload) });
+      })
+      .catch((error: unknown) => {
+        if (!active) {
+          return;
+        }
+        if (error instanceof MatchJournalApiError) {
+          setJournalState({ state: "error", code: error.code, message: error.message });
+          return;
+        }
+        setJournalState({
+          state: "error",
+          code: "backend_unavailable",
+          message: "Match Journal backend is unavailable."
+        });
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [fetchJournal, historyState]);
+
   function refreshHistory() {
     setHistoryState({ state: "loading" });
     Promise.all([fetchMatches(), fetchGames()])
@@ -509,6 +614,57 @@ export function SetupStatusApp({
     }
   }
 
+  async function runJournalMutation(
+    action: (context: MatchJournalContext) => Promise<MatchJournalResponse>
+  ): Promise<void> {
+    const context = buildMatchJournalContextSummary(historyState).context;
+    if (context === null || journalSubmitState.state === "submitting") {
+      return;
+    }
+
+    setJournalSubmitState({ state: "submitting" });
+    try {
+      const payload = await action(context);
+      setJournalSubmitState({ state: "result", payload });
+    } catch (error: unknown) {
+      if (error instanceof MatchJournalApiError) {
+        setJournalSubmitState({ state: "error", code: error.code, message: error.message });
+        return;
+      }
+      setJournalSubmitState({
+        state: "error",
+        code: "backend_unavailable",
+        message: "Match Journal backend is unavailable."
+      });
+    }
+  }
+
+  function handleJournalNoteSubmit(request: Omit<MatchJournalNoteRequest, "context">): Promise<void> {
+    return runJournalMutation((context) => submitJournalNote({ ...request, context }));
+  }
+
+  function handleJournalOpponentLabelsSubmit(
+    request: Omit<MatchJournalOpponentLabelsRequest, "context">
+  ): Promise<void> {
+    return runJournalMutation((context) => submitJournalOpponentLabels({ ...request, context }));
+  }
+
+  function handleJournalReviewFlagSubmit(request: Omit<MatchJournalReviewFlagRequest, "context">): Promise<void> {
+    return runJournalMutation((context) => submitJournalReviewFlag({ ...request, context }));
+  }
+
+  function handleJournalExperimentLabelSubmit(
+    request: Omit<MatchJournalExperimentLabelRequest, "context">
+  ): Promise<void> {
+    return runJournalMutation((context) => submitJournalExperimentLabel({ ...request, context }));
+  }
+
+  function handleJournalDisplayCorrectionSubmit(
+    request: Omit<MatchJournalDisplayCorrectionRequest, "context">
+  ): Promise<void> {
+    return runJournalMutation((context) => submitJournalDisplayCorrection({ ...request, context }));
+  }
+
   function handleUploadFilesChange(fileList: FileList | null) {
     setUploadFiles(Array.from(fileList ?? []));
     setUploadIgnoredFileCount(0);
@@ -569,6 +725,7 @@ export function SetupStatusApp({
 
   const panels = buildPanels(loadState.payload);
   const overallTone = loadState.unsafeCount > 0 ? "degraded" : statusTone(loadState.payload.status);
+  const journalContextSummary = buildMatchJournalContextSummary(historyState);
 
   return (
     <Shell>
@@ -617,6 +774,16 @@ export function SetupStatusApp({
       />
 
       <AnalyticsHistorySection historyState={historyState} onRefresh={refreshHistory} />
+      <MatchJournalCockpit
+        contextSummary={journalContextSummary}
+        journalState={journalState}
+        onDisplayCorrectionSubmit={handleJournalDisplayCorrectionSubmit}
+        onExperimentLabelSubmit={handleJournalExperimentLabelSubmit}
+        onNoteSubmit={handleJournalNoteSubmit}
+        onOpponentLabelsSubmit={handleJournalOpponentLabelsSubmit}
+        onReviewFlagSubmit={handleJournalReviewFlagSubmit}
+        submitState={journalSubmitState}
+      />
       <EarlyGameHistorySection earlyGameState={earlyGameState} onRefresh={refreshEarlyGameHistory} />
       <ActionReviewSection actionReviewState={actionReviewState} onRefresh={refreshActionReview} />
       <SplitReviewSection splitReviewState={splitReviewState} onRefresh={refreshSplitReview} />
@@ -786,6 +953,329 @@ function ManualImportPanel({
       {importState.state === "submitting" ? <p className="jobMessage">Import running</p> : null}
       {importState.state === "error" ? <ManualImportErrorNotice importState={importState} /> : null}
       {importState.state === "result" ? <ManualImportJobSummary job={importState.job} /> : null}
+    </section>
+  );
+}
+
+function MatchJournalCockpit({
+  contextSummary,
+  journalState,
+  onDisplayCorrectionSubmit,
+  onExperimentLabelSubmit,
+  onNoteSubmit,
+  onOpponentLabelsSubmit,
+  onReviewFlagSubmit,
+  submitState
+}: {
+  contextSummary: MatchJournalContextSummary;
+  journalState: MatchJournalState;
+  onDisplayCorrectionSubmit: (request: Omit<MatchJournalDisplayCorrectionRequest, "context">) => Promise<void>;
+  onExperimentLabelSubmit: (request: Omit<MatchJournalExperimentLabelRequest, "context">) => Promise<void>;
+  onNoteSubmit: (request: Omit<MatchJournalNoteRequest, "context">) => Promise<void>;
+  onOpponentLabelsSubmit: (request: Omit<MatchJournalOpponentLabelsRequest, "context">) => Promise<void>;
+  onReviewFlagSubmit: (request: Omit<MatchJournalReviewFlagRequest, "context">) => Promise<void>;
+  submitState: MatchJournalSubmitState;
+}) {
+  const [noteScope, setNoteScope] = useState<MatchJournalNoteRequest["note_scope"]>("game");
+  const [noteText, setNoteText] = useState("");
+  const [opponentLabel, setOpponentLabel] = useState("");
+  const [opponentTier, setOpponentTier] = useState("");
+  const [flagType, setFlagType] = useState("needs_review");
+  const [experimentLabel, setExperimentLabel] = useState("");
+  const [correctionField, setCorrectionField] = useState("");
+  const [correctionValue, setCorrectionValue] = useState("");
+
+  const status = matchJournalStatus(journalState);
+  const tone = statusTone(status);
+  const disabled = matchJournalWriteDisabled(journalState, contextSummary.context, submitState);
+
+  async function handleNoteSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const trimmed = noteText.trim();
+    if (disabled || !trimmed) {
+      return;
+    }
+    await onNoteSubmit({ note_scope: noteScope, note_text: trimmed });
+    setNoteText("");
+  }
+
+  async function handleOpponentLabelsSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const archetype = opponentLabel.trim();
+    const tier = opponentTier.trim();
+    if (disabled || (!archetype && !tier)) {
+      return;
+    }
+    await onOpponentLabelsSubmit({
+      ...(archetype ? { archetype } : {}),
+      ...(tier ? { tier } : {})
+    });
+    setOpponentLabel("");
+    setOpponentTier("");
+  }
+
+  async function handleReviewFlagSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (disabled || !flagType.trim()) {
+      return;
+    }
+    await onReviewFlagSubmit({ flag_type: flagType, priority_label: "normal" });
+  }
+
+  async function handleExperimentSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const trimmed = experimentLabel.trim();
+    if (disabled || !trimmed) {
+      return;
+    }
+    await onExperimentLabelSubmit({ experiment_label: trimmed });
+    setExperimentLabel("");
+  }
+
+  async function handleDisplayCorrectionSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const targetField = correctionField.trim();
+    const proposedValue = correctionValue.trim();
+    if (disabled || !targetField || !proposedValue) {
+      return;
+    }
+    await onDisplayCorrectionSubmit({
+      target_surface: "journal_display",
+      target_field: targetField,
+      proposed_value_label: proposedValue,
+      effect_scope: "journal_display_only"
+    });
+    setCorrectionField("");
+    setCorrectionValue("");
+  }
+
+  return (
+    <section className={`matchJournalSection tone-${tone}`} aria-labelledby="match-journal-title">
+      <div className="panelHeader analyticsHistoryHeader">
+        <div>
+          <h2 id="match-journal-title">Match Journal Cockpit</h2>
+        </div>
+        <StatusPill label={status} tone={tone} />
+      </div>
+      <div className="historySummaryGrid" aria-label="Match Journal cockpit summary">
+        <MatchJournalContextPanel contextSummary={contextSummary} />
+        <MatchJournalBundleSummary journalState={journalState} />
+      </div>
+      {journalState.state === "loading" ? <p className="historyStateMessage">Loading Match Journal</p> : null}
+      {journalState.state === "error" ? <MatchJournalErrorNotice journalState={journalState} /> : null}
+      {journalState.state === "ready" && journalState.unsafeCount > 0 ? (
+        <p className="historyStateMessage">{journalState.unsafeCount} Match Journal value was redacted.</p>
+      ) : null}
+      {journalState.state === "ready" && journalState.payload.status === "unavailable" ? (
+        <p className="historyStateMessage">Match Journal unavailable</p>
+      ) : null}
+      <div className="journalFormGrid" aria-label="Match Journal edit controls">
+        <form className="manualImportForm journalForm" onSubmit={handleNoteSubmit}>
+          <label htmlFor="journal-note-scope">Note scope</label>
+          <select
+            disabled={disabled}
+            id="journal-note-scope"
+            onChange={(event) => setNoteScope(event.target.value as MatchJournalNoteRequest["note_scope"])}
+            value={noteScope}
+          >
+            <option value="match">Match</option>
+            <option value="game">Game</option>
+            <option value="sideboarding">Sideboarding</option>
+          </select>
+          <label htmlFor="journal-note-text">Journal note</label>
+          <textarea
+            disabled={disabled}
+            id="journal-note-text"
+            onChange={(event) => setNoteText(event.target.value)}
+            rows={3}
+            value={noteText}
+          />
+          <button disabled={disabled || !noteText.trim()} type="submit">
+            Save Journal Note
+          </button>
+        </form>
+        <form className="manualImportForm journalForm" onSubmit={handleOpponentLabelsSubmit}>
+          <label htmlFor="journal-opponent-label">Opponent manual label</label>
+          <input
+            autoComplete="off"
+            disabled={disabled}
+            id="journal-opponent-label"
+            onChange={(event) => setOpponentLabel(event.target.value)}
+            value={opponentLabel}
+          />
+          <label htmlFor="journal-opponent-tier">Opponent tier label</label>
+          <input
+            autoComplete="off"
+            disabled={disabled}
+            id="journal-opponent-tier"
+            onChange={(event) => setOpponentTier(event.target.value)}
+            value={opponentTier}
+          />
+          <button disabled={disabled || (!opponentLabel.trim() && !opponentTier.trim())} type="submit">
+            Save Opponent Labels
+          </button>
+        </form>
+        <form className="manualImportForm journalForm" onSubmit={handleReviewFlagSubmit}>
+          <label htmlFor="journal-review-flag">Review flag</label>
+          <select
+            disabled={disabled}
+            id="journal-review-flag"
+            onChange={(event) => setFlagType(event.target.value)}
+            value={flagType}
+          >
+            <option value="needs_review">Needs review</option>
+            <option value="interesting_match">Interesting match</option>
+            <option value="suspected_parser_gap">Suspected parser gap</option>
+            <option value="sideboarding_review">Sideboarding review</option>
+          </select>
+          <button disabled={disabled || !flagType.trim()} type="submit">
+            Save Review Flag
+          </button>
+        </form>
+        <form className="manualImportForm journalForm" onSubmit={handleExperimentSubmit}>
+          <label htmlFor="journal-experiment-label">Experiment label</label>
+          <input
+            autoComplete="off"
+            disabled={disabled}
+            id="journal-experiment-label"
+            onChange={(event) => setExperimentLabel(event.target.value)}
+            value={experimentLabel}
+          />
+          <button disabled={disabled || !experimentLabel.trim()} type="submit">
+            Save Experiment Label
+          </button>
+        </form>
+        <form className="manualImportForm journalForm" onSubmit={handleDisplayCorrectionSubmit}>
+          <label htmlFor="journal-correction-field">Display-only field</label>
+          <input
+            autoComplete="off"
+            disabled={disabled}
+            id="journal-correction-field"
+            onChange={(event) => setCorrectionField(event.target.value)}
+            value={correctionField}
+          />
+          <label htmlFor="journal-correction-value">Display-only value</label>
+          <input
+            autoComplete="off"
+            disabled={disabled}
+            id="journal-correction-value"
+            onChange={(event) => setCorrectionValue(event.target.value)}
+            value={correctionValue}
+          />
+          <button disabled={disabled || !correctionField.trim() || !correctionValue.trim()} type="submit">
+            Propose Display Correction
+          </button>
+        </form>
+      </div>
+      <MatchJournalSubmitNotice submitState={submitState} />
+    </section>
+  );
+}
+
+function MatchJournalContextPanel({ contextSummary }: { contextSummary: MatchJournalContextSummary }) {
+  const match = contextSummary.match;
+  const game = contextSummary.game;
+  return (
+    <article className="historySummaryPanel tone-ok">
+      <div className="panelHeader">
+        <h3>Read-only Context</h3>
+      </div>
+      <dl>
+        <SummaryRow label="match" value={match?.match_id ?? contextSummary.context?.parser_match_id ?? "unknown"} />
+        <SummaryRow label="game" value={game?.game_id ?? contextSummary.context?.parser_game_id ?? "unknown"} />
+        <SummaryRow label="game number" value={game?.game_number ?? contextSummary.context?.game_number ?? "unknown"} />
+        <SummaryRow label="result" value={game?.local_result ?? match?.match_result ?? "unknown"} />
+        <SummaryRow label="play/draw" value={game?.play_draw ?? "unknown"} />
+        <SummaryRow label="queue" value={game?.queue_name ?? match?.queue_name ?? "unknown"} />
+        <SummaryRow label="format" value={game?.format_name ?? match?.format_name ?? "unknown"} />
+        <SummaryRow label="event" value={game?.event_id ?? match?.event_id ?? "unknown"} />
+        <SummaryRow
+          label="status"
+          value={
+            game
+              ? statusSummary(game.game_status, game.result_status, game.context_status)
+              : match
+                ? statusSummary(match.match_status, match.result_status, match.context_status)
+                : "unknown"
+          }
+        />
+      </dl>
+    </article>
+  );
+}
+
+function MatchJournalBundleSummary({ journalState }: { journalState: MatchJournalState }) {
+  if (journalState.state !== "ready") {
+    return (
+      <article className="historySummaryPanel tone-unknown">
+        <div className="panelHeader">
+          <h3>Journal Bundle</h3>
+        </div>
+        <p className="historyStateMessage">not loaded</p>
+      </article>
+    );
+  }
+  const bundle = journalBundle(journalState.payload);
+  return (
+    <article className={`historySummaryPanel tone-${statusTone(journalState.payload.status)}`}>
+      <div className="panelHeader">
+        <h3>Journal Bundle</h3>
+        <StatusPill label={journalState.payload.status} tone={statusTone(journalState.payload.status)} />
+      </div>
+      <dl>
+        <SummaryRow label="match" value={bundle ? "present" : "not loaded"} />
+        <SummaryRow label="games" value={bundleArrayCount(bundle, "games")} />
+        <SummaryRow label="notes" value={bundleArrayCount(bundle, "notes")} />
+        <SummaryRow label="labels" value={bundleArrayCount(bundle, "labels")} />
+        <SummaryRow label="review flags" value={bundleArrayCount(bundle, "review_flags")} />
+        <SummaryRow label="display corrections" value={bundleArrayCount(bundle, "field_overrides")} />
+        <SummaryRow label="warnings" value={formatLabels(journalState.payload.warnings)} />
+        <SummaryRow label="errors" value={formatLabels(journalState.payload.errors)} />
+      </dl>
+    </article>
+  );
+}
+
+function MatchJournalErrorNotice({ journalState }: { journalState: Extract<MatchJournalState, { state: "error" }> }) {
+  return (
+    <section className={`historyNotice tone-${errorTone(journalState.code)}`} aria-label="Match Journal error">
+      <div className="panelHeader">
+        <h3>{matchJournalErrorTitle(journalState.code)}</h3>
+        <StatusPill label={errorTone(journalState.code)} tone={errorTone(journalState.code)} />
+      </div>
+      <p>{journalState.message}</p>
+    </section>
+  );
+}
+
+function MatchJournalSubmitNotice({ submitState }: { submitState: MatchJournalSubmitState }) {
+  if (submitState.state === "idle") {
+    return null;
+  }
+  if (submitState.state === "submitting") {
+    return <p className="jobMessage">Saving journal update</p>;
+  }
+  if (submitState.state === "error") {
+    return (
+      <section className={`jobResult tone-${errorTone(submitState.code)}`} aria-label="Match Journal submit error">
+        <div className="panelHeader">
+          <h2>{matchJournalErrorTitle(submitState.code)}</h2>
+          <StatusPill label={errorTone(submitState.code)} tone={errorTone(submitState.code)} />
+        </div>
+        <p>{submitState.message}</p>
+      </section>
+    );
+  }
+  return (
+    <section className={`jobResult tone-${statusTone(submitState.payload.status)}`} aria-label="Match Journal submit result">
+      <div className="panelHeader">
+        <h2>Journal Update Saved</h2>
+        <StatusPill label={submitState.payload.status} tone={statusTone(submitState.payload.status)} />
+      </div>
+      <dl>
+        <SummaryRow label="warnings" value={formatLabels(submitState.payload.warnings)} />
+        <SummaryRow label="errors" value={formatLabels(submitState.payload.errors)} />
+      </dl>
     </section>
   );
 }
@@ -1628,6 +2118,113 @@ function StatusPill({ label, tone }: { label: string; tone: string }) {
       {label}
     </span>
   );
+}
+
+function buildMatchJournalContextSummary(historyState: HistoryState): MatchJournalContextSummary {
+  if (historyState.state !== "ready") {
+    return { context: null, match: null, game: null };
+  }
+  const game = historyState.games.rows[0] ?? null;
+  const match = game
+    ? historyState.matches.rows.find((row) => row.match_id === game.match_id) ?? historyState.matches.rows[0] ?? null
+    : historyState.matches.rows[0] ?? null;
+  if (game) {
+    return {
+      context: {
+        parser_match_id: game.match_id,
+        parser_game_id: game.game_id,
+        game_number: game.game_number
+      },
+      match,
+      game
+    };
+  }
+  if (match) {
+    return {
+      context: {
+        parser_match_id: match.match_id
+      },
+      match,
+      game: null
+    };
+  }
+  return { context: null, match: null, game: null };
+}
+
+function emptyMatchJournalPayload(): MatchJournalResponse {
+  return {
+    object: "mythic_edge_local_app_match_journal",
+    schema_version: "match_journal_cockpit_ui.v1",
+    status: "empty",
+    result: {},
+    warnings: [],
+    errors: []
+  };
+}
+
+function countUnsafeJournalValues(payload: MatchJournalResponse): number {
+  const values: unknown[] = [...payload.warnings, ...payload.errors, payload.status];
+  const bundle = journalBundle(payload);
+  if (bundle) {
+    values.push(
+      bundleArrayCount(bundle, "games"),
+      bundleArrayCount(bundle, "notes"),
+      bundleArrayCount(bundle, "labels"),
+      bundleArrayCount(bundle, "review_flags"),
+      bundleArrayCount(bundle, "field_overrides")
+    );
+  }
+  return values.filter((value) => safeDisplayValue(value ?? "unknown").redacted).length;
+}
+
+function matchJournalStatus(journalState: MatchJournalState): string {
+  if (journalState.state === "loading") {
+    return "loading";
+  }
+  if (journalState.state === "error") {
+    return errorTone(journalState.code);
+  }
+  if (journalState.unsafeCount > 0) {
+    return "degraded";
+  }
+  return journalState.payload.status;
+}
+
+function matchJournalWriteDisabled(
+  journalState: MatchJournalState,
+  context: MatchJournalContext | null,
+  submitState: MatchJournalSubmitState
+): boolean {
+  if (submitState.state === "submitting" || context === null || journalState.state !== "ready") {
+    return true;
+  }
+  return journalState.payload.status === "unavailable" || journalState.payload.status === "error";
+}
+
+function journalBundle(payload: MatchJournalResponse): Record<string, unknown> | null {
+  const bundle = payload.result.bundle;
+  return isRecord(bundle) ? bundle : null;
+}
+
+function bundleArrayCount(bundle: Record<string, unknown> | null, key: string): number {
+  if (bundle === null) {
+    return 0;
+  }
+  const value = bundle[key];
+  return Array.isArray(value) ? value.length : 0;
+}
+
+function matchJournalErrorTitle(code: MatchJournalApiError["code"]): string {
+  if (code === "malformed_response") {
+    return "Malformed Match Journal response";
+  }
+  if (code === "incompatible_response") {
+    return "Incompatible Match Journal schema";
+  }
+  if (code === "unsafe_api_base_url") {
+    return "Unsafe API base URL";
+  }
+  return "Match Journal unavailable";
 }
 
 function buildPanels(payload: SetupStatusResponse): Panel[] {
