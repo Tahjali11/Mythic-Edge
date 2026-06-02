@@ -7,6 +7,9 @@ import {
   GAMEPLAY_ACTION_REVIEW_OBJECT,
   LEGACY_JSONL_IMPORT_QUALITY_OBJECT,
   LEGACY_JSONL_IMPORT_QUALITY_SCHEMA_VERSION,
+  LIVE_PLAYER_LOG_STATUS_OBJECT,
+  LIVE_STATUS_SCHEMA_VERSION,
+  LIVE_WATCHER_STATUS_OBJECT,
   MANUAL_IMPORT_JOB_OBJECT,
   MANUAL_IMPORT_JOB_SCHEMA_VERSION,
   MATCH_JOURNAL_OBJECT,
@@ -24,6 +27,9 @@ import {
   type Game1PostboardSplitReviewResponse,
   type GameHistoryResponse,
   type GameplayActionReviewResponse,
+  type LivePlayerLogStatusResponse,
+  type LiveStatusErrorCode,
+  type LiveWatcherStatusResponse,
   type ManualImportErrorCode,
   type ManualImportJob,
   type ManualImportRequest,
@@ -48,6 +54,8 @@ import {
 } from "./types";
 
 const SETUP_STATUS_PATH = "/api/app/setup-status";
+const LIVE_PLAYER_LOG_STATUS_PATH = "/api/live/player-log/status";
+const LIVE_WATCHER_STATUS_PATH = "/api/live/watcher/status";
 const MATCH_HISTORY_PATH = "/api/analytics/matches";
 const GAME_HISTORY_PATH = "/api/analytics/games";
 const OPENING_HAND_HISTORY_PATH = "/api/analytics/opening-hands";
@@ -113,6 +121,16 @@ export class SetupStatusApiError extends Error {
   constructor(code: SetupStatusErrorCode, message: string) {
     super(message);
     this.name = "SetupStatusApiError";
+    this.code = code;
+  }
+}
+
+export class LiveStatusApiError extends Error {
+  code: LiveStatusErrorCode;
+
+  constructor(code: LiveStatusErrorCode, message: string) {
+    super(message);
+    this.name = "LiveStatusApiError";
     this.code = code;
   }
 }
@@ -194,6 +212,16 @@ export async function fetchSetupStatus(fetchImpl: typeof fetch = fetch): Promise
   }
 
   return validateSetupStatusResponse(payload);
+}
+
+export async function fetchLivePlayerLogStatus(fetchImpl: typeof fetch = fetch): Promise<LivePlayerLogStatusResponse> {
+  const payload = await fetchLiveStatusPayload(LIVE_PLAYER_LOG_STATUS_PATH, "Live Player.log status", fetchImpl);
+  return validateLivePlayerLogStatusResponse(payload);
+}
+
+export async function fetchLiveWatcherStatus(fetchImpl: typeof fetch = fetch): Promise<LiveWatcherStatusResponse> {
+  const payload = await fetchLiveStatusPayload(LIVE_WATCHER_STATUS_PATH, "Live watcher status", fetchImpl);
+  return validateLiveWatcherStatusResponse(payload);
 }
 
 export async function fetchMatchHistory(fetchImpl: typeof fetch = fetch): Promise<MatchHistoryResponse> {
@@ -495,6 +523,32 @@ async function parseMatchJournalResponse(response: Response): Promise<MatchJourn
   return journal;
 }
 
+async function fetchLiveStatusPayload(
+  path: string,
+  label: string,
+  fetchImpl: typeof fetch
+): Promise<unknown> {
+  const baseUrl = getLiveStatusApiBaseUrl();
+  let response: Response;
+  try {
+    response = await fetchImpl(`${baseUrl}${path}`, {
+      headers: { Accept: "application/json" }
+    });
+  } catch {
+    throw new LiveStatusApiError("backend_unavailable", `${label} is unavailable.`);
+  }
+
+  if (!response.ok) {
+    throw new LiveStatusApiError("backend_unavailable", `${label} is unavailable.`);
+  }
+
+  try {
+    return await response.json();
+  } catch {
+    throw new LiveStatusApiError("malformed_response", `${label} returned malformed JSON.`);
+  }
+}
+
 function validateSetupStatusResponse(payload: unknown): SetupStatusResponse {
   if (!isRecord(payload)) {
     throw new SetupStatusApiError("malformed_response", "Backend setup status must be a JSON object.");
@@ -532,6 +586,56 @@ function validateSetupStatusResponse(payload: unknown): SetupStatusResponse {
   }
 
   return payload as SetupStatusResponse;
+}
+
+function validateLivePlayerLogStatusResponse(payload: unknown): LivePlayerLogStatusResponse {
+  if (!isRecord(payload)) {
+    throw new LiveStatusApiError("malformed_response", "Live Player.log status must be a JSON object.");
+  }
+  if (payload.schema_version !== LIVE_STATUS_SCHEMA_VERSION) {
+    throw new LiveStatusApiError(
+      "incompatible_response",
+      `Expected live status schema ${LIVE_STATUS_SCHEMA_VERSION}.`
+    );
+  }
+  if (payload.object !== LIVE_PLAYER_LOG_STATUS_OBJECT) {
+    throw new LiveStatusApiError("malformed_response", "Live Player.log status object is unsupported.");
+  }
+  if (
+    typeof payload.status !== "string" ||
+    !isLivePlayerLogSummary(payload.player_log) ||
+    !isStringArray(payload.diagnostics) ||
+    !isStringArray(payload.warnings) ||
+    !isStringArray(payload.errors)
+  ) {
+    throw new LiveStatusApiError("malformed_response", "Live Player.log status has an unsupported shape.");
+  }
+  return payload as LivePlayerLogStatusResponse;
+}
+
+function validateLiveWatcherStatusResponse(payload: unknown): LiveWatcherStatusResponse {
+  if (!isRecord(payload)) {
+    throw new LiveStatusApiError("malformed_response", "Live watcher status must be a JSON object.");
+  }
+  if (payload.schema_version !== LIVE_STATUS_SCHEMA_VERSION) {
+    throw new LiveStatusApiError(
+      "incompatible_response",
+      `Expected live status schema ${LIVE_STATUS_SCHEMA_VERSION}.`
+    );
+  }
+  if (payload.object !== LIVE_WATCHER_STATUS_OBJECT) {
+    throw new LiveStatusApiError("malformed_response", "Live watcher status object is unsupported.");
+  }
+  if (
+    typeof payload.status !== "string" ||
+    !isLiveWatcherSummary(payload.watcher) ||
+    !isLivePlayerLogSummary(payload.player_log) ||
+    !isStringArray(payload.warnings) ||
+    !isStringArray(payload.errors)
+  ) {
+    throw new LiveStatusApiError("malformed_response", "Live watcher status has an unsupported shape.");
+  }
+  return payload as LiveWatcherStatusResponse;
 }
 
 async function fetchAnalyticsHistory(
@@ -1128,6 +1232,14 @@ function getManualImportApiBaseUrl(): string {
   }
 }
 
+function getLiveStatusApiBaseUrl(): string {
+  try {
+    return getApiBaseUrl();
+  } catch {
+    throw new LiveStatusApiError("unsafe_api_base_url", "API base URL must be a local loopback HTTP origin.");
+  }
+}
+
 function getMatchJournalApiBaseUrl(): string {
   try {
     return getApiBaseUrl();
@@ -1320,6 +1432,39 @@ function isBooleanOrNull(value: unknown): value is boolean | null {
 
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((entry) => typeof entry === "string");
+}
+
+function isLivePlayerLogSummary(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.status === "string" &&
+    typeof value.source === "string" &&
+    typeof value.display_path === "string" &&
+    typeof value.path_kind === "string" &&
+    typeof value.metadata_access === "string" &&
+    typeof value.exists === "boolean" &&
+    value.contents_read === false &&
+    value.tailing_started === false &&
+    isNumberOrNull(value.size_bytes) &&
+    isStringOrNull(value.last_modified_at) &&
+    isNumberOrNull(value.last_modified_age_seconds) &&
+    typeof value.activity_hint === "string"
+  );
+}
+
+function isLiveWatcherSummary(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.status === "string" &&
+    value.mode === "readiness_only" &&
+    value.running === false &&
+    value.start_allowed === false &&
+    value.stop_allowed === false &&
+    value.parser_runner_started === false &&
+    value.tailing_started === false &&
+    value.sqlite_live_writes_enabled === false &&
+    isStringOrNull(value.reason)
+  );
 }
 
 function isNumberArray(value: unknown): value is number[] {

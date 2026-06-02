@@ -5,10 +5,13 @@ import sqlite3
 
 from mythic_edge_parser.app.analytics_migration_loader import apply_analytics_migrations
 from mythic_edge_parser.app.match_journal_migration_loader import apply_match_journal_migrations
+from mythic_edge_parser.local_app import setup_status as setup_status_module
 from mythic_edge_parser.local_app.config import _is_safe_unexpected_field_name, load_local_app_config_status
 from mythic_edge_parser.local_app.paths import build_local_app_paths, build_path_status
 from mythic_edge_parser.local_app.setup_status import (
     build_analytics_database_status,
+    build_live_player_log_status,
+    build_live_watcher_status,
     build_match_journal_write_status,
     build_migration_loader_status,
     build_player_log_path_status,
@@ -182,6 +185,98 @@ def test_player_log_status_uses_configured_path_without_reading_or_returning_it(
     assert status["player_log"]["contents_read"] is False
     assert str(player_log_path) not in encoded
     assert "private log body" not in encoded
+
+
+def test_live_player_log_status_reports_configured_file_metadata_safely(tmp_path) -> None:
+    paths = build_local_app_paths(tmp_path / "app-data")
+    player_log_path = tmp_path / "Player.log"
+    player_log_path.write_text("private log body must not be read", encoding="utf-8")
+    paths.config_file.parent.mkdir(parents=True)
+    paths.config_file.write_text(json.dumps({"player_log_path": str(player_log_path)}), encoding="utf-8")
+
+    status = build_live_player_log_status(paths)
+    encoded = json.dumps(status, sort_keys=True)
+
+    assert status["object"] == "mythic_edge_local_app_live_player_log_status"
+    assert status["schema_version"] == "live_app_player_log_path_watcher_status.v1"
+    assert status["status"] == "ok"
+    assert status["player_log"]["status"] == "configured_exists"
+    assert status["player_log"]["source"] == "configured"
+    assert status["player_log"]["display_path"] == "<configured_player_log>"
+    assert status["player_log"]["path_kind"] == "file"
+    assert status["player_log"]["metadata_access"] == "accessible"
+    assert status["player_log"]["exists"] is True
+    assert status["player_log"]["contents_read"] is False
+    assert status["player_log"]["tailing_started"] is False
+    assert status["player_log"]["size_bytes"] >= 0
+    assert isinstance(status["player_log"]["last_modified_at"], str)
+    assert status["player_log"]["last_modified_age_seconds"] >= 0
+    assert status["player_log"]["activity_hint"] in {"recent", "stale"}
+    assert str(player_log_path) not in encoded
+    assert "private log body" not in encoded
+
+
+def test_live_player_log_status_reports_missing_directory_invalid_and_unavailable(tmp_path) -> None:
+    missing_paths = build_local_app_paths(tmp_path / "missing-app-data")
+    missing_paths.config_file.parent.mkdir(parents=True)
+    missing_paths.config_file.write_text(
+        json.dumps({"player_log_path": str(tmp_path / "missing" / "Player.log")}),
+        encoding="utf-8",
+    )
+
+    missing_status = build_live_player_log_status(missing_paths)
+
+    assert missing_status["player_log"]["status"] == "configured_missing"
+    assert missing_status["player_log"]["path_kind"] == "missing"
+    assert missing_status["player_log"]["contents_read"] is False
+
+    directory_paths = build_local_app_paths(tmp_path / "directory-app-data")
+    directory_path = tmp_path / "Player.log"
+    directory_path.mkdir()
+    directory_paths.config_file.parent.mkdir(parents=True)
+    directory_paths.config_file.write_text(json.dumps({"player_log_path": str(directory_path)}), encoding="utf-8")
+
+    directory_status = build_live_player_log_status(directory_paths)
+
+    assert directory_status["player_log"]["status"] == "configured_not_file"
+    assert directory_status["player_log"]["path_kind"] == "directory"
+    assert "player_log_not_file" in directory_status["warnings"]
+
+    invalid_paths = build_local_app_paths(tmp_path / "invalid-app-data")
+    invalid_paths.config_file.parent.mkdir(parents=True)
+    invalid_paths.config_file.write_text(json.dumps({"player_log_path": []}), encoding="utf-8")
+
+    invalid_status = build_live_player_log_status(invalid_paths)
+    invalid_watcher = build_live_watcher_status(invalid_paths)
+
+    assert invalid_status["player_log"]["status"] == "invalid_config"
+    assert invalid_status["player_log"]["metadata_access"] == "not_checked"
+    assert invalid_watcher["watcher"]["status"] == "blocked_invalid_config"
+    assert invalid_watcher["watcher"]["start_allowed"] is False
+
+    unavailable_paths = build_local_app_paths(None, env={})
+    unavailable_status = build_live_player_log_status(unavailable_paths)
+
+    assert unavailable_status["player_log"]["status"] == "unavailable"
+    assert unavailable_status["player_log"]["display_path"] == "<player_log_unavailable>"
+    assert unavailable_status["player_log"]["contents_read"] is False
+
+
+def test_live_player_log_status_detects_default_path_without_exposing_it(tmp_path, monkeypatch) -> None:
+    default_log = tmp_path / "DefaultPlayer.log"
+    default_log.write_text("private default body must not be read", encoding="utf-8")
+    monkeypatch.setattr(setup_status_module, "DEFAULT_MTGA_PLAYER_LOG", default_log)
+
+    paths = build_local_app_paths(tmp_path / "app-data")
+    status = build_live_player_log_status(paths)
+    encoded = json.dumps(status, sort_keys=True)
+
+    assert status["player_log"]["status"] == "detected_exists"
+    assert status["player_log"]["source"] == "detected_default"
+    assert status["player_log"]["display_path"] == "<detected_mtga_player_log>"
+    assert status["player_log"]["contents_read"] is False
+    assert str(default_log) not in encoded
+    assert "private default body" not in encoded
 
 
 def test_database_status_reports_missing_without_creating_sqlite_files(tmp_path) -> None:

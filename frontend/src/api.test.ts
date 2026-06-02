@@ -4,6 +4,8 @@ import {
   fetchGameplayActionReview,
   AnalyticsHistoryApiError,
   fetchGame1PostboardSplitReview,
+  fetchLivePlayerLogStatus,
+  fetchLiveWatcherStatus,
   fetchManualImportJob,
   fetchGameHistory,
   fetchMatchHistory,
@@ -14,6 +16,7 @@ import {
   fetchPlayDrawSplitReview,
   fetchSetupStatus,
   getApiBaseUrl,
+  LiveStatusApiError,
   MatchJournalApiError,
   ManualImportApiError,
   SetupStatusApiError,
@@ -34,6 +37,9 @@ import {
   GAMEPLAY_ACTION_REVIEW_OBJECT,
   LEGACY_JSONL_IMPORT_QUALITY_OBJECT,
   LEGACY_JSONL_IMPORT_QUALITY_SCHEMA_VERSION,
+  LIVE_PLAYER_LOG_STATUS_OBJECT,
+  LIVE_STATUS_SCHEMA_VERSION,
+  LIVE_WATCHER_STATUS_OBJECT,
   MANUAL_IMPORT_JOB_OBJECT,
   MANUAL_IMPORT_JOB_SCHEMA_VERSION,
   MATCH_JOURNAL_OBJECT,
@@ -50,6 +56,8 @@ import {
   type GameHistoryResponse,
   type GameplayActionReviewResponse,
   type LegacyJsonlImportQuality,
+  type LivePlayerLogStatusResponse,
+  type LiveWatcherStatusResponse,
   type ManualImportJob,
   type MatchJournalResponse,
   type MulliganHistoryResponse,
@@ -79,6 +87,45 @@ describe("api helpers", () => {
     expect(fetchImpl).toHaveBeenCalledWith("/api/app/setup-status", {
       headers: { Accept: "application/json" }
     });
+  });
+
+  it("fetches and validates live Player.log and watcher status responses", async () => {
+    const playerLogPayload = buildLivePlayerLogStatusPayload();
+    const watcherPayload = buildLiveWatcherStatusPayload();
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input).endsWith("/api/live/player-log/status")) {
+        return jsonResponse(playerLogPayload);
+      }
+      return jsonResponse(watcherPayload);
+    }) as unknown as typeof fetch;
+
+    await expect(fetchLivePlayerLogStatus(fetchImpl)).resolves.toEqual(playerLogPayload);
+    await expect(fetchLiveWatcherStatus(fetchImpl)).resolves.toEqual(watcherPayload);
+    expect(fetchImpl).toHaveBeenCalledWith("/api/live/player-log/status", {
+      headers: { Accept: "application/json" }
+    });
+    expect(fetchImpl).toHaveBeenCalledWith("/api/live/watcher/status", {
+      headers: { Accept: "application/json" }
+    });
+  });
+
+  it("rejects malformed live status responses safely", async () => {
+    const wrongSchemaFetch = vi.fn(async () =>
+      jsonResponse({ ...buildLivePlayerLogStatusPayload(), schema_version: "future.live.schema" })
+    ) as unknown as typeof fetch;
+    await expect(fetchLivePlayerLogStatus(wrongSchemaFetch)).rejects.toBeInstanceOf(LiveStatusApiError);
+    await expect(fetchLivePlayerLogStatus(wrongSchemaFetch)).rejects.toMatchObject({ code: "incompatible_response" });
+
+    const rawPathFetch = vi.fn(async () =>
+      jsonResponse({
+        ...buildLiveWatcherStatusPayload(),
+        watcher: {
+          ...buildLiveWatcherStatusPayload().watcher,
+          running: true
+        }
+      })
+    ) as unknown as typeof fetch;
+    await expect(fetchLiveWatcherStatus(rawPathFetch)).rejects.toMatchObject({ code: "malformed_response" });
   });
 
   it("classifies missing required schema fields as malformed responses", async () => {
@@ -591,6 +638,66 @@ function buildSetupStatusPayload(): SetupStatusResponse {
     migrations: { status: "ok" },
     runtime: { status: "ok" },
     capabilities: { setup_status: "enabled", match_journal_write_controls: "enabled_on_first_write" }
+  };
+}
+
+function buildLivePlayerLogStatusPayload(): LivePlayerLogStatusResponse {
+  return {
+    object: LIVE_PLAYER_LOG_STATUS_OBJECT,
+    schema_version: LIVE_STATUS_SCHEMA_VERSION,
+    status: "ok",
+    player_log: {
+      status: "configured_exists",
+      source: "configured",
+      display_path: "<configured_player_log>",
+      path_kind: "file",
+      metadata_access: "accessible",
+      exists: true,
+      contents_read: false,
+      tailing_started: false,
+      size_bytes: 42,
+      last_modified_at: "2026-06-02T00:00:00Z",
+      last_modified_age_seconds: 1,
+      activity_hint: "recent"
+    },
+    diagnostics: ["readability_not_probed", "rotation_detection_deferred", "truncation_detection_deferred"],
+    warnings: [],
+    errors: []
+  };
+}
+
+function buildLiveWatcherStatusPayload(): LiveWatcherStatusResponse {
+  return {
+    object: LIVE_WATCHER_STATUS_OBJECT,
+    schema_version: LIVE_STATUS_SCHEMA_VERSION,
+    status: "ready",
+    watcher: {
+      status: "ready",
+      mode: "readiness_only",
+      running: false,
+      start_allowed: false,
+      stop_allowed: false,
+      parser_runner_started: false,
+      tailing_started: false,
+      sqlite_live_writes_enabled: false,
+      reason: null
+    },
+    player_log: {
+      status: "configured_exists",
+      source: "configured",
+      display_path: "<configured_player_log>",
+      path_kind: "file",
+      metadata_access: "accessible",
+      exists: true,
+      contents_read: false,
+      tailing_started: false,
+      size_bytes: 42,
+      last_modified_at: "2026-06-02T00:00:00Z",
+      last_modified_age_seconds: 1,
+      activity_hint: "recent"
+    },
+    warnings: [],
+    errors: []
   };
 }
 

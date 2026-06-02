@@ -38,6 +38,8 @@ from .paths import build_local_app_paths
 from .setup_status import (
     build_analytics_database_status,
     build_health_status,
+    build_live_player_log_status,
+    build_live_watcher_status,
     build_runtime_state,
     build_setup_status,
 )
@@ -95,6 +97,14 @@ def create_app(
     @app.get("/api/analytics/database/status")
     def analytics_database_status() -> dict[str, object]:
         return build_analytics_database_status(local_app_paths)
+
+    @app.get("/api/live/player-log/status")
+    def live_player_log_status() -> dict[str, object]:
+        return build_live_player_log_status(local_app_paths)
+
+    @app.get("/api/live/watcher/status")
+    def live_watcher_status() -> dict[str, object]:
+        return build_live_watcher_status(local_app_paths)
 
     @app.get("/api/analytics/matches")
     def analytics_match_history(request: Request) -> dict[str, object]:
