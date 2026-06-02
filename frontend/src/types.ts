@@ -230,10 +230,27 @@ export type MatchJournalResponse = {
   errors: string[];
 };
 
-export type MatchJournalNoteRequest = {
+export type MatchJournalAttachedNoteRequest = {
   context: MatchJournalContext;
   note_scope: "match" | "game" | "sideboarding";
   note_text: string;
+};
+
+export type MatchJournalUnattachedNoteRequest = {
+  note_scope: "unattached";
+  note_text: string;
+  author_label?: string;
+  source_surface?: string;
+  privacy_label?: string;
+  note_format?: string;
+  priority_label?: string;
+};
+
+export type MatchJournalNoteRequest = MatchJournalAttachedNoteRequest | MatchJournalUnattachedNoteRequest;
+
+export type MatchJournalUnattachedNoteReadbackRequest = {
+  journal_note_id: string;
+  note_scope: "unattached";
 };
 
 export type MatchJournalOpponentLabelsRequest = {

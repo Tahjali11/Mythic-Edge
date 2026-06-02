@@ -41,6 +41,7 @@ import {
 
 afterEach(() => {
   cleanup();
+  window.sessionStorage.clear();
 });
 
 describe("SetupStatusApp", () => {
@@ -111,6 +112,97 @@ describe("SetupStatusApp", () => {
     expect(screen.getByLabelText("Display-only value")).toBeInTheDocument();
     expect(screen.queryByText(/pilot.error|best line|hidden card|player mistake|coaching|line tracer/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /reset|delete|wipe|cancel|retry|start|stop|git|sheets|ai/i })).not.toBeInTheDocument();
+  });
+
+  it("submits and reloads a no-context unattached smoke note without parser identity", async () => {
+    const fetchJournal = vi.fn(async () => buildMatchJournalPayload());
+    const submitJournalUnattachedNote = vi.fn(async (_request: unknown) =>
+      buildMatchJournalPayload({
+        result: {
+          service_result: {
+            action: "record_unattached_note",
+            status: "completed",
+            primary_record_type: "note",
+            primary_record_id: "journal_note:smoke:1",
+            record_counts: { note: 1 }
+          }
+        }
+      })
+    );
+    const fetchJournalUnattachedNote = vi.fn(async () =>
+      buildMatchJournalPayload({
+        result: {
+          note: {
+            journal_note_id: "journal_note:smoke:1",
+            note_scope: "unattached",
+            attachment_status: "unattached",
+            author_label: "codex_smoke_test",
+            source_surface: "local_tool",
+            privacy_label: "sanitized_fixture",
+            smoke_marker_present: true
+          }
+        }
+      })
+    );
+    const emptyMatches = { ...buildMatchHistoryPayload(), status: "empty" as const, rows: [] };
+    const emptyGames = { ...buildGameHistoryPayload(), status: "empty" as const, rows: [] };
+    const props = {
+      fetchGames: () => Promise.resolve(emptyGames),
+      fetchJournal,
+      fetchJournalUnattachedNote,
+      fetchMatches: () => Promise.resolve(emptyMatches),
+      fetchStatus: () => Promise.resolve(buildPayload()),
+      submitJournalUnattachedNote
+    };
+
+    render(<SetupStatusApp {...props} />);
+
+    expect(await screen.findByRole("heading", { name: "Match Journal Cockpit" })).toBeInTheDocument();
+    expect(fetchJournal).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Save Journal Note" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save Opponent Labels" })).toBeDisabled();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Save Unattached Smoke Note" })).toBeEnabled();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Save Unattached Smoke Note" }));
+
+    await waitFor(() => {
+      expect(submitJournalUnattachedNote).toHaveBeenCalledTimes(1);
+    });
+    const request = submitJournalUnattachedNote.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(request).toMatchObject({
+      note_scope: "unattached",
+      author_label: "codex_smoke_test",
+      source_surface: "local_tool",
+      privacy_label: "sanitized_fixture",
+      note_format: "plain_text",
+      priority_label: "normal"
+    });
+    expect(request).not.toHaveProperty("context");
+    expect(String(request.note_text)).toMatch(/^MYTHIC_EDGE_SMOKE_TEST_DO_NOT_USE_AS_GAME_REVIEW/);
+
+    await waitFor(() => {
+      expect(fetchJournalUnattachedNote).toHaveBeenCalledWith({
+        journal_note_id: "journal_note:smoke:1",
+        note_scope: "unattached"
+      });
+    });
+    expect(await screen.findByRole("heading", { name: "Unattached Smoke Note" })).toBeInTheDocument();
+    expect(screen.getAllByText("journal_note:smoke:1").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("unattached").length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText(/MYTHIC_EDGE_SMOKE_TEST|Player\.log|C:\\|script\.google\.com/i)).not.toBeInTheDocument();
+
+    cleanup();
+    render(<SetupStatusApp {...props} />);
+
+    await waitFor(() => {
+      expect(fetchJournalUnattachedNote).toHaveBeenCalledTimes(2);
+    });
+    expect(fetchJournalUnattachedNote).toHaveBeenLastCalledWith({
+      journal_note_id: "journal_note:smoke:1",
+      note_scope: "unattached"
+    });
   });
 
   it("disables Match Journal forms when the backend facade is unavailable", async () => {

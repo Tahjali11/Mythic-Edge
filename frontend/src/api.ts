@@ -37,6 +37,7 @@ import {
   type MatchJournalResponse,
   type MatchJournalReviewFlagRequest,
   type MatchJournalStatus,
+  type MatchJournalUnattachedNoteReadbackRequest,
   type MatchHistoryResponse,
   type MulliganHistoryResponse,
   type OpeningHandHistoryResponse,
@@ -408,6 +409,27 @@ export async function submitMatchJournalNote(
   fetchImpl: typeof fetch = fetch
 ): Promise<MatchJournalResponse> {
   return postMatchJournal(MATCH_JOURNAL_NOTES_PATH, request, fetchImpl);
+}
+
+export async function fetchMatchJournalUnattachedNote(
+  request: MatchJournalUnattachedNoteReadbackRequest,
+  fetchImpl: typeof fetch = fetch
+): Promise<MatchJournalResponse> {
+  const baseUrl = getMatchJournalApiBaseUrl();
+  const params = new URLSearchParams();
+  params.set("journal_note_id", request.journal_note_id);
+  params.set("note_scope", request.note_scope);
+
+  let response: Response;
+  try {
+    response = await fetchImpl(`${baseUrl}${MATCH_JOURNAL_NOTES_PATH}?${params.toString()}`, {
+      headers: { Accept: "application/json" }
+    });
+  } catch {
+    throw new MatchJournalApiError("backend_unavailable", "Match Journal backend is unavailable.");
+  }
+
+  return parseMatchJournalResponse(response);
 }
 
 export async function submitMatchJournalOpponentLabels(

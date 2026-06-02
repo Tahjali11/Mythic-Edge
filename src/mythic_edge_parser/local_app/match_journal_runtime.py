@@ -28,6 +28,34 @@ class LocalAppMatchJournalService:
             return None
         return self._with_read_service(lambda service: service.get_journal_bundle(context))
 
+    def get_unattached_note_summary(
+        self,
+        journal_note_id: str,
+        *,
+        smoke_marker_prefix: str,
+    ) -> Mapping[str, object] | None:
+        if not self._database_path.exists() or not self._database_path.is_file():
+            return None
+
+        def operation(service: MatchJournalService) -> Mapping[str, object] | None:
+            note = service.repository.get_note(journal_note_id)
+            if note is None or not _is_unattached_note(note):
+                return None
+            note_text = note.get("note_text")
+            return {
+                "journal_note_id": note["journal_note_id"],
+                "note_scope": "unattached",
+                "author_label": note["author_label"],
+                "source_surface": note["source_surface"],
+                "privacy_label": note["privacy_label"],
+                "created_at": note["created_at"],
+                "updated_at": note["updated_at"],
+                "smoke_marker_present": isinstance(note_text, str) and note_text.startswith(smoke_marker_prefix),
+                "attachment_status": "unattached",
+            }
+
+        return self._with_read_service(operation)
+
     def record_match_note(
         self,
         context: Mapping[str, object] | None,
@@ -122,6 +150,16 @@ def build_match_journal_service_factory(paths: LocalAppPaths) -> Callable[[], Lo
         return LocalAppMatchJournalService(paths.match_journal_database)
 
     return factory
+
+
+def _is_unattached_note(note: Mapping[str, object]) -> bool:
+    return (
+        note.get("note_scope") == "unattached"
+        and note.get("journal_match_id") is None
+        and note.get("journal_game_id") is None
+        and note.get("parser_match_id") is None
+        and note.get("parser_game_id") is None
+    )
 
 
 def build_match_journal_write_status(paths: LocalAppPaths) -> dict[str, object]:
