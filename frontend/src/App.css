@@ -112,6 +112,15 @@ h3 {
   padding: 18px;
 }
 
+.matchJournalSection {
+  margin-top: 20px;
+  border: 1px solid #d9ded7;
+  border-top: 5px solid #73808b;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 18px;
+}
+
 .analyticsHistorySection {
   margin-top: 20px;
   border: 1px solid #d9ded7;
@@ -222,6 +231,7 @@ h3 {
 }
 
 .manualImportForm input,
+.manualImportForm select,
 .manualImportForm textarea {
   width: 100%;
   min-width: 0;
@@ -234,6 +244,19 @@ h3 {
 
 .manualImportForm textarea {
   resize: vertical;
+}
+
+.journalFormGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.journalForm {
+  align-content: start;
+  border-top: 1px solid #d9ded7;
+  padding-top: 14px;
 }
 
 .manualImportForm button {
@@ -392,6 +415,10 @@ dd {
   .manualImportForm button {
     grid-column: 1;
     width: 100%;
+  }
+
+  .journalFormGrid {
+    grid-template-columns: 1fr;
   }
 
   .uploadSelection {

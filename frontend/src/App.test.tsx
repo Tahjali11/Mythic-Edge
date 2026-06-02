@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { AnalyticsHistoryApiError, ManualImportApiError, SetupStatusApiError } from "./api";
+import { AnalyticsHistoryApiError, ManualImportApiError, MatchJournalApiError, SetupStatusApiError } from "./api";
 import { SetupStatusApp } from "./App";
 import {
   ACTION_REVIEW_SCHEMA_VERSION,
@@ -14,6 +14,8 @@ import {
   LEGACY_JSONL_IMPORT_QUALITY_SCHEMA_VERSION,
   MANUAL_IMPORT_JOB_OBJECT,
   MANUAL_IMPORT_JOB_SCHEMA_VERSION,
+  MATCH_JOURNAL_OBJECT,
+  MATCH_JOURNAL_SCHEMA_VERSION,
   MATCH_HISTORY_OBJECT,
   MULLIGAN_HISTORY_OBJECT,
   OPPONENT_CARD_OBSERVATION_REVIEW_OBJECT,
@@ -28,6 +30,7 @@ import {
   type LegacyJsonlImportQuality,
   type ManualImportJob,
   type ManualImportSourceArtifact,
+  type MatchJournalResponse,
   type MatchHistoryResponse,
   type MulliganHistoryResponse,
   type OpeningHandHistoryResponse,
@@ -73,7 +76,7 @@ describe("SetupStatusApp", () => {
     expect(await screen.findByRole("heading", { name: "Analytics History" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Match History" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Game History" })).toBeInTheDocument();
-    expect(screen.getByText("match:history:1")).toBeInTheDocument();
+    expect(screen.getAllByText("match:history:1").length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText("match:history:1 game 1").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("2-1 of 3")).toBeInTheDocument();
     expect(screen.getAllByText("observed high final none available").length).toBeGreaterThanOrEqual(2);
@@ -86,6 +89,169 @@ describe("SetupStatusApp", () => {
       expect(fetchMatches).toHaveBeenCalledTimes(2);
       expect(fetchGames).toHaveBeenCalledTimes(2);
     });
+  });
+
+  it("renders Match Journal cockpit context and bundle without pilot-error or destructive controls", async () => {
+    render(
+      <SetupStatusApp
+        fetchGames={() => Promise.resolve(buildGameHistoryPayload())}
+        fetchJournal={() => Promise.resolve(buildMatchJournalPayload())}
+        fetchMatches={() => Promise.resolve(buildMatchHistoryPayload())}
+        fetchStatus={() => Promise.resolve(buildPayload())}
+      />
+    );
+
+    expect(await screen.findByRole("heading", { name: "Match Journal Cockpit" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Read-only Context" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Journal Bundle" })).toBeInTheDocument();
+    expect(screen.getAllByText("match:history:1").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("match:history:1:g1").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByLabelText("Display-only field")).toBeInTheDocument();
+    expect(screen.getByLabelText("Display-only value")).toBeInTheDocument();
+    expect(screen.queryByText(/pilot.error|best line|hidden card|player mistake|coaching|line tracer/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /reset|delete|wipe|cancel|retry|start|stop|git|sheets|ai/i })).not.toBeInTheDocument();
+  });
+
+  it("disables Match Journal forms when the backend facade is unavailable", async () => {
+    render(
+      <SetupStatusApp
+        fetchGames={() => Promise.resolve(buildGameHistoryPayload())}
+        fetchJournal={() =>
+          Promise.resolve(buildMatchJournalPayload({ status: "unavailable", result: {}, errors: ["service_unavailable"] }))
+        }
+        fetchMatches={() => Promise.resolve(buildMatchHistoryPayload())}
+        fetchStatus={() => Promise.resolve(buildPayload())}
+      />
+    );
+
+    expect(await screen.findByText("Match Journal unavailable")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save Journal Note" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save Opponent Labels" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save Review Flag" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save Experiment Label" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Propose Display Correction" })).toBeDisabled();
+  });
+
+  it("submits allowed Match Journal cockpit updates with parser-owned context only", async () => {
+    const submitJournalNote = vi.fn(async () => buildMatchJournalPayload({ result: { service_result: { action: "note" } } }));
+    const submitJournalOpponentLabels = vi.fn(async () =>
+      buildMatchJournalPayload({ result: { service_result: { action: "opponent" } } })
+    );
+    const submitJournalReviewFlag = vi.fn(async () =>
+      buildMatchJournalPayload({ result: { service_result: { action: "flag" } } })
+    );
+    const submitJournalExperimentLabel = vi.fn(async () =>
+      buildMatchJournalPayload({ result: { service_result: { action: "experiment" } } })
+    );
+    const submitJournalDisplayCorrection = vi.fn(async () =>
+      buildMatchJournalPayload({ result: { service_result: { action: "display" } } })
+    );
+    render(
+      <SetupStatusApp
+        fetchGames={() => Promise.resolve(buildGameHistoryPayload())}
+        fetchJournal={() => Promise.resolve(buildMatchJournalPayload())}
+        fetchMatches={() => Promise.resolve(buildMatchHistoryPayload())}
+        fetchStatus={() => Promise.resolve(buildPayload())}
+        submitJournalDisplayCorrection={submitJournalDisplayCorrection}
+        submitJournalExperimentLabel={submitJournalExperimentLabel}
+        submitJournalNote={submitJournalNote}
+        submitJournalOpponentLabels={submitJournalOpponentLabels}
+        submitJournalReviewFlag={submitJournalReviewFlag}
+      />
+    );
+
+    await screen.findByRole("heading", { name: "Match Journal Cockpit" });
+    fireEvent.change(screen.getByLabelText("Journal note"), { target: { value: "Synthetic journal note." } });
+    fireEvent.click(screen.getByRole("button", { name: "Save Journal Note" }));
+    await waitFor(() => {
+      expect(submitJournalNote).toHaveBeenCalledWith({
+        context: {
+          parser_match_id: "match:history:1",
+          parser_game_id: "match:history:1:g1",
+          game_number: 1
+        },
+        note_scope: "game",
+        note_text: "Synthetic journal note."
+      });
+    });
+
+    fireEvent.change(screen.getByLabelText("Opponent manual label"), {
+      target: { value: "Manual Synthetic Archetype" }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save Opponent Labels" }));
+    await waitFor(() => {
+      expect(submitJournalOpponentLabels).toHaveBeenCalledWith({
+        context: {
+          parser_match_id: "match:history:1",
+          parser_game_id: "match:history:1:g1",
+          game_number: 1
+        },
+        archetype: "Manual Synthetic Archetype"
+      });
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Save Review Flag" }));
+    await waitFor(() => {
+      expect(submitJournalReviewFlag).toHaveBeenCalledWith(
+        expect.objectContaining({
+          context: {
+            parser_match_id: "match:history:1",
+            parser_game_id: "match:history:1:g1",
+            game_number: 1
+          },
+          flag_type: "needs_review"
+        })
+      );
+    });
+    fireEvent.change(screen.getByLabelText("Experiment label"), { target: { value: "ladder-test" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save Experiment Label" }));
+    await waitFor(() => {
+      expect(submitJournalExperimentLabel).toHaveBeenCalledWith(
+        expect.objectContaining({
+          context: {
+            parser_match_id: "match:history:1",
+            parser_game_id: "match:history:1:g1",
+            game_number: 1
+          },
+          experiment_label: "ladder-test"
+        })
+      );
+    });
+    fireEvent.change(screen.getByLabelText("Display-only field"), { target: { value: "review_summary" } });
+    fireEvent.change(screen.getByLabelText("Display-only value"), {
+      target: { value: "Synthetic display label." }
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Propose Display Correction" }));
+
+    await waitFor(() => {
+      expect(submitJournalDisplayCorrection).toHaveBeenCalledWith(
+        expect.objectContaining({
+          context: {
+            parser_match_id: "match:history:1",
+            parser_game_id: "match:history:1:g1",
+            game_number: 1
+          },
+          effect_scope: "journal_display_only",
+          target_surface: "journal_display"
+        })
+      );
+    });
+  });
+
+  it("renders Match Journal API errors without raw backend details", async () => {
+    render(
+      <SetupStatusApp
+        fetchGames={() => Promise.resolve(buildGameHistoryPayload())}
+        fetchJournal={() =>
+          Promise.reject(new MatchJournalApiError("malformed_response", "Malformed Match Journal response"))
+        }
+        fetchMatches={() => Promise.resolve(buildMatchHistoryPayload())}
+        fetchStatus={() => Promise.resolve(buildPayload())}
+      />
+    );
+
+    expect(await screen.findByRole("heading", { name: "Malformed Match Journal response" })).toBeInTheDocument();
+    expect(screen.queryByText(/stack|error:|select \*|C:\\/i)).not.toBeInTheDocument();
   });
 
   it("renders read-only opening hand and mulligan history with a refresh control", async () => {
@@ -705,6 +871,28 @@ function buildPayload(overrides: Partial<SetupStatusResponse> = {}): SetupStatus
       manual_import: "enabled",
       live_watcher: "disabled"
     },
+    ...overrides
+  };
+}
+
+function buildMatchJournalPayload(overrides: Partial<MatchJournalResponse> = {}): MatchJournalResponse {
+  return {
+    object: MATCH_JOURNAL_OBJECT,
+    schema_version: MATCH_JOURNAL_SCHEMA_VERSION,
+    status: "ok",
+    result: {
+      bundle: {
+        match: { parser_match_id: "match:history:1" },
+        games: [{ parser_game_id: "match:history:1:g1" }],
+        notes: [{ journal_note_id: "note:1" }],
+        labels: [{ journal_label_id: "label:1" }],
+        review_flags: [{ journal_review_flag_id: "flag:1" }],
+        field_overrides: [{ journal_field_override_id: "override:1", effect_scope: "journal_display_only" }],
+        warnings: []
+      }
+    },
+    warnings: [],
+    errors: [],
     ...overrides
   };
 }

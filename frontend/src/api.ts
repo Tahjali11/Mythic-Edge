@@ -9,6 +9,8 @@ import {
   LEGACY_JSONL_IMPORT_QUALITY_SCHEMA_VERSION,
   MANUAL_IMPORT_JOB_OBJECT,
   MANUAL_IMPORT_JOB_SCHEMA_VERSION,
+  MATCH_JOURNAL_OBJECT,
+  MATCH_JOURNAL_SCHEMA_VERSION,
   MATCH_HISTORY_OBJECT,
   MULLIGAN_HISTORY_OBJECT,
   OPPONENT_CARD_OBSERVATION_REVIEW_OBJECT,
@@ -26,6 +28,15 @@ import {
   type ManualImportJob,
   type ManualImportRequest,
   type ManualImportUploadRequest,
+  type MatchJournalApiErrorCode,
+  type MatchJournalContext,
+  type MatchJournalDisplayCorrectionRequest,
+  type MatchJournalExperimentLabelRequest,
+  type MatchJournalNoteRequest,
+  type MatchJournalOpponentLabelsRequest,
+  type MatchJournalResponse,
+  type MatchJournalReviewFlagRequest,
+  type MatchJournalStatus,
   type MatchHistoryResponse,
   type MulliganHistoryResponse,
   type OpeningHandHistoryResponse,
@@ -47,6 +58,12 @@ const GAME1_POSTBOARD_SPLIT_REVIEW_PATH = "/api/analytics/game1-postboard-splits
 const MANUAL_IMPORT_PATH = "/api/imports/jsonl";
 const MANUAL_IMPORT_UPLOAD_PATH = "/api/imports/jsonl/upload";
 const MANUAL_IMPORT_JOB_PATH = "/api/imports/jobs";
+const MATCH_JOURNAL_PATH = "/api/journal";
+const MATCH_JOURNAL_NOTES_PATH = "/api/journal/notes";
+const MATCH_JOURNAL_OPPONENT_LABELS_PATH = "/api/journal/opponent-labels";
+const MATCH_JOURNAL_REVIEW_FLAGS_PATH = "/api/journal/review-flags";
+const MATCH_JOURNAL_EXPERIMENT_LABEL_PATH = "/api/journal/experiment-label";
+const MATCH_JOURNAL_DISPLAY_CORRECTIONS_PATH = "/api/journal/display-corrections";
 const REQUIRED_SETUP_STATUS_FIELDS = [
   "object",
   "schema_version",
@@ -86,6 +103,7 @@ const REQUIRED_ANALYTICS_HISTORY_FIELDS = [
   "warnings",
   "errors"
 ] as const;
+const REQUIRED_MATCH_JOURNAL_FIELDS = ["object", "schema_version", "status", "result", "warnings", "errors"] as const;
 
 export class SetupStatusApiError extends Error {
   code: SetupStatusErrorCode;
@@ -113,6 +131,16 @@ export class AnalyticsHistoryApiError extends Error {
   constructor(code: AnalyticsHistoryErrorCode, message: string) {
     super(message);
     this.name = "AnalyticsHistoryApiError";
+    this.code = code;
+  }
+}
+
+export class MatchJournalApiError extends Error {
+  code: MatchJournalApiErrorCode;
+
+  constructor(code: MatchJournalApiErrorCode, message: string) {
+    super(message);
+    this.name = "MatchJournalApiError";
     this.code = code;
   }
 }
@@ -335,6 +363,104 @@ export async function fetchManualImportJob(jobId: string, fetchImpl: typeof fetc
   }
 
   return validateManualImportJob(payload);
+}
+
+export async function fetchMatchJournal(
+  context: MatchJournalContext,
+  fetchImpl: typeof fetch = fetch
+): Promise<MatchJournalResponse> {
+  const baseUrl = getMatchJournalApiBaseUrl();
+  const params = new URLSearchParams();
+  if (context.parser_match_id) {
+    params.set("parser_match_id", context.parser_match_id);
+  }
+  if (context.parser_game_id) {
+    params.set("parser_game_id", context.parser_game_id);
+  }
+  if (typeof context.game_number === "number") {
+    params.set("game_number", String(context.game_number));
+  }
+
+  let response: Response;
+  try {
+    response = await fetchImpl(`${baseUrl}${MATCH_JOURNAL_PATH}?${params.toString()}`, {
+      headers: { Accept: "application/json" }
+    });
+  } catch {
+    throw new MatchJournalApiError("backend_unavailable", "Match Journal backend is unavailable.");
+  }
+
+  return parseMatchJournalResponse(response);
+}
+
+export async function submitMatchJournalNote(
+  request: MatchJournalNoteRequest,
+  fetchImpl: typeof fetch = fetch
+): Promise<MatchJournalResponse> {
+  return postMatchJournal(MATCH_JOURNAL_NOTES_PATH, request, fetchImpl);
+}
+
+export async function submitMatchJournalOpponentLabels(
+  request: MatchJournalOpponentLabelsRequest,
+  fetchImpl: typeof fetch = fetch
+): Promise<MatchJournalResponse> {
+  return postMatchJournal(MATCH_JOURNAL_OPPONENT_LABELS_PATH, request, fetchImpl);
+}
+
+export async function submitMatchJournalReviewFlag(
+  request: MatchJournalReviewFlagRequest,
+  fetchImpl: typeof fetch = fetch
+): Promise<MatchJournalResponse> {
+  return postMatchJournal(MATCH_JOURNAL_REVIEW_FLAGS_PATH, request, fetchImpl);
+}
+
+export async function submitMatchJournalExperimentLabel(
+  request: MatchJournalExperimentLabelRequest,
+  fetchImpl: typeof fetch = fetch
+): Promise<MatchJournalResponse> {
+  return postMatchJournal(MATCH_JOURNAL_EXPERIMENT_LABEL_PATH, request, fetchImpl);
+}
+
+export async function submitMatchJournalDisplayCorrection(
+  request: MatchJournalDisplayCorrectionRequest,
+  fetchImpl: typeof fetch = fetch
+): Promise<MatchJournalResponse> {
+  return postMatchJournal(MATCH_JOURNAL_DISPLAY_CORRECTIONS_PATH, request, fetchImpl);
+}
+
+async function postMatchJournal(
+  path: string,
+  request: object,
+  fetchImpl: typeof fetch
+): Promise<MatchJournalResponse> {
+  const baseUrl = getMatchJournalApiBaseUrl();
+  let response: Response;
+  try {
+    response = await fetchImpl(`${baseUrl}${path}`, {
+      method: "POST",
+      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      body: JSON.stringify(request)
+    });
+  } catch {
+    throw new MatchJournalApiError("backend_unavailable", "Match Journal backend is unavailable.");
+  }
+
+  return parseMatchJournalResponse(response);
+}
+
+async function parseMatchJournalResponse(response: Response): Promise<MatchJournalResponse> {
+  let payload: unknown;
+  try {
+    payload = await response.json();
+  } catch {
+    throw new MatchJournalApiError("malformed_response", "Match Journal returned malformed JSON.");
+  }
+
+  const journal = validateMatchJournalResponse(payload);
+  if (!response.ok && journal.errors.length === 0) {
+    throw new MatchJournalApiError("malformed_response", "Match Journal error response is missing an error code.");
+  }
+  return journal;
 }
 
 function validateSetupStatusResponse(payload: unknown): SetupStatusResponse {
@@ -967,6 +1093,59 @@ function getManualImportApiBaseUrl(): string {
   } catch {
     throw new ManualImportApiError("unsafe_api_base_url", "API base URL must be a local loopback HTTP origin.");
   }
+}
+
+function getMatchJournalApiBaseUrl(): string {
+  try {
+    return getApiBaseUrl();
+  } catch {
+    throw new MatchJournalApiError("unsafe_api_base_url", "API base URL must be a local loopback HTTP origin.");
+  }
+}
+
+function validateMatchJournalResponse(payload: unknown): MatchJournalResponse {
+  if (!isRecord(payload)) {
+    throw new MatchJournalApiError("malformed_response", "Match Journal response must be a JSON object.");
+  }
+
+  for (const field of REQUIRED_MATCH_JOURNAL_FIELDS) {
+    if (!(field in payload)) {
+      throw new MatchJournalApiError("malformed_response", "Match Journal response is missing required fields.");
+    }
+  }
+
+  if (payload.schema_version !== MATCH_JOURNAL_SCHEMA_VERSION) {
+    throw new MatchJournalApiError(
+      "incompatible_response",
+      `Expected Match Journal schema ${MATCH_JOURNAL_SCHEMA_VERSION}.`
+    );
+  }
+
+  if (payload.object !== MATCH_JOURNAL_OBJECT) {
+    throw new MatchJournalApiError("malformed_response", "Match Journal object is unsupported.");
+  }
+
+  if (
+    !isMatchJournalStatus(payload.status) ||
+    !isRecord(payload.result) ||
+    !isStringArray(payload.warnings) ||
+    !isStringArray(payload.errors)
+  ) {
+    throw new MatchJournalApiError("malformed_response", "Match Journal response has an unsupported shape.");
+  }
+
+  return payload as MatchJournalResponse;
+}
+
+function isMatchJournalStatus(value: unknown): value is MatchJournalStatus {
+  return (
+    value === "ok" ||
+    value === "degraded" ||
+    value === "empty" ||
+    value === "missing" ||
+    value === "unavailable" ||
+    value === "error"
+  );
 }
 
 function validateManualImportJob(payload: unknown): ManualImportJob {

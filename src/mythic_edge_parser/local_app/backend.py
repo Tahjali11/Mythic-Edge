@@ -27,6 +27,11 @@ from .import_jobs import (
     run_browser_jsonl_upload_import,
     run_manual_jsonl_import,
 )
+from .match_journal_cockpit import (
+    JournalServiceFactory,
+    match_journal_get_response,
+    match_journal_post_response,
+)
 from .paths import build_local_app_paths
 from .setup_status import (
     build_analytics_database_status,
@@ -47,6 +52,7 @@ def create_app(
     app_data_root: Path | None = None,
     frontend_origins: Sequence[str] | None = None,
     env: Mapping[str, str] = os.environ,
+    match_journal_service_factory: JournalServiceFactory | None = None,
 ) -> FastAPI:
     app = FastAPI(
         title="Mythic Edge Local App Backend",
@@ -128,6 +134,30 @@ def create_app(
     @app.get("/api/runtime/status")
     def runtime_state() -> dict[str, object]:
         return build_runtime_state()
+
+    @app.get("/api/journal")
+    async def match_journal(request: Request) -> object:
+        return await match_journal_get_response(request, match_journal_service_factory)
+
+    @app.post("/api/journal/notes")
+    async def match_journal_notes(request: Request) -> object:
+        return await match_journal_post_response("notes", request, match_journal_service_factory)
+
+    @app.post("/api/journal/opponent-labels")
+    async def match_journal_opponent_labels(request: Request) -> object:
+        return await match_journal_post_response("opponent-labels", request, match_journal_service_factory)
+
+    @app.post("/api/journal/review-flags")
+    async def match_journal_review_flags(request: Request) -> object:
+        return await match_journal_post_response("review-flags", request, match_journal_service_factory)
+
+    @app.post("/api/journal/experiment-label")
+    async def match_journal_experiment_label(request: Request) -> object:
+        return await match_journal_post_response("experiment-label", request, match_journal_service_factory)
+
+    @app.post("/api/journal/display-corrections")
+    async def match_journal_display_corrections(request: Request) -> object:
+        return await match_journal_post_response("display-corrections", request, match_journal_service_factory)
 
     @app.post("/api/imports/jsonl")
     def import_jsonl(request: object = Body(...)) -> dict[str, object]:

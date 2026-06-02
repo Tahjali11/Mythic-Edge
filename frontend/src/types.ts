@@ -16,6 +16,8 @@ export const OPPONENT_CARD_OBSERVATION_REVIEW_OBJECT = "mythic_edge_local_app_op
 export const SPLIT_REVIEW_SCHEMA_VERSION = "analytics_app_play_draw_postboard_split_views.v1";
 export const PLAY_DRAW_SPLIT_REVIEW_OBJECT = "mythic_edge_local_app_play_draw_split_review";
 export const GAME1_POSTBOARD_SPLIT_REVIEW_OBJECT = "mythic_edge_local_app_game1_postboard_split_review";
+export const MATCH_JOURNAL_OBJECT = "mythic_edge_local_app_match_journal";
+export const MATCH_JOURNAL_SCHEMA_VERSION = "match_journal_cockpit_ui.v1";
 
 export type SetupStatusTone =
   | "ok"
@@ -200,6 +202,65 @@ export type AnalyticsHistoryErrorCode =
   | "malformed_response"
   | "incompatible_response"
   | "unsafe_api_base_url";
+
+export type MatchJournalApiErrorCode =
+  | "backend_unavailable"
+  | "malformed_response"
+  | "incompatible_response"
+  | "unsafe_api_base_url";
+
+export type MatchJournalStatus = "ok" | "degraded" | "empty" | "missing" | "unavailable" | "error";
+
+export type MatchJournalContext = {
+  parser_match_id?: string;
+  parser_game_id?: string;
+  game_number?: number;
+};
+
+export type MatchJournalResponse = {
+  object: typeof MATCH_JOURNAL_OBJECT;
+  schema_version: typeof MATCH_JOURNAL_SCHEMA_VERSION;
+  status: MatchJournalStatus;
+  result: Record<string, unknown>;
+  warnings: string[];
+  errors: string[];
+};
+
+export type MatchJournalNoteRequest = {
+  context: MatchJournalContext;
+  note_scope: "match" | "game" | "sideboarding";
+  note_text: string;
+};
+
+export type MatchJournalOpponentLabelsRequest = {
+  context: MatchJournalContext;
+  archetype?: string;
+  tier?: string;
+};
+
+export type MatchJournalReviewFlagRequest = {
+  context: MatchJournalContext;
+  flag_type: string;
+  flag_status?: string;
+  reason?: string;
+  priority_label?: string;
+};
+
+export type MatchJournalExperimentLabelRequest = {
+  context: MatchJournalContext;
+  experiment_label: string;
+};
+
+export type MatchJournalDisplayCorrectionRequest = {
+  context: MatchJournalContext;
+  target_surface: "journal_display";
+  target_field: string;
+  proposed_value_label: string;
+  original_value_label?: string;
+  override_reason?: string;
+  override_status?: string;
+  effect_scope?: "journal_display_only";
+};
 
 export type AnalyticsHistoryStatus = "ok" | "empty" | "missing" | "unavailable" | "degraded" | "error";
 

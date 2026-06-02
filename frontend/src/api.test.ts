@@ -7,14 +7,21 @@ import {
   fetchManualImportJob,
   fetchGameHistory,
   fetchMatchHistory,
+  fetchMatchJournal,
   fetchMulliganHistory,
   fetchOpponentCardObservationReview,
   fetchOpeningHandHistory,
   fetchPlayDrawSplitReview,
   fetchSetupStatus,
   getApiBaseUrl,
+  MatchJournalApiError,
   ManualImportApiError,
   SetupStatusApiError,
+  submitMatchJournalDisplayCorrection,
+  submitMatchJournalExperimentLabel,
+  submitMatchJournalNote,
+  submitMatchJournalOpponentLabels,
+  submitMatchJournalReviewFlag,
   submitManualJsonlImport,
   submitManualJsonlUpload
 } from "./api";
@@ -29,6 +36,8 @@ import {
   LEGACY_JSONL_IMPORT_QUALITY_SCHEMA_VERSION,
   MANUAL_IMPORT_JOB_OBJECT,
   MANUAL_IMPORT_JOB_SCHEMA_VERSION,
+  MATCH_JOURNAL_OBJECT,
+  MATCH_JOURNAL_SCHEMA_VERSION,
   MATCH_HISTORY_OBJECT,
   MULLIGAN_HISTORY_OBJECT,
   OPPONENT_CARD_OBSERVATION_REVIEW_OBJECT,
@@ -42,6 +51,7 @@ import {
   type GameplayActionReviewResponse,
   type LegacyJsonlImportQuality,
   type ManualImportJob,
+  type MatchJournalResponse,
   type MulliganHistoryResponse,
   type OpeningHandHistoryResponse,
   type MatchHistoryResponse,
@@ -104,6 +114,89 @@ describe("api helpers", () => {
     }) as unknown as typeof fetch;
 
     await expect(fetchSetupStatus(fetchImpl)).rejects.toMatchObject({ code: "backend_unavailable" });
+  });
+
+  it("fetches and validates the Match Journal cockpit bundle through the local app facade", async () => {
+    const payload = buildMatchJournalPayload();
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => jsonResponse(payload));
+
+    await expect(
+      fetchMatchJournal(
+        { parser_match_id: "match:history:1", parser_game_id: "match:history:1:g1", game_number: 1 },
+        fetchImpl as unknown as typeof fetch
+      )
+    ).resolves.toEqual(payload);
+    expect(fetchImpl).toHaveBeenCalledWith(
+      "/api/journal?parser_match_id=match%3Ahistory%3A1&parser_game_id=match%3Ahistory%3A1%3Ag1&game_number=1",
+      {
+        headers: { Accept: "application/json" }
+      }
+    );
+    expect(String(fetchImpl.mock.calls[0][0])).toContain("/api/journal?");
+    expect(String(fetchImpl.mock.calls[0][0])).not.toMatch(/^\/journal/);
+  });
+
+  it("posts Match Journal cockpit mutations only to /api/journal routes", async () => {
+    const payload = buildMatchJournalPayload({ result: { service_result: { action: "completed" } } });
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => jsonResponse(payload));
+    const context = { parser_match_id: "match:history:1", parser_game_id: "match:history:1:g1", game_number: 1 };
+
+    await submitMatchJournalNote(
+      { context, note_scope: "game", note_text: "Synthetic note." },
+      fetchImpl as unknown as typeof fetch
+    );
+    await submitMatchJournalOpponentLabels(
+      { context, archetype: "Manual Synthetic Archetype" },
+      fetchImpl as unknown as typeof fetch
+    );
+    await submitMatchJournalReviewFlag(
+      { context, flag_type: "suspected_parser_gap" },
+      fetchImpl as unknown as typeof fetch
+    );
+    await submitMatchJournalExperimentLabel(
+      { context, experiment_label: "ladder-test" },
+      fetchImpl as unknown as typeof fetch
+    );
+    await submitMatchJournalDisplayCorrection(
+      {
+        context,
+        target_surface: "journal_display",
+        target_field: "review_summary",
+        proposed_value_label: "Synthetic display label."
+      },
+      fetchImpl as unknown as typeof fetch
+    );
+
+    expect(fetchImpl.mock.calls.map((call) => String(call[0]))).toEqual([
+      "/api/journal/notes",
+      "/api/journal/opponent-labels",
+      "/api/journal/review-flags",
+      "/api/journal/experiment-label",
+      "/api/journal/display-corrections"
+    ]);
+    for (const [path] of fetchImpl.mock.calls) {
+      expect(String(path)).not.toMatch(/^\/journal/);
+    }
+  });
+
+  it("returns safe Match Journal unavailable envelopes and rejects malformed journal payloads", async () => {
+    const unavailable = buildMatchJournalPayload({ status: "unavailable", errors: ["service_unavailable"] });
+    const unavailableFetch = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse(unavailable, { status: 503 })
+    );
+    await expect(
+      fetchMatchJournal({ parser_match_id: "match:history:1" }, unavailableFetch as unknown as typeof fetch)
+    ).resolves.toEqual(unavailable);
+
+    const malformedFetch = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) =>
+      jsonResponse({ ...unavailable, schema_version: "future.schema" })
+    );
+    await expect(
+      fetchMatchJournal({ parser_match_id: "match:history:1" }, malformedFetch as unknown as typeof fetch)
+    ).rejects.toBeInstanceOf(MatchJournalApiError);
+    await expect(
+      fetchMatchJournal({ parser_match_id: "match:history:1" }, malformedFetch as unknown as typeof fetch)
+    ).rejects.toMatchObject({ code: "incompatible_response" });
   });
 
   it("fetches and validates match and game history responses", async () => {
@@ -455,10 +548,11 @@ describe("api helpers", () => {
   });
 });
 
-function jsonResponse(payload: unknown): Response {
+function jsonResponse(payload: unknown, init: ResponseInit = {}): Response {
   return new Response(JSON.stringify(payload), {
-    status: 200,
-    headers: { "Content-Type": "application/json" }
+    status: init.status ?? 200,
+    statusText: init.statusText,
+    headers: { "Content-Type": "application/json", ...init.headers }
   });
 }
 
@@ -474,6 +568,28 @@ function buildSetupStatusPayload(): SetupStatusResponse {
     migrations: { status: "ok" },
     runtime: { status: "ok" },
     capabilities: { setup_status: "enabled" }
+  };
+}
+
+function buildMatchJournalPayload(overrides: Partial<MatchJournalResponse> = {}): MatchJournalResponse {
+  return {
+    object: MATCH_JOURNAL_OBJECT,
+    schema_version: MATCH_JOURNAL_SCHEMA_VERSION,
+    status: "ok",
+    result: {
+      bundle: {
+        match: { parser_match_id: "match:history:1" },
+        games: [{ parser_game_id: "match:history:1:g1" }],
+        notes: [{ journal_note_id: "note:1" }],
+        labels: [{ journal_label_id: "label:1" }],
+        review_flags: [{ journal_review_flag_id: "flag:1" }],
+        field_overrides: [{ journal_field_override_id: "override:1", effect_scope: "journal_display_only" }],
+        warnings: []
+      }
+    },
+    warnings: [],
+    errors: [],
+    ...overrides
   };
 }
 
