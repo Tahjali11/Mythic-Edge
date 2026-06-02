@@ -5,6 +5,8 @@ export const LIVE_PLAYER_LOG_STATUS_OBJECT = "mythic_edge_local_app_live_player_
 export const LIVE_WATCHER_STATUS_OBJECT = "mythic_edge_local_app_live_watcher_status";
 export const LIVE_WATCHER_PROCESS_SCHEMA_VERSION = "live_app_player_log_watcher_process_control_safeguards.v1";
 export const LIVE_WATCHER_PROCESS_OBJECT = "mythic_edge_local_app_live_watcher_process_status";
+export const LIVE_WATCHER_DIAGNOSTICS_SCHEMA_VERSION = "live_app_watcher_diagnostics.v1";
+export const LIVE_WATCHER_DIAGNOSTICS_OBJECT = "mythic_edge_local_app_live_watcher_diagnostics";
 export const MANUAL_IMPORT_JOB_OBJECT = "mythic_edge_local_app_manual_jsonl_import_job";
 export const MANUAL_IMPORT_JOB_SCHEMA_VERSION = "analytics_manual_jsonl_import_ui_job_status.v1";
 export const LEGACY_JSONL_IMPORT_QUALITY_OBJECT = "mythic_edge_legacy_jsonl_import_quality";
@@ -143,6 +145,65 @@ export type LiveWatcherProcessStatusResponse = {
   player_log: SectionStatus;
   preconditions: LiveWatcherProcessPrecondition[];
   state: LiveWatcherProcessState;
+  warnings: string[];
+  errors: string[];
+  [key: string]: unknown;
+};
+
+export type LiveWatcherDiagnosticsSeverity = "info" | "warning" | "degraded" | "error" | "blocked" | string;
+
+export type LiveWatcherDiagnosticEntry = {
+  category: string;
+  key: string;
+  severity: LiveWatcherDiagnosticsSeverity;
+  status: string;
+  evidence_availability: string;
+  source: string;
+  message: string;
+  count: number | null;
+  review_required: boolean;
+};
+
+export type LiveWatcherDiagnosticsSourceSummary = {
+  supplied: boolean;
+  status: string;
+  schema_version: string | null;
+  evidence_availability: string;
+  limitations: string[];
+};
+
+export type LiveWatcherDiagnosticsResponse = {
+  object: typeof LIVE_WATCHER_DIAGNOSTICS_OBJECT;
+  schema_version: typeof LIVE_WATCHER_DIAGNOSTICS_SCHEMA_VERSION;
+  status: "ok" | "degraded" | "blocked" | "unavailable" | "unknown" | string;
+  mode: "read_only_composition";
+  summary: {
+    info_count: number;
+    warning_count: number;
+    degraded_count: number;
+    error_count: number;
+    blocked_count: number;
+    unknown_count: number;
+  };
+  diagnostics: LiveWatcherDiagnosticEntry[];
+  sources: Record<string, LiveWatcherDiagnosticsSourceSummary>;
+  privacy: {
+    raw_player_log_content_included: false;
+    raw_player_log_path_included: false;
+    raw_hashes_included: false;
+    raw_sql_included: false;
+    stack_traces_included: false;
+    secrets_or_environment_values_included: false;
+  };
+  capabilities: {
+    read_only: true;
+    starts_watcher: false;
+    stops_watcher: false;
+    tails_player_log: false;
+    writes_sqlite: false;
+    writes_diagnostics_files: false;
+    external_transport_allowed: false;
+  };
   warnings: string[];
   errors: string[];
   [key: string]: unknown;

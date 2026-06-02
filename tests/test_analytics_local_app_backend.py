@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import inspect
 import json
+import os
+import time
 
 from fastapi.testclient import TestClient
 
+from mythic_edge_parser.local_app import live_watcher_diagnostics
 from mythic_edge_parser.local_app.backend import create_app
 
 EXPECTED_PROCESS_PRECONDITION_KEYS = [
@@ -274,6 +278,7 @@ def test_setup_status_get_routes_do_not_create_local_app_artifacts(tmp_path) -> 
         "/api/live/player-log/status",
         "/api/live/watcher/status",
         "/api/live/watcher/process",
+        "/api/live/watcher/diagnostics",
         "/api/live/ingest/status",
         "/api/runtime/status",
     ):
@@ -296,12 +301,14 @@ def test_live_status_routes_report_symbolic_metadata_and_readiness_only(tmp_path
     player_log_payload = client.get("/api/live/player-log/status").json()
     watcher_payload = client.get("/api/live/watcher/status").json()
     process_payload = client.get("/api/live/watcher/process").json()
+    diagnostics_payload = client.get("/api/live/watcher/diagnostics").json()
     ingest_payload = client.get("/api/live/ingest/status").json()
     encoded = json.dumps(
         {
             "player_log": player_log_payload,
             "watcher": watcher_payload,
             "process": process_payload,
+            "diagnostics": diagnostics_payload,
             "ingest": ingest_payload,
         },
         sort_keys=True,
@@ -341,6 +348,38 @@ def test_live_status_routes_report_symbolic_metadata_and_readiness_only(tmp_path
     assert process_payload["state"]["raw_path_exposed"] is False
     assert _preconditions_by_key(process_payload)["player_log_ready"]["status"] == "pass"
     assert _preconditions_by_key(process_payload)["live_sqlite_ingest_contract_present"]["status"] == "pass"
+    assert diagnostics_payload["object"] == "mythic_edge_local_app_live_watcher_diagnostics"
+    assert diagnostics_payload["schema_version"] == "live_app_watcher_diagnostics.v1"
+    assert diagnostics_payload["mode"] == "read_only_composition"
+    assert diagnostics_payload["privacy"] == {
+        "raw_player_log_content_included": False,
+        "raw_player_log_path_included": False,
+        "raw_hashes_included": False,
+        "raw_sql_included": False,
+        "stack_traces_included": False,
+        "secrets_or_environment_values_included": False,
+    }
+    assert diagnostics_payload["capabilities"] == {
+        "read_only": True,
+        "starts_watcher": False,
+        "stops_watcher": False,
+        "tails_player_log": False,
+        "writes_sqlite": False,
+        "writes_diagnostics_files": False,
+        "external_transport_allowed": False,
+    }
+    assert diagnostics_payload["sources"]["player_log_status"]["supplied"] is True
+    assert diagnostics_payload["sources"]["watcher_status"]["supplied"] is True
+    assert diagnostics_payload["sources"]["watcher_process_status"]["supplied"] is True
+    assert diagnostics_payload["sources"]["live_ingest_status"]["supplied"] is True
+    assert diagnostics_payload["sources"]["tailer_event_bridge"]["supplied"] is False
+    diagnostic_keys = {entry["key"] for entry in diagnostics_payload["diagnostics"]}
+    assert "readability_not_probed" in diagnostic_keys
+    assert "rotation_detection_deferred" in diagnostic_keys
+    assert "truncation_detection_deferred" in diagnostic_keys
+    assert "duplication_detection_deferred" in diagnostic_keys
+    assert "raw_player_log_content_excluded" in diagnostic_keys
+    assert "destructive_controls_absent" in diagnostic_keys
     assert ingest_payload["object"] == "mythic_edge_local_app_live_parser_sqlite_capture_status"
     assert ingest_payload["schema_version"] == "live_app_parser_owned_fact_capture_sqlite.v1"
     assert ingest_payload["status"] == "disabled"
@@ -371,6 +410,7 @@ def test_live_watcher_process_routes_do_not_expose_start_stop_controls(tmp_path)
 
     for route in (
         "/api/live/watcher/process",
+        "/api/live/watcher/diagnostics",
         "/api/live/watcher/start",
         "/api/live/watcher/stop",
         "/api/live/watcher/restart",
@@ -399,6 +439,69 @@ def test_live_watcher_blocks_configured_missing_player_log(tmp_path) -> None:
     assert process_payload["process_control"]["reason"] == "player_log_missing"
     assert process_payload["watcher"]["running"] is False
     assert str(missing_player_log) not in encoded
+
+
+def test_live_watcher_diagnostics_reports_stale_metadata_without_reading_contents(tmp_path) -> None:
+    app_root = tmp_path / "app-data"
+    player_log_path = tmp_path / "Player.log"
+    player_log_path.write_text("private stale log body must not be returned", encoding="utf-8")
+    old_timestamp = time.time() - (48 * 60 * 60)
+    os.utime(player_log_path, (old_timestamp, old_timestamp))
+    config_file = app_root / "config" / "app_config.json"
+    config_file.parent.mkdir(parents=True)
+    config_file.write_text(json.dumps({"player_log_path": str(player_log_path)}), encoding="utf-8")
+    client = _client(app_root)
+
+    payload = client.get("/api/live/watcher/diagnostics").json()
+    encoded = json.dumps(payload, sort_keys=True)
+    diagnostic_by_key = {entry["key"]: entry for entry in payload["diagnostics"]}
+
+    assert payload["status"] == "degraded"
+    assert diagnostic_by_key["player_log_stale"]["severity"] == "warning"
+    assert diagnostic_by_key["player_log_stale"]["evidence_availability"] == "metadata_only"
+    assert str(player_log_path) not in encoded
+    assert "private stale log body" not in encoded
+
+
+def test_live_watcher_diagnostics_reports_malformed_state_without_repairing_it(tmp_path) -> None:
+    app_root = tmp_path / "app-data"
+    player_log_path = tmp_path / "Player.log"
+    player_log_path.write_text("private log body must not be returned", encoding="utf-8")
+    config_file = app_root / "config" / "app_config.json"
+    config_file.parent.mkdir(parents=True)
+    config_file.write_text(json.dumps({"player_log_path": str(player_log_path)}), encoding="utf-8")
+    state_file = app_root / "jobs" / "live_watcher_state.json"
+    state_file.parent.mkdir(parents=True)
+    state_file.write_text("{", encoding="utf-8")
+    client = _client(app_root)
+
+    payload = client.get("/api/live/watcher/diagnostics").json()
+    encoded = json.dumps(payload, sort_keys=True)
+    diagnostic_by_key = {entry["key"]: entry for entry in payload["diagnostics"]}
+
+    assert payload["status"] == "blocked"
+    assert diagnostic_by_key["watcher_state_malformed"]["severity"] == "blocked"
+    assert state_file.read_text(encoding="utf-8") == "{"
+    assert str(state_file) not in encoded
+    assert str(player_log_path) not in encoded
+
+
+def test_live_watcher_diagnostics_does_not_call_runner_tailer_or_report_builders() -> None:
+    source = inspect.getsource(live_watcher_diagnostics)
+
+    for forbidden in (
+        "runner.main",
+        "MtgaEventStream.start",
+        "FileTailer.open_from_start",
+        "FileTailer.open_from_end",
+        "FileTailer.poll",
+        "FileTailer.poll_once",
+        "build_parser_diagnostics_report",
+        "write_parser_diagnostics_report",
+        "build_player_log_drift_report",
+        "write_player_log_drift_report",
+    ):
+        assert forbidden not in source
 
 
 def test_database_status_route_reports_missing_without_creating_database(tmp_path) -> None:

@@ -9,6 +9,8 @@ import {
   LEGACY_JSONL_IMPORT_QUALITY_SCHEMA_VERSION,
   LIVE_PLAYER_LOG_STATUS_OBJECT,
   LIVE_STATUS_SCHEMA_VERSION,
+  LIVE_WATCHER_DIAGNOSTICS_OBJECT,
+  LIVE_WATCHER_DIAGNOSTICS_SCHEMA_VERSION,
   LIVE_WATCHER_PROCESS_OBJECT,
   LIVE_WATCHER_PROCESS_SCHEMA_VERSION,
   LIVE_WATCHER_STATUS_OBJECT,
@@ -31,6 +33,7 @@ import {
   type GameplayActionReviewResponse,
   type LivePlayerLogStatusResponse,
   type LiveStatusErrorCode,
+  type LiveWatcherDiagnosticsResponse,
   type LiveWatcherProcessStatusResponse,
   type LiveWatcherStatusResponse,
   type ManualImportErrorCode,
@@ -60,6 +63,7 @@ const SETUP_STATUS_PATH = "/api/app/setup-status";
 const LIVE_PLAYER_LOG_STATUS_PATH = "/api/live/player-log/status";
 const LIVE_WATCHER_STATUS_PATH = "/api/live/watcher/status";
 const LIVE_WATCHER_PROCESS_STATUS_PATH = "/api/live/watcher/process";
+const LIVE_WATCHER_DIAGNOSTICS_STATUS_PATH = "/api/live/watcher/diagnostics";
 const MATCH_HISTORY_PATH = "/api/analytics/matches";
 const GAME_HISTORY_PATH = "/api/analytics/games";
 const OPENING_HAND_HISTORY_PATH = "/api/analytics/opening-hands";
@@ -247,6 +251,17 @@ export async function fetchLiveWatcherProcessStatus(
     fetchImpl
   );
   return validateLiveWatcherProcessStatusResponse(payload);
+}
+
+export async function fetchLiveWatcherDiagnosticsStatus(
+  fetchImpl: typeof fetch = fetch
+): Promise<LiveWatcherDiagnosticsResponse> {
+  const payload = await fetchLiveStatusPayload(
+    LIVE_WATCHER_DIAGNOSTICS_STATUS_PATH,
+    "Live watcher diagnostics",
+    fetchImpl
+  );
+  return validateLiveWatcherDiagnosticsResponse(payload);
 }
 
 export async function fetchMatchHistory(fetchImpl: typeof fetch = fetch): Promise<MatchHistoryResponse> {
@@ -689,6 +704,35 @@ function validateLiveWatcherProcessStatusResponse(payload: unknown): LiveWatcher
     throw new LiveStatusApiError("malformed_response", "Live watcher process status has an unsupported shape.");
   }
   return payload as LiveWatcherProcessStatusResponse;
+}
+
+function validateLiveWatcherDiagnosticsResponse(payload: unknown): LiveWatcherDiagnosticsResponse {
+  if (!isRecord(payload)) {
+    throw new LiveStatusApiError("malformed_response", "Live watcher diagnostics must be a JSON object.");
+  }
+  if (payload.schema_version !== LIVE_WATCHER_DIAGNOSTICS_SCHEMA_VERSION) {
+    throw new LiveStatusApiError(
+      "incompatible_response",
+      `Expected live watcher diagnostics schema ${LIVE_WATCHER_DIAGNOSTICS_SCHEMA_VERSION}.`
+    );
+  }
+  if (payload.object !== LIVE_WATCHER_DIAGNOSTICS_OBJECT) {
+    throw new LiveStatusApiError("malformed_response", "Live watcher diagnostics object is unsupported.");
+  }
+  if (
+    typeof payload.status !== "string" ||
+    payload.mode !== "read_only_composition" ||
+    !isLiveWatcherDiagnosticsSummary(payload.summary) ||
+    !isLiveWatcherDiagnosticsEntries(payload.diagnostics) ||
+    !isRecord(payload.sources) ||
+    !isLiveWatcherDiagnosticsPrivacy(payload.privacy) ||
+    !isLiveWatcherDiagnosticsCapabilities(payload.capabilities) ||
+    !isStringArray(payload.warnings) ||
+    !isStringArray(payload.errors)
+  ) {
+    throw new LiveStatusApiError("malformed_response", "Live watcher diagnostics has an unsupported shape.");
+  }
+  return payload as LiveWatcherDiagnosticsResponse;
 }
 
 async function fetchAnalyticsHistory(
@@ -1580,6 +1624,62 @@ function isPreconditions(value: unknown): boolean {
         typeof entry.status === "string" &&
         isStringOrNull(entry.reason)
     )
+  );
+}
+
+function isLiveWatcherDiagnosticsSummary(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.info_count === "number" &&
+    typeof value.warning_count === "number" &&
+    typeof value.degraded_count === "number" &&
+    typeof value.error_count === "number" &&
+    typeof value.blocked_count === "number" &&
+    typeof value.unknown_count === "number"
+  );
+}
+
+function isLiveWatcherDiagnosticsEntries(value: unknown): boolean {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (entry) =>
+        isRecord(entry) &&
+        typeof entry.category === "string" &&
+        typeof entry.key === "string" &&
+        typeof entry.severity === "string" &&
+        typeof entry.status === "string" &&
+        typeof entry.evidence_availability === "string" &&
+        typeof entry.source === "string" &&
+        typeof entry.message === "string" &&
+        isNumberOrNull(entry.count) &&
+        typeof entry.review_required === "boolean"
+    )
+  );
+}
+
+function isLiveWatcherDiagnosticsPrivacy(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    value.raw_player_log_content_included === false &&
+    value.raw_player_log_path_included === false &&
+    value.raw_hashes_included === false &&
+    value.raw_sql_included === false &&
+    value.stack_traces_included === false &&
+    value.secrets_or_environment_values_included === false
+  );
+}
+
+function isLiveWatcherDiagnosticsCapabilities(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    value.read_only === true &&
+    value.starts_watcher === false &&
+    value.stops_watcher === false &&
+    value.tails_player_log === false &&
+    value.writes_sqlite === false &&
+    value.writes_diagnostics_files === false &&
+    value.external_transport_allowed === false
   );
 }
 
