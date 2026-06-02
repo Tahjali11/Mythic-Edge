@@ -32,6 +32,7 @@ from .match_journal_cockpit import (
     match_journal_get_response,
     match_journal_post_response,
 )
+from .match_journal_runtime import build_match_journal_service_factory
 from .paths import build_local_app_paths
 from .setup_status import (
     build_analytics_database_status,
@@ -54,6 +55,8 @@ def create_app(
     env: Mapping[str, str] = os.environ,
     match_journal_service_factory: JournalServiceFactory | None = None,
 ) -> FastAPI:
+    local_app_paths = build_local_app_paths(app_data_root)
+    journal_service_factory = match_journal_service_factory or build_match_journal_service_factory(local_app_paths)
     app = FastAPI(
         title="Mythic Edge Local App Backend",
         docs_url=None,
@@ -75,61 +78,61 @@ def create_app(
 
     @app.get("/api/app/setup-status")
     def setup_status() -> dict[str, object]:
-        return build_setup_status(build_local_app_paths(app_data_root))
+        return build_setup_status(local_app_paths)
 
     @app.get("/api/app/config")
     def app_config() -> dict[str, object]:
-        return load_local_app_config_status(build_local_app_paths(app_data_root))
+        return load_local_app_config_status(local_app_paths)
 
     @app.get("/api/app/paths")
     def app_paths() -> dict[str, object]:
         from .paths import build_path_status
 
-        return build_path_status(build_local_app_paths(app_data_root))
+        return build_path_status(local_app_paths)
 
     @app.get("/api/analytics/database/status")
     def analytics_database_status() -> dict[str, object]:
-        return build_analytics_database_status(build_local_app_paths(app_data_root))
+        return build_analytics_database_status(local_app_paths)
 
     @app.get("/api/analytics/matches")
     def analytics_match_history(request: Request) -> dict[str, object]:
         limit, offset = _history_pagination(request)
-        return build_match_history(build_local_app_paths(app_data_root), limit=limit, offset=offset)
+        return build_match_history(local_app_paths, limit=limit, offset=offset)
 
     @app.get("/api/analytics/games")
     def analytics_game_history(request: Request) -> dict[str, object]:
         limit, offset = _history_pagination(request)
-        return build_game_history(build_local_app_paths(app_data_root), limit=limit, offset=offset)
+        return build_game_history(local_app_paths, limit=limit, offset=offset)
 
     @app.get("/api/analytics/opening-hands")
     def analytics_opening_hand_history(request: Request) -> dict[str, object]:
         limit, offset = _history_pagination(request)
-        return build_opening_hand_history(build_local_app_paths(app_data_root), limit=limit, offset=offset)
+        return build_opening_hand_history(local_app_paths, limit=limit, offset=offset)
 
     @app.get("/api/analytics/mulligans")
     def analytics_mulligan_history(request: Request) -> dict[str, object]:
         limit, offset = _history_pagination(request)
-        return build_mulligan_history(build_local_app_paths(app_data_root), limit=limit, offset=offset)
+        return build_mulligan_history(local_app_paths, limit=limit, offset=offset)
 
     @app.get("/api/analytics/gameplay-actions")
     def analytics_gameplay_action_review(request: Request) -> dict[str, object]:
         limit, offset = _history_pagination(request)
-        return build_gameplay_action_review(build_local_app_paths(app_data_root), limit=limit, offset=offset)
+        return build_gameplay_action_review(local_app_paths, limit=limit, offset=offset)
 
     @app.get("/api/analytics/opponent-card-observations")
     def analytics_opponent_card_observation_review(request: Request) -> dict[str, object]:
         limit, offset = _history_pagination(request)
-        return build_opponent_card_observation_review(build_local_app_paths(app_data_root), limit=limit, offset=offset)
+        return build_opponent_card_observation_review(local_app_paths, limit=limit, offset=offset)
 
     @app.get("/api/analytics/play-draw-splits")
     def analytics_play_draw_split_review(request: Request) -> dict[str, object]:
         limit, offset = _history_pagination(request)
-        return build_play_draw_split_review(build_local_app_paths(app_data_root), limit=limit, offset=offset)
+        return build_play_draw_split_review(local_app_paths, limit=limit, offset=offset)
 
     @app.get("/api/analytics/game1-postboard-splits")
     def analytics_game1_postboard_split_review(request: Request) -> dict[str, object]:
         limit, offset = _history_pagination(request)
-        return build_game1_postboard_split_review(build_local_app_paths(app_data_root), limit=limit, offset=offset)
+        return build_game1_postboard_split_review(local_app_paths, limit=limit, offset=offset)
 
     @app.get("/api/runtime/status")
     def runtime_state() -> dict[str, object]:
@@ -137,27 +140,27 @@ def create_app(
 
     @app.get("/api/journal")
     async def match_journal(request: Request) -> object:
-        return await match_journal_get_response(request, match_journal_service_factory)
+        return await match_journal_get_response(request, journal_service_factory)
 
     @app.post("/api/journal/notes")
     async def match_journal_notes(request: Request) -> object:
-        return await match_journal_post_response("notes", request, match_journal_service_factory)
+        return await match_journal_post_response("notes", request, journal_service_factory)
 
     @app.post("/api/journal/opponent-labels")
     async def match_journal_opponent_labels(request: Request) -> object:
-        return await match_journal_post_response("opponent-labels", request, match_journal_service_factory)
+        return await match_journal_post_response("opponent-labels", request, journal_service_factory)
 
     @app.post("/api/journal/review-flags")
     async def match_journal_review_flags(request: Request) -> object:
-        return await match_journal_post_response("review-flags", request, match_journal_service_factory)
+        return await match_journal_post_response("review-flags", request, journal_service_factory)
 
     @app.post("/api/journal/experiment-label")
     async def match_journal_experiment_label(request: Request) -> object:
-        return await match_journal_post_response("experiment-label", request, match_journal_service_factory)
+        return await match_journal_post_response("experiment-label", request, journal_service_factory)
 
     @app.post("/api/journal/display-corrections")
     async def match_journal_display_corrections(request: Request) -> object:
-        return await match_journal_post_response("display-corrections", request, match_journal_service_factory)
+        return await match_journal_post_response("display-corrections", request, journal_service_factory)
 
     @app.post("/api/imports/jsonl")
     def import_jsonl(request: object = Body(...)) -> dict[str, object]:

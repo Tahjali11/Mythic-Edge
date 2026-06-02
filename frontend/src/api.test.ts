@@ -136,6 +136,28 @@ describe("api helpers", () => {
     expect(String(fetchImpl.mock.calls[0][0])).not.toMatch(/^\/journal/);
   });
 
+  it("serializes contract-safe Match Journal context fields through the local app facade", async () => {
+    const payload = buildMatchJournalPayload();
+    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => jsonResponse(payload));
+
+    await expect(
+      fetchMatchJournal(
+        {
+          journal_match_id: "journal:match:1",
+          journal_game_id: "journal:game:1",
+          attachment_status: "attached"
+        },
+        fetchImpl as unknown as typeof fetch
+      )
+    ).resolves.toEqual(payload);
+    expect(fetchImpl).toHaveBeenCalledWith(
+      "/api/journal?journal_match_id=journal%3Amatch%3A1&journal_game_id=journal%3Agame%3A1&attachment_status=attached",
+      {
+        headers: { Accept: "application/json" }
+      }
+    );
+  });
+
   it("posts Match Journal cockpit mutations only to /api/journal routes", async () => {
     const payload = buildMatchJournalPayload({ result: { service_result: { action: "completed" } } });
     const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => jsonResponse(payload));
@@ -565,9 +587,10 @@ function buildSetupStatusPayload(): SetupStatusResponse {
     config: { status: "missing" },
     player_log: { status: "missing" },
     analytics_database: { status: "missing" },
+    match_journal: { status: "not_initialized" },
     migrations: { status: "ok" },
     runtime: { status: "ok" },
-    capabilities: { setup_status: "enabled" }
+    capabilities: { setup_status: "enabled", match_journal_write_controls: "enabled_on_first_write" }
   };
 }
 

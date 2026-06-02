@@ -28,6 +28,7 @@ def test_health_endpoint_reports_setup_status_only_capabilities(tmp_path) -> Non
             "config_write": "disabled",
             "database_init": "disabled",
             "manual_import": "enabled",
+            "match_journal_write_controls": "enabled",
             "live_watcher": "disabled",
             "parser_runner_control": "disabled",
             "frontend": "deferred",
@@ -122,11 +123,21 @@ def test_setup_status_combines_sections_without_exposing_temp_paths_or_writing(t
     assert response.status_code == 200
     assert payload["object"] == "mythic_edge_local_app_setup_status"
     assert payload["status"] == "degraded"
-    assert {"paths", "config", "player_log", "analytics_database", "migrations", "runtime", "capabilities"} <= set(
-        payload
-    )
+    assert {
+        "paths",
+        "config",
+        "player_log",
+        "analytics_database",
+        "match_journal",
+        "migrations",
+        "runtime",
+        "capabilities",
+    } <= set(payload)
     assert payload["config"]["status"] == "missing"
     assert payload["analytics_database"]["status"] == "missing"
+    assert payload["match_journal"]["status"] == "not_initialized"
+    assert payload["match_journal"]["database"]["display_path"] == "<app_data>\\db\\match_journal.sqlite3"
+    assert payload["capabilities"]["match_journal_write_controls"] == "enabled_on_first_write"
     assert payload["runtime"]["parser_runner"]["status"] == "deferred"
     assert str(app_root) not in encoded
     assert not app_root.exists()

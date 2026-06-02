@@ -4,10 +4,12 @@ import json
 import sqlite3
 
 from mythic_edge_parser.app.analytics_migration_loader import apply_analytics_migrations
+from mythic_edge_parser.app.match_journal_migration_loader import apply_match_journal_migrations
 from mythic_edge_parser.local_app.config import _is_safe_unexpected_field_name, load_local_app_config_status
 from mythic_edge_parser.local_app.paths import build_local_app_paths, build_path_status
 from mythic_edge_parser.local_app.setup_status import (
     build_analytics_database_status,
+    build_match_journal_write_status,
     build_migration_loader_status,
     build_player_log_path_status,
 )
@@ -20,6 +22,7 @@ def test_build_local_app_paths_uses_temp_override_without_creating_folders(tmp_p
     assert paths.app_data_root == app_root
     assert paths.config_file == app_root / "config" / "app_config.json"
     assert paths.analytics_database == app_root / "db" / "mythic_edge.sqlite3"
+    assert paths.match_journal_database == app_root / "db" / "match_journal.sqlite3"
     assert not app_root.exists()
 
     status = build_path_status(paths)
@@ -212,6 +215,45 @@ def test_database_status_reads_schema_metadata_read_only(tmp_path) -> None:
     assert paths.analytics_database.stat().st_size == before_size
     assert not paths.analytics_database.with_suffix(".sqlite3-wal").exists()
     assert str(paths.analytics_database) not in encoded
+
+
+def test_match_journal_status_reports_not_initialized_without_creating_sqlite_files(tmp_path) -> None:
+    paths = build_local_app_paths(tmp_path / "app-data")
+    assert paths.match_journal_database is not None
+
+    status = build_match_journal_write_status(paths)
+    encoded = json.dumps(status, sort_keys=True)
+
+    assert status["status"] == "not_initialized"
+    assert status["database"]["schema_status"] == "not_initialized"
+    assert status["database"]["display_path"] == "<app_data>\\db\\match_journal.sqlite3"
+    assert status["database"]["path_ownership"] == "app_owned"
+    assert status["write_controls"]["status"] == "enabled_on_first_write"
+    assert not paths.match_journal_database.exists()
+    assert not paths.match_journal_database.parent.exists()
+    assert str(paths.match_journal_database) not in encoded
+
+
+def test_match_journal_status_reads_schema_metadata_read_only(tmp_path) -> None:
+    paths = build_local_app_paths(tmp_path / "app-data")
+    assert paths.match_journal_database is not None
+    paths.match_journal_database.parent.mkdir(parents=True)
+    connection = sqlite3.connect(paths.match_journal_database)
+    try:
+        migrations = apply_match_journal_migrations(connection, applied_at="2026-06-01T00:00:00Z")
+    finally:
+        connection.close()
+
+    before_size = paths.match_journal_database.stat().st_size
+    status = build_match_journal_write_status(paths)
+    encoded = json.dumps(status, sort_keys=True)
+
+    assert status["status"] == "ready"
+    assert status["database"]["schema_status"] == "schema_current"
+    assert status["database"]["applied_migration_ids"] == [migrations[0].migration_id]
+    assert paths.match_journal_database.stat().st_size == before_size
+    assert not paths.match_journal_database.with_suffix(".sqlite3-wal").exists()
+    assert str(paths.match_journal_database) not in encoded
 
 
 def test_migration_loader_status_reports_available_without_sql_or_paths() -> None:

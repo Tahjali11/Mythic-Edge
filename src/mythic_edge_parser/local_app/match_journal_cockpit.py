@@ -19,8 +19,17 @@ MATCH_JOURNAL_COCKPIT_SCHEMA_VERSION = "match_journal_cockpit_ui.v1"
 
 JournalServiceFactory = Callable[[], Any | None]
 
-_JOURNAL_QUERY_FIELDS = frozenset({"parser_match_id", "parser_game_id", "game_number"})
-_JOURNAL_CONTEXT_FIELDS = _JOURNAL_QUERY_FIELDS
+_JOURNAL_CONTEXT_FIELDS = frozenset(
+    {
+        "journal_match_id",
+        "journal_game_id",
+        "parser_match_id",
+        "parser_game_id",
+        "game_number",
+        "attachment_status",
+    }
+)
+_JOURNAL_QUERY_FIELDS = _JOURNAL_CONTEXT_FIELDS
 _COMMON_SERVICE_OPTIONS = frozenset(
     {
         "author_label",
@@ -286,7 +295,12 @@ def _journal_context(value: object) -> tuple[dict[str, Any] | None, JSONResponse
 
 
 def _has_attachment_reference(context: Mapping[str, Any]) -> bool:
-    return bool(context.get("parser_match_id") or context.get("parser_game_id"))
+    return bool(
+        context.get("journal_match_id")
+        or context.get("journal_game_id")
+        or context.get("parser_match_id")
+        or context.get("parser_game_id")
+    )
 
 
 def _positive_int(value: object) -> tuple[int | None, JSONResponse | None]:

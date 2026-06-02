@@ -54,6 +54,7 @@ describe("SetupStatusApp", () => {
     expect(screen.getByText("<app_data>")).toBeInTheDocument();
     expect(screen.getByText("<configured_player_log>")).toBeInTheDocument();
     expect(screen.getByText("<app_data>\\db\\mythic_edge.sqlite3")).toBeInTheDocument();
+    expect(screen.getByText("<app_data>\\db\\match_journal.sqlite3")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Import JSONL" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /reset|delete|wipe|cancel|retry|start|stop|git|sheets|ai/i })).not.toBeInTheDocument();
   });
@@ -236,6 +237,84 @@ describe("SetupStatusApp", () => {
         })
       );
     });
+  });
+
+  it("preserves Match Journal form input when sanitized failed submit envelopes resolve", async () => {
+    const unavailableJournal = () =>
+      buildMatchJournalPayload({ status: "unavailable", result: {}, errors: ["service_unavailable"] });
+    const submitJournalNote = vi.fn(async () => unavailableJournal());
+    const submitJournalOpponentLabels = vi.fn(async () => unavailableJournal());
+    const submitJournalExperimentLabel = vi.fn(async () => unavailableJournal());
+    const submitJournalDisplayCorrection = vi.fn(async () => unavailableJournal());
+    render(
+      <SetupStatusApp
+        fetchGames={() => Promise.resolve(buildGameHistoryPayload())}
+        fetchJournal={() => Promise.resolve(buildMatchJournalPayload())}
+        fetchMatches={() => Promise.resolve(buildMatchHistoryPayload())}
+        fetchStatus={() => Promise.resolve(buildPayload())}
+        submitJournalDisplayCorrection={submitJournalDisplayCorrection}
+        submitJournalExperimentLabel={submitJournalExperimentLabel}
+        submitJournalNote={submitJournalNote}
+        submitJournalOpponentLabels={submitJournalOpponentLabels}
+      />
+    );
+
+    await screen.findByRole("heading", { name: "Match Journal Cockpit" });
+    async function enabledFormControl(label: string) {
+      const control = screen.getByLabelText(label);
+      await waitFor(() => {
+        expect(control).toBeEnabled();
+      });
+      return control;
+    }
+
+    async function enabledButton(name: string) {
+      const button = screen.getByRole("button", { name });
+      await waitFor(() => {
+        expect(button).toBeEnabled();
+      });
+      return button;
+    }
+
+    const note = await enabledFormControl("Journal note");
+    fireEvent.change(note, { target: { value: "Retry this journal note." } });
+    fireEvent.click(await enabledButton("Save Journal Note"));
+    await waitFor(() => {
+      expect(submitJournalNote).toHaveBeenCalled();
+    });
+    expect(note).toHaveValue("Retry this journal note.");
+
+    const opponent = await enabledFormControl("Opponent manual label");
+    const tier = await enabledFormControl("Opponent tier label");
+    fireEvent.change(opponent, { target: { value: "Retry Archetype" } });
+    fireEvent.change(tier, { target: { value: "Retry Tier" } });
+    fireEvent.click(await enabledButton("Save Opponent Labels"));
+    await waitFor(() => {
+      expect(submitJournalOpponentLabels).toHaveBeenCalled();
+    });
+    expect(opponent).toHaveValue("Retry Archetype");
+    expect(tier).toHaveValue("Retry Tier");
+
+    const experiment = await enabledFormControl("Experiment label");
+    fireEvent.change(experiment, { target: { value: "retry-experiment" } });
+    fireEvent.click(await enabledButton("Save Experiment Label"));
+    await waitFor(() => {
+      expect(submitJournalExperimentLabel).toHaveBeenCalled();
+    });
+    expect(experiment).toHaveValue("retry-experiment");
+
+    const correctionField = await enabledFormControl("Display-only field");
+    const correctionValue = await enabledFormControl("Display-only value");
+    fireEvent.change(correctionField, { target: { value: "review_summary" } });
+    fireEvent.change(correctionValue, { target: { value: "Retry display label." } });
+    fireEvent.click(await enabledButton("Propose Display Correction"));
+    await waitFor(() => {
+      expect(submitJournalDisplayCorrection).toHaveBeenCalled();
+    });
+    expect(correctionField).toHaveValue("review_summary");
+    expect(correctionValue).toHaveValue("Retry display label.");
+    expect(screen.getByRole("heading", { name: "Journal Update Not Saved" })).toBeInTheDocument();
+    expect(screen.getByText("service_unavailable")).toBeInTheDocument();
   });
 
   it("renders Match Journal API errors without raw backend details", async () => {
@@ -854,6 +933,11 @@ function buildPayload(overrides: Partial<SetupStatusResponse> = {}): SetupStatus
       status: "missing",
       database: { display_path: "<app_data>\\db\\mythic_edge.sqlite3", schema_status: "missing" }
     },
+    match_journal: {
+      status: "not_initialized",
+      database: { display_path: "<app_data>\\db\\match_journal.sqlite3", schema_status: "not_initialized" },
+      write_controls: { status: "enabled_on_first_write" }
+    },
     migrations: {
       status: "ok",
       migration_status: "available",
@@ -868,6 +952,7 @@ function buildPayload(overrides: Partial<SetupStatusResponse> = {}): SetupStatus
     },
     capabilities: {
       setup_status: "enabled",
+      match_journal_write_controls: "enabled_on_first_write",
       manual_import: "enabled",
       live_watcher: "disabled"
     },

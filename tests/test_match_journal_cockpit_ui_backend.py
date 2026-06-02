@@ -122,8 +122,10 @@ def test_journal_facade_preserves_local_cors_and_rejects_non_loopback_origins(tm
     assert disallowed.headers.get("access-control-allow-origin") != "*"
 
 
-def test_journal_facade_fails_closed_when_service_is_not_explicitly_wired(tmp_path) -> None:
-    client = _client(tmp_path)
+def test_injected_journal_service_factory_overrides_default_wiring_and_can_fail_closed(tmp_path) -> None:
+    client = TestClient(
+        create_app(app_data_root=tmp_path / "app-data", match_journal_service_factory=lambda: None)
+    )
 
     get_response = client.get("/api/journal?parser_match_id=parser-match-1")
     post_response = client.post(
@@ -135,6 +137,51 @@ def test_journal_facade_fails_closed_when_service_is_not_explicitly_wired(tmp_pa
     assert get_response.json()["errors"] == ["service_unavailable"]
     assert post_response.status_code == 503
     assert post_response.json()["errors"] == ["service_unavailable"]
+
+
+def test_default_journal_read_reports_missing_without_creating_app_data_artifacts(tmp_path) -> None:
+    app_root = tmp_path / "app-data"
+    client = TestClient(create_app(app_data_root=app_root))
+
+    response = client.get("/api/journal?parser_match_id=parser-match-1")
+
+    assert response.status_code == 404
+    assert response.json()["status"] == "missing"
+    assert response.json()["errors"] == ["not_found"]
+    assert not app_root.exists()
+    assert list(tmp_path.rglob("*")) == []
+
+
+def test_default_journal_write_creates_only_app_owned_match_journal_database(tmp_path) -> None:
+    app_root = tmp_path / "app-data"
+    journal_database = app_root / "db" / "match_journal.sqlite3"
+    analytics_database = app_root / "db" / "mythic_edge.sqlite3"
+    client = TestClient(create_app(app_data_root=app_root))
+
+    response = client.post(
+        "/api/journal/notes",
+        json={"note_scope": "unattached", "note_text": "Synthetic local note."},
+    )
+    payload = response.json()
+
+    assert response.status_code == 200
+    assert payload["result"]["service_result"]["action"] == "record_unattached_note"
+    assert payload["result"]["service_result"]["record_counts"] == {"note": 1}
+    assert journal_database.is_file()
+    assert not analytics_database.exists()
+    assert {path.relative_to(app_root).as_posix() for path in app_root.rglob("*")} == {
+        "db",
+        "db/match_journal.sqlite3",
+    }
+
+    connection = sqlite3.connect(journal_database)
+    try:
+        note_count = connection.execute("SELECT COUNT(*) FROM journal_notes").fetchone()[0]
+        migration_count = connection.execute("SELECT COUNT(*) FROM journal_schema_migrations").fetchone()[0]
+    finally:
+        connection.close()
+    assert note_count == 1
+    assert migration_count == 1
 
 
 def test_malformed_and_invalid_journal_requests_do_not_call_service(tmp_path) -> None:
@@ -229,6 +276,49 @@ def test_journal_write_routes_dispatch_to_expected_service_methods(tmp_path) -> 
         "propose_display_correction",
     ]
     assert service.calls[-1][1][1]["effect_scope"] == "journal_display_only"
+    assert not (tmp_path / "app-data").exists()
+
+
+def test_journal_facade_accepts_contract_safe_journal_context_references(tmp_path) -> None:
+    service = RecordingJournalService()
+    client = _client(tmp_path, service)
+
+    get_response = client.get(
+        "/api/journal?journal_match_id=journal-match-1&journal_game_id=journal-game-1"
+        "&attachment_status=attached"
+    )
+    post_response = client.post(
+        "/api/journal/review-flags",
+        json={
+            "context": {
+                "journal_match_id": "journal-match-1",
+                "journal_game_id": "journal-game-1",
+                "attachment_status": "attached",
+            },
+            "flag_type": "manual_review",
+        },
+    )
+
+    assert get_response.status_code == 200
+    assert post_response.status_code == 200
+    assert service.calls[0] == (
+        "get_journal_bundle",
+        (
+            {
+                "journal_match_id": "journal-match-1",
+                "journal_game_id": "journal-game-1",
+                "attachment_status": "attached",
+            },
+        ),
+        {},
+    )
+    assert service.calls[1][0] == "flag_for_review"
+    assert service.calls[1][1][0] == {
+        "journal_match_id": "journal-match-1",
+        "journal_game_id": "journal-game-1",
+        "attachment_status": "attached",
+    }
+    assert not (tmp_path / "app-data").exists()
 
 
 def test_successful_journal_write_response_summarizes_service_result_without_echoing_record_values(tmp_path) -> None:

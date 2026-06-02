@@ -7,6 +7,10 @@ from mythic_edge_parser.app.analytics_migration_loader import AnalyticsMigration
 from mythic_edge_parser.app.config import DEFAULT_MTGA_PLAYER_LOG
 
 from .config import read_local_app_config
+from .match_journal_runtime import (
+    MATCH_JOURNAL_WRITE_CONTROLS_CAPABILITY,
+    build_match_journal_write_status,
+)
 from .paths import (
     DEFAULT_BACKEND_HOST,
     LOCAL_APP_OBJECT_PREFIX,
@@ -17,12 +21,13 @@ from .paths import (
 )
 
 
-def build_capabilities() -> dict[str, str]:
+def build_capabilities(*, match_journal_write_controls: str = "enabled") -> dict[str, str]:
     return {
         "setup_status": "enabled",
         "config_write": "disabled",
         "database_init": "disabled",
         "manual_import": "enabled",
+        MATCH_JOURNAL_WRITE_CONTROLS_CAPABILITY: match_journal_write_controls,
         "live_watcher": "disabled",
         "parser_runner_control": "disabled",
         "frontend": "deferred",
@@ -196,12 +201,18 @@ def build_setup_status(paths: LocalAppPaths) -> dict[str, object]:
     player_log_status = build_player_log_path_status(paths)
     database_status = build_analytics_database_status(paths)
     migration_status = build_migration_loader_status()
+    match_journal_status = build_match_journal_write_status(paths)
+    match_journal_write_controls = match_journal_status.get("write_controls", {})
+    match_journal_write_status = "unavailable"
+    if isinstance(match_journal_write_controls, dict):
+        match_journal_write_status = str(match_journal_write_controls.get("status", "unavailable"))
     runtime_section = build_runtime_state()
     sections = {
         "paths": path_status,
         "config": config_status,
         "player_log": player_log_status,
         "analytics_database": database_status,
+        "match_journal": match_journal_status,
         "migrations": migration_status,
         "runtime": runtime_section,
     }
@@ -210,7 +221,7 @@ def build_setup_status(paths: LocalAppPaths) -> dict[str, object]:
         "schema_version": LOCAL_APP_SCHEMA_VERSION,
         "status": _combined_status(sections),
         **sections,
-        "capabilities": build_capabilities(),
+        "capabilities": build_capabilities(match_journal_write_controls=match_journal_write_status),
     }
 
 
@@ -289,6 +300,6 @@ def _combined_status(sections: dict[str, dict[str, object]]) -> str:
         return "unavailable"
     if "error" in statuses:
         return "error"
-    if statuses == {"ok"}:
+    if statuses == {"ok"} or statuses == {"ok", "ready"}:
         return "ok"
     return "degraded"

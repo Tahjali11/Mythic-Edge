@@ -51,6 +51,7 @@ def test_start_mode_creates_only_app_dirs_and_launcher_logs(tmp_path) -> None:
     assert (app_root / "logs" / "launcher" / "run-001" / "backend.log").is_file()
     assert (app_root / "logs" / "launcher" / "run-001" / "frontend.log").is_file()
     assert not (app_root / "db" / "mythic_edge.sqlite3").exists()
+    assert not (app_root / "db" / "match_journal.sqlite3").exists()
 
 
 def test_start_mode_uses_expected_commands_and_process_local_frontend_env(tmp_path) -> None:
