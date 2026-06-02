@@ -9,6 +9,7 @@ LOCAL_APP_OBJECT_PREFIX = "mythic_edge_local_app"
 LOCAL_APP_DIR_NAME = "MythicEdgeDev"
 REQUIRED_APP_SUBDIRS = ("config", "db", "logs", "imports", "jobs", "diagnostics")
 DEFAULT_ANALYTICS_DB_FILENAME = "mythic_edge.sqlite3"
+DEFAULT_MATCH_JOURNAL_DB_FILENAME = "match_journal.sqlite3"
 DEFAULT_BACKEND_HOST = "127.0.0.1"
 
 _DISPLAY_ROOT = "<app_data>"
@@ -25,6 +26,7 @@ class LocalAppPaths:
     diagnostics_dir: Path | None
     config_file: Path | None
     analytics_database: Path | None
+    match_journal_database: Path | None
 
 
 def build_local_app_paths(app_data_root: Path | None = None) -> LocalAppPaths:
@@ -40,6 +42,7 @@ def build_local_app_paths(app_data_root: Path | None = None) -> LocalAppPaths:
             diagnostics_dir=None,
             config_file=None,
             analytics_database=None,
+            match_journal_database=None,
         )
 
     config_dir = root / "config"
@@ -54,6 +57,7 @@ def build_local_app_paths(app_data_root: Path | None = None) -> LocalAppPaths:
         diagnostics_dir=root / "diagnostics",
         config_file=config_dir / "app_config.json",
         analytics_database=db_dir / DEFAULT_ANALYTICS_DB_FILENAME,
+        match_journal_database=db_dir / DEFAULT_MATCH_JOURNAL_DB_FILENAME,
     )
 
 

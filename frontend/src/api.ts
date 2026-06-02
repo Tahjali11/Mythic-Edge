@@ -72,6 +72,7 @@ const REQUIRED_SETUP_STATUS_FIELDS = [
   "config",
   "player_log",
   "analytics_database",
+  "match_journal",
   "migrations",
   "runtime",
   "capabilities"
@@ -371,6 +372,12 @@ export async function fetchMatchJournal(
 ): Promise<MatchJournalResponse> {
   const baseUrl = getMatchJournalApiBaseUrl();
   const params = new URLSearchParams();
+  if (context.journal_match_id) {
+    params.set("journal_match_id", context.journal_match_id);
+  }
+  if (context.journal_game_id) {
+    params.set("journal_game_id", context.journal_game_id);
+  }
   if (context.parser_match_id) {
     params.set("parser_match_id", context.parser_match_id);
   }
@@ -379,6 +386,9 @@ export async function fetchMatchJournal(
   }
   if (typeof context.game_number === "number") {
     params.set("game_number", String(context.game_number));
+  }
+  if (context.attachment_status) {
+    params.set("attachment_status", context.attachment_status);
   }
 
   let response: Response;
@@ -491,6 +501,7 @@ function validateSetupStatusResponse(payload: unknown): SetupStatusResponse {
     !isRecord(payload.config) ||
     !isRecord(payload.player_log) ||
     !isRecord(payload.analytics_database) ||
+    !isRecord(payload.match_journal) ||
     !isRecord(payload.migrations) ||
     !isRecord(payload.runtime) ||
     !isStringRecord(payload.capabilities)

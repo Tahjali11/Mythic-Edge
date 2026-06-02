@@ -46,6 +46,7 @@ export type SetupStatusResponse = {
   config: SectionStatus;
   player_log: SectionStatus;
   analytics_database: SectionStatus;
+  match_journal: SectionStatus;
   migrations: SectionStatus;
   runtime: SectionStatus;
   capabilities: CapabilityStatus;
@@ -212,9 +213,12 @@ export type MatchJournalApiErrorCode =
 export type MatchJournalStatus = "ok" | "degraded" | "empty" | "missing" | "unavailable" | "error";
 
 export type MatchJournalContext = {
+  journal_match_id?: string;
+  journal_game_id?: string;
   parser_match_id?: string;
   parser_game_id?: string;
   game_number?: number;
+  attachment_status?: string;
 };
 
 export type MatchJournalResponse = {

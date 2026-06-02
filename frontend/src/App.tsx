@@ -616,52 +616,54 @@ export function SetupStatusApp({
 
   async function runJournalMutation(
     action: (context: MatchJournalContext) => Promise<MatchJournalResponse>
-  ): Promise<void> {
+  ): Promise<boolean> {
     const context = buildMatchJournalContextSummary(historyState).context;
     if (context === null || journalSubmitState.state === "submitting") {
-      return;
+      return false;
     }
 
     setJournalSubmitState({ state: "submitting" });
     try {
       const payload = await action(context);
       setJournalSubmitState({ state: "result", payload });
+      return isSuccessfulMatchJournalSubmit(payload);
     } catch (error: unknown) {
       if (error instanceof MatchJournalApiError) {
         setJournalSubmitState({ state: "error", code: error.code, message: error.message });
-        return;
+        return false;
       }
       setJournalSubmitState({
         state: "error",
         code: "backend_unavailable",
         message: "Match Journal backend is unavailable."
       });
+      return false;
     }
   }
 
-  function handleJournalNoteSubmit(request: Omit<MatchJournalNoteRequest, "context">): Promise<void> {
+  function handleJournalNoteSubmit(request: Omit<MatchJournalNoteRequest, "context">): Promise<boolean> {
     return runJournalMutation((context) => submitJournalNote({ ...request, context }));
   }
 
   function handleJournalOpponentLabelsSubmit(
     request: Omit<MatchJournalOpponentLabelsRequest, "context">
-  ): Promise<void> {
+  ): Promise<boolean> {
     return runJournalMutation((context) => submitJournalOpponentLabels({ ...request, context }));
   }
 
-  function handleJournalReviewFlagSubmit(request: Omit<MatchJournalReviewFlagRequest, "context">): Promise<void> {
+  function handleJournalReviewFlagSubmit(request: Omit<MatchJournalReviewFlagRequest, "context">): Promise<boolean> {
     return runJournalMutation((context) => submitJournalReviewFlag({ ...request, context }));
   }
 
   function handleJournalExperimentLabelSubmit(
     request: Omit<MatchJournalExperimentLabelRequest, "context">
-  ): Promise<void> {
+  ): Promise<boolean> {
     return runJournalMutation((context) => submitJournalExperimentLabel({ ...request, context }));
   }
 
   function handleJournalDisplayCorrectionSubmit(
     request: Omit<MatchJournalDisplayCorrectionRequest, "context">
-  ): Promise<void> {
+  ): Promise<boolean> {
     return runJournalMutation((context) => submitJournalDisplayCorrection({ ...request, context }));
   }
 
@@ -969,11 +971,11 @@ function MatchJournalCockpit({
 }: {
   contextSummary: MatchJournalContextSummary;
   journalState: MatchJournalState;
-  onDisplayCorrectionSubmit: (request: Omit<MatchJournalDisplayCorrectionRequest, "context">) => Promise<void>;
-  onExperimentLabelSubmit: (request: Omit<MatchJournalExperimentLabelRequest, "context">) => Promise<void>;
-  onNoteSubmit: (request: Omit<MatchJournalNoteRequest, "context">) => Promise<void>;
-  onOpponentLabelsSubmit: (request: Omit<MatchJournalOpponentLabelsRequest, "context">) => Promise<void>;
-  onReviewFlagSubmit: (request: Omit<MatchJournalReviewFlagRequest, "context">) => Promise<void>;
+  onDisplayCorrectionSubmit: (request: Omit<MatchJournalDisplayCorrectionRequest, "context">) => Promise<boolean>;
+  onExperimentLabelSubmit: (request: Omit<MatchJournalExperimentLabelRequest, "context">) => Promise<boolean>;
+  onNoteSubmit: (request: Omit<MatchJournalNoteRequest, "context">) => Promise<boolean>;
+  onOpponentLabelsSubmit: (request: Omit<MatchJournalOpponentLabelsRequest, "context">) => Promise<boolean>;
+  onReviewFlagSubmit: (request: Omit<MatchJournalReviewFlagRequest, "context">) => Promise<boolean>;
   submitState: MatchJournalSubmitState;
 }) {
   const [noteScope, setNoteScope] = useState<MatchJournalNoteRequest["note_scope"]>("game");
@@ -995,8 +997,9 @@ function MatchJournalCockpit({
     if (disabled || !trimmed) {
       return;
     }
-    await onNoteSubmit({ note_scope: noteScope, note_text: trimmed });
-    setNoteText("");
+    if (await onNoteSubmit({ note_scope: noteScope, note_text: trimmed })) {
+      setNoteText("");
+    }
   }
 
   async function handleOpponentLabelsSubmit(event: FormEvent<HTMLFormElement>) {
@@ -1006,12 +1009,13 @@ function MatchJournalCockpit({
     if (disabled || (!archetype && !tier)) {
       return;
     }
-    await onOpponentLabelsSubmit({
+    if (await onOpponentLabelsSubmit({
       ...(archetype ? { archetype } : {}),
       ...(tier ? { tier } : {})
-    });
-    setOpponentLabel("");
-    setOpponentTier("");
+    })) {
+      setOpponentLabel("");
+      setOpponentTier("");
+    }
   }
 
   async function handleReviewFlagSubmit(event: FormEvent<HTMLFormElement>) {
@@ -1028,8 +1032,9 @@ function MatchJournalCockpit({
     if (disabled || !trimmed) {
       return;
     }
-    await onExperimentLabelSubmit({ experiment_label: trimmed });
-    setExperimentLabel("");
+    if (await onExperimentLabelSubmit({ experiment_label: trimmed })) {
+      setExperimentLabel("");
+    }
   }
 
   async function handleDisplayCorrectionSubmit(event: FormEvent<HTMLFormElement>) {
@@ -1039,14 +1044,15 @@ function MatchJournalCockpit({
     if (disabled || !targetField || !proposedValue) {
       return;
     }
-    await onDisplayCorrectionSubmit({
+    if (await onDisplayCorrectionSubmit({
       target_surface: "journal_display",
       target_field: targetField,
       proposed_value_label: proposedValue,
       effect_scope: "journal_display_only"
-    });
-    setCorrectionField("");
-    setCorrectionValue("");
+    })) {
+      setCorrectionField("");
+      setCorrectionValue("");
+    }
   }
 
   return (
@@ -1269,7 +1275,7 @@ function MatchJournalSubmitNotice({ submitState }: { submitState: MatchJournalSu
   return (
     <section className={`jobResult tone-${statusTone(submitState.payload.status)}`} aria-label="Match Journal submit result">
       <div className="panelHeader">
-        <h2>Journal Update Saved</h2>
+        <h2>{isSuccessfulMatchJournalSubmit(submitState.payload) ? "Journal Update Saved" : "Journal Update Not Saved"}</h2>
         <StatusPill label={submitState.payload.status} tone={statusTone(submitState.payload.status)} />
       </div>
       <dl>
@@ -2190,6 +2196,10 @@ function matchJournalStatus(journalState: MatchJournalState): string {
   return journalState.payload.status;
 }
 
+function isSuccessfulMatchJournalSubmit(payload: MatchJournalResponse): boolean {
+  return payload.status === "ok" && payload.errors.length === 0;
+}
+
 function matchJournalWriteDisabled(
   journalState: MatchJournalState,
   context: MatchJournalContext | null,
@@ -2259,6 +2269,14 @@ function buildPanels(payload: SetupStatusResponse): Panel[] {
       details: [
         { label: "path", value: nestedValue(payload.analytics_database, ["database", "display_path"]) },
         { label: "schema", value: nestedValue(payload.analytics_database, ["database", "schema_status"]) }
+      ]
+    },
+    {
+      title: "Match Journal",
+      status: statusFromSection(payload.match_journal),
+      details: [
+        { label: "path", value: nestedValue(payload.match_journal, ["database", "display_path"]) },
+        { label: "writes", value: nestedValue(payload.match_journal, ["write_controls", "status"]) }
       ]
     },
     {
