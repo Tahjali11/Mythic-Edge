@@ -12,6 +12,9 @@ import {
   GAMEPLAY_ACTION_REVIEW_OBJECT,
   LEGACY_JSONL_IMPORT_QUALITY_OBJECT,
   LEGACY_JSONL_IMPORT_QUALITY_SCHEMA_VERSION,
+  LIVE_PLAYER_LOG_STATUS_OBJECT,
+  LIVE_STATUS_SCHEMA_VERSION,
+  LIVE_WATCHER_STATUS_OBJECT,
   MANUAL_IMPORT_JOB_OBJECT,
   MANUAL_IMPORT_JOB_SCHEMA_VERSION,
   MATCH_JOURNAL_OBJECT,
@@ -28,6 +31,8 @@ import {
   type GameHistoryResponse,
   type GameplayActionReviewResponse,
   type LegacyJsonlImportQuality,
+  type LivePlayerLogStatusResponse,
+  type LiveWatcherStatusResponse,
   type ManualImportJob,
   type ManualImportSourceArtifact,
   type MatchJournalResponse,
@@ -53,11 +58,33 @@ describe("SetupStatusApp", () => {
 
     expect(screen.getByText("Backend Reachability")).toBeInTheDocument();
     expect(screen.getByText("<app_data>")).toBeInTheDocument();
-    expect(screen.getByText("<configured_player_log>")).toBeInTheDocument();
+    expect(screen.getAllByText("<configured_player_log>").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("Live Player.log")).toBeInTheDocument();
+    expect(screen.getByText("Live Watcher")).toBeInTheDocument();
+    expect(screen.getByText("readiness_only")).toBeInTheDocument();
+    expect(screen.getByText("not_capturing")).toBeInTheDocument();
     expect(screen.getByText("<app_data>\\db\\mythic_edge.sqlite3")).toBeInTheDocument();
     expect(screen.getByText("<app_data>\\db\\match_journal.sqlite3")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Import JSONL" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /reset|delete|wipe|cancel|retry|start|stop|git|sheets|ai/i })).not.toBeInTheDocument();
+  });
+
+  it("redacts unsafe live Player.log display strings from setup-status summaries", async () => {
+    const rawPath = "Z:\\synthetic\\unsafe\\Player.log";
+    const livePlayerLog = {
+      ...buildLivePlayerLogStatusPayload(),
+      player_log: {
+        ...buildLivePlayerLogStatusPayload().player_log,
+        display_path: rawPath
+      }
+    };
+    render(<SetupStatusApp fetchStatus={() => Promise.resolve(buildPayload({ live_player_log: livePlayerLog }))} />);
+
+    expect(await screen.findByText("Unsafe display value redacted")).toBeInTheDocument();
+    expect(screen.getAllByText("<redacted_path>").length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText(rawPath)).not.toBeInTheDocument();
+    expect(screen.queryByText(/currently capturing/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /start|stop/i })).not.toBeInTheDocument();
   });
 
   it("renders read-only match and game history with a refresh control", async () => {
@@ -191,7 +218,7 @@ describe("SetupStatusApp", () => {
     expect(await screen.findByRole("heading", { name: "Unattached Smoke Note" })).toBeInTheDocument();
     expect(screen.getAllByText("journal_note:smoke:1").length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText("unattached").length).toBeGreaterThanOrEqual(1);
-    expect(screen.queryByText(/MYTHIC_EDGE_SMOKE_TEST|Player\.log|C:\\|script\.google\.com/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/MYTHIC_EDGE_SMOKE_TEST|C:\\|script\.google\.com/i)).not.toBeInTheDocument();
 
     cleanup();
     render(<SetupStatusApp {...props} />);
@@ -1021,6 +1048,8 @@ function buildPayload(overrides: Partial<SetupStatusResponse> = {}): SetupStatus
       status: "missing",
       player_log: { display_path: "<configured_player_log>", status: "configured_missing" }
     },
+    live_player_log: buildLivePlayerLogStatusPayload(),
+    live_watcher: buildLiveWatcherStatusPayload(),
     analytics_database: {
       status: "missing",
       database: { display_path: "<app_data>\\db\\mythic_edge.sqlite3", schema_status: "missing" }
@@ -1049,6 +1078,66 @@ function buildPayload(overrides: Partial<SetupStatusResponse> = {}): SetupStatus
       live_watcher: "disabled"
     },
     ...overrides
+  };
+}
+
+function buildLivePlayerLogStatusPayload(): LivePlayerLogStatusResponse {
+  return {
+    object: LIVE_PLAYER_LOG_STATUS_OBJECT,
+    schema_version: LIVE_STATUS_SCHEMA_VERSION,
+    status: "ok",
+    player_log: {
+      status: "configured_exists",
+      source: "configured",
+      display_path: "<configured_player_log>",
+      path_kind: "file",
+      metadata_access: "accessible",
+      exists: true,
+      contents_read: false,
+      tailing_started: false,
+      size_bytes: 42,
+      last_modified_at: "2026-06-02T00:00:00Z",
+      last_modified_age_seconds: 1,
+      activity_hint: "recent"
+    },
+    diagnostics: ["readability_not_probed", "rotation_detection_deferred", "truncation_detection_deferred"],
+    warnings: [],
+    errors: []
+  };
+}
+
+function buildLiveWatcherStatusPayload(): LiveWatcherStatusResponse {
+  return {
+    object: LIVE_WATCHER_STATUS_OBJECT,
+    schema_version: LIVE_STATUS_SCHEMA_VERSION,
+    status: "ready",
+    watcher: {
+      status: "ready",
+      mode: "readiness_only",
+      running: false,
+      start_allowed: false,
+      stop_allowed: false,
+      parser_runner_started: false,
+      tailing_started: false,
+      sqlite_live_writes_enabled: false,
+      reason: null
+    },
+    player_log: {
+      status: "configured_exists",
+      source: "configured",
+      display_path: "<configured_player_log>",
+      path_kind: "file",
+      metadata_access: "accessible",
+      exists: true,
+      contents_read: false,
+      tailing_started: false,
+      size_bytes: 42,
+      last_modified_at: "2026-06-02T00:00:00Z",
+      last_modified_age_seconds: 1,
+      activity_hint: "recent"
+    },
+    warnings: [],
+    errors: []
   };
 }
 

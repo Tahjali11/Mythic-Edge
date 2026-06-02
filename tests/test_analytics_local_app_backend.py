@@ -44,6 +44,8 @@ def test_read_only_endpoint_inventory_and_no_wildcard_cors(tmp_path) -> None:
         "/api/app/config",
         "/api/app/paths",
         "/api/analytics/database/status",
+        "/api/live/player-log/status",
+        "/api/live/watcher/status",
         "/api/analytics/matches",
         "/api/analytics/games",
         "/api/analytics/opening-hands",
@@ -54,6 +56,7 @@ def test_read_only_endpoint_inventory_and_no_wildcard_cors(tmp_path) -> None:
         "/api/analytics/game1-postboard-splits",
         "/api/runtime/status",
         "/api/imports/jsonl",
+        "/api/imports/jsonl/upload",
         "/api/imports/jobs/{job_id}",
     }
     route_paths = {route.path for route in client.app.routes}
@@ -247,6 +250,8 @@ def test_setup_status_get_routes_do_not_create_local_app_artifacts(tmp_path) -> 
         "/api/app/config",
         "/api/app/paths",
         "/api/analytics/database/status",
+        "/api/live/player-log/status",
+        "/api/live/watcher/status",
         "/api/runtime/status",
     ):
         response = client.get(route)
@@ -254,6 +259,56 @@ def test_setup_status_get_routes_do_not_create_local_app_artifacts(tmp_path) -> 
 
     assert not app_root.exists()
     assert list(tmp_path.rglob("*")) == []
+
+
+def test_live_status_routes_report_symbolic_metadata_and_readiness_only(tmp_path) -> None:
+    app_root = tmp_path / "app-data"
+    player_log_path = tmp_path / "Player.log"
+    player_log_path.write_text("private log body must not be returned", encoding="utf-8")
+    config_file = app_root / "config" / "app_config.json"
+    config_file.parent.mkdir(parents=True)
+    config_file.write_text(json.dumps({"player_log_path": str(player_log_path)}), encoding="utf-8")
+    client = _client(app_root)
+
+    player_log_payload = client.get("/api/live/player-log/status").json()
+    watcher_payload = client.get("/api/live/watcher/status").json()
+    encoded = json.dumps({"player_log": player_log_payload, "watcher": watcher_payload}, sort_keys=True)
+
+    assert player_log_payload["object"] == "mythic_edge_local_app_live_player_log_status"
+    assert player_log_payload["schema_version"] == "live_app_player_log_path_watcher_status.v1"
+    assert player_log_payload["player_log"]["status"] == "configured_exists"
+    assert player_log_payload["player_log"]["display_path"] == "<configured_player_log>"
+    assert player_log_payload["player_log"]["contents_read"] is False
+    assert player_log_payload["player_log"]["tailing_started"] is False
+    assert watcher_payload["object"] == "mythic_edge_local_app_live_watcher_status"
+    assert watcher_payload["watcher"]["status"] == "ready"
+    assert watcher_payload["watcher"]["mode"] == "readiness_only"
+    assert watcher_payload["watcher"]["running"] is False
+    assert watcher_payload["watcher"]["start_allowed"] is False
+    assert watcher_payload["watcher"]["stop_allowed"] is False
+    assert watcher_payload["watcher"]["parser_runner_started"] is False
+    assert watcher_payload["watcher"]["tailing_started"] is False
+    assert watcher_payload["watcher"]["sqlite_live_writes_enabled"] is False
+    assert str(player_log_path) not in encoded
+    assert "private log body" not in encoded
+
+
+def test_live_watcher_blocks_configured_missing_player_log(tmp_path) -> None:
+    app_root = tmp_path / "app-data"
+    missing_player_log = tmp_path / "missing" / "Player.log"
+    config_file = app_root / "config" / "app_config.json"
+    config_file.parent.mkdir(parents=True)
+    config_file.write_text(json.dumps({"player_log_path": str(missing_player_log)}), encoding="utf-8")
+    client = _client(app_root)
+
+    watcher_payload = client.get("/api/live/watcher/status").json()
+    encoded = json.dumps(watcher_payload, sort_keys=True)
+
+    assert watcher_payload["watcher"]["status"] == "blocked_missing_log"
+    assert watcher_payload["watcher"]["reason"] == "player_log_missing"
+    assert watcher_payload["watcher"]["start_allowed"] is False
+    assert watcher_payload["watcher"]["tailing_started"] is False
+    assert str(missing_player_log) not in encoded
 
 
 def test_database_status_route_reports_missing_without_creating_database(tmp_path) -> None:

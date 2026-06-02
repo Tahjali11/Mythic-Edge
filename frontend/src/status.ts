@@ -14,6 +14,8 @@ export function statusTone(status: string): SetupStatusTone {
     normalized === "enabled" ||
     normalized === "succeeded" ||
     normalized === "completed" ||
+    normalized === "ready" ||
+    normalized === "running" ||
     normalized.endsWith("_exists") ||
     normalized === "present"
   ) {
@@ -25,7 +27,7 @@ export function statusTone(status: string): SetupStatusTone {
   if (normalized === "empty") {
     return "empty";
   }
-  if (normalized === "missing" || normalized.endsWith("_missing")) {
+  if (normalized === "missing" || normalized.endsWith("_missing") || normalized === "not_configured") {
     return "missing";
   }
   if (normalized === "unavailable") {
@@ -36,11 +38,17 @@ export function statusTone(status: string): SetupStatusTone {
     normalized === "failed" ||
     normalized === "rejected" ||
     normalized.startsWith("invalid_") ||
+    normalized.startsWith("blocked_") ||
     normalized === "unreadable"
   ) {
     return "error";
   }
-  if (normalized === "deferred" || normalized === "disabled" || normalized === "separate_reference_surface") {
+  if (
+    normalized === "deferred" ||
+    normalized === "disabled" ||
+    normalized === "stopped" ||
+    normalized === "separate_reference_surface"
+  ) {
     return "deferred";
   }
   return "unknown";

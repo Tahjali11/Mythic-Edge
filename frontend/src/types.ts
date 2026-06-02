@@ -1,5 +1,8 @@
 export const SETUP_STATUS_OBJECT = "mythic_edge_local_app_setup_status";
 export const SETUP_STATUS_SCHEMA_VERSION = "analytics_app_backend_setup_status.v1";
+export const LIVE_STATUS_SCHEMA_VERSION = "live_app_player_log_path_watcher_status.v1";
+export const LIVE_PLAYER_LOG_STATUS_OBJECT = "mythic_edge_local_app_live_player_log_status";
+export const LIVE_WATCHER_STATUS_OBJECT = "mythic_edge_local_app_live_watcher_status";
 export const MANUAL_IMPORT_JOB_OBJECT = "mythic_edge_local_app_manual_jsonl_import_job";
 export const MANUAL_IMPORT_JOB_SCHEMA_VERSION = "analytics_manual_jsonl_import_ui_job_status.v1";
 export const LEGACY_JSONL_IMPORT_QUALITY_OBJECT = "mythic_edge_legacy_jsonl_import_quality";
@@ -38,6 +41,55 @@ export type SectionStatus = {
 
 export type CapabilityStatus = Record<string, string>;
 
+export type LivePlayerLogSummary = {
+  status: string;
+  source: "configured" | "detected_default" | "none" | "unavailable" | string;
+  display_path: string;
+  path_kind: "file" | "missing" | "directory" | "unknown" | "unavailable" | string;
+  metadata_access: "accessible" | "denied" | "not_checked" | "unavailable" | string;
+  exists: boolean;
+  contents_read: false;
+  tailing_started: false;
+  size_bytes?: number | null;
+  last_modified_at?: string | null;
+  last_modified_age_seconds?: number | null;
+  activity_hint?: "recent" | "stale" | "unknown" | "not_applicable" | string;
+};
+
+export type LivePlayerLogStatusResponse = {
+  object: typeof LIVE_PLAYER_LOG_STATUS_OBJECT;
+  schema_version: typeof LIVE_STATUS_SCHEMA_VERSION;
+  status: string;
+  player_log: LivePlayerLogSummary;
+  diagnostics: string[];
+  warnings: string[];
+  errors: string[];
+  [key: string]: unknown;
+};
+
+export type LiveWatcherSummary = {
+  status: string;
+  mode: "readiness_only" | string;
+  running: false;
+  start_allowed: false;
+  stop_allowed: false;
+  parser_runner_started: false;
+  tailing_started: false;
+  sqlite_live_writes_enabled: false;
+  reason: string | null;
+};
+
+export type LiveWatcherStatusResponse = {
+  object: typeof LIVE_WATCHER_STATUS_OBJECT;
+  schema_version: typeof LIVE_STATUS_SCHEMA_VERSION;
+  status: string;
+  watcher: LiveWatcherSummary;
+  player_log: LivePlayerLogSummary;
+  warnings: string[];
+  errors: string[];
+  [key: string]: unknown;
+};
+
 export type SetupStatusResponse = {
   object: typeof SETUP_STATUS_OBJECT;
   schema_version: typeof SETUP_STATUS_SCHEMA_VERSION;
@@ -45,6 +97,8 @@ export type SetupStatusResponse = {
   paths: SectionStatus;
   config: SectionStatus;
   player_log: SectionStatus;
+  live_player_log?: LivePlayerLogStatusResponse;
+  live_watcher?: LiveWatcherStatusResponse;
   analytics_database: SectionStatus;
   match_journal: SectionStatus;
   migrations: SectionStatus;
@@ -58,6 +112,7 @@ export type SetupStatusErrorCode =
   | "malformed_response"
   | "incompatible_response"
   | "unsafe_api_base_url";
+export type LiveStatusErrorCode = SetupStatusErrorCode;
 
 export type ManualImportStatus = "queued" | "running" | "succeeded" | "degraded" | "failed" | "rejected";
 

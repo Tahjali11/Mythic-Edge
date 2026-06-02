@@ -30,6 +30,9 @@ import {
   ACTION_REVIEW_SCHEMA_VERSION,
   ANALYTICS_HISTORY_SCHEMA_VERSION,
   EARLY_GAME_HISTORY_SCHEMA_VERSION,
+  LIVE_PLAYER_LOG_STATUS_OBJECT,
+  LIVE_STATUS_SCHEMA_VERSION,
+  LIVE_WATCHER_STATUS_OBJECT,
   SPLIT_REVIEW_SCHEMA_VERSION,
   MANUAL_IMPORT_JOB_SCHEMA_VERSION,
   SETUP_STATUS_SCHEMA_VERSION,
@@ -41,6 +44,8 @@ import {
   type GameHistoryRow,
   type GameplayActionReviewResponse,
   type GameplayActionReviewRow,
+  type LivePlayerLogStatusResponse,
+  type LiveWatcherStatusResponse,
   type ManualImportJob,
   type ManualImportRequest,
   type ManualImportUploadRequest,
@@ -925,10 +930,6 @@ export function SetupStatusApp({
       <EarlyGameHistorySection earlyGameState={earlyGameState} onRefresh={refreshEarlyGameHistory} />
       <ActionReviewSection actionReviewState={actionReviewState} onRefresh={refreshActionReview} />
       <SplitReviewSection splitReviewState={splitReviewState} onRefresh={refreshSplitReview} />
-
-      <section className="panelGrid futureGrid" aria-label="Deferred local app sections">
-        <StatusPanel title="Live Watcher" status="deferred" details={[{ label: "state", value: "deferred" }]} />
-      </section>
     </Shell>
   );
 }
@@ -2494,6 +2495,8 @@ function matchJournalErrorTitle(code: MatchJournalApiError["code"]): string {
 }
 
 function buildPanels(payload: SetupStatusResponse): Panel[] {
+  const livePlayerLogPanel = buildLivePlayerLogPanel(payload.live_player_log);
+  const liveWatcherPanel = buildLiveWatcherPanel(payload.live_watcher);
   return [
     {
       title: "App Data",
@@ -2519,6 +2522,8 @@ function buildPanels(payload: SetupStatusResponse): Panel[] {
         { label: "state", value: nestedValue(payload.player_log, ["player_log", "status"]) }
       ]
     },
+    ...(livePlayerLogPanel ? [livePlayerLogPanel] : []),
+    ...(liveWatcherPanel ? [liveWatcherPanel] : []),
     {
       title: "Analytics Database",
       status: statusFromSection(payload.analytics_database),
@@ -2553,6 +2558,44 @@ function buildPanels(payload: SetupStatusResponse): Panel[] {
       ]
     }
   ];
+}
+
+function buildLivePlayerLogPanel(payload: unknown): Panel | null {
+  if (!isLivePlayerLogStatusResponse(payload)) {
+    return null;
+  }
+  return {
+    title: "Live Player.log",
+    status: payload.player_log.status,
+    details: [
+      { label: "path", value: payload.player_log.display_path },
+      { label: "source", value: payload.player_log.source },
+      { label: "kind", value: payload.player_log.path_kind },
+      { label: "metadata", value: payload.player_log.metadata_access },
+      { label: "activity", value: payload.player_log.activity_hint ?? "unknown" },
+      { label: "contents", value: payload.player_log.contents_read ? "read" : "not_read" },
+      { label: "tailing", value: payload.player_log.tailing_started ? "started" : "not_started" }
+    ]
+  };
+}
+
+function buildLiveWatcherPanel(payload: unknown): Panel | null {
+  if (!isLiveWatcherStatusResponse(payload)) {
+    return null;
+  }
+  return {
+    title: "Live Watcher",
+    status: payload.watcher.status,
+    details: [
+      { label: "mode", value: payload.watcher.mode },
+      { label: "readiness", value: payload.watcher.status },
+      { label: "capture", value: payload.watcher.running ? "capturing" : "not_capturing" },
+      { label: "start", value: payload.watcher.start_allowed ? "allowed" : "disabled" },
+      { label: "stop", value: payload.watcher.stop_allowed ? "allowed" : "disabled" },
+      { label: "tailing", value: payload.watcher.tailing_started ? "started" : "not_started" },
+      { label: "reason", value: payload.watcher.reason ?? "none" }
+    ]
+  };
 }
 
 function statusFromSection(section: SectionStatus): string {
@@ -3147,6 +3190,27 @@ function errorTitle(code: SetupStatusApiError["code"]): string {
 
 function errorTone(code: SetupStatusApiError["code"]): string {
   return code === "unsafe_api_base_url" || code === "incompatible_response" ? "error" : "unavailable";
+}
+
+function isLivePlayerLogStatusResponse(value: unknown): value is LivePlayerLogStatusResponse {
+  return (
+    isRecord(value) &&
+    value.object === LIVE_PLAYER_LOG_STATUS_OBJECT &&
+    value.schema_version === LIVE_STATUS_SCHEMA_VERSION &&
+    typeof value.status === "string" &&
+    isRecord(value.player_log)
+  );
+}
+
+function isLiveWatcherStatusResponse(value: unknown): value is LiveWatcherStatusResponse {
+  return (
+    isRecord(value) &&
+    value.object === LIVE_WATCHER_STATUS_OBJECT &&
+    value.schema_version === LIVE_STATUS_SCHEMA_VERSION &&
+    typeof value.status === "string" &&
+    isRecord(value.watcher) &&
+    isRecord(value.player_log)
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

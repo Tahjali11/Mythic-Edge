@@ -7,6 +7,10 @@ describe("status helpers", () => {
     expect(statusTone("ok")).toBe("ok");
     expect(statusTone("configured_missing")).toBe("missing");
     expect(statusTone("unavailable")).toBe("unavailable");
+    expect(statusTone("ready")).toBe("ok");
+    expect(statusTone("blocked_missing_log")).toBe("error");
+    expect(statusTone("not_configured")).toBe("missing");
+    expect(statusTone("stopped")).toBe("deferred");
     expect(statusTone("invalid_json")).toBe("error");
     expect(statusTone("disabled")).toBe("deferred");
     expect(statusTone("surprise")).toBe("unknown");
