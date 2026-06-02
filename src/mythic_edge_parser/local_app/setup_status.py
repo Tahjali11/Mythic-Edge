@@ -24,8 +24,10 @@ from .paths import (
 )
 
 LIVE_STATUS_SCHEMA_VERSION = "live_app_player_log_path_watcher_status.v1"
+LIVE_SQLITE_CAPTURE_SCHEMA_VERSION = "live_app_parser_owned_fact_capture_sqlite.v1"
 LIVE_PLAYER_LOG_STATUS_OBJECT = "mythic_edge_local_app_live_player_log_status"
 LIVE_WATCHER_STATUS_OBJECT = "mythic_edge_local_app_live_watcher_status"
+LIVE_SQLITE_CAPTURE_STATUS_OBJECT = "mythic_edge_local_app_live_parser_sqlite_capture_status"
 PLAYER_LOG_RECENT_ACTIVITY_SECONDS = 24 * 60 * 60
 
 
@@ -199,6 +201,42 @@ def build_live_watcher_status(paths: LocalAppPaths) -> dict[str, object]:
         },
         "warnings": warnings,
         "errors": errors,
+    }
+
+
+def build_live_sqlite_capture_status(paths: LocalAppPaths) -> dict[str, object]:
+    database_configured = paths.analytics_database is not None
+    return {
+        "object": LIVE_SQLITE_CAPTURE_STATUS_OBJECT,
+        "schema_version": LIVE_SQLITE_CAPTURE_SCHEMA_VERSION,
+        "status": "disabled",
+        "mode": "status_only",
+        "source_kind": "live_parser",
+        "database": {
+            "configured": database_configured,
+            "display_path": display_app_path("db", "mythic_edge.sqlite3")
+            if database_configured
+            else "<app_data_unavailable>",
+        },
+        "capabilities": {
+            "live_sqlite_capture_contract_present": True,
+            "final_match_game_fact_capture_supported": True,
+            "provisional_fact_capture_supported": False,
+            "gameplay_action_live_capture_supported": False,
+            "opponent_observation_live_capture_supported": False,
+            "field_evidence_live_capture_supported": False,
+            "raw_player_log_storage_supported": False,
+            "external_transport_allowed": False,
+            "watcher_start_stop_allowed": False,
+        },
+        "process_control": {
+            "parser_runner_started": False,
+            "tailing_started": False,
+            "sqlite_live_writes_enabled": False,
+        },
+        "last_result": None,
+        "warnings": [] if database_configured else ["app_data_root_unavailable"],
+        "errors": [] if database_configured else ["app_data_root_unavailable"],
     }
 
 
@@ -469,6 +507,7 @@ def build_setup_status(paths: LocalAppPaths) -> dict[str, object]:
     from .live_watcher_process import build_live_watcher_process_status
 
     live_watcher_process_status = build_live_watcher_process_status(paths)
+    live_sqlite_capture_status = build_live_sqlite_capture_status(paths)
     database_status = build_analytics_database_status(paths)
     migration_status = build_migration_loader_status()
     match_journal_status = build_match_journal_write_status(paths)
@@ -484,6 +523,7 @@ def build_setup_status(paths: LocalAppPaths) -> dict[str, object]:
         "live_player_log": live_player_log_status,
         "live_watcher": live_watcher_status,
         "live_watcher_process": live_watcher_process_status,
+        "live_sqlite_capture": live_sqlite_capture_status,
         "analytics_database": database_status,
         "match_journal": match_journal_status,
         "migrations": migration_status,
