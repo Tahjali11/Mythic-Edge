@@ -55,7 +55,8 @@ def create_app(
     env: Mapping[str, str] = os.environ,
     match_journal_service_factory: JournalServiceFactory | None = None,
 ) -> FastAPI:
-    local_app_paths = build_local_app_paths(app_data_root)
+    local_app_paths = build_local_app_paths(app_data_root, env=env)
+    resolved_app_data_root = local_app_paths.app_data_root
     journal_service_factory = match_journal_service_factory or build_match_journal_service_factory(local_app_paths)
     app = FastAPI(
         title="Mythic Edge Local App Backend",
@@ -164,7 +165,7 @@ def create_app(
 
     @app.post("/api/imports/jsonl")
     def import_jsonl(request: object = Body(...)) -> dict[str, object]:
-        return run_manual_jsonl_import(request, app_data_root=app_data_root)
+        return run_manual_jsonl_import(request, app_data_root=resolved_app_data_root)
 
     @app.post("/api/imports/jsonl/upload")
     async def import_jsonl_upload(request: Request) -> dict[str, object]:
@@ -183,7 +184,7 @@ def create_app(
                 return reject_browser_jsonl_upload_import(
                     "upload_file_invalid",
                     files_selected=len(form_files),
-                    app_data_root=app_data_root,
+                    app_data_root=resolved_app_data_root,
                 )
             upload_files.append(value)
 
@@ -194,7 +195,7 @@ def create_app(
             return reject_browser_jsonl_upload_import(
                 "source_artifact_label_invalid",
                 files_selected=len(form_files),
-                app_data_root=app_data_root,
+                app_data_root=resolved_app_data_root,
             )
 
         uploads: list[BrowserJsonlUploadFile] = []
@@ -215,7 +216,7 @@ def create_app(
         return run_browser_jsonl_upload_import(
             uploads,
             source_artifact_label=source_artifact_label,
-            app_data_root=app_data_root,
+            app_data_root=resolved_app_data_root,
         )
 
     @app.get("/api/imports/jobs/{job_id}")

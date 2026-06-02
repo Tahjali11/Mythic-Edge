@@ -112,6 +112,39 @@ def test_backend_ignores_non_loopback_frontend_origin_env(tmp_path) -> None:
     assert response.headers.get("access-control-allow-origin") is None
 
 
+def test_backend_uses_launcher_app_data_root_env_for_status_and_writes(tmp_path) -> None:
+    launcher_root = tmp_path / "launcher-app-data"
+    local_app_data = tmp_path / "local-app-data"
+    default_root = local_app_data / "MythicEdgeDev"
+    client = TestClient(
+        create_app(
+            env={
+                "LOCALAPPDATA": str(local_app_data),
+                "MYTHIC_EDGE_LOCAL_APP_DATA_ROOT": str(launcher_root),
+            },
+        ),
+    )
+
+    setup_payload = client.get("/api/app/setup-status").json()
+    encoded_setup = json.dumps(setup_payload, sort_keys=True)
+
+    assert setup_payload["match_journal"]["database"]["display_path"] == "<app_data>\\db\\match_journal.sqlite3"
+    assert str(launcher_root) not in encoded_setup
+    assert str(default_root) not in encoded_setup
+    assert not launcher_root.exists()
+    assert not default_root.exists()
+
+    write_response = client.post(
+        "/api/journal/notes",
+        json={"note_scope": "unattached", "note_text": "Synthetic local note."},
+    )
+
+    assert write_response.status_code == 200
+    assert (launcher_root / "db" / "match_journal.sqlite3").is_file()
+    assert not (launcher_root / "db" / "mythic_edge.sqlite3").exists()
+    assert not default_root.exists()
+
+
 def test_setup_status_combines_sections_without_exposing_temp_paths_or_writing(tmp_path) -> None:
     app_root = tmp_path / "app-data"
     client = _client(app_root)
