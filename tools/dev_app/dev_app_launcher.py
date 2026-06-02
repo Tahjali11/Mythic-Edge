@@ -24,6 +24,7 @@ FRONTEND_HOST = "127.0.0.1"
 BACKEND_PORT = 8765
 FRONTEND_PORT = 5173
 LOCAL_APP_DIR_NAME = "MythicEdgeDev"
+LOCAL_APP_DATA_ROOT_ENV = "MYTHIC_EDGE_LOCAL_APP_DATA_ROOT"
 REQUIRED_APP_SUBDIRS = ("config", "db", "logs", "imports", "jobs", "diagnostics")
 REQUIRED_REPO_MARKERS = (
     "AGENTS.md",
@@ -576,6 +577,10 @@ def _backend_env(config: LauncherConfig) -> dict[str, str]:
     existing_pythonpath = env.get("PYTHONPATH")
     env["PYTHONPATH"] = src_path if not existing_pythonpath else os.pathsep.join((src_path, existing_pythonpath))
     env["MYTHIC_EDGE_LOCAL_APP_FRONTEND_ORIGIN"] = f"http://{config.frontend_host}:{config.frontend_port}"
+    if config.app_data_root is not None:
+        env[LOCAL_APP_DATA_ROOT_ENV] = str(config.app_data_root)
+    else:
+        env.pop(LOCAL_APP_DATA_ROOT_ENV, None)
     return env
 
 

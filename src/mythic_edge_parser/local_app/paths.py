@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
 LOCAL_APP_SCHEMA_VERSION = "analytics_app_backend_setup_status.v1"
 LOCAL_APP_OBJECT_PREFIX = "mythic_edge_local_app"
 LOCAL_APP_DIR_NAME = "MythicEdgeDev"
+LOCAL_APP_DATA_ROOT_ENV = "MYTHIC_EDGE_LOCAL_APP_DATA_ROOT"
 REQUIRED_APP_SUBDIRS = ("config", "db", "logs", "imports", "jobs", "diagnostics")
 DEFAULT_ANALYTICS_DB_FILENAME = "mythic_edge.sqlite3"
 DEFAULT_MATCH_JOURNAL_DB_FILENAME = "match_journal.sqlite3"
@@ -29,8 +31,8 @@ class LocalAppPaths:
     match_journal_database: Path | None
 
 
-def build_local_app_paths(app_data_root: Path | None = None) -> LocalAppPaths:
-    root = Path(app_data_root) if app_data_root is not None else _default_app_data_root()
+def build_local_app_paths(app_data_root: Path | None = None, *, env: Mapping[str, str] = os.environ) -> LocalAppPaths:
+    root = Path(app_data_root) if app_data_root is not None else _default_app_data_root(env)
     if root is None:
         return LocalAppPaths(
             app_data_root=None,
@@ -110,8 +112,11 @@ def display_app_path(*parts: str) -> str:
     return "\\".join((_DISPLAY_ROOT, *parts))
 
 
-def _default_app_data_root() -> Path | None:
-    local_app_data = os.environ.get("LOCALAPPDATA")
+def _default_app_data_root(env: Mapping[str, str] = os.environ) -> Path | None:
+    launcher_app_data_root = env.get(LOCAL_APP_DATA_ROOT_ENV)
+    if launcher_app_data_root:
+        return Path(launcher_app_data_root)
+    local_app_data = env.get("LOCALAPPDATA")
     if not local_app_data:
         return None
     return Path(local_app_data) / LOCAL_APP_DIR_NAME

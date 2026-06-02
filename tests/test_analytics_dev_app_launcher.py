@@ -89,6 +89,7 @@ def test_start_mode_uses_expected_commands_and_process_local_frontend_env(tmp_pa
         "8765",
     ]
     assert backend_call.env["MYTHIC_EDGE_LOCAL_APP_FRONTEND_ORIGIN"] == "http://127.0.0.1:5173"
+    assert backend_call.env["MYTHIC_EDGE_LOCAL_APP_DATA_ROOT"] == str(config.app_data_root)
     assert frontend_call.command == [
         "npm.cmd",
         "--prefix",
