@@ -1,5 +1,287 @@
 # Private Local V1 Clean Checkout Install And Launch Implementation Comparison
 
+## Follow-Up C Pass After Codex E Readiness Proof
+
+Codex E updated
+`docs/contract_test_reports/private_local_v1_clean_checkout_install_launch.md`
+with verdict `not_ready_for_user_manual_fresh_install`. The remaining blocker
+was not the setup foundation itself; it was that the successful disposable
+proof still required reviewer-only manual orchestration.
+
+This Codex C follow-up implements a contract-owned setup proof orchestration
+path while keeping validation fake-runner based. No real GitHub clone,
+dependency install, long-running backend/frontend process, browser open, or
+real default `%LOCALAPPDATA%\MythicEdge\` setup was run by this implementation
+pass.
+
+### Follow-Up Current Behavior Compared To Contract
+
+Before this follow-up:
+
+- `--check` and `--install` existed.
+- install mode could create the v1 generated folder tree, manifest, setup
+  report, and optional empty migrated analytics SQLite database.
+- clone/install/start/browser proof evidence existed only in the Codex E
+  manual disposable proof report.
+- the helper still reported dependency install, backend startup, frontend
+  startup, browser open, and status-panel verification as `not_run`.
+- clone into `<install_root>\app` was not represented as a helper-owned flow.
+
+After this follow-up:
+
+- `tools/dev_app/private_local_v1_setup.py` exposes `--proof`.
+- `tools/dev_app/setup_private_local_v1.ps1` exposes `-Proof`.
+- proof mode owns the sequence for source selection or clone, venv creation,
+  Python dependency install, frontend dependency install, setup install,
+  backend/frontend startup, loopback HTTP checks, optional browser open, and
+  cleanup of only proof-started processes.
+- focused tests cover the proof sequence with fake command/http/process hooks,
+  including fake clone into `<install_root>\app`.
+- generated setup reports can now be updated with proof statuses when proof
+  mode reaches the durable-report stage.
+
+### Follow-Up Implementation Option Chosen
+
+Implemented proof orchestration with injectable runners rather than running the
+real proof during C validation. This closes the repo-owned orchestration gap
+without performing real machine mutation in the implementation thread.
+
+Full live proof remains Codex E work.
+
+### Follow-Up Files Changed
+
+- `tools/dev_app/private_local_v1_setup.py`
+- `tools/dev_app/setup_private_local_v1.ps1`
+- `tests/test_private_local_v1_setup.py`
+- `docs/implementation_handoffs/private_local_v1_clean_checkout_install_launch_comparison.md`
+
+Pre-existing modified file from Codex E, left intact:
+
+- `docs/contract_test_reports/private_local_v1_clean_checkout_install_launch.md`
+
+### Follow-Up Exact Sections Changed
+
+`tools/dev_app/private_local_v1_setup.py`:
+
+- added `PrivateLocalV1ProofConfig`;
+- added `CommandOutcome`, `CommandRunner`, and `HttpVerifier`;
+- added `run_private_local_v1_proof(...)`;
+- added sanitized `run_command(...)` and `verify_http_url(...)` helpers;
+- added proof dependency/report helpers;
+- added managed-app-checkout handling so setup-owned clone into
+  `<install_root>\app` is not mistaken for unrelated existing install state;
+- added CLI flags `--proof`, `--repo-url`, `--release-ref`, `--no-open`,
+  `--leave-running`, `--stop-after-verify`, `--backend-port`, and
+  `--frontend-port`.
+
+`tools/dev_app/setup_private_local_v1.ps1`:
+
+- added `-Proof`;
+- added pass-through flags for repo URL, release ref, browser/open behavior,
+  process cleanup behavior, and backend/frontend ports;
+- preserved wrapper shape without inline `git clone`, `npm ci`, `pip install`,
+  delete, reset, or cleanup commands.
+
+`tests/test_private_local_v1_setup.py`:
+
+- added fake-runner proof coverage for controlled existing-checkout mode;
+- added fake-runner proof coverage for clone into `<install_root>\app`;
+- extended wrapper assertions for the new public flags.
+
+### Follow-Up Still Unverified
+
+- Live GitHub clone through the new proof command.
+- Real virtualenv creation through the new proof command.
+- Real Python dependency install through the new proof command.
+- Real `npm ci` through the new proof command.
+- Real backend/frontend startup through the new proof command.
+- Real browser-open/rendered status-panel smoke.
+- Real default `%LOCALAPPDATA%\MythicEdge\` readiness.
+- Git cleanliness after a real proof run.
+
+### Follow-Up Validation Run
+
+```powershell
+py -m pytest -q tests\test_private_local_v1_setup.py
+py -m pytest -q tests\test_private_local_v1_setup.py tests\test_analytics_dev_app_launcher.py tests\test_analytics_local_app_backend.py tests\test_analytics_local_app_config.py tests\test_analytics_migration_loader.py
+py -m ruff check src tests tools
+py tools\dev_app\private_local_v1_setup.py --check --install-root <temp_outside_checkout> --json-report
+git diff --check
+py tools\check_agent_docs.py
+path-scoped protected-surface scan over touched #253 files
+path-scoped secret/private-marker scan over touched #253 files
+git status --short --branch --untracked-files=all
+```
+
+Results:
+
+- focused setup tests -> passed, 8 passed;
+- adjacent setup/launcher/local-app/migration tests -> passed, 70 passed,
+  1 existing FastAPI/Starlette warning;
+- Ruff over `src`, `tests`, and `tools` -> passed;
+- direct helper `--check` smoke -> passed and left temp root absent;
+- `git diff --check` -> passed, with only the Windows line-ending notice for
+  the PowerShell wrapper;
+- `py tools\check_agent_docs.py` -> passed;
+- path-scoped protected-surface scan -> passed, forbidden 0, warnings 0;
+- path-scoped secret/private-marker scan -> passed, forbidden 0, warnings 0;
+- final git status showed only #253 report/handoff/helper/wrapper/test files
+  modified.
+
+### Follow-Up Protected-Surface Status
+
+No parser behavior, parser state final reconciliation, parser event classes,
+match/game identity, deduplication, analytics schema/migration semantics,
+analytics ingest semantics, workbook schema, webhook payload shape, Apps Script
+behavior, Google Sheets behavior, output transport, production behavior,
+OpenAI/model-provider behavior, AI/coaching behavior, Line Tracer behavior, or
+truth ownership was changed.
+
+### Follow-Up Generated/Private Artifact Status
+
+No real GitHub clone, dependency install, backend/frontend process, browser
+open, default `%LOCALAPPDATA%\MythicEdge\` setup, generated SQLite database,
+raw log, private JSONL artifact, runtime artifact, or local-only artifact was
+created or kept by this C validation pass. Tests used only pytest temp roots
+and fake command/http/process hooks.
+
+### Follow-Up Next Workflow Action
+
+Next role: Codex E: Module Reviewer / contract-test thread
+
+Pasteable prompt:
+
+```text
+Use the Mythic Edge agent constitution.
+Use $mythic-edge-workflow.
+
+Act as Codex E: Module Reviewer / contract-test thread for issue #253.
+
+Issue:
+https://github.com/Tahjali11/Mythic-Edge/issues/253
+
+Tracker:
+https://github.com/Tahjali11/Mythic-Edge/issues/136
+
+Branch:
+codex/analytics-foundation
+
+Contract:
+docs/contracts/private_local_v1_clean_checkout_install_launch.md
+
+Updated Codex E report:
+docs/contract_test_reports/private_local_v1_clean_checkout_install_launch.md
+
+Implementation handoff:
+docs/implementation_handoffs/private_local_v1_clean_checkout_install_launch_comparison.md
+
+Goal:
+Review the Codex C follow-up implementation that adds a contract-owned
+private-local-v1 setup proof orchestration path. Lead with findings. Verify
+that the implementation closes the manual-orchestration gap without overclaiming
+live fresh-install readiness.
+
+Review focus:
+- Confirm `--check` remains a dry run and creates no v1 folders, database,
+  manifest, or report.
+- Confirm `--install` behavior remains non-destructive and blocks existing
+  install state.
+- Confirm new `--proof` / `-Proof` mode owns the sequence for clone/source
+  selection, venv creation, Python dependency install, frontend dependency
+  install, setup install, backend/frontend startup, loopback HTTP checks,
+  optional browser open, and cleanup of only proof-started processes.
+- Confirm unit tests use fake command/http/process hooks and do not clone
+  GitHub, install dependencies, start real long-running processes, open a
+  browser, or use real `%LOCALAPPDATA%\MythicEdge`.
+- Confirm fake clone mode can populate `<install_root>\app` and setup mode does
+  not misclassify that managed app checkout as an unrelated existing install.
+- Confirm generated proof output uses symbolic/redacted paths and excludes raw
+  command output, raw logs, raw paths, secrets, environment values, stack
+  traces, raw SQL, private JSONL payloads, Player.log contents, AI provider
+  keys, and external sends.
+- Confirm no parser/runtime/analytics schema/workbook/webhook/App Script/Sheets/
+  OpenAI/AI/coaching/production behavior changed.
+
+Suggested validation:
+git status --short --branch --untracked-files=all
+py -m pytest -q tests\test_private_local_v1_setup.py
+py -m pytest -q tests\test_analytics_dev_app_launcher.py tests\test_analytics_local_app_backend.py tests\test_analytics_local_app_config.py tests\test_analytics_migration_loader.py
+py -m ruff check src tests tools
+py tools\dev_app\private_local_v1_setup.py --check --install-root <temp_outside_checkout> --json-report
+git diff --check
+py tools\check_agent_docs.py
+path-scoped protected-surface scan over touched #253 files
+path-scoped secret/private-marker scan over touched #253 files
+
+Optional live proof, only if explicitly approved and disposable:
+- Run the new `--proof` flow against a controlled disposable install root.
+- If live proof is run, do not use real default `%LOCALAPPDATA%\MythicEdge`
+  unless the user explicitly approves.
+- Stop only proof-started processes unless the user explicitly asks to leave
+  them running.
+
+Do not:
+- Delete, overwrite, move, reset, retire, or uninstall the user's current
+  Mythic Edge folder.
+- Inspect raw Player.log contents or private app-data.
+- Keep generated/private/local artifacts in the repo.
+- Implement AI runtime or model-provider behavior.
+- Change parser/runtime/analytics schema/migrations/ingest semantics, workbook,
+  transport, production, or AI truth.
+- Stage, commit, push, open a PR, merge, close issue #253, or close tracker
+  #136 unless explicitly asked.
+
+Final review report must include:
+- role performed
+- issue/tracker reviewed
+- contract, report, and handoff reviewed
+- findings first, ordered by severity
+- validation run and result
+- proof-orchestration readiness verdict
+- generated/private artifact status
+- protected-surface status
+- secret/private-marker status
+- whether forbidden scope was touched
+- whether #253 should route to Codex D, Codex B, Codex F, or another Codex E
+  live proof pass
+- workflow_handoff block
+```
+
+```yaml
+workflow_handoff:
+  issue: "https://github.com/Tahjali11/Mythic-Edge/issues/253"
+  tracker: "https://github.com/Tahjali11/Mythic-Edge/issues/136"
+  completed_thread: "C"
+  next_thread: "E"
+  source_artifact: "docs/contracts/private_local_v1_clean_checkout_install_launch.md and updated Codex E readiness report"
+  target_artifact: "docs/implementation_handoffs/private_local_v1_clean_checkout_install_launch_comparison.md"
+  risk_tier: "High"
+  branch: "codex/analytics-foundation"
+  validation:
+    - "py -m pytest -q tests\\test_private_local_v1_setup.py -> passed, 8 passed"
+    - "adjacent setup/launcher/local-app/migration tests -> passed, 70 passed, 1 existing FastAPI/Starlette warning"
+    - "py -m ruff check src tests tools -> passed"
+    - "private_local_v1_setup.py --check smoke -> passed, temp root absent"
+    - "git diff --check -> passed, Windows line-ending notice only"
+    - "py tools\\check_agent_docs.py -> passed"
+    - "path-scoped protected-surface scan -> passed, forbidden 0, warnings 0"
+    - "path-scoped secret/private-marker scan -> passed, forbidden 0, warnings 0"
+  remaining_unverified:
+    - "Live GitHub clone through --proof"
+    - "Real virtualenv and dependency installs through --proof"
+    - "Real backend/frontend startup through --proof"
+    - "Real browser-open/rendered status-panel smoke"
+    - "Real default %LOCALAPPDATA%\\MythicEdge readiness"
+    - "Git cleanliness after a real proof run"
+  stop_conditions:
+    - "Do not delete, overwrite, move, reset, retire, or uninstall the user's current Mythic Edge folder."
+    - "Do not inspect raw Player.log contents or private app-data."
+    - "Do not keep generated/private/local artifacts in the repo."
+    - "Do not implement AI runtime or model-provider behavior."
+    - "Do not change parser/runtime/analytics schema/migrations/ingest semantics, workbook, transport, production, or AI truth."
+    - "Do not target main or close tracker #136."
+```
+
 ## Issue
 
 https://github.com/Tahjali11/Mythic-Edge/issues/253

@@ -1,4 +1,4 @@
-# Private Local V1 Clean Checkout Install And Launch Fixer Handoff
+# Private Local V1 Clean Checkout Install And Launch Proof Fixer Handoff
 
 ## Issue
 
@@ -35,8 +35,8 @@ Generated / Local Artifacts, and Analytics setup surfaces.
 
 ## Truth Owner
 
-The setup foundation owns install and launch readiness evidence only. Parser
-truth, analytics fact truth, workbook truth, Match Journal truth, AI truth, and
+The setup proof owns install and launch readiness evidence only. Parser truth,
+analytics fact truth, workbook truth, Match Journal truth, AI truth, and
 production truth remain unchanged.
 
 ## Bridge-Code Status
@@ -47,41 +47,49 @@ production truth remain unchanged.
 
 Codex D: Module Fixer.
 
-## Source Finding
+## Source Findings
 
-- CT-253-001 P1: install mode can silently overwrite existing install metadata.
-- CT-253-002 P2: existing-install overwrite/mutation behavior was not covered by
-  focused tests.
+- CT-253-005 P1: proof launch can pass on ambient Python instead of the proof
+  virtualenv.
+- CT-253-006 P2: status-panel verification is overclaimed from HTTP checks.
 
-CT-253-003 remains a known deferred follow-up, not fixed in this pass.
+Previously fixed findings remain fixed:
+
+- CT-253-001: existing install metadata/database state blocks before writes.
+- CT-253-002: focused existing-install overwrite/mutation tests exist.
 
 ## Fault Category
 
-Implementation gap plus missing regression coverage. The setup helper reported
-existing-install handling as deferred but did not enforce that deferred status
-before writing setup metadata or initializing SQLite.
+Implementation gap plus missing regression coverage. Proof mode installed
+dependencies into the proof virtualenv, but delegated backend launch to the
+normal developer launcher command builder, which used ambient `py` when
+available. Proof mode also treated loopback HTTP checks as rendered frontend
+status-panel proof.
 
 ## What Changed
 
-- Added focused tests for pre-existing `install_manifest.json` and
-  `setup_report.json`.
-- Added focused tests for a pre-existing analytics database under the selected
-  install root.
-- Added existing-install detection before install-mode folder creation,
-  manifest/report writes, or SQLite migration.
-- While existing-install choices remain deferred, install mode now blocks with
-  `existing_install_detected` and writes nothing.
-- Setup reports now include concrete `existing_install_handling` status:
-  `not_detected` for fresh installs/checks, or `blocked` with symbolic detected
-  indicators for existing install state.
+- Added focused tests that prove proof mode launches the backend with
+  `<proof_source_checkout>\.venv` Python, not ambient Python.
+- Added a proof virtualenv import check:
+  `<venv_python> -c "import mythic_edge_parser, fastapi, uvicorn"`.
+- Added an optional `backend_python` override to the developer launcher config.
+  Normal launcher behavior is unchanged when the override is absent.
+- Updated proof mode to pass the proof virtualenv interpreter into backend
+  launch.
+- Changed proof `status_panel_verification` from `passed` to `http_only` when
+  only HTTP checks were run.
+- Added a `status_panel_verification_http_only` warning so the overall proof
+  status is degraded rather than overclaiming complete rendered-panel proof.
 
 ## Files Changed
 
 - `tools/dev_app/private_local_v1_setup.py`
+- `tools/dev_app/dev_app_launcher.py`
 - `tests/test_private_local_v1_setup.py`
 - `docs/implementation_handoffs/private_local_v1_clean_checkout_install_launch_fixer.md`
 
-Existing issue #253 package files remain untracked from prior threads:
+Other issue #253 package files were already modified before this fixer pass and
+were preserved:
 
 - `docs/contracts/private_local_v1_clean_checkout_install_launch.md`
 - `docs/implementation_handoffs/private_local_v1_clean_checkout_install_launch_comparison.md`
@@ -90,46 +98,48 @@ Existing issue #253 package files remain untracked from prior threads:
 
 ## Code Changed
 
-Yes. Runtime code changed only in repo-owned private-local-v1 setup tooling:
-`tools/dev_app/private_local_v1_setup.py`.
+Yes. Runtime code changed only in repo-owned private-local-v1 setup proof
+tooling and the developer launcher command builder override hook.
 
 No parser behavior, parser state final reconciliation, parser event classes,
 match/game identity, deduplication, analytics schema/migrations/ingest
-semantics, local app runtime behavior outside setup flow, workbook schema,
-webhook payload shape, Apps Script behavior, Google Sheets behavior, output
-transport, production behavior, OpenAI/model-provider behavior, AI/coaching
-behavior, Line Tracer, hidden-card inference, archetype inference,
-player-mistake labels, or gameplay advice changed.
+semantics, workbook schema, webhook payload shape, Apps Script behavior, Google
+Sheets behavior, output transport, production behavior, OpenAI/model-provider
+behavior, AI/coaching behavior, Line Tracer, hidden-card inference, archetype
+inference, player-mistake labels, or gameplay advice changed.
 
 ## Tests Changed
 
 Updated `tests/test_private_local_v1_setup.py` with focused coverage proving:
 
-- existing manifest/report metadata is preserved;
-- existing manifest/report state blocks install mode;
-- existing analytics database state blocks install mode;
-- existing database contents are not migrated or modified;
-- no manifest/report is written in the existing-database blocked case;
-- raw install-root paths remain absent from returned report JSON.
+- existing-checkout proof backend launch starts with the proof virtualenv
+  Python command;
+- clone proof backend launch starts with the cloned app checkout virtualenv
+  Python command;
+- proof dependency command sequence includes the virtualenv import check;
+- HTTP-only checks produce `status_panel_verification = "http_only"`;
+- proof warnings include `status_panel_verification_http_only`;
+- final setup report carries the same honest `http_only` panel status.
 
-The new tests failed before the fix with 2 failures, then passed after the
-existing-install guard was added.
+The new tests failed before the fix with 2 failures, then passed after the proof
+launch and status-reporting changes.
 
 ## Interface Changes
 
-No new public command, CLI flag, environment-variable contract, route, schema,
-migration, workbook column, or webhook payload shape was added.
+No new public setup command, CLI flag, environment-variable contract, route,
+schema, migration, workbook column, or webhook payload shape was added.
 
-The existing setup report's `existing_install_handling` object is now populated
-from real detection state instead of always reporting deferred.
+Internal launcher config gained an optional `backend_python` field. Existing
+launcher callers preserve the previous ambient Python behavior unless they pass
+that override explicitly.
 
 ## Contracted Area Status
 
-The fix stayed inside setup tooling and focused tests. It did not clone
-repositories, install dependencies, initialize real local SQLite databases,
-start long-running processes, open a browser, delete/reset/move local folders,
-create generated/private/local artifacts outside test temp roots, or implement
-AI/model-provider behavior.
+The fix stayed inside setup/proof tooling and focused tests. It did not run a
+live `--proof`, clone repositories, install dependencies, start long-running
+processes, open a browser, delete/reset/move local folders, use real default
+`%LOCALAPPDATA%\MythicEdge`, create generated/private/local artifacts outside
+test temp roots, or implement AI/model-provider behavior.
 
 ## Validation Run
 
@@ -147,44 +157,44 @@ py tools\check_agent_docs.py
 
 Results:
 
-- Focused setup tests before fix: failed, 2 failures reproducing CT-253-001.
-- Focused setup tests after fix: passed, 6 passed.
+- Focused setup tests before fix: failed, 2 failures reproducing CT-253-005 and
+  CT-253-006 coverage gaps.
+- Focused setup tests after fix: passed, 8 passed.
 - Adjacent launcher/backend/config/migration tests: passed, 62 passed, 1
   existing FastAPI/Starlette deprecation warning.
 - `py -m ruff check tools tests`: passed.
 - `py -m ruff check src tests tools`: passed.
 - Check-only setup JSON report: passed and left the unique temp root absent.
-- `git diff --check`: passed.
+- `git diff --check`: passed with the known PowerShell CRLF notice for
+  `tools/dev_app/setup_private_local_v1.ps1`.
 - Agent docs check: passed, 46 checked files, 0 errors, 0 warnings.
-- Path-scoped protected-surface scan over 7 issue #253 paths: passed,
+- Path-scoped protected-surface scan over 8 issue #253 paths: passed,
   forbidden 0, warnings 0.
-- Path-scoped secret/private-marker scan over 7 issue #253 paths: passed,
+- Path-scoped secret/private-marker scan over 8 issue #253 paths: passed,
   forbidden 0, warnings 0.
 
 ## Still Unverified
 
-- Clone-from-GitHub clean install.
-- Python virtualenv creation.
-- Python dependency installation from `pyproject.toml`.
-- Frontend dependency installation with `npm ci`.
-- Backend/frontend startup from the v1 setup helper.
-- Browser open and frontend status-panel smoke.
-- Real default `%LOCALAPPDATA%\MythicEdge\` readiness.
-- User-choice handling for use-existing-data, backup/reset, choose folder, or
-  cancel setup.
+- Live GitHub clone through `--proof`.
+- Real dependency installs through `--proof`.
+- Real backend/frontend/browser proof through `--proof`.
+- Rendered browser DOM smoke for the setup/status panel.
+- Real default `%LOCALAPPDATA%\MythicEdge` readiness.
+- User manual fresh install readiness.
+- Issue #253 and tracker #136 completion.
 
 ## Reviewer Focus
 
 Codex E should confirm:
 
-- install mode blocks before writing when existing manifest/report metadata is
-  present;
-- install mode blocks before migrating when an existing analytics database is
-  present;
-- blocked output remains path-redacted/symbolic;
-- check mode remains a dry run;
-- fresh temp install mode still creates the expected folder tree, manifest,
-  report, and optional empty migrated SQLite database;
+- proof backend commands use the proof virtualenv interpreter;
+- proof dependency status includes the virtualenv import check;
+- proof status-panel verification no longer claims rendered panel proof from
+  HTTP checks;
+- degraded proof status is expected while rendered status-panel/browser DOM
+  smoke remains unverified;
+- normal developer launcher behavior remains compatible when `backend_python`
+  is not supplied;
 - no forbidden parser/runtime/analytics schema/workbook/webhook/App
   Script/Sheets/OpenAI/AI/coaching/production scope was touched.
 
@@ -218,9 +228,11 @@ docs/contract_test_reports/private_local_v1_clean_checkout_install_launch.md
 Implementation handoff:
 docs/implementation_handoffs/private_local_v1_clean_checkout_install_launch_fixer.md
 
-Confirm only the Codex D fixes for CT-253-001 and CT-253-002. Verify existing
-install metadata/database state blocks install mode before writes or SQLite
-migration, while fresh temp install and check mode behavior remain intact.
+Confirm only the Codex D fixes for CT-253-005 and CT-253-006. Verify proof
+backend launch uses the proof virtualenv, proof dependency status includes the
+virtualenv import check, and status-panel verification is reported as
+HTTP-only rather than rendered-panel proof. Do not route the user to manual
+fresh install unless confirmation proves readiness.
 ```
 
 ```yaml
@@ -235,19 +247,20 @@ workflow_handoff:
   review_artifact: "docs/contract_test_reports/private_local_v1_clean_checkout_install_launch.md"
   target_artifact: "docs/implementation_handoffs/private_local_v1_clean_checkout_install_launch_fixer.md"
   findings_fixed:
-    - "CT-253-001 P1: install mode now blocks existing install metadata/database state before writes."
-    - "CT-253-002 P2: focused existing-install overwrite/mutation tests were added."
+    - "CT-253-005 P1: proof backend launch now uses the proof virtualenv Python."
+    - "CT-253-006 P2: HTTP-only checks now report status_panel_verification as http_only, not passed."
   validation:
-    - "focused setup tests passed: 6 passed"
+    - "focused setup tests passed: 8 passed"
     - "adjacent launcher/backend/config/migration tests passed: 62 passed, 1 existing warning"
     - "ruff tools/tests passed"
     - "ruff src/tests/tools passed"
     - "check-only setup JSON report passed and left unique temp root absent"
-    - "git diff --check passed"
+    - "git diff --check passed with known PowerShell CRLF notice"
     - "agent docs check passed"
     - "path-scoped protected-surface scan passed: forbidden 0, warnings 0"
     - "path-scoped secret/private-marker scan passed: forbidden 0, warnings 0"
   forbidden_scope_touched: false
   generated_artifacts_kept: false
+  readiness_verdict: "not_ready_for_user_manual_fresh_install_until Codex E confirms"
   recommendation: "Route to Codex E for confirmation."
 ```
