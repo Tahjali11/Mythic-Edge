@@ -45,6 +45,7 @@ class LauncherConfig:
     backend_port: int = BACKEND_PORT
     frontend_host: str = FRONTEND_HOST
     frontend_port: int = FRONTEND_PORT
+    backend_python: str | None = None
     no_open: bool = False
     log_to_console: bool = False
 
@@ -130,6 +131,7 @@ def build_config(
     frontend_port: int = FRONTEND_PORT,
     backend_host: str = BACKEND_HOST,
     frontend_host: str = FRONTEND_HOST,
+    backend_python: str | None = None,
     no_open: bool = False,
     log_to_console: bool = False,
     env: Mapping[str, str] = os.environ,
@@ -144,6 +146,7 @@ def build_config(
         backend_port=backend_port,
         frontend_host=frontend_host,
         frontend_port=frontend_port,
+        backend_python=backend_python,
         no_open=no_open,
         log_to_console=log_to_console,
     )
@@ -323,7 +326,7 @@ def prepare_app_data(config: LauncherConfig, *, run_id: str | None = None) -> Pa
 
 
 def build_backend_command(config: LauncherConfig, tool_resolver: ToolResolver = shutil.which) -> list[str]:
-    python_cmd = "py" if tool_resolver("py") else sys.executable
+    python_cmd = config.backend_python or ("py" if tool_resolver("py") else sys.executable)
     return [
         python_cmd,
         "-m",

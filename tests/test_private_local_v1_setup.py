@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from pathlib import Path
+from typing import IO
 
 from tools.dev_app import private_local_v1_setup as setup
 
@@ -169,6 +172,99 @@ def test_install_mode_blocks_existing_database_without_migrating_or_writing_meta
     assert str(install_root) not in json.dumps(result, sort_keys=True)
 
 
+def test_proof_mode_orchestrates_existing_checkout_without_real_side_effects(tmp_path: Path) -> None:
+    source_checkout = _make_source_checkout(tmp_path)
+    install_root = tmp_path / "private-local-v1"
+    commands = ProofCommandRecorder()
+    processes = ProofProcessRecorder()
+
+    result = setup.run_private_local_v1_proof(
+        setup.PrivateLocalV1ProofConfig(
+            install_root=install_root,
+            source_checkout=source_checkout,
+            existing_checkout=True,
+            no_open=True,
+            stop_after_verify=True,
+        ),
+        command_runner=commands.run,
+        http_verifier=_passing_http_verifier,
+        tool_resolver=_tool_resolver,
+        module_finder=_module_finder,
+        process_launcher=processes.launch,
+        browser_opener=lambda _url: False,
+        platform_name="Windows",
+        settle_seconds=0,
+    )
+
+    paths = setup.build_private_local_v1_paths(install_root)
+    proof_report = json.loads((paths.diagnostics_dir / "setup_proof_report.json").read_text(encoding="utf-8"))
+    setup_report = json.loads(paths.setup_report.read_text(encoding="utf-8"))
+
+    assert result["status"] == "degraded"
+    assert result["source_checkout"]["clone_from_github_performed"] is False
+    assert [call.command_shape for call in commands.calls] == [
+        "<active_python> -m venv <proof_source_checkout>\\.venv",
+        '<venv_python> -m pip install -e ".[dev,app]"',
+        '<venv_python> -c "import mythic_edge_parser, fastapi, uvicorn"',
+        "npm --prefix frontend ci",
+    ]
+    assert [call.name for call in processes.calls] == ["backend", "frontend"]
+    backend_call = processes.calls[0]
+    assert backend_call.command[:3] == [str(setup._proof_python_path(source_checkout)), "-m", "uvicorn"]
+    assert all(process.terminated for process in processes.processes)
+    assert proof_report["launch"]["status_panel_verification"] == "http_only"
+    assert proof_report["launch"]["browser_open"] == "skipped_no_open"
+    assert "status_panel_verification_http_only" in proof_report["warnings"]
+    assert setup_report["dependency_install"]["status"] == "passed"
+    assert setup_report["backend_startup"] == "passed"
+    assert setup_report["frontend_startup"] == "passed"
+    assert setup_report["status_panel_verification"] == "http_only"
+    assert str(install_root) not in json.dumps(proof_report, sort_keys=True)
+    assert str(source_checkout) not in json.dumps(proof_report, sort_keys=True)
+
+
+def test_proof_mode_can_clone_into_v1_app_root_with_fake_repo(tmp_path: Path) -> None:
+    seed_checkout = _make_source_checkout(tmp_path)
+    install_root = tmp_path / "private-local-v1"
+    commands = ProofCommandRecorder(clone_source=seed_checkout)
+    processes = ProofProcessRecorder()
+
+    result = setup.run_private_local_v1_proof(
+        setup.PrivateLocalV1ProofConfig(
+            install_root=install_root,
+            source_checkout=seed_checkout,
+            repo_url="https://example.invalid/Mythic-Edge.git",
+            release_ref="v1-test",
+            existing_checkout=False,
+            no_open=True,
+            stop_after_verify=True,
+        ),
+        command_runner=commands.run,
+        http_verifier=_passing_http_verifier,
+        tool_resolver=_tool_resolver,
+        module_finder=_module_finder,
+        process_launcher=processes.launch,
+        platform_name="Windows",
+        settle_seconds=0,
+    )
+
+    paths = setup.build_private_local_v1_paths(install_root)
+    proof_report = json.loads((paths.diagnostics_dir / "setup_proof_report.json").read_text(encoding="utf-8"))
+
+    assert result["status"] == "degraded"
+    assert result["source_checkout"]["clone_from_github_performed"] is True
+    assert commands.calls[0].name == "git_clone_to_app_root"
+    assert commands.calls[0].command_shape == (
+        "git clone --branch <release_ref> --single-branch <repo_url> <install_root>\\app"
+    )
+    backend_call = processes.calls[0]
+    assert backend_call.command[:3] == [str(setup._proof_python_path(paths.app_checkout_root)), "-m", "uvicorn"]
+    assert (paths.app_checkout_root / "AGENTS.md").is_file()
+    assert proof_report["clone"]["status"] == "passed"
+    assert proof_report["launch"]["status_panel_verification"] == "http_only"
+    assert str(paths.app_checkout_root) not in json.dumps(proof_report, sort_keys=True)
+
+
 def test_powershell_wrapper_routes_to_private_local_v1_helper_without_destructive_commands() -> None:
     wrapper = Path("tools/dev_app/setup_private_local_v1.ps1").read_text(encoding="utf-8")
     wrapper_lower = wrapper.lower()
@@ -176,6 +272,11 @@ def test_powershell_wrapper_routes_to_private_local_v1_helper_without_destructiv
     assert "private_local_v1_setup.py" in wrapper
     assert "-Check" in wrapper
     assert "-Install" in wrapper
+    assert "-Proof" in wrapper
+    assert "--repo-url" in wrapper
+    assert "--release-ref" in wrapper
+    assert "--no-open" in wrapper
+    assert "--stop-after-verify" in wrapper
     assert "git clone" not in wrapper_lower
     assert "npm ci" not in wrapper_lower
     assert "pip install" not in wrapper_lower
@@ -216,3 +317,124 @@ def _make_source_checkout(tmp_path: Path) -> Path:
     (repo_root / "frontend" / "package-lock.json").write_text("{}\n", encoding="utf-8")
     (repo_root / "src" / "mythic_edge_parser" / "local_app" / "backend.py").write_text("", encoding="utf-8")
     return repo_root
+
+
+@dataclass(frozen=True, slots=True)
+class ProofCommandCall:
+    name: str
+    command_shape: str
+    cwd: Path
+
+
+class ProofCommandRecorder:
+    def __init__(self, *, clone_source: Path | None = None) -> None:
+        self.clone_source = clone_source
+        self.calls: list[ProofCommandCall] = []
+
+    def run(self, command: Sequence[str], cwd: Path) -> setup.CommandOutcome:
+        command_shape = _command_shape(command)
+        name = _command_name(command)
+        self.calls.append(ProofCommandCall(name, command_shape, cwd))
+        if name == "git_clone_to_app_root" and self.clone_source is not None:
+            _copy_fake_checkout(self.clone_source, Path(command[-1]))
+        return setup.CommandOutcome("passed", 0, "fake_passed")
+
+
+@dataclass(frozen=True, slots=True)
+class ProofProcessCall:
+    name: str
+    command: list[str]
+    cwd: Path
+    env: Mapping[str, str]
+
+
+class ProofProcessRecorder:
+    def __init__(self) -> None:
+        self.calls: list[ProofProcessCall] = []
+        self.processes: list[ProofProcess] = []
+
+    def launch(
+        self,
+        command: Sequence[str],
+        cwd: Path,
+        env: Mapping[str, str],
+        log_handle: IO[bytes],
+    ) -> "ProofProcess":
+        name = "backend" if "uvicorn" in command else "frontend"
+        log_handle.write(f"{name} started\n".encode())
+        process = ProofProcess()
+        self.calls.append(ProofProcessCall(name, list(command), cwd, dict(env)))
+        self.processes.append(process)
+        return process
+
+
+class ProofProcess:
+    def __init__(self) -> None:
+        self.terminated = False
+        self.killed = False
+
+    def poll(self) -> int | None:
+        return 0 if self.terminated or self.killed else None
+
+    def terminate(self) -> None:
+        self.terminated = True
+
+    def wait(self, timeout: float | None = None) -> int:
+        self.terminated = True
+        return 0
+
+    def kill(self) -> None:
+        self.killed = True
+
+
+def _passing_http_verifier(url: str) -> dict[str, object]:
+    return {"status": "passed", "url": url.replace("8765", "<backend_port>").replace("5173", "<frontend_port>")}
+
+
+def _tool_resolver(name: str) -> str | None:
+    tools = {
+        "py": "py",
+        "node": "node",
+        "npm": "npm",
+        "npm.cmd": "npm.cmd",
+        "git": "git",
+    }
+    return tools.get(name)
+
+
+def _module_finder(name: str) -> object | None:
+    return object() if name in {"mythic_edge_parser", "fastapi", "uvicorn"} else None
+
+
+def _command_name(command: Sequence[str]) -> str:
+    if command[:2] == ["git", "clone"]:
+        return "git_clone_to_app_root"
+    if len(command) >= 3 and command[1:3] == ["-m", "venv"]:
+        return "python_virtualenv"
+    if len(command) >= 4 and command[1:4] == ["-m", "pip", "install"]:
+        return "python_dependency_install"
+    if len(command) >= 3 and command[1] == "-c":
+        return "python_dependency_import_check"
+    return "frontend_dependency_install"
+
+
+def _command_shape(command: Sequence[str]) -> str:
+    name = _command_name(command)
+    if name == "git_clone_to_app_root":
+        return "git clone --branch <release_ref> --single-branch <repo_url> <install_root>\\app"
+    if name == "python_virtualenv":
+        return "<active_python> -m venv <proof_source_checkout>\\.venv"
+    if name == "python_dependency_install":
+        return '<venv_python> -m pip install -e ".[dev,app]"'
+    if name == "python_dependency_import_check":
+        return '<venv_python> -c "import mythic_edge_parser, fastapi, uvicorn"'
+    return "npm --prefix frontend ci"
+
+
+def _copy_fake_checkout(source: Path, destination: Path) -> None:
+    for marker in setup.REQUIRED_REPO_MARKERS:
+        source_path = source / marker
+        target_path = destination / marker
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        target_path.write_text(source_path.read_text(encoding="utf-8"), encoding="utf-8")
+    (destination / ".git").mkdir(exist_ok=True)
