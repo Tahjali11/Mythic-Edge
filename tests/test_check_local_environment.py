@@ -184,6 +184,40 @@ def test_tracked_env_example_is_accepted_as_clean_clone_template(capsys) -> None
     assert env_files["observed"] != "present_not_ignored"
 
 
+def test_repo_gitignore_ignores_real_env_variants_but_not_env_example() -> None:
+    def check_ignore(path: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            ["git", "check-ignore", "-q", path],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+    ignored_paths = [
+        ".env",
+        ".env.local",
+        ".env.production",
+        "frontend/.env.example",
+        "src/.env.example",
+        "nested/path/.env.example",
+    ]
+
+    for ignored_path in ignored_paths:
+        assert check_ignore(ignored_path).returncode == 0
+
+    not_ignored = subprocess.run(
+        ["git", "check-ignore", "-q", ".env.example"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert not_ignored.returncode == 1
+    assert not_ignored.stdout == ""
+
+
 def test_untracked_env_example_requires_manual_review_without_reading_values(capsys, tmp_path: Path) -> None:
     repo_root = tmp_path / "untracked_env_example"
     _init_git_repo(repo_root)

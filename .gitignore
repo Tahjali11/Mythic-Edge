@@ -5,6 +5,10 @@ __pycache__/
 .venv/
 *.egg-info/
 
+.env
+.env.*
+!/.env.example
+
 data/match_logs/
 data/decklists/
 data/runtime_logs/
