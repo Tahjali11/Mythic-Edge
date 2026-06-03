@@ -2,67 +2,87 @@
 
 ## Findings
 
-No blocking findings remain for the reviewed Codex D proof-orchestration fix
-slice.
+No blocking findings remain for the disposable live `--proof` readiness run.
+
+The proof now demonstrates the private-local-v1 clean-checkout path in a
+disposable temp root: GitHub clone, proof virtualenv creation, Python dependency
+installation, proof import check, frontend `npm ci`, setup install, empty
+SQLite migration, backend/frontend startup, HTTP checks, and rendered DOM smoke
+all passed.
+
+### CT-253-003 P3: full clean-install proof remains unverified
+
+- finding_lifecycle: `fixed_state_followup`
+- finding_status: `fixed_for_disposable_live_proof`
+- blocking_status: `not_blocking_for_next_readiness_check_but_blocking_for_default_root_install_claim`
+- original_evidence:
+  - Prior report versions kept the live `--proof` path deferred.
+  - Live GitHub clone, real dependency installs, backend/frontend startup,
+    rendered panel smoke, and default-root readiness were not yet proven.
+- verification_evidence:
+  - Disposable proof root was created under `<temp>\MythicEdgePrivateLocalV1Proof-...`.
+  - The proof root did not exist before the run.
+  - The proof root was outside this repo, outside any Git checkout, and not
+    `%LOCALAPPDATA%\MythicEdge` or `%LOCALAPPDATA%\MythicEdgeDev`.
+  - `powershell -ExecutionPolicy Bypass -File tools\dev_app\setup_private_local_v1.ps1 -Proof -InstallRoot <temp_proof_root> -NoOpen -LeaveRunning -BackendPort 52398 -FrontendPort 52399 -JsonReport`
+    completed with exit code 0.
+  - Proof JSON status was `degraded` only because the helper correctly records
+    built-in status-panel verification as `http_only`.
+  - Git clone step passed.
+  - Python virtualenv creation passed.
+  - Python dependency installation passed.
+  - Proof import check for `mythic_edge_parser`, FastAPI, and Uvicorn passed.
+  - Frontend dependency installation with `npm ci` passed.
+  - Setup install created the required v1 folder tree, install manifest, setup
+    report, and empty migrated analytics SQLite database.
+  - SQLite applied `0001_initial_analytics_schema`; table count was 31.
+  - No parser fact rows were inserted; only the expected
+    `parser_schema_versions` metadata row was present outside
+    `schema_migrations`.
+  - Backend and frontend startup passed.
+  - HTTP checks passed for health, setup status, analytics database status, and
+    frontend root.
+  - Separate rendered DOM smoke through the Codex in-app Browser passed:
+    rendered body contained Mythic Edge, Setup, Status, Import, and
+    Database/SQLite surfaces; the React root had rendered children; no proof
+    root marker, raw local AppData path, or stack-trace marker was present.
+  - Proof-started listeners on ports 52398 and 52399 were stopped after smoke
+    verification.
+  - The proof clone `git status --short --untracked-files=all` was clean.
+  - The main repo `git status --short --branch --untracked-files=all` remained
+    clean before the report update.
+- remaining_scope_limit:
+  - Real default `%LOCALAPPDATA%\MythicEdge` readiness was not exercised.
+  - User-facing manual install against the real machine default root remains a
+    separate final readiness check.
+- next_route: Codex E final/manual-install readiness check or Codex F if the
+  updated report is to be submitted first.
 
 ### CT-253-005 P1: proof launch can pass on ambient Python instead of the proof virtualenv
 
 - finding_lifecycle: `fixed_state_followup`
 - finding_status: `fixed`
 - blocking_status: `not_blocking`
-- original_evidence:
-  - Proof mode created and installed into `<proof_source_checkout>\.venv`, but
-    delegated backend startup to the normal launcher command builder, which
-    selected ambient `py` when available.
-  - The focused tests did not previously assert the backend process command
-    used the proof virtualenv interpreter.
 - verification_evidence:
-  - `tools/dev_app/private_local_v1_setup.py` now adds a proof virtualenv import
-    check using `<venv_python> -c "import mythic_edge_parser, fastapi, uvicorn"`.
-  - Proof launch now passes `backend_python=str(proof_python)` into
-    `launcher.build_config(...)`.
-  - `tools/dev_app/dev_app_launcher.py` now supports an optional internal
-    `backend_python` override and preserves ambient Python behavior when the
-    override is absent.
-  - Focused tests assert existing-checkout and clone-mode proof backend
-    commands begin with the expected proof virtualenv Python path.
-  - `py -m pytest -q tests\test_private_local_v1_setup.py` passed: 8 passed.
-- next_route: Codex F for the reviewed fix slice.
+  - The live proof dependency plan created `<proof_source_checkout>\.venv`.
+  - The proof import check ran via `<venv_python>`.
+  - Backend launch in the proof path used the proof virtualenv interpreter as
+    verified by the earlier focused tests and the live proof startup.
+- next_route: none.
 
 ### CT-253-006 P2: status-panel verification is overclaimed from HTTP checks
 
 - finding_lifecycle: `fixed_state_followup`
 - finding_status: `fixed`
 - blocking_status: `not_blocking`
-- original_evidence:
-  - Proof mode marked `status_panel_verification` as `passed` when only loopback
-    HTTP checks had run.
-  - No browser-rendered setup/status panel evidence was produced.
 - verification_evidence:
-  - Proof mode now records `status_panel_verification` as `http_only` after
-    successful HTTP checks.
-  - Proof mode appends `status_panel_verification_http_only` to warnings, so the
-    proof result is degraded rather than overclaimed as fully passed.
-  - Focused tests assert both the durable proof report and setup report carry
-    the `http_only` value.
-  - `py -m pytest -q tests\test_private_local_v1_setup.py` passed: 8 passed.
-- next_route: Codex F for the reviewed fix slice.
-
-### CT-253-004 P1: manual orchestration blocker
-
-- finding_lifecycle: `fixed_state_followup`
-- finding_status: `fixed_for_repo_owned_proof_orchestration`
-- blocking_status: `not_blocking_for_codex_f`
-- verification_evidence:
-  - `--proof` and `-Proof` now exist.
-  - Proof mode owns clone/source selection, dependency command construction,
-    setup install, backend/frontend launch orchestration, HTTP checks, and
-    cleanup hooks.
-  - CT-253-005 and CT-253-006 are verified fixed in this confirmation pass.
-- remaining_scope_limit:
-  - This does not prove user manual fresh-install readiness. Live proof,
-    rendered panel smoke, and default-root readiness remain unverified.
-- next_route: Codex F for the reviewed fix slice.
+  - The live proof report kept `status_panel_verification` as `http_only`.
+  - The live proof report included `status_panel_verification_http_only` in
+    warnings and therefore reported overall status as `degraded`.
+  - A separate in-app Browser rendered DOM smoke was run and passed, so this
+    report does not rely on the helper's HTTP-only status as rendered-panel
+    evidence.
+- next_route: none.
 
 ### CT-253-001 P1: install mode could silently overwrite existing install metadata
 
@@ -72,7 +92,8 @@ slice.
 - verification_evidence:
   - Existing install state is checked before folder creation, SQLite
     initialization, and manifest/report writes.
-  - Focused tests preserve existing manifest/report and existing database state.
+  - The live disposable proof ran against an absent temp root and recorded
+    existing install handling as `not_detected`.
 - next_route: none.
 
 ### CT-253-002 P2: existing-install overwrite/mutation behavior lacked focused tests
@@ -84,29 +105,9 @@ slice.
   - Focused setup tests include existing metadata and database collision cases.
 - next_route: none.
 
-### CT-253-003 P3: full clean-install proof remains unverified
-
-- finding_lifecycle: `deferred_followup`
-- finding_status: `known_scope_limit`
-- blocking_status: `not_blocking_for_codex_f_but_blocking_for_manual_fresh_install_claim`
-- verification_evidence:
-  - Prior Codex E disposable manual proof verified clone, virtualenv,
-    dependency install, `npm ci`, setup install, empty SQLite migration,
-    backend/frontend HTTP availability, and generated artifact cleanup.
-  - The current repo-owned proof command now has safer orchestration and no
-    longer overclaims rendered-panel proof.
-- remaining_unverified:
-  - live GitHub clone through `--proof`;
-  - real dependency installs through `--proof`;
-  - real backend/frontend/browser proof through `--proof`;
-  - rendered setup/status panel DOM smoke;
-  - real default `%LOCALAPPDATA%\MythicEdge` readiness.
-- next_route: Codex F for the reviewed implementation slice; later Codex E
-  readiness proof before telling the user to attempt manual fresh install.
-
 ## Role Performed
 
-Codex E: Module Reviewer / confirmation thread.
+Codex E: Readiness Proof Runner / Contract-Test Updater.
 
 ## Issue / Tracker
 
@@ -120,11 +121,11 @@ Issue #253 and tracker #136 remain open.
 
 - Contract:
   `docs/contracts/private_local_v1_clean_checkout_install_launch.md`
-- Prior implementation handoff:
+- Implementation handoff:
   `docs/implementation_handoffs/private_local_v1_clean_checkout_install_launch_comparison.md`
 - Fixer handoff:
   `docs/implementation_handoffs/private_local_v1_clean_checkout_install_launch_fixer.md`
-- Review artifact updated:
+- Report updated:
   `docs/contract_test_reports/private_local_v1_clean_checkout_install_launch.md`
 
 ## Files Reviewed
@@ -143,136 +144,188 @@ Issue #253 and tracker #136 remain open.
 - `tools/dev_app/setup_private_local_v1.ps1`
 - `tools/dev_app/dev_app_launcher.py`
 - `tests/test_private_local_v1_setup.py`
+- `pyproject.toml`
+- `frontend/package.json`
+- `frontend/package-lock.json`
 
 ## Report Lifecycle
 
-`report_lifecycle`: `final_approval`
+`report_lifecycle`: `followup_after_fixer`
 
-Final approval here means no blocking findings remain for the reviewed
-proof-orchestration fix slice. It does not authorize production merge, tracker
-closure, issue closure, real default-root setup, real manual fresh install,
-browser/DOM readiness claims, or main targeting.
+This report updates the prior confirmation report with live disposable proof
+evidence. It does not authorize production deployment, issue closure, tracker
+closure, main targeting, or real default-root setup.
 
 ## Readiness Verdict
 
-`not_ready_for_user_manual_fresh_install`
+`ready_for_final_manual_install_readiness_check`
 
-`ready_for_codex_f_for_reviewed_proof_orchestration_slice`
+The disposable live proof passed. The user should not yet run a real manual
+fresh install against `%LOCALAPPDATA%\MythicEdge` until a final manual-install
+readiness check explicitly approves touching the real default root.
 
 Ready for:
 
-- Codex F submitter handling of the reviewed #253 proof-orchestration slice.
+- final Codex E manual-install readiness check;
+- Codex F submission of this updated report if the workflow wants the proof
+  evidence committed first.
 
-Not ready for:
+Not yet ready for:
 
-- user manual fresh install;
 - retiring or overwriting the user's current Mythic Edge folder;
-- real default `%LOCALAPPDATA%\MythicEdge` setup;
+- using real default `%LOCALAPPDATA%\MythicEdge`;
 - issue #253 closure;
-- tracker #136 closure.
+- tracker #136 closure;
+- production or main targeting.
 
 ## Contract Matches
 
-- Focused setup tests pass with 8 tests.
-- `--proof` exists in `tools/dev_app/private_local_v1_setup.py`.
-- `-Proof` exists in `tools/dev_app/setup_private_local_v1.ps1`.
-- `--check` remains non-mutating in direct smoke validation and left the temp
-  install root absent.
-- Install mode still blocks existing manifest/report/database state before
-  writes.
-- Fake-runner proof tests avoid real GitHub clone, dependency installation,
-  long-running backend/frontend processes, browser open, and real default
-  `%LOCALAPPDATA%\MythicEdge` use.
-- Proof backend launch now uses the proof virtualenv Python via the
-  contract-owned `backend_python` override.
-- Proof dependency status includes a virtualenv import check for
-  `mythic_edge_parser`, FastAPI, and Uvicorn.
-- HTTP-only proof no longer claims rendered-panel verification; it records
-  `http_only` and produces a warning/degraded proof status.
-- Proof output paths and command shapes are symbolic/redacted.
+- The proof helper interface exposes `--proof` and the PowerShell wrapper
+  exposes `-Proof`.
+- The disposable proof root was unique, absent before the run, outside the repo,
+  outside any Git checkout, and outside `%LOCALAPPDATA%\MythicEdge` and
+  `%LOCALAPPDATA%\MythicEdgeDev`.
+- The proof used the source-controlled wrapper/helper interface.
+- GitHub clone through the live proof passed.
+- Python virtualenv creation through the live proof passed.
+- Python dependency installation through the live proof passed.
+- Python import check through the live proof passed.
+- Frontend dependency installation through `npm ci` passed.
+- Setup install with initialized empty SQLite passed.
+- Empty SQLite migration status was `schema_current` with
+  `0001_initial_analytics_schema` applied.
+- Backend and frontend startup passed.
+- HTTP status checks passed.
+- Rendered DOM smoke passed through the in-app Browser.
+- Main repo and proof clone stayed clean.
+- Proof output used symbolic paths and did not include raw paths, raw logs,
+  JSONL payloads, raw SQL, secrets, API keys, provider keys, or stack traces.
 - No parser behavior, analytics schema/migration semantics, workbook/webhook,
-  Apps Script, Sheets, OpenAI/AI, or production behavior changes were observed.
+  Apps Script, Sheets, OpenAI/AI, model-provider, or production behavior change
+  was observed.
 
 ## Contract Mismatches
 
-None remaining for the reviewed proof-orchestration fix slice.
+None for the disposable live proof.
 
-Remaining full-issue readiness gaps are recorded under CT-253-003 as deferred
-proof work, not current implementation mismatches.
+The remaining real default-root check is a readiness boundary, not a mismatch
+in the disposable proof.
 
 ## Missing Tests Or Safeguards
 
-No missing focused safeguard remains for CT-253-005 or CT-253-006.
+No missing safeguard was found for the disposable proof path.
 
-Still not performed in this confirmation thread:
+Still not performed:
 
-- live `--proof` run;
-- real dependency installs through `--proof`;
-- real backend/frontend/browser proof through `--proof`;
-- rendered setup/status panel DOM smoke;
-- real default-root readiness proof.
+- real default `%LOCALAPPDATA%\MythicEdge` install-root proof;
+- user-facing manual install against the actual machine setup.
 
 ## Validation Run And Result
 
-- `git status --short --branch --untracked-files=all` -> on
-  `codex/analytics-foundation`, with modified #253 report/handoff/helper/
-  launcher/wrapper/test files only.
-- `gh issue view 253 --comments` -> issue open; prior readiness comments
-  reviewed.
+- `git status --short --branch --untracked-files=all` -> clean on
+  `codex/analytics-foundation` before report update.
+- `gh issue view 253 --comments` -> issue open; PR #255 and PR #256 merge
+  comments reviewed.
 - `gh issue view 136` -> tracker open.
+- `py tools\dev_app\private_local_v1_setup.py --help` -> `--proof`,
+  `--install-root`, `--no-open`, `--leave-running`, `--stop-after-verify`,
+  `--backend-port`, `--frontend-port`, and `--json-report` present.
+- Disposable root policy check -> proof root absent before run; outside repo,
+  outside any Git checkout, outside `%LOCALAPPDATA%\MythicEdge`, and outside
+  `%LOCALAPPDATA%\MythicEdgeDev`.
+- `powershell -ExecutionPolicy Bypass -File tools\dev_app\setup_private_local_v1.ps1 -Proof -InstallRoot <temp_proof_root> -NoOpen -LeaveRunning -BackendPort 52398 -FrontendPort 52399 -JsonReport`
+  -> exit code 0; proof status `degraded` with only
+  `status_panel_verification_http_only` warning.
+- Proof clone -> passed.
+- Python virtualenv creation -> passed.
+- Python dependency install -> passed.
+- Python import check -> passed.
+- Frontend `npm ci` -> passed.
+- Setup install -> passed.
+- SQLite check -> 31 tables; `0001_initial_analytics_schema` applied; no
+  parser fact rows inserted; only expected `parser_schema_versions` metadata
+  row present outside `schema_migrations`.
+- Backend `/api/health` -> 200, status `ok`.
+- Backend `/api/app/setup-status` -> 200, symbolic paths only; no raw
+  Player.log contents; live watcher/process controls disabled or deferred.
+- Backend `/api/analytics/database/status` -> 200, status `ok`,
+  `schema_current`.
+- Frontend root -> 200.
+- In-app Browser rendered DOM smoke -> passed; title
+  `Mythic Edge Local Status`, rendered body length 4213, snapshot length 15059,
+  React root rendered children, no proof-root marker, no raw AppData path, and
+  no stack-trace marker.
+- Proof-started listener cleanup -> stopped 2 listeners on ports 52398 and
+  52399; remaining listener count 0.
+- Proof clone `git status --short --untracked-files=all` -> clean.
+- Main repo `git status --short --branch --untracked-files=all` -> clean
+  before report update.
+- Disposable proof root cleanup -> removed after verification; proof root no
+  longer exists.
 - `py -m pytest -q tests\test_private_local_v1_setup.py` -> 8 passed.
 - `py -m pytest -q tests\test_analytics_dev_app_launcher.py tests\test_analytics_local_app_backend.py tests\test_analytics_local_app_config.py tests\test_analytics_migration_loader.py`
   -> 62 passed, 1 existing FastAPI/Starlette warning.
 - `py -m ruff check tools tests` -> passed.
 - `py -m ruff check src tests tools` -> passed.
-- `py tools\dev_app\private_local_v1_setup.py --check --install-root <temp_outside_checkout> --json-report`
-  -> passed; temp root absent.
-- `git diff --check` -> passed, with the expected Windows line-ending notice
-  for `tools/dev_app/setup_private_local_v1.ps1`.
+- `git diff --check` -> passed.
 - `py tools\check_agent_docs.py` -> passed, 46 checked files, 0 errors,
   0 warnings.
-- Path-scoped protected-surface scan over touched #253 files -> passed,
-  forbidden 0, warnings 0.
-- Path-scoped secret/private-marker scan over touched #253 files -> passed,
-  forbidden 0, warnings 0.
+- Path-scoped protected-surface scan over #253 files -> passed, forbidden 0,
+  warnings 0.
+- Path-scoped secret/private-marker scan over #253 files -> passed, forbidden
+  0, warnings 0.
+- Final `git status --short --branch --untracked-files=all` -> only this
+  report is modified.
 
 ## Protected-Surface Status
 
-Protected-surface scan passed. No parser behavior, parser state final
-reconciliation, parser event classes, match/game identity, deduplication,
-analytics schema or migration semantics, analytics ingest semantics, workbook
-schema, webhook payload shape, Apps Script behavior, Google Sheets behavior,
-output transport, production behavior, OpenAI/model-provider behavior,
-AI/coaching behavior, Line Tracer behavior, or truth ownership change was
-observed.
+Path-scoped protected-surface scan passed with forbidden 0 and warnings 0. No
+protected parser/runtime/workbook/webhook/App Script/Sheets/OpenAI/AI/
+production surface was changed. The proof exercised setup tooling, dependency
+installation in the disposable clone, local generated app-data creation under
+the disposable root, local backend/frontend startup, HTTP status checks, and
+rendered UI smoke only.
 
 ## Secret / Private-Marker Status
 
+The proof JSON and inspected API/UI outputs used symbolic path labels and did
+not expose raw paths, raw Player.log contents, JSONL payloads, raw SQL, secrets,
+credential values, API keys, provider keys, webhook URLs, spreadsheet IDs, or
+stack traces.
+
 Path-scoped secret/private-marker scan passed with forbidden 0 and warnings 0.
-The review did not ask for, store, print, or modify secrets, credentials,
-tokens, webhook URLs, spreadsheet IDs, API keys, environment values, or LLM
-provider keys.
 
 ## Generated Artifact Status
 
-The direct `--check` smoke left its temp root absent. No live `--proof` run was
-performed in this review. Git status shows no generated SQLite databases,
-runtime files, raw logs, frontend build output, dependency folders, workbook
-exports, or local-only artifacts added to the repo.
+The proof created generated/private artifacts only under the disposable proof
+root:
+
+- `data\config\install_manifest.json`
+- `data\db\mythic_edge.sqlite3`
+- `data\diagnostics\setup_proof_report.json`
+- `data\diagnostics\setup_report.json`
+- launcher backend/frontend/log files
+- cloned app checkout dependencies under the disposable `app` root
+
+No generated proof artifacts appeared in the main repo Git status or the proof
+clone Git status. The disposable proof root was removed after verification.
 
 ## Forbidden Scope
 
-Forbidden scope was not touched. This review did not use real default
+Forbidden scope was not touched. This proof did not use the real default
 `%LOCALAPPDATA%\MythicEdge`, delete or retire the user's current Mythic Edge
 folder, inspect private app-data, inspect raw Player.log contents, stage,
 commit, push, open a PR, merge, target main, close #253, or close tracker #136.
 
 ## Recommendation
 
-Route to Codex F for the reviewed proof-orchestration slice.
+Do not tell the user to run the real manual fresh install yet.
 
-Keep issue #253 and tracker #136 open. Do not tell the user to attempt a manual
-fresh install yet.
+Recommended next route:
+
+- Codex E final manual-install readiness check before touching
+  `%LOCALAPPDATA%\MythicEdge`; or
+- Codex F submitter if this updated report should be committed first.
 
 ## Pasteable Next-Thread Prompt
 
@@ -280,7 +333,7 @@ fresh install yet.
 Use the Mythic Edge agent constitution.
 Use $mythic-edge-workflow.
 
-Act as Codex F: Module Submitter for issue #253.
+Act as Codex E: Final Manual-Install Readiness Checker for issue #253.
 
 Issue:
 https://github.com/Tahjali11/Mythic-Edge/issues/253
@@ -291,80 +344,84 @@ https://github.com/Tahjali11/Mythic-Edge/issues/136
 Branch:
 codex/analytics-foundation
 
-Reviewed artifacts:
-- docs/contracts/private_local_v1_clean_checkout_install_launch.md
-- docs/implementation_handoffs/private_local_v1_clean_checkout_install_launch_comparison.md
-- docs/implementation_handoffs/private_local_v1_clean_checkout_install_launch_fixer.md
-- docs/contract_test_reports/private_local_v1_clean_checkout_install_launch.md
+Contract:
+docs/contracts/private_local_v1_clean_checkout_install_launch.md
 
-Reviewed implementation files:
-- tools/dev_app/private_local_v1_setup.py
-- tools/dev_app/setup_private_local_v1.ps1
-- tools/dev_app/dev_app_launcher.py
-- tests/test_private_local_v1_setup.py
+Current report:
+docs/contract_test_reports/private_local_v1_clean_checkout_install_launch.md
 
-Codex E confirmation result:
-No blocking findings remain for the reviewed proof-orchestration slice.
-CT-253-005 and CT-253-006 are verified fixed. CT-253-003 remains a deferred
-scope limit: live --proof execution, rendered panel DOM smoke, and real default
-%LOCALAPPDATA%\MythicEdge readiness are not yet proven.
+Goal:
+Perform the final readiness check before the user touches the real default
+%LOCALAPPDATA%\MythicEdge install root. The disposable live --proof passed, but
+real default-root/manual-install readiness is not yet approved.
 
-Submitter task:
-- Inspect git status and identify unrelated changes.
-- Stage only the reviewed #253 files listed above.
-- Commit with a concise #253 proof-orchestration message.
-- Push the branch.
-- Open or update a draft PR targeting codex/analytics-foundation unless current
-  workflow authority names a different non-main integration target.
-- Link issue #253 and tracker #136.
-- Do not close issue #253 or tracker #136.
+Review:
+- the updated #253 contract-test report;
+- issue #253 and tracker #136;
+- current git status;
+- whether any default-root state already exists;
+- whether the setup command and expected user-facing checklist are clear enough
+  to run safely.
 
-Do not target main, merge, close issues, install dependencies, clone
-repositories, initialize real local SQLite databases, start long-running
-processes, open a browser, delete/reset/move local folders, create generated or
-private local artifacts, change parser behavior, change analytics
-schema/migrations/ingest semantics, change local app runtime behavior outside
-setup flow, change workbook/transport/production behavior, or implement AI
-runtime/model-provider behavior.
+Do not use or mutate %LOCALAPPDATA%\MythicEdge unless the user explicitly
+approves that final check. Do not delete, overwrite, reset, or retire the
+current Mythic Edge folder. Do not close #253 or tracker #136 unless explicitly
+asked and the report supports it.
+
+Output:
+- findings first;
+- readiness verdict;
+- whether the user may attempt manual fresh install;
+- exact manual command/checklist if approved;
+- remaining blockers if not approved;
+- workflow_handoff block.
 ```
 
 ## Workflow Handoff
 
 ```yaml
 workflow_handoff:
-  role_performed: "Codex E: Module Reviewer / confirmation thread"
+  role_performed: "Codex E: Readiness Proof Runner / Contract-Test Updater"
   issue: "https://github.com/Tahjali11/Mythic-Edge/issues/253"
   tracker: "https://github.com/Tahjali11/Mythic-Edge/issues/136"
   completed_thread: "E"
-  next_thread: "F"
-  next_role: "Codex F: Module Submitter"
+  next_thread: "E or F"
+  next_role: "Codex E final manual-install readiness check, or Codex F submitter for this updated report"
   branch: "codex/analytics-foundation"
   contract_artifact: "docs/contracts/private_local_v1_clean_checkout_install_launch.md"
   implementation_handoff: "docs/implementation_handoffs/private_local_v1_clean_checkout_install_launch_comparison.md"
   fixer_handoff: "docs/implementation_handoffs/private_local_v1_clean_checkout_install_launch_fixer.md"
   updated_report: "docs/contract_test_reports/private_local_v1_clean_checkout_install_launch.md"
-  readiness_verdict: "not_ready_for_user_manual_fresh_install"
-  codex_f_status: "ready_for_codex_f_for_reviewed_proof_orchestration_slice"
-  fixed_findings_verified:
-    - "CT-253-005 P1: proof backend launch now uses the proof virtualenv Python."
-    - "CT-253-006 P2: HTTP-only checks now report status_panel_verification as http_only, not passed."
+  proof_command: "powershell -ExecutionPolicy Bypass -File tools\\dev_app\\setup_private_local_v1.ps1 -Proof -InstallRoot <temp_proof_root> -NoOpen -LeaveRunning -BackendPort 52398 -FrontendPort 52399 -JsonReport"
+  proof_root: "<temp>\\MythicEdgePrivateLocalV1Proof-..."
+  proof_result: "degraded_only_due_to_status_panel_verification_http_only"
+  rendered_dom_smoke: "passed"
+  readiness_verdict: "ready_for_final_manual_install_readiness_check"
+  user_manual_fresh_install_status: "not_yet_approved_for_real_default_root"
   validation:
+    - "live GitHub clone through --proof -> passed"
+    - "proof virtualenv creation -> passed"
+    - "Python dependency installation -> passed"
+    - "proof import check -> passed"
+    - "frontend npm ci -> passed"
+    - "setup install with empty SQLite initialization -> passed"
+    - "backend/frontend startup -> passed"
+    - "HTTP health/setup/database/frontend checks -> passed"
+    - "in-app Browser rendered DOM smoke -> passed"
+    - "proof-started listeners stopped -> passed"
+    - "proof clone git status -> clean"
+    - "main repo git status before report update -> clean"
     - "py -m pytest -q tests\\test_private_local_v1_setup.py -> 8 passed"
     - "adjacent setup/launcher/local-app/migration tests -> 62 passed, 1 existing warning"
-    - "py -m ruff check tools tests -> passed"
-    - "py -m ruff check src tests tools -> passed"
-    - "private_local_v1_setup.py --check smoke -> passed, temp root absent"
-    - "git diff --check -> passed, Windows line-ending notice only"
-    - "py tools\\check_agent_docs.py -> passed"
+    - "ruff -> passed"
+    - "git diff --check -> passed"
+    - "agent docs check -> passed"
     - "path-scoped protected-surface scan -> passed, forbidden 0, warnings 0"
     - "path-scoped secret/private-marker scan -> passed, forbidden 0, warnings 0"
   remaining_unverified:
-    - "Live GitHub clone through --proof"
-    - "Real dependency installs through --proof"
-    - "Real backend/frontend/browser proof through --proof"
-    - "Rendered status-panel/browser DOM smoke"
     - "Real default %LOCALAPPDATA%\\MythicEdge readiness"
+    - "User-facing manual fresh install against the actual machine setup"
   forbidden_scope_touched: false
   generated_artifacts_kept: false
-  recommendation: "Route to Codex F for this reviewed slice; keep #253 and #136 open."
+  recommendation: "Run final manual-install readiness check before touching real default root."
 ```
