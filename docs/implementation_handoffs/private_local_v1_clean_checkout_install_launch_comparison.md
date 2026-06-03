@@ -1,5 +1,42 @@
 # Private Local V1 Clean Checkout Install And Launch Implementation Comparison
 
+## C Stability Follow-Up
+
+This Codex C pass revalidated the existing #253 implementation from the
+contract handoff. Focused validation exposed that proof-mode tests depended on
+real workstation port availability for ports `8765` and `5173`, even though
+the command, HTTP, and process surfaces were already fake-runner based.
+
+Minimal fix:
+
+- `run_private_local_v1_proof(...)` now accepts an injectable `port_checker`.
+- proof-mode tests pass a fake `port_checker` so tests do not depend on local
+  port state or running app processes.
+
+This does not change parser behavior, analytics schema, local app runtime
+behavior outside setup proof orchestration, workbook/webhook/App Script/Sheets
+behavior, AI behavior, production behavior, or generated/private artifact
+policy.
+
+Validation for this stability follow-up:
+
+- `py -m pytest -q tests\test_private_local_v1_setup.py` -> passed, 8 passed.
+- `py -m pytest -q tests\test_private_local_v1_setup.py tests\test_analytics_dev_app_launcher.py tests\test_analytics_local_app_backend.py tests\test_analytics_local_app_config.py tests\test_analytics_migration_loader.py`
+  -> passed, 70 passed, 1 existing FastAPI/Starlette warning.
+- `py -m ruff check src tests tools` -> passed.
+- `py tools\dev_app\private_local_v1_setup.py --check --install-root <temp_outside_checkout> --json-report`
+  -> passed; temp root stayed absent.
+- `git diff --check` -> passed.
+- `py tools\check_agent_docs.py` -> passed.
+- path-scoped protected-surface scan over touched #253 files -> passed,
+  forbidden 0, warnings 0.
+- path-scoped secret/private-marker scan over touched #253 files -> passed,
+  forbidden 0, warnings 0.
+
+Unrelated untracked file left untouched:
+
+- `docs/contracts/private_local_v1_private_artifact_scanner_env_ignore_posture.md`
+
 ## Follow-Up C Pass After Codex E Readiness Proof
 
 Codex E updated

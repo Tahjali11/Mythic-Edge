@@ -1,5 +1,96 @@
 # Private Local V1 Clean Checkout Install And Launch Contract-Test Report
 
+## C Stability Follow-Up Review
+
+`report_lifecycle`: `followup_after_fixer`
+
+### Findings
+
+#### CT-253-007 P2: #253 lifecycle is closed while this follow-up still routes under #253
+
+- finding_lifecycle: `original_finding`
+- finding_status: `confirmed`
+- blocking_status: `blocking_for_issue_253_closure_claim_not_blocking_for_stability_diff`
+- evidence:
+  - `gh issue view 253 --json number,title,state,url,closedAt,comments`
+    reported state `CLOSED`, closed at `2026-06-03T12:10:23Z`.
+  - This report still contains older readiness-proof text that says issue #253
+    remains open.
+  - The C stability handoff routes the post-close stability change under #253.
+- impact:
+  - The current code/test diff can be reviewed as a post-close stability
+    follow-up.
+  - It should not be used to re-close #253 or claim a new #253 lifecycle
+    transition without Codex G reconciliation.
+- next_route:
+  - Codex F may submit the three-file stability diff if the PR clearly treats
+    it as a post-close stability follow-up.
+  - Codex G should not perform another #253 closeout.
+  - Route to Codex A/B only if the intended next work is a new v1.0
+    release-footprint/package-shape contract.
+
+#### CT-253-008 P3: current diff does not change the full-repo install footprint
+
+- finding_lifecycle: `remaining_non_blocking`
+- finding_status: `confirmed_deferred_scope`
+- blocking_status: `not_blocking_for_port_checker_stability_diff`
+- evidence:
+  - The code diff only adds an injectable `port_checker` to
+    `run_private_local_v1_proof(...)` and passes fake port checks in proof-mode
+    tests.
+  - It does not remove, hide, package, or slim the installed app checkout.
+  - The Codex G closeout comment for #253 classified release packaging and
+    repo-footprint polish as separate future scope.
+- impact:
+  - The implementation preserves the already-proven install mechanics.
+  - It does not itself address brand-new-user folder polish.
+- next_route:
+  - Keep v1.0 release packaging / repo-footprint cleanup as a separate
+    follow-up when the release ref is curated.
+
+### Stability Diff Verdict
+
+No blocking implementation finding was found in the current stability diff.
+
+The change preserves setup/proof behavior while making proof-mode tests
+independent of live workstation port availability. The injected `port_checker`
+is passed through to the existing launcher start path, and focused proof tests
+now fake the port check alongside their existing fake command, HTTP, process,
+and browser hooks.
+
+### Stability Diff Validation
+
+- `git status --short --branch --untracked-files=all` -> expected three
+  modified #253 files plus unrelated untracked
+  `docs/contracts/private_local_v1_private_artifact_scanner_env_ignore_posture.md`.
+- `gh issue view 253 --json number,title,state,url,closedAt,comments` -> issue
+  #253 is closed.
+- `gh issue view 136` -> tracker #136 is open.
+- `py -m pytest -q tests\test_private_local_v1_setup.py` -> 8 passed.
+- `py -m pytest -q tests\test_analytics_dev_app_launcher.py tests\test_analytics_local_app_backend.py tests\test_analytics_local_app_config.py tests\test_analytics_migration_loader.py`
+  -> 62 passed, 1 existing FastAPI/Starlette warning.
+- `py -m ruff check tools tests` -> passed.
+- `py -m ruff check src tests tools` -> passed.
+- `py tools\dev_app\private_local_v1_setup.py --check --install-root <temp_outside_checkout> --json-report`
+  -> passed; temp root remained absent.
+- `git diff --check` -> passed.
+- `py tools\check_agent_docs.py` -> passed, 46 checked files, 0 errors,
+  0 warnings.
+- Path-scoped protected-surface scan over the reviewed #253 files -> passed,
+  forbidden 0, warnings 0.
+- Path-scoped secret/private-marker scan over the reviewed #253 files ->
+  passed, forbidden 0, warnings 0.
+
+### Stability Diff Recommendation
+
+Approve the current code/test stability diff for Codex F only as a post-close
+stability follow-up. Do not route to Codex D for implementation fixes.
+
+If the desired goal is to change the user-facing install footprint so the
+default-root `app` folder no longer looks like a developer repo checkout, route
+that separately to Codex A/B for v1.0 release packaging or repo-footprint
+scope.
+
 ## Findings
 
 No blocking findings remain for the disposable live `--proof` readiness run.
