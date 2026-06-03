@@ -47,13 +47,19 @@ but a human setup/readiness path still depends on knowing where to look.
 This is not necessarily a private-local-v1 blocker for the current user, but it
 blocks shared-with-developer readiness and contributes to clean-install risk.
 
-### P3: The maturity framework contract itself is still an untracked artifact
+### P3: Authorized blocker remediation issues were created after baseline rerun
 
-`docs/contracts/engineering_maturity_index_open_framework.md` is present but
-untracked on `codex/analytics-foundation`. This is not a maturity score failure
-by itself because the current prompt explicitly authorized using the local
-contract, but Codex F must stage the source contract and this baseline together
-before the report becomes durable repo evidence.
+After explicit user authorization, the audit created GitHub remediation issues
+only for under-5 rows where `should_create_now: yes` and
+`release_profile_blocker: private_local_v1`.
+
+Created issues:
+
+- #251: `[release] Prove private-local-v1 local app startup and status smoke`
+- #252: `[quality] Triage private-local-v1 private artifact scanner and env ignore posture`
+- #253: `[release] Prove private-local-v1 clean checkout install and launch path`
+
+Deferred and non-blocking under-5 rows remain drafted in this report only.
 
 ## Role Performed
 
@@ -73,7 +79,7 @@ Codex E: Governance Reviewer / Baseline Auditor.
 
 `docs/contracts/engineering_maturity_index_open_framework.md`
 
-Contract status: present locally, untracked.
+Contract status: present and tracked on the current branch.
 
 ## Files, Docs, And Issues Reviewed
 
@@ -447,8 +453,8 @@ private-local-v1 blocker status, and path-to-5 plan.
   operating system for Codex work, and handoffs are more reliable than chat
   memory.
 - why_not_higher: There is not yet a private-local-v1 release-readiness packet,
-  active maturity contract/report artifacts are untracked, and CI is not a full
-  substitute for local frontend/build/secret evidence.
+  this rerun still needs Codex F submission, and CI is not a full substitute for
+  local frontend/build/secret evidence.
 - v1_0_blocker: `no`
 - release_profile_relevance: High for `private_local_v1`.
 - next_action:
@@ -776,7 +782,8 @@ private-local-v1 blocker status, and path-to-5 plan.
 - README/onboarding lags current local app and A-G workflow reality.
 - Live Player.log mode is still under active development, and raw/private live
   behavior was not tested in this audit.
-- The maturity framework contract is present but untracked.
+- This rerun created blocker remediation issues, but GitHub Actions and Codex F
+  submission are still pending.
 
 ## Unknown Or Not-Checked Evidence
 
@@ -785,42 +792,43 @@ private-local-v1 blocker status, and path-to-5 plan.
 - No actual app-data root contents were inspected.
 - No live workbook, deployed Apps Script, Google Sheets, OpenAI/model-provider,
   production, or external integration behavior was checked.
-- No remediation GitHub issues were created.
+- Authorized remediation GitHub issues were created only for
+  `private_local_v1` blocker rows with `should_create_now: yes`.
 - No PR was opened.
 
 ## Suggested Remediation Issue List
 
-Create only with explicit user authorization.
+Created blocker issues:
 
 1. `[release] Prove private-local-v1 clean checkout install and launch path`
    - Blocker: yes.
+   - Created: https://github.com/Tahjali11/Mythic-Edge/issues/253
    - Acceptance criteria: clean checkout setup, Python/app deps, frontend deps,
      backend/frontend health, local environment reports, no generated artifacts
      committed.
 
-2. `[quality] Triage all-repo secret/private-marker scanner findings for private-local-v1`
+2. `[quality] Triage private-local-v1 private artifact scanner and env ignore posture`
    - Blocker: yes.
-   - Acceptance criteria: classify all current all-repo findings as expected
-     policy/fixture markers, suppressible scanner issues, or concrete fixes;
-     do not weaken scanner coverage.
+   - Created: https://github.com/Tahjali11/Mythic-Edge/issues/252
+   - Acceptance criteria: classify current all-repo scanner findings, resolve
+     or document `.env*` ignore-coverage behavior, and do not weaken scanner
+     coverage.
 
-3. `[quality] Resolve .env ignore-coverage uncertainty in local artifact checks`
+3. `[release] Prove private-local-v1 local app startup and status smoke`
    - Blocker: yes.
-   - Acceptance criteria: prove `.env*` local secret surfaces are ignored or
-     safely reported without printing values.
-
-4. `[release] Prove private-local-v1 local app startup and status smoke`
-   - Blocker: yes.
+   - Created: https://github.com/Tahjali11/Mythic-Edge/issues/251
    - Acceptance criteria: backend/frontend startup, setup/status, manual import
      status, analytics views, Match Journal status, and live watcher metadata
      status render safely without destructive controls.
 
-5. `[docs] Update README for private-local-v1 local app and validation flow`
+Draft only; do not create until separately authorized:
+
+4. `[docs] Update README for private-local-v1 local app and validation flow`
    - Blocker: no.
    - Acceptance criteria: README reflects current A-G workflow, local app run
      path, validation commands, and generated/private artifact boundaries.
 
-6. `[quality] Define private-local-v1 dependency and validation packet policy`
+5. `[quality] Define private-local-v1 dependency and validation packet policy`
    - Blocker: no.
    - Acceptance criteria: decide which checks are release-packet requirements
      versus CI gates; keep Pyright advisory unless future contract changes it.
@@ -829,13 +837,17 @@ Create only with explicit user authorization.
 
 - `git fetch --prune origin` -> passed.
 - `git status --short --branch --untracked-files=all` -> branch
-  `codex/analytics-foundation...origin/codex/analytics-foundation`; untracked
-  source contract and baseline report artifacts.
+  `codex/engineering-maturity-baseline...origin/codex/engineering-maturity-baseline`.
 - `git rev-list --left-right --count HEAD...origin/codex/analytics-foundation`
-  -> `0 0`.
+  -> `0 0` before the submitter branch was created.
+- `git rev-list --left-right --count HEAD...origin/codex/engineering-maturity-baseline`
+  -> `0 0` before this report update.
 - `gh issue view 136` -> issue open.
 - `gh issue view 248` -> issue open.
 - `gh issue view 249` -> issue open.
+- `gh issue view 251` -> issue open, local-app startup/status smoke.
+- `gh issue view 252` -> issue open, private-artifact scanner/env posture.
+- `gh issue view 253` -> issue open, clean checkout install/launch path.
 - `gh pr list --state open --json ...` -> `[]`.
 - `py -m pytest -q` -> `1653 passed, 1 skipped, 1 warning`.
 - `npm --prefix frontend test -- --run` -> 3 files passed, 68 tests passed.
@@ -860,6 +872,12 @@ Create only with explicit user authorization.
   report -> passed, `changed_paths: 2`, `forbidden: 0`, `warnings: 0`.
 - Path-scoped secret/private-marker scan over the source contract and baseline
   report -> passed, `forbidden: 0`, `warnings: 0`.
+- Current-branch path-scoped protected-surface scan over the source contract and
+  baseline report with base `origin/codex/engineering-maturity-baseline` ->
+  passed, `changed_paths: 2`, `forbidden: 0`, `warnings: 0`.
+- Current-branch path-scoped secret/private-marker scan over the source contract
+  and baseline report with base `origin/codex/engineering-maturity-baseline` ->
+  passed, `forbidden: 0`, `warnings: 0`.
 - `git diff --check` -> passed after report creation.
 
 ## Protected-Surface Status
@@ -886,16 +904,19 @@ baseline report passed with `forbidden: 0` and `warnings: 0`.
 
 Forbidden scope was not touched. This audit did not implement code, change
 runtime behavior, add gates, make Pyright required/failing, claim formal
-compliance, create remediation issues, stage files, open a PR, target main, or
-close issues.
+compliance, stage files, open a PR, target main, or close issues.
+
+GitHub remediation issues were created only after explicit authorization and
+only for `private_local_v1` blocker rows that were marked
+`should_create_now: yes`.
 
 ## Recommendation
 
-Route to Codex F for artifact submission if path-scoped scans pass after this
-report is written.
+Route to Codex F for artifact submission after final validation.
 
-Also create, after explicit user authorization, the P1 remediation issues for
-clean install/local app readiness and private artifact safety.
+Created P1 remediation issues #251, #252, and #253 are now linked to #249 and
+to this baseline artifact. Non-blocking and deferred rows remain report drafts
+only.
 
 ## Pasteable Next-Thread Prompt
 
@@ -915,7 +936,7 @@ Source issue:
 https://github.com/Tahjali11/Mythic-Edge/issues/248
 
 Branch:
-codex/analytics-foundation
+codex/engineering-maturity-baseline
 
 Source contract:
 docs/contracts/engineering_maturity_index_open_framework.md
@@ -936,7 +957,7 @@ Run or verify:
 - path-scoped protected-surface scan over the source contract and baseline report
 - path-scoped secret/private-marker scan over the source contract and baseline report
 
-Do not implement maturity fixes. Do not create remediation GitHub issues unless explicitly authorized. Do not change parser/runtime/analytics/local app/workbook/webhook/App Script/Sheets/OpenAI/AI/production behavior. Do not create CI gates or make Pyright required/failing. Do not stage unrelated files, target main, close issue #249, close source issue #248, or close tracker #136 unless explicitly asked.
+Do not implement maturity fixes. The authorized blocker remediation issues have already been created as #251, #252, and #253; do not create more remediation GitHub issues unless explicitly authorized. Do not change parser/runtime/analytics/local app/workbook/webhook/App Script/Sheets/OpenAI/AI/production behavior. Do not create CI gates or make Pyright required/failing. Do not stage unrelated files, target main, close issue #249, close source issue #248, close tracker #136, or close the remediation issues unless explicitly asked.
 ```
 
 ```yaml
@@ -948,7 +969,7 @@ workflow_handoff:
   completed_thread: "E"
   next_thread: "F"
   next_role: "Codex F: Module Submitter"
-  branch: "codex/analytics-foundation"
+  branch: "codex/engineering-maturity-baseline"
   selected_release_profile: "private_local_v1"
   source_contract: "docs/contracts/engineering_maturity_index_open_framework.md"
   target_artifact: "docs/contract_test_reports/engineering_maturity_baseline.md"
@@ -957,6 +978,10 @@ workflow_handoff:
     - "Clean checkout install/local app startup proof is not complete."
     - "All-repo secret/private-marker scanner debt remains unresolved."
     - ".env* ignore-coverage uncertainty remains in local environment reports."
+  remediation_issues_created:
+    - "https://github.com/Tahjali11/Mythic-Edge/issues/251"
+    - "https://github.com/Tahjali11/Mythic-Edge/issues/252"
+    - "https://github.com/Tahjali11/Mythic-Edge/issues/253"
   validation:
     - "py -m pytest -q -> 1653 passed, 1 skipped, 1 warning"
     - "npm --prefix frontend test -- --run -> 3 files passed, 68 tests passed"
@@ -968,13 +993,15 @@ workflow_handoff:
     - "clean_clone local environment report -> warning, blocked 0, errors 0, warnings 8"
     - "clean_install_transition_audit local environment report -> warning, blocked 0, errors 0, warnings 3"
     - "py tools/check_secret_patterns.py --all -> failed with pre-existing all-repo maturity debt, forbidden 540, warnings 898"
+    - "gh issue view 251/252/253 -> all open"
     - "git diff --check -> passed after report creation"
     - "path-scoped protected-surface scan over source contract and baseline report -> passed, forbidden 0, warnings 0"
     - "path-scoped secret/private-marker scan over source contract and baseline report -> passed, forbidden 0, warnings 0"
+    - "current-branch path-scoped protected-surface and secret/private-marker scans -> passed, forbidden 0, warnings 0"
   forbidden_scope_touched: false
   recommended_next_actions:
     - "Codex F should stage only the source contract and baseline report after path-scoped validation."
-    - "With explicit user authorization, create P1 remediation issues for clean install/local app readiness and private artifact safety."
+    - "Do not create additional remediation issues unless explicitly authorized."
   stop_conditions:
     - "Do not implement maturity fixes."
     - "Do not create CI/Pyright gates."
