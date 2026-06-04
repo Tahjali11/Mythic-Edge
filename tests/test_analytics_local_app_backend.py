@@ -35,6 +35,20 @@ def _preconditions_by_key(payload: dict[str, object]) -> dict[str, dict[str, obj
     return {str(entry["key"]): entry for entry in preconditions}
 
 
+def _valid_error_report_request(**overrides: object) -> dict[str, object]:
+    request = {
+        "summary": "Dashboard status did not refresh",
+        "expected_behavior": "The local app should show the latest safe status labels.",
+        "actual_behavior": "The dashboard kept the previous labels after I refreshed the page.",
+        "reproduction_steps": "1. Open the local app.\n2. Refresh the dashboard.\n3. Compare the status labels.",
+        "affected_area": "local_app_ui",
+        "severity": "degraded",
+        "current_frontend_surface": "dashboard",
+    }
+    request.update(overrides)
+    return request
+
+
 def test_health_endpoint_reports_setup_status_only_capabilities(tmp_path) -> None:
     client = _client(tmp_path / "app-data")
 
@@ -80,6 +94,7 @@ def test_read_only_endpoint_inventory_and_no_wildcard_cors(tmp_path) -> None:
         "/api/analytics/play-draw-splits",
         "/api/analytics/game1-postboard-splits",
         "/api/runtime/status",
+        "/api/feedback/error-report/preview",
         "/api/imports/jsonl",
         "/api/imports/jsonl/upload",
         "/api/imports/jobs/{job_id}",
@@ -287,6 +302,69 @@ def test_setup_status_get_routes_do_not_create_local_app_artifacts(tmp_path) -> 
 
     assert not app_root.exists()
     assert list(tmp_path.rglob("*")) == []
+
+
+def test_error_report_preview_returns_sanitized_markdown_without_writes(tmp_path) -> None:
+    app_root = tmp_path / "app-data"
+    private_log_path = tmp_path / "Private Logs" / "Player.log"
+    client = _client(app_root)
+
+    response = client.post(
+        "/api/feedback/error-report/preview",
+        json=_valid_error_report_request(
+            actual_behavior=f"The dashboard mentioned {private_log_path} while showing stale labels.",
+        ),
+    )
+    payload = response.json()
+    encoded = json.dumps(payload, sort_keys=True)
+
+    assert response.status_code == 200
+    assert payload["schema"] == "quality_app_submit_error_report_codex_triage.v1"
+    assert payload["status"] == "preview_ready"
+    assert payload["issue_title"].startswith("[error-report] [local_app_ui]")
+    assert payload["external_submission_enabled"] is False
+    assert "backend_health" in payload["included_diagnostic_categories"]
+    assert "privacy_boundary" in payload["included_diagnostic_categories"]
+    assert "raw Player.log contents or raw log lines" in payload["excluded_private_data"]
+    assert "<redacted_local_path>" in payload["issue_body_markdown"]
+    assert "Pasteable Codex Triage Prompt" in payload["issue_body_markdown"]
+    assert str(private_log_path) not in encoded
+    assert str(tmp_path) not in encoded
+    assert not app_root.exists()
+
+
+def test_error_report_preview_blocks_endpoint_like_user_text_without_echoing_value(tmp_path) -> None:
+    endpoint_value = "https://" + "example.invalid/hook"
+    client = _client(tmp_path / "app-data")
+
+    response = client.post(
+        "/api/feedback/error-report/preview",
+        json=_valid_error_report_request(actual_behavior=f"The report form displayed endpoint {endpoint_value}."),
+    )
+    payload = response.json()
+    encoded = json.dumps(payload, sort_keys=True)
+
+    assert response.status_code == 200
+    assert payload["status"] == "blocked_privacy_guard"
+    assert payload["issue_title"] == ""
+    assert payload["issue_body_markdown"] == ""
+    assert payload["external_submission_enabled"] is False
+    assert "privacy_guard_blocked:actual_behavior" in payload["warnings"]
+    assert endpoint_value not in encoded
+
+
+def test_error_report_preview_rejects_invalid_request_and_has_no_submit_route(tmp_path) -> None:
+    client = _client(tmp_path / "app-data")
+
+    invalid_response = client.post(
+        "/api/feedback/error-report/preview",
+        json=_valid_error_report_request(affected_area="workbook", summary=""),
+    )
+    submit_response = client.post("/api/feedback/error-report/submit", json=_valid_error_report_request())
+
+    assert invalid_response.status_code == 200
+    assert invalid_response.json()["status"] == "invalid_request"
+    assert submit_response.status_code == 404
 
 
 def test_live_status_routes_report_symbolic_metadata_and_readiness_only(tmp_path) -> None:

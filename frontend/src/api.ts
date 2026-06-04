@@ -2,6 +2,7 @@ import {
   ACTION_REVIEW_SCHEMA_VERSION,
   ANALYTICS_HISTORY_SCHEMA_VERSION,
   EARLY_GAME_HISTORY_SCHEMA_VERSION,
+  ERROR_REPORT_PREVIEW_SCHEMA,
   GAME_HISTORY_OBJECT,
   GAME1_POSTBOARD_SPLIT_REVIEW_OBJECT,
   GAMEPLAY_ACTION_REVIEW_OBJECT,
@@ -28,6 +29,9 @@ import {
   SPLIT_REVIEW_SCHEMA_VERSION,
   type AnalyticsHistoryErrorCode,
   type AnalyticsHistoryStatus,
+  type ErrorReportApiErrorCode,
+  type ErrorReportPreviewRequest,
+  type ErrorReportPreviewResponse,
   type Game1PostboardSplitReviewResponse,
   type GameHistoryResponse,
   type GameplayActionReviewResponse,
@@ -81,6 +85,7 @@ const MATCH_JOURNAL_OPPONENT_LABELS_PATH = "/api/journal/opponent-labels";
 const MATCH_JOURNAL_REVIEW_FLAGS_PATH = "/api/journal/review-flags";
 const MATCH_JOURNAL_EXPERIMENT_LABEL_PATH = "/api/journal/experiment-label";
 const MATCH_JOURNAL_DISPLAY_CORRECTIONS_PATH = "/api/journal/display-corrections";
+const ERROR_REPORT_PREVIEW_PATH = "/api/feedback/error-report/preview";
 const REQUIRED_SETUP_STATUS_FIELDS = [
   "object",
   "schema_version",
@@ -122,6 +127,18 @@ const REQUIRED_ANALYTICS_HISTORY_FIELDS = [
   "errors"
 ] as const;
 const REQUIRED_MATCH_JOURNAL_FIELDS = ["object", "schema_version", "status", "result", "warnings", "errors"] as const;
+const REQUIRED_ERROR_REPORT_PREVIEW_FIELDS = [
+  "schema",
+  "status",
+  "issue_title",
+  "issue_body_markdown",
+  "included_diagnostic_categories",
+  "excluded_private_data",
+  "redaction_summary",
+  "warnings",
+  "next_recommended_role",
+  "external_submission_enabled"
+] as const;
 const LIVE_WATCHER_PROCESS_PRECONDITION_KEYS = [
   "player_log_ready",
   "app_data_root_available",
@@ -183,6 +200,16 @@ export class MatchJournalApiError extends Error {
   }
 }
 
+export class ErrorReportApiError extends Error {
+  code: ErrorReportApiErrorCode;
+
+  constructor(code: ErrorReportApiErrorCode, message: string) {
+    super(message);
+    this.name = "ErrorReportApiError";
+    this.code = code;
+  }
+}
+
 export function getApiBaseUrl(value: string | undefined = import.meta.env.VITE_MYTHIC_EDGE_API_BASE_URL): string {
   const trimmed = (value ?? "").trim().replace(/\/+$/, "");
   if (!trimmed) {
@@ -230,6 +257,36 @@ export async function fetchSetupStatus(fetchImpl: typeof fetch = fetch): Promise
   }
 
   return validateSetupStatusResponse(payload);
+}
+
+export async function previewErrorReport(
+  request: ErrorReportPreviewRequest,
+  fetchImpl: typeof fetch = fetch
+): Promise<ErrorReportPreviewResponse> {
+  const baseUrl = getErrorReportApiBaseUrl();
+  let response: Response;
+  try {
+    response = await fetchImpl(`${baseUrl}${ERROR_REPORT_PREVIEW_PATH}`, {
+      method: "POST",
+      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      body: JSON.stringify(request)
+    });
+  } catch {
+    throw new ErrorReportApiError("backend_unavailable", "Error report preview is unavailable.");
+  }
+
+  if (!response.ok) {
+    throw new ErrorReportApiError("backend_unavailable", "Error report preview is unavailable.");
+  }
+
+  let payload: unknown;
+  try {
+    payload = await response.json();
+  } catch {
+    throw new ErrorReportApiError("malformed_response", "Error report preview returned malformed JSON.");
+  }
+
+  return validateErrorReportPreviewResponse(payload);
 }
 
 export async function fetchLivePlayerLogStatus(fetchImpl: typeof fetch = fetch): Promise<LivePlayerLogStatusResponse> {
@@ -1343,6 +1400,56 @@ function getMatchJournalApiBaseUrl(): string {
   } catch {
     throw new MatchJournalApiError("unsafe_api_base_url", "API base URL must be a local loopback HTTP origin.");
   }
+}
+
+function getErrorReportApiBaseUrl(): string {
+  try {
+    return getApiBaseUrl();
+  } catch {
+    throw new ErrorReportApiError("unsafe_api_base_url", "API base URL must be a local loopback HTTP origin.");
+  }
+}
+
+function validateErrorReportPreviewResponse(payload: unknown): ErrorReportPreviewResponse {
+  if (!isRecord(payload)) {
+    throw new ErrorReportApiError("malformed_response", "Error report preview must be a JSON object.");
+  }
+
+  for (const field of REQUIRED_ERROR_REPORT_PREVIEW_FIELDS) {
+    if (!(field in payload)) {
+      throw new ErrorReportApiError("malformed_response", "Error report preview is missing required fields.");
+    }
+  }
+
+  if (payload.schema !== ERROR_REPORT_PREVIEW_SCHEMA) {
+    throw new ErrorReportApiError(
+      "incompatible_response",
+      `Expected error report preview schema ${ERROR_REPORT_PREVIEW_SCHEMA}.`
+    );
+  }
+
+  if (!isErrorReportPreviewStatus(payload.status)) {
+    throw new ErrorReportApiError("malformed_response", "Error report preview status is unsupported.");
+  }
+
+  if (
+    typeof payload.issue_title !== "string" ||
+    typeof payload.issue_body_markdown !== "string" ||
+    !isStringArray(payload.included_diagnostic_categories) ||
+    !isStringArray(payload.excluded_private_data) ||
+    !isStringArray(payload.redaction_summary) ||
+    !isStringArray(payload.warnings) ||
+    typeof payload.next_recommended_role !== "string" ||
+    payload.external_submission_enabled !== false
+  ) {
+    throw new ErrorReportApiError("malformed_response", "Error report preview has an unsupported shape.");
+  }
+
+  return payload as ErrorReportPreviewResponse;
+}
+
+function isErrorReportPreviewStatus(value: unknown): boolean {
+  return value === "preview_ready" || value === "invalid_request" || value === "blocked_privacy_guard";
 }
 
 function validateMatchJournalResponse(payload: unknown): MatchJournalResponse {

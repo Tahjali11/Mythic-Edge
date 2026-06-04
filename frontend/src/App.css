@@ -367,6 +367,109 @@ h3 {
   padding: 18px;
 }
 
+.reportPanel {
+  border: 1px solid #d9ded7;
+  border-top: 5px solid #415f87;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 18px;
+}
+
+.reportForm,
+.reportPreview {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.reportForm {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.formField {
+  display: grid;
+  gap: 6px;
+  color: #596067;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.formField.wide {
+  grid-column: 1 / -1;
+}
+
+.formField input,
+.formField select,
+.formField textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #b9c2ba;
+  border-radius: 6px;
+  padding: 10px 12px;
+  color: #20242a;
+  background: #ffffff;
+}
+
+.formField textarea {
+  resize: vertical;
+}
+
+.reportActions {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.reportActions button {
+  border: 1px solid #2f6d4a;
+  border-radius: 6px;
+  padding: 10px 14px;
+  color: #ffffff;
+  background: #2f6d4a;
+  font-weight: 700;
+}
+
+.reportActions button:disabled {
+  border-color: #9fa9a2;
+  background: #9fa9a2;
+}
+
+.reportBoundary {
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #d9ded7;
+  border-radius: 999px;
+  padding: 4px 10px;
+  color: #596067;
+  background: #f4f6f2;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.categoryList {
+  border: 1px solid #d9ded7;
+  border-radius: 8px;
+  padding: 12px;
+  background: #f9faf8;
+}
+
+.categoryList h4 {
+  margin: 0 0 8px;
+  color: #20242a;
+  font-size: 0.86rem;
+}
+
+.categoryList ul {
+  margin: 0;
+  padding-left: 18px;
+  color: #596067;
+  font-size: 0.86rem;
+  font-weight: 650;
+}
+
 .matchJournalSection {
   margin-top: 20px;
   border: 1px solid #d9ded7;
@@ -702,6 +805,14 @@ dd {
 
   .manualImportForm {
     grid-template-columns: 1fr;
+  }
+
+  .reportForm {
+    grid-template-columns: 1fr;
+  }
+
+  .reportActions button {
+    width: 100%;
   }
 
   .manualImportForm button {

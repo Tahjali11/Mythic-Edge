@@ -14,6 +14,7 @@ import {
   ANALYTICS_HISTORY_SCHEMA_VERSION,
   EARLY_GAME_HISTORY_SCHEMA_VERSION,
   GAME1_POSTBOARD_SPLIT_REVIEW_OBJECT,
+  ERROR_REPORT_PREVIEW_SCHEMA,
   GAME_HISTORY_OBJECT,
   GAMEPLAY_ACTION_REVIEW_OBJECT,
   LEGACY_JSONL_IMPORT_QUALITY_OBJECT,
@@ -38,6 +39,8 @@ import {
   SETUP_STATUS_SCHEMA_VERSION,
   SPLIT_REVIEW_SCHEMA_VERSION,
   type Game1PostboardSplitReviewResponse,
+  type ErrorReportPreviewRequest,
+  type ErrorReportPreviewResponse,
   type GameHistoryResponse,
   type GameplayActionReviewResponse,
   type LegacyJsonlImportQuality,
@@ -88,6 +91,7 @@ describe("SetupStatusApp", () => {
     expect(screen.getByRole("complementary", { name: "Local app sections" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Dashboard" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Review" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Report" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Coach" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Analytics" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Import" })).toBeInTheDocument();
@@ -109,7 +113,7 @@ describe("SetupStatusApp", () => {
     expect(screen.getByText("Backend Reachability")).toBeInTheDocument();
     expect(screen.getByText("<app_data>")).toBeInTheDocument();
     expect(screen.getAllByText("<configured_player_log>").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText("Live Player.log")).toBeInTheDocument();
+    expect(screen.getAllByText("Live Player.log").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("Live Watcher")).toBeInTheDocument();
     expect(screen.getByText("Live Watcher Process")).toBeInTheDocument();
     expect(screen.getByText("readiness_only")).toBeInTheDocument();
@@ -120,6 +124,94 @@ describe("SetupStatusApp", () => {
     expect(screen.getByText("<app_data>\\db\\match_journal.sqlite3")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Import JSONL" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: unsafeControlName })).not.toBeInTheDocument();
+  });
+
+  it("prepares and copies a sanitized error report without external submission", async () => {
+    const writeText = vi.fn(async () => undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText }
+    });
+    const previewReport = vi.fn(async (request: ErrorReportPreviewRequest) => buildErrorReportPreviewPayload(request));
+    render(<SetupStatusApp fetchStatus={() => Promise.resolve(buildPayload())} previewReport={previewReport} />);
+
+    expect(await screen.findByRole("heading", { name: "Report an Error" })).toBeInTheDocument();
+    expect(screen.getAllByText("External submission disabled").length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByRole("button", { name: /submit error report/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /create github issue/i })).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Summary"), { target: { value: "Dashboard status did not refresh" } });
+    fireEvent.change(screen.getByLabelText("Expected behavior"), {
+      target: { value: "The dashboard should show current safe labels." }
+    });
+    fireEvent.change(screen.getByLabelText("Actual behavior"), {
+      target: { value: "The dashboard kept old labels after reload." }
+    });
+    fireEvent.change(screen.getByLabelText("Reproduction steps"), {
+      target: { value: "Open the app.\nReload the dashboard.\nRead the labels." }
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Preview Report" }));
+
+    await waitFor(() => {
+      expect(previewReport).toHaveBeenCalledWith(
+        expect.objectContaining({
+          affected_area: "local_app_ui",
+          current_frontend_surface: "local_app_cockpit",
+          severity: "degraded"
+        })
+      );
+    });
+    expect(await screen.findByRole("heading", { name: "Sanitized Preview" })).toBeInTheDocument();
+    expect(screen.getByText("Included diagnostics")).toBeInTheDocument();
+    expect(screen.getByText("backend_health")).toBeInTheDocument();
+    expect(screen.getByText("Excluded private data")).toBeInTheDocument();
+    expect(screen.getByText("raw Player.log contents or raw log lines")).toBeInTheDocument();
+    expect(screen.getByDisplayValue(/# \[error-report\] \[local_app_ui\]/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Copy Report" }));
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith(expect.stringContaining("# [error-report] [local_app_ui]"));
+    });
+    expect(screen.getByText("Copied to clipboard")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /submit error report/i })).not.toBeInTheDocument();
+  });
+
+  it("shows blocked sanitized report previews without enabling copy or submission", async () => {
+    const previewReport = vi.fn(async () =>
+      buildErrorReportPreviewPayload(
+        {
+          summary: "Blocked report",
+          expected_behavior: "Preview should block unsafe values.",
+          actual_behavior: "Unsafe value was entered.",
+          reproduction_steps: "Open report form.",
+          affected_area: "privacy",
+          severity: "blocker"
+        },
+        {
+          status: "blocked_privacy_guard",
+          issue_title: "",
+          issue_body_markdown: "",
+          included_diagnostic_categories: [],
+          warnings: ["privacy_guard_blocked:actual_behavior"]
+        }
+      )
+    );
+    render(<SetupStatusApp fetchStatus={() => Promise.resolve(buildPayload())} previewReport={previewReport} />);
+
+    expect(await screen.findByRole("heading", { name: "Report an Error" })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Summary"), { target: { value: "Blocked report" } });
+    fireEvent.change(screen.getByLabelText("Expected behavior"), { target: { value: "Preview should block unsafe values." } });
+    fireEvent.change(screen.getByLabelText("Actual behavior"), { target: { value: "Unsafe value was entered." } });
+    fireEvent.change(screen.getByLabelText("Reproduction steps"), { target: { value: "Open report form." } });
+
+    fireEvent.click(screen.getByRole("button", { name: "Preview Report" }));
+
+    expect(await screen.findByText("privacy_guard_blocked:actual_behavior")).toBeInTheDocument();
+    expect(screen.getByText(/privacy guard blocked report generation/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Copy Report" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /submit error report/i })).not.toBeInTheDocument();
   });
 
   it("renders live watcher diagnostics as a read-only safe summary", async () => {
@@ -1173,6 +1265,43 @@ function buildPayload(overrides: Partial<SetupStatusResponse> = {}): SetupStatus
       manual_import: "enabled",
       live_watcher: "disabled"
     },
+    ...overrides
+  };
+}
+
+function buildErrorReportPreviewPayload(
+  request: ErrorReportPreviewRequest,
+  overrides: Partial<ErrorReportPreviewResponse> = {}
+): ErrorReportPreviewResponse {
+  const issueTitle = `[error-report] [${request.affected_area}] ${request.summary}`;
+  return {
+    schema: ERROR_REPORT_PREVIEW_SCHEMA,
+    status: "preview_ready",
+    issue_title: issueTitle,
+    issue_body_markdown: [
+      `# ${issueTitle}`,
+      "",
+      "## Summary",
+      request.summary,
+      "",
+      "## Sanitized Diagnostic Packet",
+      "- `backend_health`: `ok` (loopback route status only)",
+      "",
+      "## Included Diagnostic Categories",
+      "- `backend_health`",
+      "",
+      "## Excluded Private Data",
+      "- raw Player.log contents or raw log lines",
+      "",
+      "## Pasteable Codex Triage Prompt",
+      "Use the Mythic Edge agent constitution."
+    ].join("\n"),
+    included_diagnostic_categories: ["backend_health", "privacy_boundary"],
+    excluded_private_data: ["raw Player.log contents or raw log lines", "full private local paths"],
+    redaction_summary: ["No user-entered private path redactions were needed."],
+    warnings: [],
+    next_recommended_role: "Codex A or Codex B after reviewing the sanitized report",
+    external_submission_enabled: false,
     ...overrides
   };
 }
