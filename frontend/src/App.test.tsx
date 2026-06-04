@@ -77,13 +77,24 @@ describe("SetupStatusApp", () => {
     expect(screen.getByRole("heading", { name: "Analytics database" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Data trust" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Decision Support" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Recent Review" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Play/Draw Split" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Game 1 / Postboard" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Opening Hands" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Gameplay Review" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Needs Review" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Win rate by play/draw" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Matchup by archetype" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "High-performing lines" })).toBeInTheDocument();
+    expect(screen.getByText("Current local analytics do not expose opponent archetype rows.")).toBeInTheDocument();
+    expect(screen.getByText("Line performance is not implemented, so no ranking is shown.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Review Context Only" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Trust and Freshness" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Review Details" })).toBeInTheDocument();
+    expect(screen.getByRole("complementary", { name: "Local app sections" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Dashboard" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Review" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Coach" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Analytics" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Import" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Diagnostics" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Privacy" })).toBeInTheDocument();
+    expect(screen.getByText("Settings")).toBeInTheDocument();
+    expect(screen.getByText("Not configured")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Setup Status" })).not.toBeInTheDocument();
     expect(screen.queryByText("readiness_only")).not.toBeInTheDocument();
     expect(screen.queryByText("safeguards_only")).not.toBeInTheDocument();
@@ -588,7 +599,7 @@ describe("SetupStatusApp", () => {
     expect(screen.getByText("1: Forest direct_grp_id 1001")).toBeInTheDocument();
     expect(screen.getByText("Island public visible missing_expected_evidence review required")).toBeInTheDocument();
     expect(screen.getByText("turn 2 opponent cast hand to stack")).toBeInTheDocument();
-    expect(screen.queryByText(/best line|mistake|advice|line tracer|hidden card|archetype/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/best line|mistake|advice|line tracer|hidden card/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: unsafeControlName })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Refresh Actions" }));
@@ -619,11 +630,11 @@ describe("SetupStatusApp", () => {
     expect(await screen.findByRole("heading", { name: "Split Review" })).toBeInTheDocument();
     expect(screen.getAllByRole("heading", { name: "Play/Draw Splits" }).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByRole("heading", { name: "Game 1/Postboard Rows" })).toBeInTheDocument();
-    expect(await screen.findByText("60 percent")).toBeInTheDocument();
+    expect((await screen.findAllByText("60 percent")).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("small_sample")).toBeInTheDocument();
     expect(screen.getAllByText("match:history:1 game 1").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("900 seconds")).toBeInTheDocument();
-    expect(screen.queryByText(/best line|mistake|advice|line tracer|hidden card|archetype|causation/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/best line|mistake|advice|line tracer|hidden card|causation/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: unsafeControlName })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Refresh Splits" }));

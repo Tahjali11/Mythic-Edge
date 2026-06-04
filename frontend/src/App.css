@@ -26,13 +26,87 @@ textarea {
 }
 
 .appShell {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 24px;
   min-height: 100vh;
-  padding: 32px 20px;
+  padding: 24px;
 }
 
 .content {
   width: min(1180px, 100%);
   margin: 0 auto;
+}
+
+.leftRail {
+  position: sticky;
+  top: 24px;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  min-height: calc(100vh - 48px);
+  border: 1px solid #d9ded7;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 18px;
+}
+
+.leftRailKicker {
+  color: #596067;
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.leftRailTitle {
+  margin-top: 4px;
+  color: #20242a;
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.leftRailNav,
+.leftRailFooter {
+  display: grid;
+  gap: 6px;
+  margin-top: 22px;
+}
+
+.leftRailNav a,
+.leftRailFooter a {
+  display: block;
+  border-left: 3px solid transparent;
+  padding: 9px 10px;
+  color: #20242a;
+  font-size: 0.92rem;
+  font-weight: 750;
+  text-align: left;
+  text-decoration: none;
+}
+
+.leftRailNav a:hover,
+.leftRailFooter a:hover {
+  border-left-color: #2f6d4a;
+  background: #eef4ef;
+}
+
+.leftRailFooter {
+  align-self: end;
+  padding-top: 14px;
+  border-top: 1px solid #d9ded7;
+}
+
+.railMetaLabel {
+  display: grid;
+  gap: 2px;
+  padding: 9px 10px;
+  color: #596067;
+  font-size: 0.9rem;
+  font-weight: 750;
+}
+
+.railMetaLabel span {
+  font-size: 0.74rem;
+  font-weight: 700;
 }
 
 .summaryBand,
@@ -41,11 +115,11 @@ textarea {
   align-items: center;
   justify-content: space-between;
   gap: 18px;
-  min-height: 112px;
+  min-height: 96px;
   border: 1px solid #d9ded7;
   border-radius: 8px;
   background: #ffffff;
-  padding: 24px;
+  padding: 20px;
 }
 
 .cockpitHeader {
@@ -103,7 +177,7 @@ h3 {
 
 .cockpitRail {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 12px;
   margin-top: 16px;
 }
@@ -113,7 +187,7 @@ h3 {
   grid-template-columns: auto minmax(0, 1fr);
   gap: 10px;
   align-items: start;
-  min-height: 118px;
+  min-height: 104px;
   border: 1px solid #d9ded7;
   border-top: 5px solid #73808b;
   border-radius: 8px;
@@ -149,6 +223,8 @@ h3 {
 
 .cockpitSection,
 .trustLayer,
+.coachBoundary,
+.detailsStack,
 .diagnosticsShell {
   margin-top: 20px;
 }
@@ -157,7 +233,12 @@ h3 {
   margin-bottom: 10px;
 }
 
-.cockpitInsightGrid,
+.cockpitInsightGrid {
+  display: grid;
+  grid-template-columns: minmax(280px, 1.2fr) repeat(2, minmax(220px, 1fr));
+  gap: 14px;
+}
+
 .trustGrid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
@@ -166,7 +247,8 @@ h3 {
 
 .cockpitInsight,
 .trustItem,
-.historySection {
+.historySection,
+.coachBoundary {
   border: 1px solid #d9ded7;
   border-top: 5px solid #73808b;
   border-radius: 8px;
@@ -175,16 +257,68 @@ h3 {
 }
 
 .insightMetric {
-  margin-top: 14px;
+  margin-top: 12px;
   color: #20242a;
   font-size: 1.35rem;
   font-weight: 800;
   line-height: 1.15;
 }
 
+.moduleBars {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.moduleBarRow {
+  display: grid;
+  gap: 6px;
+}
+
+.moduleBarLabel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: #596067;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.moduleBarTrack {
+  height: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e7ebe6;
+}
+
+.moduleBarFill {
+  display: block;
+  min-width: 8px;
+  height: 100%;
+  border-radius: inherit;
+  background: currentColor;
+}
+
+.moduleEmptyState {
+  margin-top: 14px;
+  border: 1px dashed #b9c2ba;
+  border-radius: 8px;
+  padding: 12px;
+  color: #596067;
+  background: #f9faf8;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
 .trustLayer {
   border-block: 1px solid #d9ded7;
   padding-block: 18px;
+}
+
+.detailsStack {
+  border-top: 1px solid #d9ded7;
+  padding-top: 22px;
 }
 
 .diagnosticsShell {
@@ -436,6 +570,7 @@ h3 {
   display: inline-flex;
   align-items: center;
   gap: 7px;
+  min-height: 28px;
   max-width: 100%;
   border: 1px solid currentColor;
   border-radius: 999px;
@@ -443,6 +578,7 @@ h3 {
   font-size: 0.78rem;
   font-weight: 700;
   line-height: 1.1;
+  white-space: nowrap;
   overflow-wrap: anywhere;
 }
 
@@ -452,6 +588,23 @@ h3 {
   flex: 0 0 auto;
   border-radius: 50%;
   background: currentColor;
+}
+
+.statusPill.isPulsing > span {
+  animation: statusPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes statusPulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.45;
+    transform: scale(1.35);
+  }
 }
 
 dl {
@@ -511,7 +664,18 @@ dd {
 
 @media (max-width: 640px) {
   .appShell {
+    grid-template-columns: 1fr;
+    gap: 14px;
     padding: 18px 12px;
+  }
+
+  .leftRail {
+    position: static;
+    min-height: auto;
+  }
+
+  .leftRailNav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .summaryBand,
@@ -551,5 +715,11 @@ dd {
 
   .uploadSelection {
     grid-column: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .statusPill.isPulsing > span {
+    animation: none;
   }
 }

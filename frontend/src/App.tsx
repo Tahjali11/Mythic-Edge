@@ -194,6 +194,14 @@ type CockpitStatusItem = {
   status: string;
   tone: SetupStatusTone;
   detail: string;
+  liveActive?: boolean;
+};
+
+type CockpitChartBar = {
+  label: string;
+  value: number;
+  valueLabel: string;
+  tone: SetupStatusTone;
 };
 
 type CockpitInsight = {
@@ -202,6 +210,8 @@ type CockpitInsight = {
   tone: SetupStatusTone;
   metric: string;
   detail: string;
+  bars?: CockpitChartBar[];
+  emptyState?: string;
 };
 
 const UNATTACHED_SMOKE_NOTE_PREFIX = "MYTHIC_EDGE_SMOKE_TEST_DO_NOT_USE_AS_GAME_REVIEW";
@@ -943,7 +953,7 @@ export function SetupStatusApp({
     liveDiagnosticsState,
     journalState
   );
-  const insights = buildCockpitInsights(historyState, earlyGameState, actionReviewState, splitReviewState, journalState);
+  const insights = buildCockpitInsights(historyState, actionReviewState, splitReviewState);
   const trustSummary = buildTrustSummary(
     loadState.unsafeCount,
     historyState,
@@ -956,7 +966,7 @@ export function SetupStatusApp({
 
   return (
     <Shell>
-      <section className="summaryBand cockpitHeader" aria-labelledby="overall-status">
+      <section className="summaryBand cockpitHeader" id="dashboard" aria-labelledby="overall-status">
         <div>
           <p className="eyebrow">Mythic Edge Local App</p>
           <h1 id="overall-status">Mythic Edge Cockpit</h1>
@@ -976,12 +986,20 @@ export function SetupStatusApp({
 
       <CockpitStatusRail items={statusItems} />
       <CockpitInsightGrid insights={insights} />
+      <CoachBoundaryPanel />
       <TrustPrivacyLayer items={trustSummary} />
 
-      <AnalyticsHistorySection historyState={historyState} onRefresh={refreshHistory} />
-      <SplitReviewSection splitReviewState={splitReviewState} onRefresh={refreshSplitReview} />
-      <EarlyGameHistorySection earlyGameState={earlyGameState} onRefresh={refreshEarlyGameHistory} />
-      <ActionReviewSection actionReviewState={actionReviewState} onRefresh={refreshActionReview} />
+      <section className="detailsStack" id="analytics" aria-labelledby="analytics-details-title">
+        <div className="sectionHeading">
+          <p className="eyebrow">Long-form review</p>
+          <h2 id="analytics-details-title">Review Details</h2>
+          <p className="historyStateMessage">Tables stay below the dashboard so the first screen remains scannable.</p>
+        </div>
+        <AnalyticsHistorySection historyState={historyState} onRefresh={refreshHistory} />
+        <SplitReviewSection splitReviewState={splitReviewState} onRefresh={refreshSplitReview} />
+        <EarlyGameHistorySection earlyGameState={earlyGameState} onRefresh={refreshEarlyGameHistory} />
+        <ActionReviewSection actionReviewState={actionReviewState} onRefresh={refreshActionReview} />
+      </section>
       <MatchJournalCockpit
         contextSummary={journalContextSummary}
         journalState={journalState}
@@ -1013,7 +1031,7 @@ export function SetupStatusApp({
         uploadSelectionMessage={uploadSelectionMessage}
       />
 
-      <section className="diagnosticsShell" aria-labelledby="technical-details-title">
+      <section className="diagnosticsShell" id="diagnostics" aria-labelledby="technical-details-title">
         <div className="diagnosticsHeader">
           <div>
             <p className="eyebrow">Owner and developer view</p>
@@ -1066,6 +1084,27 @@ export default SetupStatusApp;
 function Shell({ children }: { children: ReactNode }) {
   return (
     <main className="appShell">
+      <aside className="leftRail" aria-label="Local app sections">
+        <div>
+          <p className="leftRailKicker">Mythic Edge</p>
+          <p className="leftRailTitle">Local App</p>
+        </div>
+        <nav className="leftRailNav" aria-label="Primary sections">
+          <a href="#dashboard">Dashboard</a>
+          <a href="#decision-support">Review</a>
+          <a href="#coach">Coach</a>
+          <a href="#analytics">Analytics</a>
+          <a href="#import">Import</a>
+          <a href="#diagnostics">Diagnostics</a>
+        </nav>
+        <div className="leftRailFooter" aria-label="Local app footer">
+          <a href="#privacy">Privacy</a>
+          <span className="railMetaLabel">
+            Settings
+            <span>Not configured</span>
+          </span>
+        </div>
+      </aside>
       <div className="content">{children}</div>
     </main>
   );
@@ -1095,7 +1134,7 @@ function CockpitStatusRail({ items }: { items: CockpitStatusItem[] }) {
             <h2>{item.label}</h2>
             <p>{item.detail}</p>
           </div>
-          <StatusPill label={item.status} tone={item.tone} />
+          <StatusPill label={item.status} pulse={item.liveActive} tone={item.tone} />
         </article>
       ))}
     </section>
@@ -1104,7 +1143,7 @@ function CockpitStatusRail({ items }: { items: CockpitStatusItem[] }) {
 
 function CockpitInsightGrid({ insights }: { insights: CockpitInsight[] }) {
   return (
-    <section className="cockpitSection" aria-labelledby="cockpit-review-title">
+    <section className="cockpitSection" id="decision-support" aria-labelledby="cockpit-review-title">
       <div className="sectionHeading">
         <p className="eyebrow">Competitive review</p>
         <h2 id="cockpit-review-title">Decision Support</h2>
@@ -1117,6 +1156,22 @@ function CockpitInsightGrid({ insights }: { insights: CockpitInsight[] }) {
               <StatusPill label={insight.status} tone={insight.tone} />
             </div>
             <p className="insightMetric">{insight.metric}</p>
+            {insight.bars && insight.bars.length > 0 ? (
+              <div className="moduleBars" aria-label={`${insight.title} chart`}>
+                {insight.bars.map((bar) => (
+                  <div className="moduleBarRow" key={bar.label}>
+                    <div className="moduleBarLabel">
+                      <span>{bar.label}</span>
+                      <span>{bar.valueLabel}</span>
+                    </div>
+                    <div className="moduleBarTrack">
+                      <span className={`moduleBarFill tone-${bar.tone}`} style={{ width: `${bar.value}%` }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            {insight.emptyState ? <p className="moduleEmptyState">{insight.emptyState}</p> : null}
             <p className="insightDetail">{insight.detail}</p>
           </article>
         ))}
@@ -1125,9 +1180,26 @@ function CockpitInsightGrid({ insights }: { insights: CockpitInsight[] }) {
   );
 }
 
+function CoachBoundaryPanel() {
+  return (
+    <section className="coachBoundary" id="coach" aria-labelledby="coach-boundary-title">
+      <div className="panelHeader">
+        <div>
+          <p className="eyebrow">Coach</p>
+          <h2 id="coach-boundary-title">Review Context Only</h2>
+        </div>
+        <StatusPill label="Not connected" tone="deferred" />
+      </div>
+      <p>
+        This shell can organize local review context, but it does not run model suggestions, line ranking, or error scoring.
+      </p>
+    </section>
+  );
+}
+
 function TrustPrivacyLayer({ items }: { items: CockpitInsight[] }) {
   return (
-    <section className="trustLayer" aria-labelledby="trust-layer-title">
+    <section className="trustLayer" id="privacy" aria-labelledby="trust-layer-title">
       <div className="sectionHeading">
         <p className="eyebrow">Trust and privacy</p>
         <h2 id="trust-layer-title">Trust and Freshness</h2>
@@ -1331,7 +1403,7 @@ function ManualImportPanel({
     .some((path) => path.trim());
   const hasExactlyOneSourceMode = hasSinglePath !== hasBatchPaths;
   return (
-    <section className={`manualImportPanel tone-${tone}`} aria-labelledby="manual-import-title">
+    <section className={`manualImportPanel tone-${tone}`} id="import" aria-labelledby="manual-import-title">
       <div className="panelHeader">
         <h2 id="manual-import-title">Manual Import</h2>
         <StatusPill label={status} tone={tone} />
@@ -2630,9 +2702,9 @@ function SummaryRow({ label, value }: { label: string; value: unknown }) {
   );
 }
 
-function StatusPill({ label, tone }: { label: string; tone: string }) {
+function StatusPill({ label, tone, pulse = false }: { label: string; tone: string; pulse?: boolean }) {
   return (
-    <span className={`statusPill tone-${tone}`} aria-label={`status ${label}`}>
+    <span className={`statusPill tone-${tone}${pulse ? " isPulsing" : ""}`} aria-label={`status ${label}`}>
       <span aria-hidden="true" />
       {label}
     </span>
@@ -2844,6 +2916,7 @@ function buildCockpitStatusItems(
       label: "Live capture",
       status: liveCapture.label,
       tone: liveCapture.tone,
+      liveActive: liveCapture.label === "Capturing",
       detail:
         liveCapture.label === "Capturing"
           ? "Live capture is active."
@@ -2868,58 +2941,44 @@ function buildCockpitStatusItems(
 
 function buildCockpitInsights(
   historyState: HistoryState,
-  earlyGameState: EarlyGameHistoryState,
   actionReviewState: ActionReviewState,
-  splitReviewState: SplitReviewState,
-  journalState: MatchJournalState
+  splitReviewState: SplitReviewState
 ): CockpitInsight[] {
   return [
-    recentReviewInsight(historyState),
-    playDrawInsight(splitReviewState),
-    game1PostboardInsight(splitReviewState),
-    openingHandInsight(earlyGameState),
-    gameplayReviewInsight(actionReviewState),
-    needsReviewInsight(actionReviewState, journalState)
+    winRateByPlayDrawModule(splitReviewState),
+    matchupByArchetypeModule(historyState),
+    highPerformingLinesModule(actionReviewState)
   ];
 }
 
-function recentReviewInsight(historyState: HistoryState): CockpitInsight {
-  const status = cockpitStatusFromRawStatus(analyticsHistoryStatus(historyState), "analytics");
-  if (historyState.state !== "ready") {
-    return {
-      title: "Recent Review",
-      status: status.label,
-      tone: status.tone,
-      metric: historyState.state === "loading" ? "Loading match history" : "History unavailable",
-      detail: "Recent match and game review appears here when local analytics are available."
-    };
-  }
-  return {
-    title: "Recent Review",
-    status: status.label,
-    tone: status.tone,
-    metric: `${historyState.matches.summary.row_count} matches / ${historyState.games.summary.row_count} games`,
-    detail: "Observed match and game results from parser-normalized local analytics."
-  };
-}
-
-function playDrawInsight(splitReviewState: SplitReviewState): CockpitInsight {
+function winRateByPlayDrawModule(splitReviewState: SplitReviewState): CockpitInsight {
   const status = cockpitStatusFromRawStatus(splitReviewStatus(splitReviewState), "analytics");
   if (splitReviewState.state !== "ready") {
     return {
-      title: "Play/Draw Split",
+      title: "Win rate by play/draw",
       status: status.label,
       tone: status.tone,
-      metric: splitReviewState.state === "loading" ? "Loading split review" : "Split review unavailable",
+      metric: splitReviewState.state === "loading" ? "Loading split review" : "No chart data",
+      emptyState: "Waiting for local play/draw rows.",
       detail: "Play/draw review uses existing local analytics when available."
     };
   }
   const summary = splitReviewState.playDrawSplits.summary;
+  const bars = splitReviewState.playDrawSplits.rows
+    .filter((row) => row.win_rate !== null)
+    .map((row) => ({
+      label: readableSplitLabel(row.play_draw),
+      value: Math.max(0, Math.min(100, Math.round((row.win_rate ?? 0) * 100))),
+      valueLabel: winRateLabel(row.win_rate),
+      tone: row.sample_size_warning ? ("degraded" as const) : ("ok" as const)
+    }));
   return {
-    title: "Play/Draw Split",
+    title: "Win rate by play/draw",
     status: status.label,
     tone: status.tone,
     metric: `${summary.wins}-${summary.losses} over ${summary.known_result_count} known games`,
+    bars,
+    emptyState: bars.length === 0 ? "No known win-rate rows are available yet." : undefined,
     detail:
       summary.small_sample_group_count > 0
         ? "Observed pattern with limited data in at least one group."
@@ -2927,84 +2986,30 @@ function playDrawInsight(splitReviewState: SplitReviewState): CockpitInsight {
   };
 }
 
-function game1PostboardInsight(splitReviewState: SplitReviewState): CockpitInsight {
-  const status = cockpitStatusFromRawStatus(splitReviewStatus(splitReviewState), "analytics");
-  if (splitReviewState.state !== "ready") {
-    return {
-      title: "Game 1 / Postboard",
-      status: status.label,
-      tone: status.tone,
-      metric: splitReviewState.state === "loading" ? "Loading sideboard split" : "Sideboard split unavailable",
-      detail: "Game 1 and postboard context appears when split analytics are available."
-    };
-  }
-  const summary = splitReviewState.game1PostboardSplits.summary;
+function matchupByArchetypeModule(historyState: HistoryState): CockpitInsight {
+  const status = cockpitStatusFromRawStatus(analyticsHistoryStatus(historyState), "analytics");
   return {
-    title: "Game 1 / Postboard",
-    status: status.label,
-    tone: status.tone,
-    metric: `${summary.game1_row_count} Game 1 / ${summary.postboard_row_count} postboard`,
-    detail: `${summary.degraded_row_count + summary.unavailable_row_count + summary.conflict_row_count} rows need review.`
+    title: "Matchup by archetype",
+    status: historyState.state === "ready" ? "Placeholder" : status.label,
+    tone: historyState.state === "ready" ? "deferred" : status.tone,
+    metric: historyState.state === "ready" ? "No archetype field yet" : "Waiting for history",
+    emptyState: "Current local analytics do not expose opponent archetype rows.",
+    detail: "This stays empty until a real parser or journal-backed matchup surface exists."
   };
 }
 
-function openingHandInsight(earlyGameState: EarlyGameHistoryState): CockpitInsight {
-  const status = cockpitStatusFromRawStatus(earlyGameHistoryStatus(earlyGameState), "analytics");
-  if (earlyGameState.state !== "ready") {
-    return {
-      title: "Opening Hands",
-      status: status.label,
-      tone: status.tone,
-      metric: earlyGameState.state === "loading" ? "Loading early game" : "Early game unavailable",
-      detail: "Opening hand and mulligan review appears when local analytics are available."
-    };
-  }
-  return {
-    title: "Opening Hands",
-    status: status.label,
-    tone: status.tone,
-    metric: `${earlyGameState.openingHands.summary.row_count} hands / ${earlyGameState.mulligans.summary.row_count} mulligans`,
-    detail: "Review signal only; mulligan choices remain player interpretation."
-  };
-}
-
-function gameplayReviewInsight(actionReviewState: ActionReviewState): CockpitInsight {
+function highPerformingLinesModule(actionReviewState: ActionReviewState): CockpitInsight {
   const status = cockpitStatusFromRawStatus(actionReviewStatus(actionReviewState), "analytics");
-  if (actionReviewState.state !== "ready") {
-    return {
-      title: "Gameplay Review",
-      status: status.label,
-      tone: status.tone,
-      metric: actionReviewState.state === "loading" ? "Loading actions" : "Action review unavailable",
-      detail: "Gameplay action and opponent observation review appears when local analytics are available."
-    };
-  }
-  const actionRows = actionReviewState.gameplayActions.summary.row_count;
-  const observationRows = actionReviewState.opponentObservations.summary.row_count;
   return {
-    title: "Gameplay Review",
-    status: status.label,
-    tone: status.tone,
-    metric: `${actionRows} actions / ${observationRows} observations`,
-    detail: `${actionReviewState.opponentObservations.summary.review_required_row_count} opponent observations need review.`
-  };
-}
-
-function needsReviewInsight(actionReviewState: ActionReviewState, journalState: MatchJournalState): CockpitInsight {
-  const actionReviewCount =
-    actionReviewState.state === "ready"
-      ? actionReviewState.gameplayActions.summary.review_required_row_count +
-        actionReviewState.opponentObservations.summary.review_required_row_count
-      : 0;
-  const journalReviewCount = journalState.state === "ready" ? journalState.payload.warnings.length + journalState.payload.errors.length : 0;
-  const reviewCount = actionReviewCount + journalReviewCount;
-  const status = reviewCount > 0 ? { label: "Needs review", tone: "degraded" as const } : cockpitStatusFromRawStatus(matchJournalStatus(journalState), "journal");
-  return {
-    title: "Needs Review",
-    status: status.label,
-    tone: status.tone,
-    metric: `${reviewCount} review signals`,
-    detail: "Combines visible review-required counts and Match Journal warnings without changing parser truth."
+    title: "High-performing lines",
+    status: actionReviewState.state === "ready" ? "Placeholder" : status.label,
+    tone: actionReviewState.state === "ready" ? "deferred" : status.tone,
+    metric:
+      actionReviewState.state === "ready"
+        ? `${actionReviewState.gameplayActions.summary.row_count} actions observed`
+        : "Waiting for action rows",
+    emptyState: "Line performance is not implemented, so no ranking is shown.",
+    detail: "Gameplay action rows can support future review, but this shell does not rank decisions yet."
   };
 }
 
@@ -3681,6 +3686,16 @@ function winRateLabel(value: number | null): string {
     return "unknown";
   }
   return `${Math.round(value * 1000) / 10} percent`;
+}
+
+function readableSplitLabel(value: string): string {
+  if (value.trim().toLowerCase() === "play") {
+    return "On the play";
+  }
+  if (value.trim().toLowerCase() === "draw") {
+    return "On the draw";
+  }
+  return value;
 }
 
 function durationLabel(value: number | null): string {
