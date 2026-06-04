@@ -25,7 +25,10 @@ def test_check_mode_reports_without_creating_v1_folders_or_database(tmp_path: Pa
     assert result["status"] == "passed"
     assert result["mode"] == "check"
     assert not install_root.exists()
+    _assert_package_readiness_metadata(result, release_ref=setup.DEFAULT_RELEASE_REF)
     report = result["report"]
+    _assert_package_readiness_metadata(result["manifest"], release_ref=setup.DEFAULT_RELEASE_REF)
+    _assert_package_readiness_metadata(report, release_ref=setup.DEFAULT_RELEASE_REF)
     assert report["folder_creation"]["status"] == "missing"
     assert report["sqlite_initialization"]["status"] == "not_run"
     assert report["backend_startup"] == "not_run"
@@ -93,6 +96,8 @@ def test_install_mode_creates_reserved_tree_manifest_report_and_empty_migrated_d
     assert report["object"] == setup.SETUP_REPORT_OBJECT
     assert manifest["schema_version"] == setup.SCHEMA_VERSION
     assert report["schema_version"] == setup.SCHEMA_VERSION
+    _assert_package_readiness_metadata(manifest, release_ref=setup.DEFAULT_RELEASE_REF)
+    _assert_package_readiness_metadata(report, release_ref=setup.DEFAULT_RELEASE_REF)
     assert manifest["ai_review"]["ai_runtime_enabled"] is False
     assert manifest["ai_review"]["external_send_allowed"] is False
     assert manifest["privacy"]["external_sends_performed"] is False
@@ -102,6 +107,49 @@ def test_install_mode_creates_reserved_tree_manifest_report_and_empty_migrated_d
     assert _table_count(paths.analytics_database, "games") == 0
     assert str(install_root) not in json.dumps(manifest, sort_keys=True)
     assert str(install_root) not in json.dumps(report, sort_keys=True)
+
+
+def test_check_mode_records_configured_release_ref_in_metadata(tmp_path: Path) -> None:
+    source_checkout = _make_source_checkout(tmp_path)
+    install_root = tmp_path / "install"
+
+    result = setup.run_private_local_v1_setup(
+        setup.PrivateLocalV1Config(
+            install_root=install_root,
+            source_checkout=source_checkout,
+            mode="check",
+            release_ref="release/test-ref",
+        )
+    )
+
+    assert result["status"] == "passed"
+    _assert_package_readiness_metadata(result, release_ref="release/test-ref")
+    _assert_package_readiness_metadata(result["manifest"], release_ref="release/test-ref")
+    _assert_package_readiness_metadata(result["report"], release_ref="release/test-ref")
+    assert not install_root.exists()
+
+
+def test_check_mode_cli_records_configured_release_ref_in_json_report(capsys, tmp_path: Path) -> None:
+    install_root = tmp_path / "install"
+
+    exit_code = setup.main(
+        [
+            "--check",
+            "--install-root",
+            str(install_root),
+            "--release-ref",
+            "release/test-ref",
+            "--json-report",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+    assert exit_code == 0
+    _assert_package_readiness_metadata(payload, release_ref="release/test-ref")
+    _assert_package_readiness_metadata(payload["manifest"], release_ref="release/test-ref")
+    _assert_package_readiness_metadata(payload["report"], release_ref="release/test-ref")
+    assert not install_root.exists()
 
 
 def test_install_mode_blocks_existing_manifest_and_report_without_overwriting_metadata(tmp_path: Path) -> None:
@@ -319,6 +367,14 @@ def _make_source_checkout(tmp_path: Path) -> Path:
     (repo_root / "frontend" / "package-lock.json").write_text("{}\n", encoding="utf-8")
     (repo_root / "src" / "mythic_edge_parser" / "local_app" / "backend.py").write_text("", encoding="utf-8")
     return repo_root
+
+
+def _assert_package_readiness_metadata(payload: Mapping[str, object], *, release_ref: str) -> None:
+    assert payload["release_profile"] == "private_local_v1"
+    assert payload["package_mode"] == "managed_full_checkout"
+    assert payload["release_ref"] == release_ref
+    assert payload["public_release_ready"] is False
+    assert payload["production_ready"] is False
 
 
 @dataclass(frozen=True, slots=True)
