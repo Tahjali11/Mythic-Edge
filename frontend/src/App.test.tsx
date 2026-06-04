@@ -62,12 +62,39 @@ afterEach(() => {
 });
 
 describe("SetupStatusApp", () => {
+  const unsafeControlName = /\b(?:reset|delete|wipe|cancel|retry|start|stop|restart|clear|repair|git|sheets|ai)\b/i;
+
   it("renders safe setup-status panels from a degraded backend payload", async () => {
     render(<SetupStatusApp fetchStatus={() => Promise.resolve(buildPayload())} />);
 
     expect(screen.getByText("Checking local app setup")).toBeInTheDocument();
-    expect(await screen.findByRole("heading", { name: "Setup Status" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Mythic Edge Cockpit" })).toBeInTheDocument();
+    expect(screen.getByText("Competitive review, local analytics, and live readiness at a glance.")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Cockpit health status" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "App connection" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Player.log monitor" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Live capture" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Analytics database" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Data trust" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Decision Support" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Recent Review" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Play/Draw Split" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Game 1 / Postboard" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Opening Hands" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Gameplay Review" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Needs Review" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Trust and Freshness" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Setup Status" })).not.toBeInTheDocument();
+    expect(screen.queryByText("readiness_only")).not.toBeInTheDocument();
+    expect(screen.queryByText("safeguards_only")).not.toBeInTheDocument();
+    expect(screen.queryByText("not_capturing")).not.toBeInTheDocument();
+    expect(screen.queryByText("not_running")).not.toBeInTheDocument();
+    expect(screen.queryByText("start route")).not.toBeInTheDocument();
+    expect(screen.queryByText("stop route")).not.toBeInTheDocument();
+    expect(screen.queryByText("ui controls")).not.toBeInTheDocument();
 
+    fireEvent.click(screen.getByRole("button", { name: "Show technical details" }));
+    expect(await screen.findByRole("heading", { name: "Setup Status" })).toBeInTheDocument();
     expect(screen.getByText("Backend Reachability")).toBeInTheDocument();
     expect(screen.getByText("<app_data>")).toBeInTheDocument();
     expect(screen.getAllByText("<configured_player_log>").length).toBeGreaterThanOrEqual(1);
@@ -81,7 +108,7 @@ describe("SetupStatusApp", () => {
     expect(screen.getByText("<app_data>\\db\\mythic_edge.sqlite3")).toBeInTheDocument();
     expect(screen.getByText("<app_data>\\db\\match_journal.sqlite3")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Import JSONL" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /reset|delete|wipe|cancel|retry|start|stop|git|sheets|ai/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: unsafeControlName })).not.toBeInTheDocument();
   });
 
   it("renders live watcher diagnostics as a read-only safe summary", async () => {
@@ -92,6 +119,8 @@ describe("SetupStatusApp", () => {
       />
     );
 
+    expect(await screen.findByRole("heading", { name: "Mythic Edge Cockpit" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Show technical details" }));
     expect(await screen.findByRole("heading", { name: "Live Diagnostics" })).toBeInTheDocument();
     expect(screen.getByText("Read-only watcher quality summary")).toBeInTheDocument();
     expect(screen.getByText("player_log_stale")).toBeInTheDocument();
@@ -99,7 +128,7 @@ describe("SetupStatusApp", () => {
     expect(screen.getByText("raw log")).toBeInTheDocument();
     expect(screen.getAllByText("excluded").length).toBeGreaterThanOrEqual(1);
     expect(screen.queryByText("Z:\\private\\Player.log")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /reset|delete|wipe|clear|repair|start|stop|restart/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: unsafeControlName })).not.toBeInTheDocument();
   });
 
   it("renders live diagnostics API errors without raw backend details", async () => {
@@ -114,6 +143,8 @@ describe("SetupStatusApp", () => {
       />
     );
 
+    expect(await screen.findByRole("heading", { name: "Mythic Edge Cockpit" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Show technical details" }));
     expect(await screen.findByRole("heading", { name: "Live Diagnostics" })).toBeInTheDocument();
     expect(screen.getByText("Live watcher diagnostics has an unsupported shape.")).toBeInTheDocument();
     expect(screen.queryByText("Traceback")).not.toBeInTheDocument();
@@ -132,10 +163,11 @@ describe("SetupStatusApp", () => {
     render(<SetupStatusApp fetchStatus={() => Promise.resolve(buildPayload({ live_player_log: livePlayerLog }))} />);
 
     expect(await screen.findByText("Unsafe display value redacted")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Show technical details" }));
     expect(screen.getAllByText("<redacted_path>").length).toBeGreaterThanOrEqual(1);
     expect(screen.queryByText(rawPath)).not.toBeInTheDocument();
     expect(screen.queryByText(/currently capturing/i)).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /start|stop/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /\b(?:start|stop)\b/i })).not.toBeInTheDocument();
   });
 
   it("renders read-only match and game history with a refresh control", async () => {
@@ -161,7 +193,7 @@ describe("SetupStatusApp", () => {
     expect(screen.getByText("2-1 of 3")).toBeInTheDocument();
     expect(screen.getAllByText("observed high final none available").length).toBeGreaterThanOrEqual(2);
     expect(screen.queryByText("Analytics Views")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /reset|delete|wipe|cancel|retry|start|stop|git|sheets|ai/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: unsafeControlName })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Refresh History" }));
 
@@ -189,7 +221,7 @@ describe("SetupStatusApp", () => {
     expect(screen.getByLabelText("Display-only field")).toBeInTheDocument();
     expect(screen.getByLabelText("Display-only value")).toBeInTheDocument();
     expect(screen.queryByText(/pilot.error|best line|hidden card|player mistake|coaching|line tracer/i)).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /reset|delete|wipe|cancel|retry|start|stop|git|sheets|ai/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: unsafeControlName })).not.toBeInTheDocument();
   });
 
   it("submits and reloads a no-context unattached smoke note without parser identity", async () => {
@@ -524,7 +556,7 @@ describe("SetupStatusApp", () => {
     expect(screen.getByText("mulliganed_to_six")).toBeInTheDocument();
     expect(screen.getByText("1: bottomed Island direct_grp_id 1002")).toBeInTheDocument();
     expect(screen.queryByText(/best keep|mistake|advice|line tracer|hidden card/i)).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /reset|delete|wipe|cancel|retry|start|stop|git|sheets|ai/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: unsafeControlName })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Refresh Early Game" }));
 
@@ -557,7 +589,7 @@ describe("SetupStatusApp", () => {
     expect(screen.getByText("Island public visible missing_expected_evidence review required")).toBeInTheDocument();
     expect(screen.getByText("turn 2 opponent cast hand to stack")).toBeInTheDocument();
     expect(screen.queryByText(/best line|mistake|advice|line tracer|hidden card|archetype/i)).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /reset|delete|wipe|cancel|retry|start|stop|git|sheets|ai/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: unsafeControlName })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Refresh Actions" }));
 
@@ -592,7 +624,7 @@ describe("SetupStatusApp", () => {
     expect(screen.getAllByText("match:history:1 game 1").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("900 seconds")).toBeInTheDocument();
     expect(screen.queryByText(/best line|mistake|advice|line tracer|hidden card|archetype|causation/i)).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /reset|delete|wipe|cancel|retry|start|stop|git|sheets|ai/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: unsafeControlName })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Refresh Splits" }));
 
@@ -792,6 +824,7 @@ describe("SetupStatusApp", () => {
     render(<SetupStatusApp fetchStatus={() => Promise.resolve(payload)} />);
 
     await screen.findByText("Unsafe display value redacted");
+    fireEvent.click(screen.getByRole("button", { name: "Show technical details" }));
     expect(screen.getAllByText("<redacted_path>").length).toBeGreaterThanOrEqual(1);
     expect(screen.queryByText("Z:\\synthetic\\unsafe\\Player.log")).not.toBeInTheDocument();
     expect(screen.getByText("Unsafe display value redacted")).toBeInTheDocument();
@@ -822,7 +855,7 @@ describe("SetupStatusApp", () => {
     expect(pathInput).toHaveValue("");
     expect(screen.queryByDisplayValue(rawPath)).not.toBeInTheDocument();
     expect(screen.queryByText(rawPath)).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /reset|delete|wipe|cancel|retry|git|sheets|ai/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: unsafeControlName })).not.toBeInTheDocument();
   });
 
   it("submits a batch import and renders sanitized per-file summaries", async () => {
@@ -876,7 +909,7 @@ describe("SetupStatusApp", () => {
     expect(screen.getByText("a_events.jsonl processed events 2 skipped 0 warnings none")).toBeInTheDocument();
     expect(screen.getByText("b_events.jsonl processed events 1 skipped 0 warnings none")).toBeInTheDocument();
     expect(screen.queryByText("2 files selected a_events.jsonl b_events.jsonl")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /reset|delete|wipe|cancel|retry|git|sheets|ai/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: unsafeControlName })).not.toBeInTheDocument();
   });
 
   it("uploads folder-selected JSONL files as a flat filtered batch without displaying folder paths", async () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isSafeDisplayValue, safeDisplayValue, statusTone } from "./status";
+import { cockpitStatusFromRawStatus, isSafeDisplayValue, safeDisplayValue, statusTone } from "./status";
 
 describe("status helpers", () => {
   it("maps backend status labels to UI tones", () => {
@@ -32,5 +32,22 @@ describe("status helpers", () => {
       text: "<redacted_path>",
       redacted: true
     });
+  });
+
+  it("translates raw backend statuses into player-facing cockpit labels", () => {
+    expect(cockpitStatusFromRawStatus("ok", "app")).toEqual({ label: "Connected", tone: "ok" });
+    expect(cockpitStatusFromRawStatus("schema_current", "analytics")).toEqual({ label: "Ready", tone: "ok" });
+    expect(cockpitStatusFromRawStatus("empty", "analytics")).toEqual({ label: "Empty history", tone: "empty" });
+    expect(cockpitStatusFromRawStatus("not_configured", "player_log")).toEqual({
+      label: "Setup needed",
+      tone: "missing"
+    });
+    expect(cockpitStatusFromRawStatus("not_running", "live_capture")).toEqual({
+      label: "Waiting for Arena activity",
+      tone: "deferred"
+    });
+    expect(cockpitStatusFromRawStatus("deferred", "trust")).toEqual({ label: "Limited data", tone: "deferred" });
+    expect(cockpitStatusFromRawStatus("not_checked", "trust")).toEqual({ label: "Needs review", tone: "unknown" });
+    expect(cockpitStatusFromRawStatus("surprise", "trust")).toEqual({ label: "Needs review", tone: "unknown" });
   });
 });

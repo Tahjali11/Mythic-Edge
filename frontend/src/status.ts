@@ -16,6 +16,7 @@ export function statusTone(status: string): SetupStatusTone {
     normalized === "completed" ||
     normalized === "ready" ||
     normalized === "running" ||
+    normalized === "schema_current" ||
     normalized.endsWith("_exists") ||
     normalized === "present"
   ) {
@@ -101,4 +102,69 @@ export function safeDisplayValue(value: unknown, fallback = "<redacted_path>"): 
     return { text: value, redacted: false };
   }
   return { text: fallback, redacted: true };
+}
+
+export type CockpitStatus = {
+  label: string;
+  tone: SetupStatusTone;
+};
+
+export type CockpitStatusContext = "app" | "player_log" | "live_capture" | "analytics" | "journal" | "trust";
+
+export function cockpitStatusFromRawStatus(status: unknown, context: CockpitStatusContext = "trust"): CockpitStatus {
+  const normalized = typeof status === "string" ? status.trim().toLowerCase() : "unknown";
+  const tone = statusTone(normalized);
+
+  if (context === "app") {
+    if (["ok", "enabled", "ready", "running", "present", "completed", "succeeded"].includes(normalized)) {
+      return { label: "Connected", tone };
+    }
+  }
+
+  if (context === "live_capture") {
+    if (["capturing", "running"].includes(normalized)) {
+      return { label: "Capturing", tone };
+    }
+    if (["stopped", "not_started", "not_running", "not_capturing"].includes(normalized)) {
+      return { label: "Waiting for Arena activity", tone: "deferred" };
+    }
+  }
+
+  if (["ok", "enabled", "ready", "present", "completed", "succeeded", "schema_current"].includes(normalized)) {
+    return { label: "Ready", tone };
+  }
+  if (normalized === "empty") {
+    return { label: "Empty history", tone };
+  }
+  if (normalized === "running") {
+    return { label: "Capturing", tone };
+  }
+  if (
+    normalized === "missing" ||
+    normalized.endsWith("_missing") ||
+    normalized === "not_configured" ||
+    normalized === "not_initialized"
+  ) {
+    return { label: "Setup needed", tone };
+  }
+  if (["blocked", "failed", "error", "unreadable", "crashed", "rejected"].includes(normalized)) {
+    return { label: "Blocked", tone };
+  }
+  if (["stale", "degraded"].includes(normalized)) {
+    return { label: "Needs review", tone: normalized === "degraded" ? "degraded" : "deferred" };
+  }
+  if (
+    ["deferred", "disabled", "state_only", "readiness_only", "safeguards_only", "separate_reference_surface"].includes(
+      normalized
+    )
+  ) {
+    return { label: "Limited data", tone: "deferred" };
+  }
+  if (["stopped", "not_started", "not_running", "not_capturing"].includes(normalized)) {
+    return { label: "Stopped", tone: "deferred" };
+  }
+  if (["unavailable"].includes(normalized)) {
+    return { label: "Unavailable", tone };
+  }
+  return { label: "Needs review", tone: "unknown" };
 }

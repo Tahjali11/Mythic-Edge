@@ -27,7 +27,7 @@ import {
   submitManualJsonlImport,
   submitManualJsonlUpload
 } from "./api";
-import { safeDisplayValue, statusTone } from "./status";
+import { cockpitStatusFromRawStatus, safeDisplayValue, statusTone } from "./status";
 import {
   ACTION_REVIEW_SCHEMA_VERSION,
   ANALYTICS_HISTORY_SCHEMA_VERSION,
@@ -81,6 +81,7 @@ import {
   type LegacyJsonlRoutingHint,
   type ManualImportSourceArtifact,
   type SectionStatus,
+  type SetupStatusTone,
   type SetupStatusResponse
 } from "./types";
 
@@ -187,6 +188,22 @@ type Panel = {
   details: Array<{ label: string; value: unknown }>;
 };
 
+type CockpitStatusItem = {
+  cue: string;
+  label: string;
+  status: string;
+  tone: SetupStatusTone;
+  detail: string;
+};
+
+type CockpitInsight = {
+  title: string;
+  status: string;
+  tone: SetupStatusTone;
+  metric: string;
+  detail: string;
+};
+
 const UNATTACHED_SMOKE_NOTE_PREFIX = "MYTHIC_EDGE_SMOKE_TEST_DO_NOT_USE_AS_GAME_REVIEW";
 const UNATTACHED_SMOKE_NOTE_STORAGE_KEY = "mythic_edge.match_journal.unattached_smoke_note_id";
 
@@ -230,6 +247,7 @@ export function SetupStatusApp({
   const [uploadSelectionMessage, setUploadSelectionMessage] = useState("");
   const [sourceLabel, setSourceLabel] = useState("");
   const [importState, setImportState] = useState<ImportState>({ state: "idle" });
+  const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
   const uploadFileInputRef = useRef<HTMLInputElement>(null);
   const uploadFolderInputRef = useRef<HTMLInputElement>(null);
 
@@ -918,15 +936,36 @@ export function SetupStatusApp({
   const panels = buildPanels(loadState.payload);
   const overallTone = loadState.unsafeCount > 0 ? "degraded" : statusTone(loadState.payload.status);
   const journalContextSummary = buildMatchJournalContextSummary(historyState);
+  const statusItems = buildCockpitStatusItems(
+    loadState.payload,
+    loadState.unsafeCount,
+    historyState,
+    liveDiagnosticsState,
+    journalState
+  );
+  const insights = buildCockpitInsights(historyState, earlyGameState, actionReviewState, splitReviewState, journalState);
+  const trustSummary = buildTrustSummary(
+    loadState.unsafeCount,
+    historyState,
+    earlyGameState,
+    actionReviewState,
+    splitReviewState,
+    liveDiagnosticsState,
+    journalState
+  );
 
   return (
     <Shell>
-      <section className="summaryBand" aria-labelledby="overall-status">
+      <section className="summaryBand cockpitHeader" aria-labelledby="overall-status">
         <div>
           <p className="eyebrow">Mythic Edge Local App</p>
-          <h1 id="overall-status">Setup Status</h1>
+          <h1 id="overall-status">Mythic Edge Cockpit</h1>
+          <p className="cockpitLead">Competitive review, local analytics, and live readiness at a glance.</p>
         </div>
-        <StatusPill label={loadState.unsafeCount > 0 ? "degraded" : loadState.payload.status} tone={overallTone} />
+        <StatusPill
+          label={loadState.unsafeCount > 0 ? "Needs review" : cockpitStatusFromRawStatus(loadState.payload.status, "app").label}
+          tone={overallTone}
+        />
       </section>
 
       {loadState.unsafeCount > 0 ? (
@@ -935,19 +974,26 @@ export function SetupStatusApp({
         </StatusNotice>
       ) : null}
 
-      <section className="panelGrid" aria-label="Setup status sections">
-        <StatusPanel
-          title="Backend Reachability"
-          status="ok"
-          details={[{ label: "aggregate endpoint", value: "/api/app/setup-status" }]}
-        />
-        {panels.map((panel) => (
-          <StatusPanel key={panel.title} {...panel} />
-        ))}
-      </section>
+      <CockpitStatusRail items={statusItems} />
+      <CockpitInsightGrid insights={insights} />
+      <TrustPrivacyLayer items={trustSummary} />
 
-      <LiveDiagnosticsPanel diagnosticsState={liveDiagnosticsState} />
-
+      <AnalyticsHistorySection historyState={historyState} onRefresh={refreshHistory} />
+      <SplitReviewSection splitReviewState={splitReviewState} onRefresh={refreshSplitReview} />
+      <EarlyGameHistorySection earlyGameState={earlyGameState} onRefresh={refreshEarlyGameHistory} />
+      <ActionReviewSection actionReviewState={actionReviewState} onRefresh={refreshActionReview} />
+      <MatchJournalCockpit
+        contextSummary={journalContextSummary}
+        journalState={journalState}
+        onDisplayCorrectionSubmit={handleJournalDisplayCorrectionSubmit}
+        onExperimentLabelSubmit={handleJournalExperimentLabelSubmit}
+        onNoteSubmit={handleJournalNoteSubmit}
+        onOpponentLabelsSubmit={handleJournalOpponentLabelsSubmit}
+        onReviewFlagSubmit={handleJournalReviewFlagSubmit}
+        onUnattachedSmokeNoteSubmit={handleUnattachedSmokeNoteSubmit}
+        smokeReadbackState={journalSmokeReadbackState}
+        submitState={journalSubmitState}
+      />
       <ManualImportPanel
         importState={importState}
         onUploadFolderFilesChange={handleUploadFolderFilesChange}
@@ -967,22 +1013,50 @@ export function SetupStatusApp({
         uploadSelectionMessage={uploadSelectionMessage}
       />
 
-      <AnalyticsHistorySection historyState={historyState} onRefresh={refreshHistory} />
-      <MatchJournalCockpit
-        contextSummary={journalContextSummary}
-        journalState={journalState}
-        onDisplayCorrectionSubmit={handleJournalDisplayCorrectionSubmit}
-        onExperimentLabelSubmit={handleJournalExperimentLabelSubmit}
-        onNoteSubmit={handleJournalNoteSubmit}
-        onOpponentLabelsSubmit={handleJournalOpponentLabelsSubmit}
-        onReviewFlagSubmit={handleJournalReviewFlagSubmit}
-        onUnattachedSmokeNoteSubmit={handleUnattachedSmokeNoteSubmit}
-        smokeReadbackState={journalSmokeReadbackState}
-        submitState={journalSubmitState}
-      />
-      <EarlyGameHistorySection earlyGameState={earlyGameState} onRefresh={refreshEarlyGameHistory} />
-      <ActionReviewSection actionReviewState={actionReviewState} onRefresh={refreshActionReview} />
-      <SplitReviewSection splitReviewState={splitReviewState} onRefresh={refreshSplitReview} />
+      <section className="diagnosticsShell" aria-labelledby="technical-details-title">
+        <div className="diagnosticsHeader">
+          <div>
+            <p className="eyebrow">Owner and developer view</p>
+            <h2 id="technical-details-title">Technical Details</h2>
+          </div>
+          <button
+            aria-expanded={showTechnicalDetails}
+            aria-controls="technical-details-content"
+            onClick={() => setShowTechnicalDetails((value) => !value)}
+            type="button"
+          >
+            {showTechnicalDetails ? "Hide technical details" : "Show technical details"}
+          </button>
+        </div>
+        {showTechnicalDetails ? (
+          <div id="technical-details-content">
+            <section aria-labelledby="setup-status-title">
+              <div className="panelHeader analyticsHistoryHeader">
+                <div>
+                  <h2 id="setup-status-title">Setup Status</h2>
+                  <p className="historyStateMessage">Raw setup values are available for diagnostics.</p>
+                </div>
+                <StatusPill label={loadState.payload.status} tone={statusTone(loadState.payload.status)} />
+              </div>
+              <section className="panelGrid" aria-label="Setup status sections">
+                <StatusPanel
+                  title="Backend Reachability"
+                  status="ok"
+                  details={[{ label: "aggregate endpoint", value: "/api/app/setup-status" }]}
+                />
+                {panels.map((panel) => (
+                  <StatusPanel key={panel.title} {...panel} />
+                ))}
+              </section>
+            </section>
+            <LiveDiagnosticsPanel diagnosticsState={liveDiagnosticsState} />
+          </div>
+        ) : (
+          <p className="historyStateMessage">
+            Setup grids, raw status labels, process details, and live diagnostics are available on demand.
+          </p>
+        )}
+      </section>
     </Shell>
   );
 }
@@ -1005,6 +1079,70 @@ function StatusNotice({ title, status, children }: { title: string; status: stri
         {children ? <p>{children}</p> : null}
       </div>
       <StatusPill label={status} tone={statusTone(status)} />
+    </section>
+  );
+}
+
+function CockpitStatusRail({ items }: { items: CockpitStatusItem[] }) {
+  return (
+    <section className="cockpitRail" aria-label="Cockpit health status">
+      {items.map((item) => (
+        <article className={`cockpitRailItem tone-${item.tone}`} key={item.label}>
+          <span className="railCue" aria-hidden="true">
+            {item.cue}
+          </span>
+          <div>
+            <h2>{item.label}</h2>
+            <p>{item.detail}</p>
+          </div>
+          <StatusPill label={item.status} tone={item.tone} />
+        </article>
+      ))}
+    </section>
+  );
+}
+
+function CockpitInsightGrid({ insights }: { insights: CockpitInsight[] }) {
+  return (
+    <section className="cockpitSection" aria-labelledby="cockpit-review-title">
+      <div className="sectionHeading">
+        <p className="eyebrow">Competitive review</p>
+        <h2 id="cockpit-review-title">Decision Support</h2>
+      </div>
+      <div className="cockpitInsightGrid">
+        {insights.map((insight) => (
+          <article className={`cockpitInsight tone-${insight.tone}`} key={insight.title}>
+            <div className="panelHeader">
+              <h3>{insight.title}</h3>
+              <StatusPill label={insight.status} tone={insight.tone} />
+            </div>
+            <p className="insightMetric">{insight.metric}</p>
+            <p className="insightDetail">{insight.detail}</p>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function TrustPrivacyLayer({ items }: { items: CockpitInsight[] }) {
+  return (
+    <section className="trustLayer" aria-labelledby="trust-layer-title">
+      <div className="sectionHeading">
+        <p className="eyebrow">Trust and privacy</p>
+        <h2 id="trust-layer-title">Trust and Freshness</h2>
+      </div>
+      <div className="trustGrid">
+        {items.map((item) => (
+          <article className={`trustItem tone-${item.tone}`} key={item.title}>
+            <div className="panelHeader">
+              <h3>{item.title}</h3>
+              <StatusPill label={item.status} tone={item.tone} />
+            </div>
+            <p>{item.detail}</p>
+          </article>
+        ))}
+      </div>
     </section>
   );
 }
@@ -2662,6 +2800,301 @@ function matchJournalErrorTitle(code: MatchJournalApiError["code"]): string {
     return "Unsafe API base URL";
   }
   return "Match Journal unavailable";
+}
+
+function buildCockpitStatusItems(
+  payload: SetupStatusResponse,
+  unsafeCount: number,
+  historyState: HistoryState,
+  liveDiagnosticsState: LiveDiagnosticsState,
+  journalState: MatchJournalState
+): CockpitStatusItem[] {
+  const app = unsafeCount > 0 ? { label: "Needs review", tone: "degraded" as const } : cockpitStatusFromRawStatus(payload.status, "app");
+  const playerLogStatus = isLivePlayerLogStatusResponse(payload.live_player_log)
+    ? payload.live_player_log.player_log.status
+    : statusFromSection(payload.player_log);
+  const playerLog = cockpitStatusFromRawStatus(playerLogStatus, "player_log");
+  const liveCaptureStatus = isLiveWatcherStatusResponse(payload.live_watcher)
+    ? payload.live_watcher.watcher.running
+      ? "capturing"
+      : payload.live_watcher.watcher.status
+    : "not_checked";
+  const liveCapture = cockpitStatusFromRawStatus(liveCaptureStatus, "live_capture");
+  const analytics = cockpitStatusFromRawStatus(analyticsHistoryStatus(historyState), "analytics");
+  const diagnostics = cockpitStatusFromRawStatus(liveDiagnosticsStatus(liveDiagnosticsState), "trust");
+  const journal = cockpitStatusFromRawStatus(matchJournalStatus(journalState), "journal");
+
+  return [
+    {
+      cue: "APP",
+      label: "App connection",
+      status: app.label,
+      tone: app.tone,
+      detail: "Local backend response is available through the existing setup endpoint."
+    },
+    {
+      cue: "LOG",
+      label: "Player.log monitor",
+      status: playerLog.label,
+      tone: playerLog.tone,
+      detail: playerLog.label === "Ready" ? "Arena log source is configured." : "Check setup details before trusting live capture."
+    },
+    {
+      cue: "LIVE",
+      label: "Live capture",
+      status: liveCapture.label,
+      tone: liveCapture.tone,
+      detail:
+        liveCapture.label === "Capturing"
+          ? "Live capture is active."
+          : "Live mode may be waiting, limited, or blocked; inspect details if needed."
+    },
+    {
+      cue: "DATA",
+      label: "Analytics database",
+      status: analytics.label,
+      tone: analytics.tone,
+      detail: analytics.label === "Ready" ? "Local match and game history is available." : "Analytics may be empty or limited."
+    },
+    {
+      cue: "QA",
+      label: "Data trust",
+      status: diagnostics.label === "Ready" ? journal.label : diagnostics.label,
+      tone: diagnostics.tone === "ok" ? journal.tone : diagnostics.tone,
+      detail: "Diagnostics and Match Journal context remain available without exposing private values."
+    }
+  ];
+}
+
+function buildCockpitInsights(
+  historyState: HistoryState,
+  earlyGameState: EarlyGameHistoryState,
+  actionReviewState: ActionReviewState,
+  splitReviewState: SplitReviewState,
+  journalState: MatchJournalState
+): CockpitInsight[] {
+  return [
+    recentReviewInsight(historyState),
+    playDrawInsight(splitReviewState),
+    game1PostboardInsight(splitReviewState),
+    openingHandInsight(earlyGameState),
+    gameplayReviewInsight(actionReviewState),
+    needsReviewInsight(actionReviewState, journalState)
+  ];
+}
+
+function recentReviewInsight(historyState: HistoryState): CockpitInsight {
+  const status = cockpitStatusFromRawStatus(analyticsHistoryStatus(historyState), "analytics");
+  if (historyState.state !== "ready") {
+    return {
+      title: "Recent Review",
+      status: status.label,
+      tone: status.tone,
+      metric: historyState.state === "loading" ? "Loading match history" : "History unavailable",
+      detail: "Recent match and game review appears here when local analytics are available."
+    };
+  }
+  return {
+    title: "Recent Review",
+    status: status.label,
+    tone: status.tone,
+    metric: `${historyState.matches.summary.row_count} matches / ${historyState.games.summary.row_count} games`,
+    detail: "Observed match and game results from parser-normalized local analytics."
+  };
+}
+
+function playDrawInsight(splitReviewState: SplitReviewState): CockpitInsight {
+  const status = cockpitStatusFromRawStatus(splitReviewStatus(splitReviewState), "analytics");
+  if (splitReviewState.state !== "ready") {
+    return {
+      title: "Play/Draw Split",
+      status: status.label,
+      tone: status.tone,
+      metric: splitReviewState.state === "loading" ? "Loading split review" : "Split review unavailable",
+      detail: "Play/draw review uses existing local analytics when available."
+    };
+  }
+  const summary = splitReviewState.playDrawSplits.summary;
+  return {
+    title: "Play/Draw Split",
+    status: status.label,
+    tone: status.tone,
+    metric: `${summary.wins}-${summary.losses} over ${summary.known_result_count} known games`,
+    detail:
+      summary.small_sample_group_count > 0
+        ? "Observed pattern with limited data in at least one group."
+        : "Observed pattern across current play/draw rows."
+  };
+}
+
+function game1PostboardInsight(splitReviewState: SplitReviewState): CockpitInsight {
+  const status = cockpitStatusFromRawStatus(splitReviewStatus(splitReviewState), "analytics");
+  if (splitReviewState.state !== "ready") {
+    return {
+      title: "Game 1 / Postboard",
+      status: status.label,
+      tone: status.tone,
+      metric: splitReviewState.state === "loading" ? "Loading sideboard split" : "Sideboard split unavailable",
+      detail: "Game 1 and postboard context appears when split analytics are available."
+    };
+  }
+  const summary = splitReviewState.game1PostboardSplits.summary;
+  return {
+    title: "Game 1 / Postboard",
+    status: status.label,
+    tone: status.tone,
+    metric: `${summary.game1_row_count} Game 1 / ${summary.postboard_row_count} postboard`,
+    detail: `${summary.degraded_row_count + summary.unavailable_row_count + summary.conflict_row_count} rows need review.`
+  };
+}
+
+function openingHandInsight(earlyGameState: EarlyGameHistoryState): CockpitInsight {
+  const status = cockpitStatusFromRawStatus(earlyGameHistoryStatus(earlyGameState), "analytics");
+  if (earlyGameState.state !== "ready") {
+    return {
+      title: "Opening Hands",
+      status: status.label,
+      tone: status.tone,
+      metric: earlyGameState.state === "loading" ? "Loading early game" : "Early game unavailable",
+      detail: "Opening hand and mulligan review appears when local analytics are available."
+    };
+  }
+  return {
+    title: "Opening Hands",
+    status: status.label,
+    tone: status.tone,
+    metric: `${earlyGameState.openingHands.summary.row_count} hands / ${earlyGameState.mulligans.summary.row_count} mulligans`,
+    detail: "Review signal only; mulligan choices remain player interpretation."
+  };
+}
+
+function gameplayReviewInsight(actionReviewState: ActionReviewState): CockpitInsight {
+  const status = cockpitStatusFromRawStatus(actionReviewStatus(actionReviewState), "analytics");
+  if (actionReviewState.state !== "ready") {
+    return {
+      title: "Gameplay Review",
+      status: status.label,
+      tone: status.tone,
+      metric: actionReviewState.state === "loading" ? "Loading actions" : "Action review unavailable",
+      detail: "Gameplay action and opponent observation review appears when local analytics are available."
+    };
+  }
+  const actionRows = actionReviewState.gameplayActions.summary.row_count;
+  const observationRows = actionReviewState.opponentObservations.summary.row_count;
+  return {
+    title: "Gameplay Review",
+    status: status.label,
+    tone: status.tone,
+    metric: `${actionRows} actions / ${observationRows} observations`,
+    detail: `${actionReviewState.opponentObservations.summary.review_required_row_count} opponent observations need review.`
+  };
+}
+
+function needsReviewInsight(actionReviewState: ActionReviewState, journalState: MatchJournalState): CockpitInsight {
+  const actionReviewCount =
+    actionReviewState.state === "ready"
+      ? actionReviewState.gameplayActions.summary.review_required_row_count +
+        actionReviewState.opponentObservations.summary.review_required_row_count
+      : 0;
+  const journalReviewCount = journalState.state === "ready" ? journalState.payload.warnings.length + journalState.payload.errors.length : 0;
+  const reviewCount = actionReviewCount + journalReviewCount;
+  const status = reviewCount > 0 ? { label: "Needs review", tone: "degraded" as const } : cockpitStatusFromRawStatus(matchJournalStatus(journalState), "journal");
+  return {
+    title: "Needs Review",
+    status: status.label,
+    tone: status.tone,
+    metric: `${reviewCount} review signals`,
+    detail: "Combines visible review-required counts and Match Journal warnings without changing parser truth."
+  };
+}
+
+function buildTrustSummary(
+  setupUnsafeCount: number,
+  historyState: HistoryState,
+  earlyGameState: EarlyGameHistoryState,
+  actionReviewState: ActionReviewState,
+  splitReviewState: SplitReviewState,
+  liveDiagnosticsState: LiveDiagnosticsState,
+  journalState: MatchJournalState
+): CockpitInsight[] {
+  const qualityStatus = cockpitStatusFromRawStatus(
+    combinedReviewStatus(historyState, earlyGameState, actionReviewState, splitReviewState, journalState),
+    "trust"
+  );
+  const diagnosticsStatus = cockpitStatusFromRawStatus(liveDiagnosticsStatus(liveDiagnosticsState), "trust");
+  const redactionCount =
+    setupUnsafeCount +
+    (historyState.state === "ready" ? historyState.unsafeCount : 0) +
+    (earlyGameState.state === "ready" ? earlyGameState.unsafeCount : 0) +
+    (actionReviewState.state === "ready" ? actionReviewState.unsafeCount : 0) +
+    (splitReviewState.state === "ready" ? splitReviewState.unsafeCount : 0) +
+    (liveDiagnosticsState.state === "ready" ? liveDiagnosticsState.unsafeCount : 0) +
+    (journalState.state === "ready" ? journalState.unsafeCount : 0);
+  const privacyStatus = redactionCount > 0 ? { label: "Needs review", tone: "degraded" as const } : { label: "Local only", tone: "ok" as const };
+  return [
+    {
+      title: "Freshness",
+      status: diagnosticsStatus.label,
+      tone: diagnosticsStatus.tone,
+      metric: "",
+      detail:
+        liveDiagnosticsState.state === "ready"
+          ? "Live watcher diagnostics are summarized quietly; open technical details for the full table."
+          : "Freshness is loading or unavailable."
+    },
+    {
+      title: "Data Quality",
+      status: qualityStatus.label,
+      tone: qualityStatus.tone,
+      metric: "",
+      detail: "Quality reflects local analytics and review status, not a guarantee of strategic correctness."
+    },
+    {
+      title: "Privacy",
+      status: privacyStatus.label,
+      tone: privacyStatus.tone,
+      metric: "",
+      detail:
+        redactionCount > 0
+          ? `${redactionCount} unsafe values were hidden before display.`
+          : "Local app display uses symbolic paths and keeps private values hidden."
+    }
+  ];
+}
+
+function combinedReviewStatus(
+  historyState: HistoryState,
+  earlyGameState: EarlyGameHistoryState,
+  actionReviewState: ActionReviewState,
+  splitReviewState: SplitReviewState,
+  journalState: MatchJournalState
+): string {
+  const statuses = [
+    analyticsHistoryStatus(historyState),
+    earlyGameHistoryStatus(earlyGameState),
+    actionReviewStatus(actionReviewState),
+    splitReviewStatus(splitReviewState),
+    matchJournalStatus(journalState)
+  ];
+  for (const status of ["error", "unavailable", "degraded", "missing", "empty", "loading"]) {
+    if (statuses.includes(status)) {
+      return status;
+    }
+  }
+  return "ok";
+}
+
+function liveDiagnosticsStatus(liveDiagnosticsState: LiveDiagnosticsState): string {
+  if (liveDiagnosticsState.state === "loading") {
+    return "loading";
+  }
+  if (liveDiagnosticsState.state === "error") {
+    return errorTone(liveDiagnosticsState.code);
+  }
+  if (liveDiagnosticsState.unsafeCount > 0) {
+    return "degraded";
+  }
+  return liveDiagnosticsState.payload.status;
 }
 
 function buildPanels(payload: SetupStatusResponse): Panel[] {
