@@ -37,6 +37,8 @@ DATA_DIR_NAME = "data"
 ANALYTICS_DATABASE_NAME = "mythic_edge.sqlite3"
 DEFAULT_REPO_URL = "https://github.com/Tahjali11/Mythic-Edge.git"
 DEFAULT_RELEASE_REF = "codex/analytics-foundation"
+RELEASE_PROFILE = "private_local_v1"
+PACKAGE_MODE = "managed_full_checkout"
 REQUIRED_DATA_SUBDIRS = (
     "config",
     "db",
@@ -89,6 +91,7 @@ class PrivateLocalV1Config:
     install_root: Path
     source_checkout: Path
     mode: str
+    release_ref: str = DEFAULT_RELEASE_REF
     initialize_sqlite: bool = False
     managed_app_checkout: bool = False
 
@@ -235,6 +238,7 @@ def run_private_local_v1_setup(config: PrivateLocalV1Config) -> dict[str, object
         "schema_version": SCHEMA_VERSION,
         "status": report["status"],
         "mode": config.mode,
+        **_package_readiness_metadata(config.release_ref),
         "install_root": "<install_root>",
         "data_root": "<install_root>\\data",
         "manifest": manifest,
@@ -289,6 +293,7 @@ def run_private_local_v1_proof(
                 install_root=config.install_root,
                 source_checkout=paths.app_checkout_root,
                 mode="install",
+                release_ref=config.release_ref,
                 initialize_sqlite=config.initialize_sqlite,
             ),
         )
@@ -328,6 +333,7 @@ def run_private_local_v1_proof(
                 install_root=config.install_root,
                 source_checkout=proof_source,
                 mode="install",
+                release_ref=config.release_ref,
                 initialize_sqlite=config.initialize_sqlite,
                 managed_app_checkout=not config.existing_checkout,
             )
@@ -454,6 +460,7 @@ def run_private_local_v1_proof(
         "schema_version": SCHEMA_VERSION,
         "status": status,
         "mode": "proof",
+        **_package_readiness_metadata(config.release_ref),
         "duration_seconds": round(max(0.0, (datetime.now(UTC) - started_at).total_seconds()), 3),
         "install_root": "<install_root>",
         "app_checkout_root": "<install_root>\\app",
@@ -657,7 +664,8 @@ def _build_install_manifest(
     return {
         "object": INSTALL_MANIFEST_OBJECT,
         "schema_version": SCHEMA_VERSION,
-        "install_profile": "private_local_v1",
+        "install_profile": RELEASE_PROFILE,
+        **_package_readiness_metadata(config.release_ref),
         "mode": config.mode,
         "install_root": "<install_root>",
         "app_checkout_root": "<install_root>\\app",
@@ -709,6 +717,7 @@ def _build_setup_report(
         "schema_version": SCHEMA_VERSION,
         "status": status,
         "mode": config.mode,
+        **_package_readiness_metadata(config.release_ref),
         "duration_seconds": round(duration, 3),
         "toolchain": _toolchain_status(),
         "dependency_install": dependency_install,
@@ -737,6 +746,16 @@ def _source_checkout_status(source_checkout: Path) -> dict[str, object]:
         "controlled_existing_checkout": True,
         "clone_from_github_performed": False,
         "missing_markers": missing,
+    }
+
+
+def _package_readiness_metadata(release_ref: str) -> dict[str, object]:
+    return {
+        "release_profile": RELEASE_PROFILE,
+        "package_mode": PACKAGE_MODE,
+        "release_ref": release_ref,
+        "public_release_ready": False,
+        "production_ready": False,
     }
 
 
@@ -1030,6 +1049,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         install_root=install_root,
         source_checkout=args.source_checkout,
         mode=mode,
+        release_ref=args.release_ref,
         initialize_sqlite=args.initialize_sqlite,
     )
     result = run_private_local_v1_setup(config)
