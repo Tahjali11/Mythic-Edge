@@ -48,6 +48,17 @@ textarea {
   padding: 24px;
 }
 
+.cockpitHeader {
+  align-items: flex-start;
+}
+
+.cockpitLead {
+  max-width: 640px;
+  margin-top: 8px;
+  color: #596067;
+  font-size: 0.98rem;
+}
+
 .notice {
   margin-top: 16px;
 }
@@ -88,6 +99,116 @@ h3 {
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
   gap: 16px;
   margin-top: 16px;
+}
+
+.cockpitRail {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.cockpitRailItem {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  min-height: 118px;
+  border: 1px solid #d9ded7;
+  border-top: 5px solid #73808b;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 14px;
+}
+
+.cockpitRailItem .statusPill {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+
+.railCue {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.cockpitRailItem p,
+.insightDetail,
+.trustItem p {
+  margin-top: 6px;
+  color: #596067;
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.cockpitSection,
+.trustLayer,
+.diagnosticsShell {
+  margin-top: 20px;
+}
+
+.sectionHeading {
+  margin-bottom: 10px;
+}
+
+.cockpitInsightGrid,
+.trustGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 14px;
+}
+
+.cockpitInsight,
+.trustItem,
+.historySection {
+  border: 1px solid #d9ded7;
+  border-top: 5px solid #73808b;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 16px;
+}
+
+.insightMetric {
+  margin-top: 14px;
+  color: #20242a;
+  font-size: 1.35rem;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.trustLayer {
+  border-block: 1px solid #d9ded7;
+  padding-block: 18px;
+}
+
+.diagnosticsShell {
+  border: 1px solid #d9ded7;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 18px;
+}
+
+.diagnosticsHeader,
+.historyHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.diagnosticsHeader button {
+  border: 1px solid #2f6d4a;
+  border-radius: 6px;
+  padding: 9px 13px;
+  color: #ffffff;
+  background: #2f6d4a;
+  font-weight: 700;
 }
 
 .futureGrid {
@@ -400,11 +521,18 @@ dd {
     padding: 18px;
   }
 
+  .diagnosticsHeader,
+  .historyHeader {
+    flex-direction: column;
+  }
+
   h1 {
     font-size: 1.55rem;
   }
 
-  .panelGrid {
+  .panelGrid,
+  .cockpitInsightGrid,
+  .trustGrid {
     grid-template-columns: 1fr;
   }
 
