@@ -15,6 +15,8 @@ import {
   fetchOpeningHandHistory,
   fetchPlayDrawSplitReview,
   fetchSetupStatus,
+  previewErrorReport,
+  ErrorReportApiError,
   LiveStatusApiError,
   ManualImportApiError,
   MatchJournalApiError,
@@ -32,6 +34,10 @@ import {
   ACTION_REVIEW_SCHEMA_VERSION,
   ANALYTICS_HISTORY_SCHEMA_VERSION,
   EARLY_GAME_HISTORY_SCHEMA_VERSION,
+  type ErrorReportAffectedArea,
+  type ErrorReportPreviewRequest,
+  type ErrorReportPreviewResponse,
+  type ErrorReportSeverity,
   LIVE_PLAYER_LOG_STATUS_OBJECT,
   LIVE_STATUS_SCHEMA_VERSION,
   LIVE_WATCHER_DIAGNOSTICS_OBJECT,
@@ -111,6 +117,7 @@ type SetupStatusAppProps = {
   submitJournalDisplayCorrection?: (request: MatchJournalDisplayCorrectionRequest) => Promise<MatchJournalResponse>;
   submitImport?: (request: ManualImportRequest) => Promise<ManualImportJob>;
   submitUpload?: (request: ManualImportUploadRequest) => Promise<ManualImportJob>;
+  previewReport?: (request: ErrorReportPreviewRequest) => Promise<ErrorReportPreviewResponse>;
 };
 
 type ImportState =
@@ -118,6 +125,14 @@ type ImportState =
   | { state: "submitting" }
   | { state: "result"; job: ManualImportJob }
   | { state: "error"; code: ManualImportApiError["code"]; message: string };
+
+type ErrorReportPreviewState =
+  | { state: "idle" }
+  | { state: "previewing" }
+  | { state: "ready"; payload: ErrorReportPreviewResponse }
+  | { state: "error"; code: ErrorReportApiError["code"]; message: string };
+
+type ErrorReportCopyState = "idle" | "copied" | "unavailable" | "error";
 
 type HistoryState =
   | { state: "loading" }
@@ -216,6 +231,23 @@ type CockpitInsight = {
 
 const UNATTACHED_SMOKE_NOTE_PREFIX = "MYTHIC_EDGE_SMOKE_TEST_DO_NOT_USE_AS_GAME_REVIEW";
 const UNATTACHED_SMOKE_NOTE_STORAGE_KEY = "mythic_edge.match_journal.unattached_smoke_note_id";
+const ERROR_REPORT_AFFECTED_AREA_OPTIONS: Array<{ value: ErrorReportAffectedArea; label: string }> = [
+  { value: "local_app_ui", label: "Local App UI" },
+  { value: "install_launch", label: "Install / Launch" },
+  { value: "manual_import", label: "Manual Import" },
+  { value: "analytics", label: "Analytics" },
+  { value: "live_player_log", label: "Live Player.log" },
+  { value: "match_journal", label: "Match Journal" },
+  { value: "parser", label: "Parser" },
+  { value: "privacy", label: "Privacy" },
+  { value: "unknown", label: "Unknown" }
+];
+const ERROR_REPORT_SEVERITY_OPTIONS: Array<{ value: ErrorReportSeverity; label: string }> = [
+  { value: "degraded", label: "Degraded" },
+  { value: "blocker", label: "Blocker" },
+  { value: "annoyance", label: "Annoyance" },
+  { value: "question", label: "Question" }
+];
 
 export function SetupStatusApp({
   fetchStatus = fetchSetupStatus,
@@ -237,7 +269,8 @@ export function SetupStatusApp({
   submitJournalExperimentLabel = submitMatchJournalExperimentLabel,
   submitJournalDisplayCorrection = submitMatchJournalDisplayCorrection,
   submitImport = submitManualJsonlImport,
-  submitUpload = submitManualJsonlUpload
+  submitUpload = submitManualJsonlUpload,
+  previewReport = previewErrorReport
 }: SetupStatusAppProps) {
   const [loadState, setLoadState] = useState<LoadState>({ state: "loading" });
   const [historyState, setHistoryState] = useState<HistoryState>({ state: "loading" });
@@ -988,6 +1021,7 @@ export function SetupStatusApp({
       <CockpitInsightGrid insights={insights} />
       <CoachBoundaryPanel />
       <TrustPrivacyLayer items={trustSummary} />
+      <ErrorReportPanel onPreview={previewReport} />
 
       <section className="detailsStack" id="analytics" aria-labelledby="analytics-details-title">
         <div className="sectionHeading">
@@ -1092,6 +1126,7 @@ function Shell({ children }: { children: ReactNode }) {
         <nav className="leftRailNav" aria-label="Primary sections">
           <a href="#dashboard">Dashboard</a>
           <a href="#decision-support">Review</a>
+          <a href="#report-error">Report</a>
           <a href="#coach">Coach</a>
           <a href="#analytics">Analytics</a>
           <a href="#import">Import</a>
@@ -1216,6 +1251,217 @@ function TrustPrivacyLayer({ items }: { items: CockpitInsight[] }) {
         ))}
       </div>
     </section>
+  );
+}
+
+function ErrorReportPanel({
+  onPreview
+}: {
+  onPreview: (request: ErrorReportPreviewRequest) => Promise<ErrorReportPreviewResponse>;
+}) {
+  const [summary, setSummary] = useState("");
+  const [expectedBehavior, setExpectedBehavior] = useState("");
+  const [actualBehavior, setActualBehavior] = useState("");
+  const [reproductionSteps, setReproductionSteps] = useState("");
+  const [affectedArea, setAffectedArea] = useState<ErrorReportAffectedArea>("local_app_ui");
+  const [severity, setSeverity] = useState<ErrorReportSeverity>("degraded");
+  const [previewState, setPreviewState] = useState<ErrorReportPreviewState>({ state: "idle" });
+  const [copyState, setCopyState] = useState<ErrorReportCopyState>("idle");
+
+  async function handlePreview(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPreviewState({ state: "previewing" });
+    setCopyState("idle");
+
+    try {
+      const payload = await onPreview({
+        summary,
+        expected_behavior: expectedBehavior,
+        actual_behavior: actualBehavior,
+        reproduction_steps: reproductionSteps,
+        affected_area: affectedArea,
+        severity,
+        current_frontend_surface: "local_app_cockpit",
+        include_diagnostics: ["safe_status_labels"]
+      });
+      setPreviewState({ state: "ready", payload });
+    } catch (error) {
+      if (error instanceof ErrorReportApiError) {
+        setPreviewState({ state: "error", code: error.code, message: error.message });
+        return;
+      }
+      setPreviewState({
+        state: "error",
+        code: "backend_unavailable",
+        message: "Error report preview is unavailable."
+      });
+    }
+  }
+
+  async function handleCopyReport() {
+    if (previewState.state !== "ready" || !previewState.payload.issue_body_markdown) {
+      return;
+    }
+    if (!navigator.clipboard?.writeText) {
+      setCopyState("unavailable");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(previewState.payload.issue_body_markdown);
+      setCopyState("copied");
+    } catch {
+      setCopyState("error");
+    }
+  }
+
+  const previewPayload = previewState.state === "ready" ? previewState.payload : null;
+  const canCopy = previewPayload?.status === "preview_ready" && Boolean(previewPayload.issue_body_markdown);
+
+  return (
+    <section className="reportPanel" id="report-error" aria-labelledby="report-error-title">
+      <div className="panelHeader">
+        <div>
+          <p className="eyebrow">Codex triage prep</p>
+          <h2 id="report-error-title">Report an Error</h2>
+        </div>
+        <StatusPill label="Copy only" tone="deferred" />
+      </div>
+      <p className="historyStateMessage">
+        Prepare a sanitized Markdown report for later triage. This first slice does not submit to external services.
+      </p>
+
+      <form className="reportForm" onSubmit={handlePreview}>
+        <label className="formField">
+          <span>Summary</span>
+          <input
+            onChange={(event) => setSummary(event.target.value)}
+            placeholder="Short title for the issue"
+            required
+            type="text"
+            value={summary}
+          />
+        </label>
+        <label className="formField">
+          <span>Affected area</span>
+          <select
+            onChange={(event) => setAffectedArea(event.target.value as ErrorReportAffectedArea)}
+            value={affectedArea}
+          >
+            {ERROR_REPORT_AFFECTED_AREA_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="formField">
+          <span>Severity</span>
+          <select onChange={(event) => setSeverity(event.target.value as ErrorReportSeverity)} value={severity}>
+            {ERROR_REPORT_SEVERITY_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="formField wide">
+          <span>Expected behavior</span>
+          <textarea
+            onChange={(event) => setExpectedBehavior(event.target.value)}
+            placeholder="What should have happened?"
+            required
+            rows={3}
+            value={expectedBehavior}
+          />
+        </label>
+        <label className="formField wide">
+          <span>Actual behavior</span>
+          <textarea
+            onChange={(event) => setActualBehavior(event.target.value)}
+            placeholder="What did you see instead?"
+            required
+            rows={3}
+            value={actualBehavior}
+          />
+        </label>
+        <label className="formField wide">
+          <span>Reproduction steps</span>
+          <textarea
+            onChange={(event) => setReproductionSteps(event.target.value)}
+            placeholder="One step per line is fine."
+            required
+            rows={4}
+            value={reproductionSteps}
+          />
+        </label>
+        <div className="reportActions">
+          <button disabled={previewState.state === "previewing"} type="submit">
+            {previewState.state === "previewing" ? "Preparing Preview" : "Preview Report"}
+          </button>
+          <span className="reportBoundary">External submission disabled</span>
+        </div>
+      </form>
+
+      {previewState.state === "error" ? (
+        <StatusNotice title="Preview unavailable" status={errorTone(previewState.code)}>
+          <span>{previewState.message}</span>
+        </StatusNotice>
+      ) : null}
+
+      {previewPayload ? (
+        <section className="reportPreview" aria-labelledby="report-preview-title">
+          <div className="panelHeader">
+            <div>
+              <h3 id="report-preview-title">Sanitized Preview</h3>
+              <p className="historyStateMessage">Review this text before copying it into Codex or GitHub.</p>
+            </div>
+            <StatusPill label={reportPreviewStatusLabel(previewPayload.status)} tone={reportPreviewTone(previewPayload.status)} />
+          </div>
+
+          {previewPayload.warnings.length > 0 ? (
+            <CategoryList title="Warnings" items={previewPayload.warnings} />
+          ) : null}
+          <CategoryList title="Included diagnostics" items={previewPayload.included_diagnostic_categories} />
+          <CategoryList title="Excluded private data" items={previewPayload.excluded_private_data} />
+          <CategoryList title="Redaction summary" items={previewPayload.redaction_summary} />
+
+          {previewPayload.issue_body_markdown ? (
+            <>
+              <label className="formField wide">
+                <span>Copyable Markdown</span>
+                <textarea readOnly rows={12} value={previewPayload.issue_body_markdown} />
+              </label>
+              <div className="reportActions">
+                {canCopy ? (
+                  <button onClick={handleCopyReport} type="button">
+                    Copy Report
+                  </button>
+                ) : null}
+                <span className="reportBoundary">{copyStatusText(copyState)}</span>
+              </div>
+            </>
+          ) : (
+            <p className="moduleEmptyState">
+              The privacy guard blocked report generation. Remove endpoint-like or secret-like values and preview again.
+            </p>
+          )}
+        </section>
+      ) : null}
+    </section>
+  );
+}
+
+function CategoryList({ title, items }: { title: string; items: string[] }) {
+  return (
+    <div className="categoryList">
+      <h4>{title}</h4>
+      <ul>
+        {items.map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -3842,6 +4088,39 @@ function analyticsHistoryErrorTitle(code: AnalyticsHistoryApiError["code"]): str
     return "Unsafe API base URL";
   }
   return "Analytics history unavailable";
+}
+
+function reportPreviewStatusLabel(status: ErrorReportPreviewResponse["status"]): string {
+  if (status === "preview_ready") {
+    return "Preview ready";
+  }
+  if (status === "blocked_privacy_guard") {
+    return "Blocked";
+  }
+  return "Invalid request";
+}
+
+function reportPreviewTone(status: ErrorReportPreviewResponse["status"]): SetupStatusTone {
+  if (status === "preview_ready") {
+    return "ok";
+  }
+  if (status === "blocked_privacy_guard") {
+    return "error";
+  }
+  return "degraded";
+}
+
+function copyStatusText(status: ErrorReportCopyState): string {
+  if (status === "copied") {
+    return "Copied to clipboard";
+  }
+  if (status === "unavailable") {
+    return "Copy unavailable; select the Markdown text manually";
+  }
+  if (status === "error") {
+    return "Copy failed; select the Markdown text manually";
+  }
+  return "No external submission";
 }
 
 function errorTitle(code: SetupStatusApiError["code"]): string {

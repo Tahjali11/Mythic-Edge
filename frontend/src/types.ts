@@ -25,6 +25,7 @@ export const PLAY_DRAW_SPLIT_REVIEW_OBJECT = "mythic_edge_local_app_play_draw_sp
 export const GAME1_POSTBOARD_SPLIT_REVIEW_OBJECT = "mythic_edge_local_app_game1_postboard_split_review";
 export const MATCH_JOURNAL_OBJECT = "mythic_edge_local_app_match_journal";
 export const MATCH_JOURNAL_SCHEMA_VERSION = "match_journal_cockpit_ui.v1";
+export const ERROR_REPORT_PREVIEW_SCHEMA = "quality_app_submit_error_report_codex_triage.v1";
 
 export type SetupStatusTone =
   | "ok"
@@ -384,6 +385,50 @@ export type MatchJournalApiErrorCode =
   | "malformed_response"
   | "incompatible_response"
   | "unsafe_api_base_url";
+
+export type ErrorReportApiErrorCode =
+  | "backend_unavailable"
+  | "malformed_response"
+  | "incompatible_response"
+  | "unsafe_api_base_url";
+
+export type ErrorReportAffectedArea =
+  | "local_app_ui"
+  | "install_launch"
+  | "manual_import"
+  | "analytics"
+  | "live_player_log"
+  | "match_journal"
+  | "parser"
+  | "privacy"
+  | "unknown";
+
+export type ErrorReportSeverity = "blocker" | "degraded" | "annoyance" | "question";
+
+export type ErrorReportPreviewRequest = {
+  summary: string;
+  expected_behavior: string;
+  actual_behavior: string;
+  reproduction_steps: string;
+  affected_area: ErrorReportAffectedArea;
+  severity: ErrorReportSeverity;
+  current_frontend_surface?: string;
+  include_diagnostics?: string[];
+  selected_job_id?: string;
+};
+
+export type ErrorReportPreviewResponse = {
+  schema: typeof ERROR_REPORT_PREVIEW_SCHEMA;
+  status: "preview_ready" | "invalid_request" | "blocked_privacy_guard";
+  issue_title: string;
+  issue_body_markdown: string;
+  included_diagnostic_categories: string[];
+  excluded_private_data: string[];
+  redaction_summary: string[];
+  warnings: string[];
+  next_recommended_role: string;
+  external_submission_enabled: false;
+};
 
 export type MatchJournalStatus = "ok" | "degraded" | "empty" | "missing" | "unavailable" | "error";
 

@@ -20,6 +20,7 @@ from .analytics_history import (
     build_play_draw_split_review,
 )
 from .config import load_local_app_config_status
+from .error_reports import build_error_report_preview
 from .import_jobs import (
     BrowserJsonlUploadFile,
     get_import_job,
@@ -164,6 +165,10 @@ def create_app(
     @app.get("/api/runtime/status")
     def runtime_state() -> dict[str, object]:
         return build_runtime_state()
+
+    @app.post("/api/feedback/error-report/preview")
+    def error_report_preview(request: object = Body(...)) -> dict[str, object]:
+        return build_error_report_preview(request, local_app_paths)
 
     @app.get("/api/journal")
     async def match_journal(request: Request) -> object:
