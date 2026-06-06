@@ -9,6 +9,7 @@ from fastapi import Body, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.datastructures import UploadFile
 
+from .analytics_dashboard import build_analytics_dashboard_modules
 from .analytics_history import (
     build_game1_postboard_split_review,
     build_game_history,
@@ -53,6 +54,7 @@ DEFAULT_FRONTEND_ORIGINS = ("http://127.0.0.1:5173", "http://localhost:5173")
 LOOPBACK_HOSTS = {"127.0.0.1", "localhost"}
 HISTORY_QUERY_PARAM_INVALID = "analytics_history_query_parameter_invalid"
 HISTORY_QUERY_PARAM_NOT_ALLOWED = "analytics_history_query_parameter_not_allowed"
+DASHBOARD_QUERY_PARAM_NOT_ALLOWED = "analytics_dashboard_query_parameter_not_allowed"
 
 
 def create_app(
@@ -162,6 +164,11 @@ def create_app(
         limit, offset = _history_pagination(request)
         return build_game1_postboard_split_review(local_app_paths, limit=limit, offset=offset)
 
+    @app.get("/api/analytics/dashboard/modules")
+    def analytics_dashboard_modules(request: Request) -> dict[str, object]:
+        _reject_dashboard_query_params(request)
+        return build_analytics_dashboard_modules(local_app_paths)
+
     @app.get("/api/runtime/status")
     def runtime_state() -> dict[str, object]:
         return build_runtime_state()
@@ -268,6 +275,11 @@ def _reject_unknown_history_query_params(request: Request) -> None:
     allowed = {"limit", "offset"}
     if any(key not in allowed for key in request.query_params.keys()):
         raise HTTPException(status_code=422, detail={"error": HISTORY_QUERY_PARAM_NOT_ALLOWED})
+
+
+def _reject_dashboard_query_params(request: Request) -> None:
+    if request.query_params:
+        raise HTTPException(status_code=422, detail={"error": DASHBOARD_QUERY_PARAM_NOT_ALLOWED})
 
 
 def _history_pagination(request: Request) -> tuple[int, int]:

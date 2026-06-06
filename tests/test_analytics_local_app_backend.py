@@ -93,6 +93,7 @@ def test_read_only_endpoint_inventory_and_no_wildcard_cors(tmp_path) -> None:
         "/api/analytics/opponent-card-observations",
         "/api/analytics/play-draw-splits",
         "/api/analytics/game1-postboard-splits",
+        "/api/analytics/dashboard/modules",
         "/api/runtime/status",
         "/api/feedback/error-report/preview",
         "/api/imports/jsonl",

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type FormEvent, type ReactNode, type RefOb
 import "./App.css";
 import {
   AnalyticsHistoryApiError,
+  fetchAnalyticsDashboardModules,
   fetchGame1PostboardSplitReview,
   fetchGameHistory,
   fetchGameplayActionReview,
@@ -50,6 +51,9 @@ import {
   SETUP_STATUS_SCHEMA_VERSION,
   type AnalyticsHistoryStatus,
   type AnalyticsHistoryStatusObject,
+  type AnalyticsDashboardModule,
+  type AnalyticsDashboardModulesResponse,
+  type AnalyticsDashboardModuleView,
   type Game1PostboardSplitReviewResponse,
   type Game1PostboardSplitRow,
   type GameHistoryResponse,
@@ -106,6 +110,7 @@ type SetupStatusAppProps = {
   fetchOpponentObservations?: () => Promise<OpponentCardObservationReviewResponse>;
   fetchPlayDrawSplits?: () => Promise<PlayDrawSplitReviewResponse>;
   fetchGame1PostboardSplits?: () => Promise<Game1PostboardSplitReviewResponse>;
+  fetchDashboardModules?: () => Promise<AnalyticsDashboardModulesResponse>;
   fetchLiveDiagnostics?: () => Promise<LiveWatcherDiagnosticsResponse>;
   fetchJournal?: (context: MatchJournalContext) => Promise<MatchJournalResponse>;
   fetchJournalUnattachedNote?: (request: MatchJournalUnattachedNoteReadbackRequest) => Promise<MatchJournalResponse>;
@@ -167,6 +172,11 @@ type SplitReviewState =
       game1PostboardSplits: Game1PostboardSplitReviewResponse;
       unsafeCount: number;
     }
+  | { state: "error"; code: AnalyticsHistoryApiError["code"]; message: string };
+
+type DashboardModulesState =
+  | { state: "loading" }
+  | { state: "ready"; payload: AnalyticsDashboardModulesResponse; unsafeCount: number }
   | { state: "error"; code: AnalyticsHistoryApiError["code"]; message: string };
 
 type LiveDiagnosticsState =
@@ -231,6 +241,9 @@ type CockpitInsight = {
 
 const UNATTACHED_SMOKE_NOTE_PREFIX = "MYTHIC_EDGE_SMOKE_TEST_DO_NOT_USE_AS_GAME_REVIEW";
 const UNATTACHED_SMOKE_NOTE_STORAGE_KEY = "mythic_edge.match_journal.unattached_smoke_note_id";
+const DASHBOARD_MODULE_VIEW_PREFERENCES_KEY = "mythic_edge.analytics.dashboard.module_view_preferences.v1";
+const DASHBOARD_MODULE_IDS = new Set(["play_draw_win_rate", "game1_postboard", "mulligan_opening_hand_outcomes"]);
+const DASHBOARD_MODULE_VIEWS = new Set(["bar", "table"]);
 const ERROR_REPORT_AFFECTED_AREA_OPTIONS: Array<{ value: ErrorReportAffectedArea; label: string }> = [
   { value: "local_app_ui", label: "Local App UI" },
   { value: "install_launch", label: "Install / Launch" },
@@ -259,6 +272,7 @@ export function SetupStatusApp({
   fetchOpponentObservations = fetchOpponentCardObservationReview,
   fetchPlayDrawSplits = fetchPlayDrawSplitReview,
   fetchGame1PostboardSplits = fetchGame1PostboardSplitReview,
+  fetchDashboardModules = fetchAnalyticsDashboardModules,
   fetchLiveDiagnostics = fetchLiveWatcherDiagnosticsStatus,
   fetchJournal = fetchMatchJournal,
   fetchJournalUnattachedNote = fetchMatchJournalUnattachedNote,
@@ -277,6 +291,10 @@ export function SetupStatusApp({
   const [earlyGameState, setEarlyGameState] = useState<EarlyGameHistoryState>({ state: "loading" });
   const [actionReviewState, setActionReviewState] = useState<ActionReviewState>({ state: "loading" });
   const [splitReviewState, setSplitReviewState] = useState<SplitReviewState>({ state: "loading" });
+  const [dashboardModulesState, setDashboardModulesState] = useState<DashboardModulesState>({ state: "loading" });
+  const [dashboardModuleViews, setDashboardModuleViews] = useState<Record<string, AnalyticsDashboardModuleView>>(
+    readDashboardModuleViewPreferences
+  );
   const [liveDiagnosticsState, setLiveDiagnosticsState] = useState<LiveDiagnosticsState>({ state: "loading" });
   const [journalState, setJournalState] = useState<MatchJournalState>({ state: "loading" });
   const [journalSubmitState, setJournalSubmitState] = useState<MatchJournalSubmitState>({ state: "idle" });
@@ -523,6 +541,41 @@ export function SetupStatusApp({
 
   useEffect(() => {
     let active = true;
+
+    setDashboardModulesState({ state: "loading" });
+    fetchDashboardModules()
+      .then((payload) => {
+        if (!active) {
+          return;
+        }
+        setDashboardModulesState({
+          state: "ready",
+          payload,
+          unsafeCount: countUnsafeDashboardModuleValues(payload)
+        });
+      })
+      .catch((error: unknown) => {
+        if (!active) {
+          return;
+        }
+        if (error instanceof AnalyticsHistoryApiError) {
+          setDashboardModulesState({ state: "error", code: error.code, message: error.message });
+          return;
+        }
+        setDashboardModulesState({
+          state: "error",
+          code: "backend_unavailable",
+          message: "Analytics dashboard modules are unavailable."
+        });
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [fetchDashboardModules]);
+
+  useEffect(() => {
+    let active = true;
     const contextSummary = buildMatchJournalContextSummary(historyState);
 
     if (historyState.state === "loading") {
@@ -722,6 +775,14 @@ export function SetupStatusApp({
           message: "Analytics history backend is unavailable."
         });
       });
+  }
+
+  function handleDashboardModuleViewChange(moduleId: string, view: AnalyticsDashboardModuleView) {
+    setDashboardModuleViews((current) => {
+      const next = { ...current, [moduleId]: view };
+      writeDashboardModuleViewPreferences(next);
+      return next;
+    });
   }
 
   async function handleManualImport(event: FormEvent<HTMLFormElement>) {
@@ -986,7 +1047,6 @@ export function SetupStatusApp({
     liveDiagnosticsState,
     journalState
   );
-  const insights = buildCockpitInsights(historyState, actionReviewState, splitReviewState);
   const trustSummary = buildTrustSummary(
     loadState.unsafeCount,
     historyState,
@@ -1018,7 +1078,11 @@ export function SetupStatusApp({
       ) : null}
 
       <CockpitStatusRail items={statusItems} />
-      <CockpitInsightGrid insights={insights} />
+      <DashboardModulesSection
+        moduleViewPreferences={dashboardModuleViews}
+        onModuleViewChange={handleDashboardModuleViewChange}
+        state={dashboardModulesState}
+      />
       <CoachBoundaryPanel />
       <TrustPrivacyLayer items={trustSummary} />
       <ErrorReportPanel onPreview={previewReport} />
@@ -1176,43 +1240,363 @@ function CockpitStatusRail({ items }: { items: CockpitStatusItem[] }) {
   );
 }
 
-function CockpitInsightGrid({ insights }: { insights: CockpitInsight[] }) {
+function DashboardModulesSection({
+  moduleViewPreferences,
+  onModuleViewChange,
+  state
+}: {
+  moduleViewPreferences: Record<string, AnalyticsDashboardModuleView>;
+  onModuleViewChange: (moduleId: string, view: AnalyticsDashboardModuleView) => void;
+  state: DashboardModulesState;
+}) {
+  const modules = dashboardModulesForState(state);
   return (
     <section className="cockpitSection" id="decision-support" aria-labelledby="cockpit-review-title">
       <div className="sectionHeading">
         <p className="eyebrow">Competitive review</p>
         <h2 id="cockpit-review-title">Decision Support</h2>
       </div>
+      {state.state === "error" ? (
+        <p className="historyStateMessage">
+          {state.code === "incompatible_response"
+            ? "Dashboard modules returned an incompatible schema."
+            : "Dashboard modules are unavailable."}
+        </p>
+      ) : null}
       <div className="cockpitInsightGrid">
-        {insights.map((insight) => (
-          <article className={`cockpitInsight tone-${insight.tone}`} key={insight.title}>
-            <div className="panelHeader">
-              <h3>{insight.title}</h3>
-              <StatusPill label={insight.status} tone={insight.tone} />
-            </div>
-            <p className="insightMetric">{insight.metric}</p>
-            {insight.bars && insight.bars.length > 0 ? (
-              <div className="moduleBars" aria-label={`${insight.title} chart`}>
-                {insight.bars.map((bar) => (
-                  <div className="moduleBarRow" key={bar.label}>
-                    <div className="moduleBarLabel">
-                      <span>{bar.label}</span>
-                      <span>{bar.valueLabel}</span>
-                    </div>
-                    <div className="moduleBarTrack">
-                      <span className={`moduleBarFill tone-${bar.tone}`} style={{ width: `${bar.value}%` }} />
-                    </div>
-                  </div>
+        {modules.map((module) => {
+          const selectedView = selectedDashboardModuleView(module, moduleViewPreferences);
+          return (
+            <article className={`cockpitInsight tone-${module.tone}`} key={module.module_id}>
+              <div className="panelHeader">
+                <h3>{safeText(module.title)}</h3>
+                <StatusPill label={dashboardModuleStatusLabel(module.status)} tone={dashboardModuleTone(module.tone)} />
+              </div>
+              <p className="insightQuestion">{safeText(module.decision_question)}</p>
+              <div className="moduleViewToggle" aria-label={`${safeText(module.title)} view`}>
+                {module.allowed_views.map((view) => (
+                  <button
+                    aria-pressed={selectedView === view}
+                    className={selectedView === view ? "isSelected" : ""}
+                    key={view}
+                    onClick={() => onModuleViewChange(module.module_id, view)}
+                    type="button"
+                  >
+                    {view === "bar" ? "Bar" : "Table"}
+                  </button>
                 ))}
               </div>
-            ) : null}
-            {insight.emptyState ? <p className="moduleEmptyState">{insight.emptyState}</p> : null}
-            <p className="insightDetail">{insight.detail}</p>
-          </article>
-        ))}
+              <p className="insightMetric">{safeText(module.metric.display)}</p>
+              {selectedView === "bar" ? <DashboardModuleBarView module={module} /> : <DashboardModuleTableView module={module} />}
+              {module.rows.length === 0 ? (
+                <p className="moduleEmptyState">{dashboardModuleEmptyState(module.status)}</p>
+              ) : null}
+              {module.warnings.length > 0 ? (
+                <ul className="moduleWarningList" aria-label={`${safeText(module.title)} warnings`}>
+                  {module.warnings.map((warning) => (
+                    <li key={warning}>{safeText(warning)}</li>
+                  ))}
+                </ul>
+              ) : null}
+              <p className="insightDetail">
+                {safeText(String(module.summary.display ?? module.data_quality.notes[0] ?? "Descriptive review only."))}
+              </p>
+              <p className="moduleBoundary">
+                {module.data_quality.sample_size_status === "small_sample" ? "Small sample. " : ""}
+                Descriptive local analytics only.
+              </p>
+              {module.module_id === "mulligan_opening_hand_outcomes" ? (
+                <p className="moduleBoundary">No keep or mulligan quality judgment is shown.</p>
+              ) : null}
+            </article>
+          );
+        })}
       </div>
+      <p className="moduleExplorerBoundary">
+        Custom explorer vocabulary is deferred; Journal labels are Journal annotation only.
+      </p>
     </section>
   );
+}
+
+function DashboardModuleBarView({ module }: { module: AnalyticsDashboardModule }) {
+  if (module.rows.length === 0) {
+    return null;
+  }
+  return (
+    <div className="moduleBars" aria-label={`${safeText(module.title)} chart`}>
+      {module.rows.map((row) => {
+        const metric = dashboardBarMetric(row.metrics);
+        const value = metric ? dashboardBarValue(metric.value) : 0;
+        return (
+          <div className="moduleBarRow" key={row.row_id}>
+            <div className="moduleBarLabel">
+              <span>{safeText(row.label)}</span>
+              <span>{metric ? safeText(metric.display) : "No metric"}</span>
+            </div>
+            <div className="moduleBarTrack">
+              <span className={`moduleBarFill tone-${dashboardModuleTone(row.tone)}`} style={{ width: `${value}%` }} />
+            </div>
+            {row.warnings.length > 0 ? <p className="moduleRowWarning">{row.warnings.map(safeText).join(", ")}</p> : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function DashboardModuleTableView({ module }: { module: AnalyticsDashboardModule }) {
+  if (module.rows.length === 0) {
+    return null;
+  }
+  const metricIds = Array.from(new Set(module.rows.flatMap((row) => row.metrics.map((metric) => metric.metric_id))));
+  return (
+    <div className="moduleTableWrap">
+      <table className="moduleTable">
+        <thead>
+          <tr>
+            <th scope="col">Row</th>
+            {metricIds.map((metricId) => (
+              <th key={metricId} scope="col">
+                {safeText(metricLabel(module.rows, metricId))}
+              </th>
+            ))}
+            <th scope="col">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {module.rows.map((row) => (
+            <tr key={row.row_id}>
+              <th scope="row">{safeText(row.label)}</th>
+              {metricIds.map((metricId) => {
+                const metric = row.metrics.find((entry) => entry.metric_id === metricId);
+                return <td key={metricId}>{metric ? safeText(metric.display) : "Unavailable"}</td>;
+              })}
+              <td>
+                {dashboardModuleStatusLabel(row.status)}
+                {row.warnings.length > 0 ? ` - ${row.warnings.map(safeText).join(", ")}` : ""}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function dashboardModulesForState(state: DashboardModulesState): AnalyticsDashboardModule[] {
+  if (state.state === "ready" && state.unsafeCount === 0) {
+    return state.payload.modules;
+  }
+  const status = state.state === "loading" ? "unavailable" : "degraded";
+  return fallbackDashboardModules(status, state.state === "loading" ? "Loading dashboard modules" : "Dashboard unavailable");
+}
+
+function fallbackDashboardModules(status: "unavailable" | "degraded", display: string): AnalyticsDashboardModule[] {
+  return DASHBOARD_MODULE_FALLBACKS.map((module) => ({
+    module_id: module.module_id,
+    title: module.title,
+    decision_question: module.decision_question,
+    status,
+    tone: status === "unavailable" ? "degraded" : "blocked",
+    default_view: module.default_view,
+    allowed_views: ["bar", "table"],
+    metric: {
+      metric_id: "win_rate",
+      label: "Win rate",
+      value: null,
+      value_kind: "null",
+      unit: "percent",
+      display,
+      calculation_note: "Calculated by the backend dashboard module endpoint.",
+      source: "analytics_derived"
+    },
+    dimensions: [],
+    rows: [],
+    summary: { row_count: 0, known_result_count: 0, wins: 0, losses: 0, unknown_or_degraded_count: 0, display },
+    warnings: [],
+    errors: [],
+    data_quality: {
+      status,
+      sample_size_status: "unknown",
+      known_result_count: 0,
+      unknown_or_degraded_count: 0,
+      review_required_count: 0,
+      confidence: "unknown",
+      finality: "unknown",
+      notes: [display]
+    },
+    source_metadata: {
+      source_tables_or_views: [],
+      source_contracts: ["docs/contracts/analytics_dynamic_decision_support_dashboard.md"],
+      source_type: "deferred_contract_surface",
+      parser_truth_boundary: "Parser/state owns match and game facts.",
+      analytics_truth_boundary: "Frontend fallback does not compute analytics truth."
+    },
+    schema_version: "analytics_dynamic_decision_support_dashboard.v1"
+  }));
+}
+
+function selectedDashboardModuleView(
+  module: AnalyticsDashboardModule,
+  preferences: Record<string, AnalyticsDashboardModuleView>
+): AnalyticsDashboardModuleView {
+  const preferred = preferences[module.module_id];
+  if (preferred && module.allowed_views.includes(preferred)) {
+    return preferred;
+  }
+  return module.allowed_views.includes(module.default_view) ? module.default_view : module.allowed_views[0] ?? "table";
+}
+
+function dashboardBarMetric(metrics: AnalyticsDashboardModule["rows"][number]["metrics"]) {
+  return (
+    metrics.find((metric) => metric.metric_id === "win_rate" && metric.value_kind === "percentage") ??
+    metrics.find((metric) => metric.value_kind === "percentage") ??
+    metrics.find((metric) => metric.value_kind === "count")
+  );
+}
+
+function dashboardBarValue(value: number | string | null): number {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return Math.max(0, Math.min(100, Math.round(value)));
+  }
+  return 0;
+}
+
+function metricLabel(rows: AnalyticsDashboardModule["rows"], metricId: string): string {
+  for (const row of rows) {
+    const metric = row.metrics.find((entry) => entry.metric_id === metricId);
+    if (metric) {
+      return metric.label;
+    }
+  }
+  return metricId;
+}
+
+function dashboardModuleStatusLabel(status: string): string {
+  return cockpitStatusFromRawStatus(status, "analytics").label;
+}
+
+function dashboardModuleTone(tone: string): SetupStatusTone {
+  if (tone === "limited") {
+    return "degraded";
+  }
+  if (tone === "blocked") {
+    return "error";
+  }
+  return statusTone(tone);
+}
+
+function dashboardModuleEmptyState(status: string): string {
+  if (status === "missing") {
+    return "No analytics database is available yet.";
+  }
+  if (status === "degraded") {
+    return "Dashboard module schema is not current.";
+  }
+  if (status === "error") {
+    return "Dashboard module data is unavailable.";
+  }
+  return "No module rows are available yet.";
+}
+
+function safeText(value: unknown): string {
+  return safeDashboardText(value).text;
+}
+
+function safeDashboardText(value: unknown): { text: string; redacted: boolean } {
+  const text = String(value ?? "unknown").trim();
+  if (!text || text.length > 240 || text.includes("\n") || text.includes("\r")) {
+    return { text: "<redacted_path>", redacted: true };
+  }
+  const lower = text.toLowerCase();
+  const hasPrivateMarker =
+    /^[a-z]:\\/i.test(text) ||
+    /^\/(?:users|home|tmp|var|private)\//i.test(text) ||
+    lower.includes("player.log") ||
+    lower.includes("api_key") ||
+    lower.includes("apikey") ||
+    lower.includes("access_token") ||
+    lower.includes("bearer ") ||
+    lower.includes("webhook") ||
+    lower.includes("secret") ||
+    lower.includes("password") ||
+    lower.includes("token") ||
+    /^[a-z][a-z0-9+.-]*:\/\//i.test(text) ||
+    text.startsWith("{") ||
+    text.startsWith("[");
+  if (hasPrivateMarker) {
+    return { text: "<redacted_path>", redacted: true };
+  }
+  return { text, redacted: false };
+}
+
+const DASHBOARD_MODULE_FALLBACKS: Array<{
+  module_id: "play_draw_win_rate" | "game1_postboard" | "mulligan_opening_hand_outcomes";
+  title: string;
+  decision_question: string;
+  default_view: AnalyticsDashboardModuleView;
+}> = [
+  {
+    module_id: "play_draw_win_rate",
+    title: "Win Rate By Play/Draw",
+    decision_question: "Am I performing differently on the play versus on the draw?",
+    default_view: "bar"
+  },
+  {
+    module_id: "game1_postboard",
+    title: "Game 1 / Postboard",
+    decision_question: "Are my game 1 and postboard games showing different observed results?",
+    default_view: "bar"
+  },
+  {
+    module_id: "mulligan_opening_hand_outcomes",
+    title: "Mulligan / Opening Hand Outcomes",
+    decision_question: "Are my keep and mulligan patterns associated with observed outcomes?",
+    default_view: "table"
+  }
+];
+
+function readDashboardModuleViewPreferences(): Record<string, AnalyticsDashboardModuleView> {
+  if (typeof window === "undefined") {
+    return {};
+  }
+  try {
+    const raw = window.localStorage.getItem(DASHBOARD_MODULE_VIEW_PREFERENCES_KEY);
+    if (!raw) {
+      return {};
+    }
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+      return {};
+    }
+    const preferences: Record<string, AnalyticsDashboardModuleView> = {};
+    for (const [moduleId, view] of Object.entries(parsed)) {
+      if (DASHBOARD_MODULE_IDS.has(moduleId) && typeof view === "string" && DASHBOARD_MODULE_VIEWS.has(view)) {
+        preferences[moduleId] = view as AnalyticsDashboardModuleView;
+      }
+    }
+    return preferences;
+  } catch {
+    return {};
+  }
+}
+
+function writeDashboardModuleViewPreferences(preferences: Record<string, AnalyticsDashboardModuleView>) {
+  if (typeof window === "undefined") {
+    return;
+  }
+  try {
+    const safePreferences: Record<string, AnalyticsDashboardModuleView> = {};
+    for (const [moduleId, view] of Object.entries(preferences)) {
+      if (DASHBOARD_MODULE_IDS.has(moduleId) && DASHBOARD_MODULE_VIEWS.has(view)) {
+        safePreferences[moduleId] = view;
+      }
+    }
+    window.localStorage.setItem(DASHBOARD_MODULE_VIEW_PREFERENCES_KEY, JSON.stringify(safePreferences));
+  } catch {
+    // Browser storage is a preference surface only; rendering should continue without it.
+  }
 }
 
 function CoachBoundaryPanel() {
@@ -3728,6 +4112,62 @@ function countUnsafeSplitReviewValues(
     );
   }
   return values.filter((value) => safeDisplayValue(value ?? "unknown").redacted).length;
+}
+
+function countUnsafeDashboardModuleValues(payload: AnalyticsDashboardModulesResponse): number {
+  const values: unknown[] = [
+    payload.database.display_path,
+    payload.custom_explorer.status,
+    ...payload.warnings,
+    ...payload.errors,
+    ...payload.custom_explorer.warnings,
+    ...payload.custom_explorer.errors
+  ];
+  for (const module of payload.modules) {
+    values.push(
+      module.module_id,
+      module.title,
+      module.decision_question,
+      module.status,
+      module.tone,
+      module.default_view,
+      module.metric.metric_id,
+      module.metric.label,
+      module.metric.display,
+      module.metric.source,
+      ...module.warnings,
+      ...module.errors,
+      ...module.data_quality.notes,
+      ...module.source_metadata.source_tables_or_views,
+      ...module.source_metadata.source_contracts,
+      module.source_metadata.source_type
+    );
+    for (const dimension of module.dimensions) {
+      values.push(
+        dimension.dimension_id,
+        dimension.label,
+        dimension.source,
+        dimension.value_source,
+        dimension.annotation_boundary,
+        ...(dimension.allowed_values ?? [])
+      );
+    }
+    for (const row of module.rows) {
+      values.push(row.row_id, row.label, row.status, row.tone, ...row.warnings);
+      for (const value of Object.values(row.dimension_values)) {
+        values.push(value);
+      }
+      for (const metric of row.metrics) {
+        values.push(metric.metric_id, metric.label, metric.display, metric.unit);
+      }
+      values.push(
+        ...row.source_metadata.source_tables_or_views,
+        ...row.source_metadata.source_contracts,
+        row.source_metadata.source_type
+      );
+    }
+  }
+  return values.filter((value) => safeDashboardText(value ?? "unknown").redacted).length;
 }
 
 function analyticsHistoryStatus(historyState: HistoryState): string {

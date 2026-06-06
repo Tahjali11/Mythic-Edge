@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  fetchAnalyticsDashboardModules,
   fetchGameplayActionReview,
   AnalyticsHistoryApiError,
   fetchGame1PostboardSplitReview,
@@ -32,6 +33,8 @@ import {
 } from "./api";
 import {
   ACTION_REVIEW_SCHEMA_VERSION,
+  ANALYTICS_DASHBOARD_MODULES_OBJECT,
+  ANALYTICS_DASHBOARD_MODULES_SCHEMA_VERSION,
   ANALYTICS_HISTORY_SCHEMA_VERSION,
   EARLY_GAME_HISTORY_SCHEMA_VERSION,
   GAME_HISTORY_OBJECT,
@@ -59,6 +62,7 @@ import {
   SETUP_STATUS_SCHEMA_VERSION,
   SPLIT_REVIEW_SCHEMA_VERSION,
   type Game1PostboardSplitReviewResponse,
+  type AnalyticsDashboardModulesResponse,
   type GameHistoryResponse,
   type GameplayActionReviewResponse,
   type LegacyJsonlImportQuality,
@@ -571,6 +575,45 @@ describe("api helpers", () => {
       jsonResponse({ ...buildGame1PostboardSplitReviewPayload(), rows: [{ game_result_id: "result:1" }] })
     ) as unknown as typeof fetch;
     await expect(fetchGame1PostboardSplitReview(malformedRowsFetch)).rejects.toMatchObject({
+      code: "malformed_response"
+    });
+  });
+
+  it("fetches and validates dynamic dashboard module responses", async () => {
+    const payload = buildAnalyticsDashboardModulesPayload();
+    const fetchImpl = vi.fn(async () => jsonResponse(payload)) as unknown as typeof fetch;
+
+    await expect(fetchAnalyticsDashboardModules(fetchImpl)).resolves.toEqual(payload);
+    expect(fetchImpl).toHaveBeenCalledWith("/api/analytics/dashboard/modules", {
+      headers: { Accept: "application/json" }
+    });
+  });
+
+  it("rejects malformed dashboard module responses safely", async () => {
+    const wrongSchemaFetch = vi.fn(async () =>
+      jsonResponse({ ...buildAnalyticsDashboardModulesPayload(), schema_version: SPLIT_REVIEW_SCHEMA_VERSION })
+    ) as unknown as typeof fetch;
+    await expect(fetchAnalyticsDashboardModules(wrongSchemaFetch)).rejects.toMatchObject({
+      code: "incompatible_response"
+    });
+
+    const unsafeBuilderFetch = vi.fn(async () =>
+      jsonResponse({
+        ...buildAnalyticsDashboardModulesPayload(),
+        custom_explorer: { ...buildAnalyticsDashboardModulesPayload().custom_explorer, builder_ui_enabled: true }
+      })
+    ) as unknown as typeof fetch;
+    await expect(fetchAnalyticsDashboardModules(unsafeBuilderFetch)).rejects.toMatchObject({
+      code: "malformed_response"
+    });
+
+    const malformedRowsFetch = vi.fn(async () =>
+      jsonResponse({
+        ...buildAnalyticsDashboardModulesPayload(),
+        modules: [{ ...buildAnalyticsDashboardModulesPayload().modules[0], rows: [{ row_id: "row:1" }] }]
+      })
+    ) as unknown as typeof fetch;
+    await expect(fetchAnalyticsDashboardModules(malformedRowsFetch)).rejects.toMatchObject({
       code: "malformed_response"
     });
   });
@@ -1472,6 +1515,235 @@ function buildGame1PostboardSplitReviewPayload(): Game1PostboardSplitReviewRespo
         game_result_status: buildHistoryStatus()
       }
     ],
+    warnings: [],
+    errors: []
+  };
+}
+
+function buildAnalyticsDashboardModulesPayload(): AnalyticsDashboardModulesResponse {
+  const sourceMetadata = {
+    source_tables_or_views: ["v_play_draw_splits", "v_sample_size_warnings"],
+    source_contracts: ["docs/contracts/analytics_dynamic_decision_support_dashboard.md"],
+    source_type: "fixed_sql_view",
+    parser_truth_boundary: "Parser/state owns match and game facts.",
+    analytics_truth_boundary: "Dashboard modules are fixed read-only projections."
+  };
+  const winRateMetric = {
+    metric_id: "win_rate",
+    label: "Win rate",
+    value: 60,
+    value_kind: "percentage" as const,
+    unit: "percent",
+    display: "60 percent",
+    calculation_note: "Calculated over known win/loss game rows only.",
+    source: "analytics_derived"
+  };
+  return {
+    object: ANALYTICS_DASHBOARD_MODULES_OBJECT,
+    schema_version: ANALYTICS_DASHBOARD_MODULES_SCHEMA_VERSION,
+    status: "ok",
+    database: {
+      display_path: "<app_data>\\db\\mythic_edge.sqlite3",
+      exists: true,
+      schema_status: "schema_current",
+      status: "ok"
+    },
+    modules: [
+      {
+        module_id: "play_draw_win_rate",
+        title: "Win Rate By Play/Draw",
+        decision_question: "Am I performing differently on the play versus on the draw?",
+        status: "ok",
+        tone: "limited",
+        default_view: "bar",
+        allowed_views: ["bar", "table"],
+        metric: winRateMetric,
+        dimensions: [
+          {
+            dimension_id: "play_draw",
+            label: "Play/draw",
+            source: "v_play_draw_splits",
+            value_source: "analytics_derived",
+            allowed_values: ["play", "draw", "unknown"]
+          }
+        ],
+        rows: [
+          {
+            row_id: "play_draw:play",
+            label: "Play",
+            dimension_values: { play_draw: "play" },
+            metrics: [
+              { metric_id: "game_count", label: "Games", value: 10, value_kind: "count", unit: "games", display: "10 games" },
+              {
+                metric_id: "known_result_count",
+                label: "Known results",
+                value: 10,
+                value_kind: "count",
+                unit: "games",
+                display: "10 known games"
+              },
+              { metric_id: "wins", label: "Wins", value: 6, value_kind: "count", unit: "games", display: "6 wins" },
+              { metric_id: "losses", label: "Losses", value: 4, value_kind: "count", unit: "games", display: "4 losses" },
+              { metric_id: "win_rate", label: "Win rate", value: 60, value_kind: "percentage", unit: "percent", display: "60 percent" },
+              {
+                metric_id: "unknown_or_degraded_count",
+                label: "Unknown or degraded",
+                value: 0,
+                value_kind: "count",
+                unit: "games",
+                display: "0 games"
+              }
+            ],
+            status: "ok",
+            tone: "ok",
+            sample_size: { status: "ok", known_result_count: 10, total_count: 10 },
+            warnings: [],
+            source_metadata: sourceMetadata
+          },
+          {
+            row_id: "play_draw:draw",
+            label: "Draw",
+            dimension_values: { play_draw: "draw" },
+            metrics: [
+              { metric_id: "game_count", label: "Games", value: 2, value_kind: "count", unit: "games", display: "2 games" },
+              {
+                metric_id: "known_result_count",
+                label: "Known results",
+                value: 1,
+                value_kind: "count",
+                unit: "games",
+                display: "1 known games"
+              },
+              { metric_id: "wins", label: "Wins", value: 1, value_kind: "count", unit: "games", display: "1 wins" },
+              { metric_id: "losses", label: "Losses", value: 0, value_kind: "count", unit: "games", display: "0 losses" },
+              { metric_id: "win_rate", label: "Win rate", value: 100, value_kind: "percentage", unit: "percent", display: "100 percent" },
+              {
+                metric_id: "unknown_or_degraded_count",
+                label: "Unknown or degraded",
+                value: 1,
+                value_kind: "count",
+                unit: "games",
+                display: "1 games"
+              }
+            ],
+            status: "degraded",
+            tone: "limited",
+            sample_size: { status: "small_sample", known_result_count: 1, total_count: 2 },
+            warnings: ["small_sample"],
+            source_metadata: sourceMetadata
+          }
+        ],
+        summary: {
+          row_count: 2,
+          known_result_count: 11,
+          wins: 7,
+          losses: 4,
+          unknown_or_degraded_count: 1,
+          win_rate_percent: 63.6,
+          display: "7-4 over 11 known games"
+        },
+        warnings: ["small_sample"],
+        errors: [],
+        data_quality: {
+          status: "ok",
+          sample_size_status: "small_sample",
+          known_result_count: 11,
+          unknown_or_degraded_count: 1,
+          review_required_count: 0,
+          confidence: "medium",
+          finality: "analytics_projection",
+          notes: ["Limited sample; descriptive review only."]
+        },
+        source_metadata: sourceMetadata,
+        schema_version: ANALYTICS_DASHBOARD_MODULES_SCHEMA_VERSION
+      },
+      {
+        module_id: "game1_postboard",
+        title: "Game 1 / Postboard",
+        decision_question: "Are my game 1 and postboard games showing different observed results?",
+        status: "empty",
+        tone: "empty",
+        default_view: "bar",
+        allowed_views: ["bar", "table"],
+        metric: { ...winRateMetric, value: null, value_kind: "null", display: "No known results" },
+        dimensions: [
+          {
+            dimension_id: "game1_postboard",
+            label: "Game 1/postboard",
+            source: "v_game1_vs_postboard",
+            value_source: "analytics_derived",
+            allowed_values: ["game1", "postboard", "unknown"]
+          }
+        ],
+        rows: [],
+        summary: { row_count: 0, known_result_count: 0, wins: 0, losses: 0, unknown_or_degraded_count: 0, display: "No known win/loss rows" },
+        warnings: [],
+        errors: [],
+        data_quality: {
+          status: "empty",
+          sample_size_status: "empty",
+          known_result_count: 0,
+          unknown_or_degraded_count: 0,
+          review_required_count: 0,
+          confidence: "unknown",
+          finality: "unknown",
+          notes: []
+        },
+        source_metadata: { ...sourceMetadata, source_tables_or_views: ["v_game1_vs_postboard"], source_type: "fixed_backend_aggregation" },
+        schema_version: ANALYTICS_DASHBOARD_MODULES_SCHEMA_VERSION
+      },
+      {
+        module_id: "mulligan_opening_hand_outcomes",
+        title: "Mulligan / Opening Hand Outcomes",
+        decision_question: "Are my keep and mulligan patterns associated with observed outcomes?",
+        status: "empty",
+        tone: "empty",
+        default_view: "table",
+        allowed_views: ["bar", "table"],
+        metric: { ...winRateMetric, value: null, value_kind: "null", display: "No known results" },
+        dimensions: [
+          { dimension_id: "opening_hand_size", label: "Opening hand size", source: "opening_hands", value_source: "parser_normalized" },
+          { dimension_id: "mulligan_bucket", label: "Mulligan bucket", source: "mulligan_events", value_source: "parser_normalized" }
+        ],
+        rows: [],
+        summary: { row_count: 0, known_result_count: 0, wins: 0, losses: 0, unknown_or_degraded_count: 0, display: "No known win/loss rows" },
+        warnings: [],
+        errors: [],
+        data_quality: {
+          status: "empty",
+          sample_size_status: "empty",
+          known_result_count: 0,
+          unknown_or_degraded_count: 0,
+          review_required_count: 0,
+          confidence: "unknown",
+          finality: "unknown",
+          notes: []
+        },
+        source_metadata: {
+          ...sourceMetadata,
+          source_tables_or_views: ["opening_hands", "mulligan_events", "game_results"],
+          source_type: "fixed_backend_aggregation"
+        },
+        schema_version: ANALYTICS_DASHBOARD_MODULES_SCHEMA_VERSION
+      }
+    ],
+    custom_explorer: {
+      status: "deferred",
+      builder_ui_enabled: false,
+      query_execution_enabled: false,
+      dimensions: [
+        {
+          dimension_id: "journal_matchup_label",
+          label: "Journal matchup label",
+          source: "future_match_journal_projection",
+          value_source: "journal_annotation",
+          annotation_boundary: "Journal annotation"
+        }
+      ],
+      metrics: ["games_played", "wins", "losses", "win_rate"],
+      warnings: ["custom_explorer_builder_deferred"],
+      errors: []
+    },
     warnings: [],
     errors: []
   };
