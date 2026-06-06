@@ -264,6 +264,43 @@ h3 {
   line-height: 1.15;
 }
 
+.insightQuestion {
+  margin: 10px 0 0;
+  color: #3f474f;
+  font-size: 0.92rem;
+  line-height: 1.35;
+}
+
+.moduleViewToggle {
+  align-items: center;
+  display: inline-flex;
+  gap: 4px;
+  margin-top: 12px;
+  padding: 3px;
+  border: 1px solid #cbd4d9;
+  border-radius: 8px;
+  background: #eef3f0;
+}
+
+.moduleViewToggle button {
+  min-height: 30px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #3f474f;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+  padding: 5px 10px;
+}
+
+.moduleViewToggle button.isSelected {
+  background: #ffffff;
+  color: #20242a;
+  box-shadow: 0 1px 4px rgba(32, 36, 42, 0.12);
+}
+
 .moduleBars {
   display: grid;
   gap: 10px;
@@ -298,6 +335,65 @@ h3 {
   height: 100%;
   border-radius: inherit;
   background: currentColor;
+}
+
+.moduleTableWrap {
+  margin-top: 14px;
+  overflow-x: auto;
+}
+
+.moduleTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.moduleTable th,
+.moduleTable td {
+  padding: 7px 8px;
+  border-bottom: 1px solid #dfe6e1;
+  text-align: left;
+  vertical-align: top;
+}
+
+.moduleTable th {
+  color: #3f474f;
+  font-weight: 800;
+}
+
+.moduleWarningList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.moduleWarningList li,
+.moduleRowWarning,
+.moduleBoundary,
+.moduleExplorerBoundary {
+  color: #596067;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.moduleWarningList li {
+  border-radius: 999px;
+  background: #fff7df;
+  color: #775214;
+  padding: 4px 8px;
+  font-weight: 800;
+}
+
+.moduleRowWarning,
+.moduleBoundary {
+  margin: 6px 0 0;
+}
+
+.moduleExplorerBoundary {
+  margin: 12px 0 0;
 }
 
 .moduleEmptyState {
@@ -744,13 +840,15 @@ dd {
 
 .tone-degraded,
 .tone-empty,
-.tone-missing {
+.tone-missing,
+.tone-limited {
   color: #8a5a00;
   border-top-color: #b7791f;
 }
 
 .tone-unavailable,
-.tone-error {
+.tone-error,
+.tone-blocked {
   color: #9a342b;
   border-top-color: #c5473f;
 }

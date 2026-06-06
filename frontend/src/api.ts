@@ -1,5 +1,7 @@
 import {
   ACTION_REVIEW_SCHEMA_VERSION,
+  ANALYTICS_DASHBOARD_MODULES_OBJECT,
+  ANALYTICS_DASHBOARD_MODULES_SCHEMA_VERSION,
   ANALYTICS_HISTORY_SCHEMA_VERSION,
   EARLY_GAME_HISTORY_SCHEMA_VERSION,
   ERROR_REPORT_PREVIEW_SCHEMA,
@@ -29,6 +31,7 @@ import {
   SPLIT_REVIEW_SCHEMA_VERSION,
   type AnalyticsHistoryErrorCode,
   type AnalyticsHistoryStatus,
+  type AnalyticsDashboardModulesResponse,
   type ErrorReportApiErrorCode,
   type ErrorReportPreviewRequest,
   type ErrorReportPreviewResponse,
@@ -76,6 +79,7 @@ const GAMEPLAY_ACTION_REVIEW_PATH = "/api/analytics/gameplay-actions";
 const OPPONENT_CARD_OBSERVATION_REVIEW_PATH = "/api/analytics/opponent-card-observations";
 const PLAY_DRAW_SPLIT_REVIEW_PATH = "/api/analytics/play-draw-splits";
 const GAME1_POSTBOARD_SPLIT_REVIEW_PATH = "/api/analytics/game1-postboard-splits";
+const ANALYTICS_DASHBOARD_MODULES_PATH = "/api/analytics/dashboard/modules";
 const MANUAL_IMPORT_PATH = "/api/imports/jsonl";
 const MANUAL_IMPORT_UPLOAD_PATH = "/api/imports/jsonl/upload";
 const MANUAL_IMPORT_JOB_PATH = "/api/imports/jobs";
@@ -123,6 +127,16 @@ const REQUIRED_ANALYTICS_HISTORY_FIELDS = [
   "pagination",
   "summary",
   "rows",
+  "warnings",
+  "errors"
+] as const;
+const REQUIRED_ANALYTICS_DASHBOARD_MODULES_FIELDS = [
+  "object",
+  "schema_version",
+  "status",
+  "database",
+  "modules",
+  "custom_explorer",
   "warnings",
   "errors"
 ] as const;
@@ -397,6 +411,33 @@ export async function fetchGame1PostboardSplitReview(
     validateGame1PostboardSplitRows,
     fetchImpl
   ) as Promise<Game1PostboardSplitReviewResponse>;
+}
+
+export async function fetchAnalyticsDashboardModules(
+  fetchImpl: typeof fetch = fetch
+): Promise<AnalyticsDashboardModulesResponse> {
+  const baseUrl = getAnalyticsHistoryApiBaseUrl();
+  let response: Response;
+  try {
+    response = await fetchImpl(`${baseUrl}${ANALYTICS_DASHBOARD_MODULES_PATH}`, {
+      headers: { Accept: "application/json" }
+    });
+  } catch {
+    throw new AnalyticsHistoryApiError("backend_unavailable", "Analytics dashboard modules are unavailable.");
+  }
+
+  if (!response.ok) {
+    throw new AnalyticsHistoryApiError("backend_unavailable", "Analytics dashboard modules are unavailable.");
+  }
+
+  let payload: unknown;
+  try {
+    payload = await response.json();
+  } catch {
+    throw new AnalyticsHistoryApiError("malformed_response", "Analytics dashboard modules returned malformed JSON.");
+  }
+
+  return validateAnalyticsDashboardModulesResponse(payload);
 }
 
 export async function submitManualJsonlImport(
@@ -1088,6 +1129,42 @@ function validateSplitReviewHistoryResponse(
   validateRows(payload.rows);
 
   return payload as PlayDrawSplitReviewResponse | Game1PostboardSplitReviewResponse;
+}
+
+function validateAnalyticsDashboardModulesResponse(payload: unknown): AnalyticsDashboardModulesResponse {
+  if (!isRecord(payload)) {
+    throw new AnalyticsHistoryApiError("malformed_response", "Analytics dashboard modules must be a JSON object.");
+  }
+
+  for (const field of REQUIRED_ANALYTICS_DASHBOARD_MODULES_FIELDS) {
+    if (!(field in payload)) {
+      throw new AnalyticsHistoryApiError("malformed_response", "Analytics dashboard modules are missing required fields.");
+    }
+  }
+
+  if (payload.schema_version !== ANALYTICS_DASHBOARD_MODULES_SCHEMA_VERSION) {
+    throw new AnalyticsHistoryApiError(
+      "incompatible_response",
+      `Expected analytics dashboard schema ${ANALYTICS_DASHBOARD_MODULES_SCHEMA_VERSION}.`
+    );
+  }
+
+  if (payload.object !== ANALYTICS_DASHBOARD_MODULES_OBJECT) {
+    throw new AnalyticsHistoryApiError("malformed_response", "Analytics dashboard modules object is unsupported.");
+  }
+
+  if (
+    !isAnalyticsHistoryStatus(payload.status) ||
+    !isHistoryDatabase(payload.database) ||
+    !isAnalyticsDashboardModules(payload.modules) ||
+    !isAnalyticsDashboardCustomExplorer(payload.custom_explorer) ||
+    !isStringArray(payload.warnings) ||
+    !isStringArray(payload.errors)
+  ) {
+    throw new AnalyticsHistoryApiError("malformed_response", "Analytics dashboard modules have an unsupported shape.");
+  }
+
+  return payload as AnalyticsDashboardModulesResponse;
 }
 
 function isAnalyticsHistoryStatus(value: unknown): value is AnalyticsHistoryStatus {
@@ -1861,6 +1938,172 @@ function isGame1PostboardSplitSummary(value: unknown): boolean {
     typeof value.degraded_row_count === "number" &&
     typeof value.unavailable_row_count === "number" &&
     typeof value.conflict_row_count === "number"
+  );
+}
+
+function isAnalyticsDashboardModules(value: unknown): boolean {
+  return Array.isArray(value) && value.every((module) => isAnalyticsDashboardModule(module));
+}
+
+function isAnalyticsDashboardModule(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.module_id === "string" &&
+    typeof value.title === "string" &&
+    typeof value.decision_question === "string" &&
+    isAnalyticsDashboardModuleStatus(value.status) &&
+    isAnalyticsDashboardModuleTone(value.tone) &&
+    isAnalyticsDashboardView(value.default_view) &&
+    Array.isArray(value.allowed_views) &&
+    value.allowed_views.every((entry) => isAnalyticsDashboardView(entry)) &&
+    value.allowed_views.includes(value.default_view) &&
+    isAnalyticsDashboardMetric(value.metric, { moduleMetric: true }) &&
+    isAnalyticsDashboardDimensions(value.dimensions) &&
+    isAnalyticsDashboardRows(value.rows) &&
+    isRecord(value.summary) &&
+    isStringArray(value.warnings) &&
+    isStringArray(value.errors) &&
+    isAnalyticsDashboardDataQuality(value.data_quality) &&
+    isAnalyticsDashboardSourceMetadata(value.source_metadata) &&
+    value.schema_version === ANALYTICS_DASHBOARD_MODULES_SCHEMA_VERSION
+  );
+}
+
+function isAnalyticsDashboardModuleStatus(value: unknown): boolean {
+  return (
+    value === "ok" ||
+    value === "empty" ||
+    value === "missing" ||
+    value === "unavailable" ||
+    value === "degraded" ||
+    value === "error" ||
+    value === "deferred"
+  );
+}
+
+function isAnalyticsDashboardModuleTone(value: unknown): boolean {
+  return (
+    value === "ok" ||
+    value === "empty" ||
+    value === "limited" ||
+    value === "degraded" ||
+    value === "blocked" ||
+    value === "deferred"
+  );
+}
+
+function isAnalyticsDashboardView(value: unknown): boolean {
+  return value === "bar" || value === "table";
+}
+
+function isAnalyticsDashboardMetric(value: unknown, options: { moduleMetric: boolean }): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.metric_id === "string" &&
+    typeof value.label === "string" &&
+    (typeof value.value === "number" || typeof value.value === "string" || value.value === null) &&
+    isAnalyticsDashboardMetricKind(value.value_kind) &&
+    typeof value.unit === "string" &&
+    typeof value.display === "string" &&
+    (!options.moduleMetric || typeof value.calculation_note === "string") &&
+    (!options.moduleMetric || typeof value.source === "string")
+  );
+}
+
+function isAnalyticsDashboardMetricKind(value: unknown): boolean {
+  return value === "count" || value === "ratio" || value === "percentage" || value === "text" || value === "null";
+}
+
+function isAnalyticsDashboardDimensions(value: unknown): boolean {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (entry) =>
+        isRecord(entry) &&
+        typeof entry.dimension_id === "string" &&
+        typeof entry.label === "string" &&
+        typeof entry.source === "string" &&
+        isAnalyticsDashboardValueSource(entry.value_source) &&
+        (!("allowed_values" in entry) || isStringArray(entry.allowed_values)) &&
+        (!("annotation_boundary" in entry) || entry.annotation_boundary === "Journal annotation")
+    )
+  );
+}
+
+function isAnalyticsDashboardValueSource(value: unknown): boolean {
+  return (
+    value === "parser_normalized" ||
+    value === "analytics_derived" ||
+    value === "journal_annotation" ||
+    value === "display_only"
+  );
+}
+
+function isAnalyticsDashboardRows(value: unknown): boolean {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (entry) =>
+        isRecord(entry) &&
+        typeof entry.row_id === "string" &&
+        typeof entry.label === "string" &&
+        isRecord(entry.dimension_values) &&
+        Array.isArray(entry.metrics) &&
+        entry.metrics.every((metric) => isAnalyticsDashboardMetric(metric, { moduleMetric: false })) &&
+        isAnalyticsDashboardModuleStatus(entry.status) &&
+        isAnalyticsDashboardModuleTone(entry.tone) &&
+        isAnalyticsDashboardSampleSize(entry.sample_size) &&
+        isStringArray(entry.warnings) &&
+        isAnalyticsDashboardSourceMetadata(entry.source_metadata)
+    )
+  );
+}
+
+function isAnalyticsDashboardSampleSize(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.status === "string" &&
+    typeof value.known_result_count === "number" &&
+    typeof value.total_count === "number"
+  );
+}
+
+function isAnalyticsDashboardDataQuality(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.status === "string" &&
+    typeof value.sample_size_status === "string" &&
+    typeof value.known_result_count === "number" &&
+    typeof value.unknown_or_degraded_count === "number" &&
+    typeof value.review_required_count === "number" &&
+    typeof value.confidence === "string" &&
+    typeof value.finality === "string" &&
+    isStringArray(value.notes)
+  );
+}
+
+function isAnalyticsDashboardSourceMetadata(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    isStringArray(value.source_tables_or_views) &&
+    isStringArray(value.source_contracts) &&
+    typeof value.source_type === "string" &&
+    typeof value.parser_truth_boundary === "string" &&
+    typeof value.analytics_truth_boundary === "string" &&
+    (!("generated_at" in value) || typeof value.generated_at === "string")
+  );
+}
+
+function isAnalyticsDashboardCustomExplorer(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.status === "string" &&
+    value.builder_ui_enabled === false &&
+    value.query_execution_enabled === false &&
+    isAnalyticsDashboardDimensions(value.dimensions) &&
+    isStringArray(value.metrics) &&
+    isStringArray(value.warnings) &&
+    isStringArray(value.errors)
   );
 }
 

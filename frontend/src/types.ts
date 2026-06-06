@@ -23,6 +23,8 @@ export const OPPONENT_CARD_OBSERVATION_REVIEW_OBJECT = "mythic_edge_local_app_op
 export const SPLIT_REVIEW_SCHEMA_VERSION = "analytics_app_play_draw_postboard_split_views.v1";
 export const PLAY_DRAW_SPLIT_REVIEW_OBJECT = "mythic_edge_local_app_play_draw_split_review";
 export const GAME1_POSTBOARD_SPLIT_REVIEW_OBJECT = "mythic_edge_local_app_game1_postboard_split_review";
+export const ANALYTICS_DASHBOARD_MODULES_SCHEMA_VERSION = "analytics_dynamic_decision_support_dashboard.v1";
+export const ANALYTICS_DASHBOARD_MODULES_OBJECT = "mythic_edge_local_app_analytics_dashboard_modules";
 export const MATCH_JOURNAL_OBJECT = "mythic_edge_local_app_match_journal";
 export const MATCH_JOURNAL_SCHEMA_VERSION = "match_journal_cockpit_ui.v1";
 export const ERROR_REPORT_PREVIEW_SCHEMA = "quality_app_submit_error_report_codex_triage.v1";
@@ -916,6 +918,120 @@ export type Game1PostboardSplitReviewResponse = {
   pagination: AnalyticsHistoryPagination;
   summary: Game1PostboardSplitSummary;
   rows: Game1PostboardSplitRow[];
+  warnings: string[];
+  errors: string[];
+};
+
+export type AnalyticsDashboardModuleStatus =
+  | "ok"
+  | "empty"
+  | "missing"
+  | "unavailable"
+  | "degraded"
+  | "error"
+  | "deferred";
+
+export type AnalyticsDashboardModuleTone = "ok" | "empty" | "limited" | "degraded" | "blocked" | "deferred";
+
+export type AnalyticsDashboardModuleView = "bar" | "table";
+
+export type AnalyticsDashboardMetric = {
+  metric_id: string;
+  label: string;
+  value: number | string | null;
+  value_kind: "count" | "ratio" | "percentage" | "text" | "null";
+  unit: string;
+  display: string;
+  calculation_note?: string;
+  source?: string;
+};
+
+export type AnalyticsDashboardDimension = {
+  dimension_id: string;
+  label: string;
+  source: string;
+  value_source: "parser_normalized" | "analytics_derived" | "journal_annotation" | "display_only";
+  allowed_values?: string[];
+  annotation_boundary?: "Journal annotation";
+};
+
+export type AnalyticsDashboardRow = {
+  row_id: string;
+  label: string;
+  dimension_values: Record<string, string | number | null>;
+  metrics: AnalyticsDashboardMetric[];
+  status: AnalyticsDashboardModuleStatus;
+  tone: AnalyticsDashboardModuleTone;
+  sample_size: {
+    status: "ok" | "small_sample" | "empty" | "unknown" | string;
+    known_result_count: number;
+    total_count: number;
+  };
+  warnings: string[];
+  source_metadata: AnalyticsDashboardSourceMetadata;
+};
+
+export type AnalyticsDashboardDataQuality = {
+  status: string;
+  sample_size_status: "ok" | "small_sample" | "empty" | "unknown" | string;
+  known_result_count: number;
+  unknown_or_degraded_count: number;
+  review_required_count: number;
+  confidence: string;
+  finality: string;
+  notes: string[];
+};
+
+export type AnalyticsDashboardSourceMetadata = {
+  source_tables_or_views: string[];
+  source_contracts: string[];
+  source_type:
+    | "fixed_sql_view"
+    | "fixed_backend_projection"
+    | "fixed_backend_aggregation"
+    | "deferred_contract_surface"
+    | string;
+  parser_truth_boundary: string;
+  analytics_truth_boundary: string;
+  generated_at?: string;
+};
+
+export type AnalyticsDashboardModule = {
+  module_id: "play_draw_win_rate" | "game1_postboard" | "mulligan_opening_hand_outcomes" | string;
+  title: string;
+  decision_question: string;
+  status: AnalyticsDashboardModuleStatus;
+  tone: AnalyticsDashboardModuleTone;
+  default_view: AnalyticsDashboardModuleView;
+  allowed_views: AnalyticsDashboardModuleView[];
+  metric: AnalyticsDashboardMetric;
+  dimensions: AnalyticsDashboardDimension[];
+  rows: AnalyticsDashboardRow[];
+  summary: Record<string, number | string | null>;
+  warnings: string[];
+  errors: string[];
+  data_quality: AnalyticsDashboardDataQuality;
+  source_metadata: AnalyticsDashboardSourceMetadata;
+  schema_version: typeof ANALYTICS_DASHBOARD_MODULES_SCHEMA_VERSION;
+};
+
+export type AnalyticsDashboardCustomExplorer = {
+  status: "deferred" | string;
+  builder_ui_enabled: false;
+  query_execution_enabled: false;
+  dimensions: AnalyticsDashboardDimension[];
+  metrics: string[];
+  warnings: string[];
+  errors: string[];
+};
+
+export type AnalyticsDashboardModulesResponse = {
+  object: typeof ANALYTICS_DASHBOARD_MODULES_OBJECT;
+  schema_version: typeof ANALYTICS_DASHBOARD_MODULES_SCHEMA_VERSION;
+  status: AnalyticsHistoryStatus;
+  database: AnalyticsHistoryDatabase;
+  modules: AnalyticsDashboardModule[];
+  custom_explorer: AnalyticsDashboardCustomExplorer;
   warnings: string[];
   errors: string[];
 };

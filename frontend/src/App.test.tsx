@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -11,6 +11,8 @@ import {
 import { SetupStatusApp } from "./App";
 import {
   ACTION_REVIEW_SCHEMA_VERSION,
+  ANALYTICS_DASHBOARD_MODULES_OBJECT,
+  ANALYTICS_DASHBOARD_MODULES_SCHEMA_VERSION,
   ANALYTICS_HISTORY_SCHEMA_VERSION,
   EARLY_GAME_HISTORY_SCHEMA_VERSION,
   GAME1_POSTBOARD_SPLIT_REVIEW_OBJECT,
@@ -39,6 +41,7 @@ import {
   SETUP_STATUS_SCHEMA_VERSION,
   SPLIT_REVIEW_SCHEMA_VERSION,
   type Game1PostboardSplitReviewResponse,
+  type AnalyticsDashboardModulesResponse,
   type ErrorReportPreviewRequest,
   type ErrorReportPreviewResponse,
   type GameHistoryResponse,
@@ -61,6 +64,7 @@ import {
 
 afterEach(() => {
   cleanup();
+  window.localStorage.clear();
   window.sessionStorage.clear();
 });
 
@@ -80,11 +84,10 @@ describe("SetupStatusApp", () => {
     expect(screen.getByRole("heading", { name: "Analytics database" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Data trust" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Decision Support" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Win rate by play/draw" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Matchup by archetype" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "High-performing lines" })).toBeInTheDocument();
-    expect(screen.getByText("Current local analytics do not expose opponent archetype rows.")).toBeInTheDocument();
-    expect(screen.getByText("Line performance is not implemented, so no ranking is shown.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Win Rate By Play/Draw" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Game 1 / Postboard" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Mulligan / Opening Hand Outcomes" })).toBeInTheDocument();
+    expect(screen.getByText("Custom explorer vocabulary is deferred; Journal labels are Journal annotation only.")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Review Context Only" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Trust and Freshness" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Review Details" })).toBeInTheDocument();
@@ -734,6 +737,80 @@ describe("SetupStatusApp", () => {
     await waitFor(() => {
       expect(fetchPlayDrawSplits).toHaveBeenCalledTimes(2);
       expect(fetchGame1PostboardSplits).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it("renders backend-provided dashboard modules and stores only view preferences", async () => {
+    const fetchDashboardModules = vi.fn(async () => buildAnalyticsDashboardModulesPayload());
+    render(
+      <SetupStatusApp
+        fetchDashboardModules={fetchDashboardModules}
+        fetchGame1PostboardSplits={() => Promise.resolve(buildGame1PostboardSplitReviewPayload())}
+        fetchGames={() => Promise.resolve(buildGameHistoryPayload())}
+        fetchGameplayActions={() => Promise.resolve(buildGameplayActionReviewPayload())}
+        fetchMatches={() => Promise.resolve(buildMatchHistoryPayload())}
+        fetchMulligans={() => Promise.resolve(buildMulliganHistoryPayload())}
+        fetchOpeningHands={() => Promise.resolve(buildOpeningHandHistoryPayload())}
+        fetchOpponentObservations={() => Promise.resolve(buildOpponentObservationReviewPayload())}
+        fetchPlayDrawSplits={() => Promise.resolve(buildPlayDrawSplitReviewPayload())}
+        fetchStatus={() => Promise.resolve(buildPayload())}
+      />
+    );
+
+    expect(await screen.findByRole("heading", { name: "Win Rate By Play/Draw" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Game 1 / Postboard" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Mulligan / Opening Hand Outcomes" })).toBeInTheDocument();
+    expect(screen.getByText("Am I performing differently on the play versus on the draw?")).toBeInTheDocument();
+    expect(screen.getByText("7-4 over 11 known games")).toBeInTheDocument();
+    expect(screen.getByText("Small sample. Descriptive local analytics only.")).toBeInTheDocument();
+    expect(screen.getByText("No keep or mulligan quality judgment is shown.")).toBeInTheDocument();
+    expect(screen.getByText("Custom explorer vocabulary is deferred; Journal labels are Journal annotation only.")).toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Table" })[0]);
+
+    expect(JSON.parse(window.localStorage.getItem("mythic_edge.analytics.dashboard.module_view_preferences.v1") ?? "{}")).toEqual({
+      play_draw_win_rate: "table"
+    });
+    expect(screen.getByRole("columnheader", { name: "Known results" })).toBeInTheDocument();
+    expect(screen.queryByText(/builder|arbitrary sql|best line|mistake|line tracer|hidden card|coaching/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: unsafeControlName })).not.toBeInTheDocument();
+    expect(fetchDashboardModules).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores malformed dashboard storage and redacts unsafe module text", async () => {
+    window.localStorage.setItem(
+      "mythic_edge.analytics.dashboard.module_view_preferences.v1",
+      JSON.stringify({
+        play_draw_win_rate: "sql",
+        "C:\\secret\\Player.log": "table"
+      })
+    );
+    const unsafePayload = buildAnalyticsDashboardModulesPayload();
+    unsafePayload.modules[0].rows[0].label = "C:\\secret\\Player.log";
+    render(
+      <SetupStatusApp
+        fetchDashboardModules={() => Promise.resolve(unsafePayload)}
+        fetchGame1PostboardSplits={() => Promise.resolve(buildGame1PostboardSplitReviewPayload())}
+        fetchGames={() => Promise.resolve(buildGameHistoryPayload())}
+        fetchGameplayActions={() => Promise.resolve(buildGameplayActionReviewPayload())}
+        fetchMatches={() => Promise.resolve(buildMatchHistoryPayload())}
+        fetchMulligans={() => Promise.resolve(buildMulliganHistoryPayload())}
+        fetchOpeningHands={() => Promise.resolve(buildOpeningHandHistoryPayload())}
+        fetchOpponentObservations={() => Promise.resolve(buildOpponentObservationReviewPayload())}
+        fetchPlayDrawSplits={() => Promise.resolve(buildPlayDrawSplitReviewPayload())}
+        fetchStatus={() => Promise.resolve(buildPayload())}
+      />
+    );
+
+    expect(await screen.findByRole("heading", { name: "Win Rate By Play/Draw" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Bar" })[0]).toHaveAttribute("aria-pressed", "true");
+    const decisionSupport = screen.getByRole("region", { name: "Decision Support" });
+    expect(within(decisionSupport).queryByText(/Player\.log|C:\\secret/i)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Table" })[0]);
+
+    expect(JSON.parse(window.localStorage.getItem("mythic_edge.analytics.dashboard.module_view_preferences.v1") ?? "{}")).toEqual({
+      play_draw_win_rate: "table"
     });
   });
 
@@ -2056,6 +2133,222 @@ function buildGame1PostboardSplitReviewPayload(): Game1PostboardSplitReviewRespo
     ],
     warnings: [],
     errors: []
+  };
+}
+
+function buildAnalyticsDashboardModulesPayload(): AnalyticsDashboardModulesResponse {
+  const sourceMetadata = {
+    source_tables_or_views: ["v_play_draw_splits", "v_sample_size_warnings"],
+    source_contracts: ["docs/contracts/analytics_dynamic_decision_support_dashboard.md"],
+    source_type: "fixed_sql_view",
+    parser_truth_boundary: "Parser/state owns match and game facts.",
+    analytics_truth_boundary: "Dashboard modules are fixed read-only projections."
+  };
+  return {
+    object: ANALYTICS_DASHBOARD_MODULES_OBJECT,
+    schema_version: ANALYTICS_DASHBOARD_MODULES_SCHEMA_VERSION,
+    status: "ok",
+    database: {
+      display_path: "<app_data>\\db\\mythic_edge.sqlite3",
+      exists: true,
+      schema_status: "schema_current",
+      status: "ok"
+    },
+    modules: [
+      {
+        module_id: "play_draw_win_rate",
+        title: "Win Rate By Play/Draw",
+        decision_question: "Am I performing differently on the play versus on the draw?",
+        status: "ok",
+        tone: "limited",
+        default_view: "bar",
+        allowed_views: ["bar", "table"],
+        metric: {
+          metric_id: "win_rate",
+          label: "Win rate",
+          value: 63.6,
+          value_kind: "percentage",
+          unit: "percent",
+          display: "63.6 percent",
+          calculation_note: "Calculated over known win/loss game rows only.",
+          source: "analytics_derived"
+        },
+        dimensions: [
+          {
+            dimension_id: "play_draw",
+            label: "Play/draw",
+            source: "v_play_draw_splits",
+            value_source: "analytics_derived",
+            allowed_values: ["play", "draw", "unknown"]
+          }
+        ],
+        rows: [
+          {
+            row_id: "play_draw:play",
+            label: "Play",
+            dimension_values: { play_draw: "play" },
+            metrics: [
+              { metric_id: "game_count", label: "Games", value: 10, value_kind: "count", unit: "games", display: "10 games" },
+              {
+                metric_id: "known_result_count",
+                label: "Known results",
+                value: 10,
+                value_kind: "count",
+                unit: "games",
+                display: "10 known games"
+              },
+              { metric_id: "wins", label: "Wins", value: 6, value_kind: "count", unit: "games", display: "6 wins" },
+              { metric_id: "losses", label: "Losses", value: 4, value_kind: "count", unit: "games", display: "4 losses" },
+              { metric_id: "win_rate", label: "Win rate", value: 60, value_kind: "percentage", unit: "percent", display: "60 percent" },
+              {
+                metric_id: "unknown_or_degraded_count",
+                label: "Unknown or degraded",
+                value: 0,
+                value_kind: "count",
+                unit: "games",
+                display: "0 games"
+              }
+            ],
+            status: "ok",
+            tone: "ok",
+            sample_size: { status: "ok", known_result_count: 10, total_count: 10 },
+            warnings: [],
+            source_metadata: sourceMetadata
+          },
+          {
+            row_id: "play_draw:draw",
+            label: "Draw",
+            dimension_values: { play_draw: "draw" },
+            metrics: [
+              { metric_id: "game_count", label: "Games", value: 2, value_kind: "count", unit: "games", display: "2 games" },
+              {
+                metric_id: "known_result_count",
+                label: "Known results",
+                value: 1,
+                value_kind: "count",
+                unit: "games",
+                display: "1 known games"
+              },
+              { metric_id: "wins", label: "Wins", value: 1, value_kind: "count", unit: "games", display: "1 wins" },
+              { metric_id: "losses", label: "Losses", value: 0, value_kind: "count", unit: "games", display: "0 losses" },
+              { metric_id: "win_rate", label: "Win rate", value: 100, value_kind: "percentage", unit: "percent", display: "100 percent" },
+              {
+                metric_id: "unknown_or_degraded_count",
+                label: "Unknown or degraded",
+                value: 1,
+                value_kind: "count",
+                unit: "games",
+                display: "1 games"
+              }
+            ],
+            status: "degraded",
+            tone: "limited",
+            sample_size: { status: "small_sample", known_result_count: 1, total_count: 2 },
+            warnings: ["small_sample"],
+            source_metadata: sourceMetadata
+          }
+        ],
+        summary: {
+          row_count: 2,
+          known_result_count: 11,
+          wins: 7,
+          losses: 4,
+          unknown_or_degraded_count: 1,
+          win_rate_percent: 63.6,
+          display: "7-4 over 11 known games"
+        },
+        warnings: ["small_sample"],
+        errors: [],
+        data_quality: {
+          status: "ok",
+          sample_size_status: "small_sample",
+          known_result_count: 11,
+          unknown_or_degraded_count: 1,
+          review_required_count: 0,
+          confidence: "medium",
+          finality: "analytics_projection",
+          notes: ["Limited sample; descriptive review only."]
+        },
+        source_metadata: sourceMetadata,
+        schema_version: ANALYTICS_DASHBOARD_MODULES_SCHEMA_VERSION
+      },
+      emptyDashboardModule("game1_postboard", "Game 1 / Postboard", "Are my game 1 and postboard games showing different observed results?", "bar"),
+      emptyDashboardModule(
+        "mulligan_opening_hand_outcomes",
+        "Mulligan / Opening Hand Outcomes",
+        "Are my keep and mulligan patterns associated with observed outcomes?",
+        "table"
+      )
+    ],
+    custom_explorer: {
+      status: "deferred",
+      builder_ui_enabled: false,
+      query_execution_enabled: false,
+      dimensions: [
+        {
+          dimension_id: "journal_matchup_label",
+          label: "Journal matchup label",
+          source: "future_match_journal_projection",
+          value_source: "journal_annotation",
+          annotation_boundary: "Journal annotation"
+        }
+      ],
+      metrics: ["games_played", "wins", "losses", "win_rate"],
+      warnings: ["custom_explorer_builder_deferred"],
+      errors: []
+    },
+    warnings: [],
+    errors: []
+  };
+}
+
+function emptyDashboardModule(
+  moduleId: string,
+  title: string,
+  decisionQuestion: string,
+  defaultView: "bar" | "table"
+): AnalyticsDashboardModulesResponse["modules"][number] {
+  return {
+    module_id: moduleId,
+    title,
+    decision_question: decisionQuestion,
+    status: "empty",
+    tone: "empty",
+    default_view: defaultView,
+    allowed_views: ["bar", "table"],
+    metric: {
+      metric_id: "win_rate",
+      label: "Win rate",
+      value: null,
+      value_kind: "null",
+      unit: "percent",
+      display: "No known results",
+      calculation_note: "Calculated over known win/loss game rows only.",
+      source: "analytics_derived"
+    },
+    dimensions: [],
+    rows: [],
+    summary: { row_count: 0, known_result_count: 0, wins: 0, losses: 0, unknown_or_degraded_count: 0, display: "No known win/loss rows" },
+    warnings: [],
+    errors: [],
+    data_quality: {
+      status: "empty",
+      sample_size_status: "empty",
+      known_result_count: 0,
+      unknown_or_degraded_count: 0,
+      review_required_count: 0,
+      confidence: "unknown",
+      finality: "unknown",
+      notes: []
+    },
+    source_metadata: {
+      source_tables_or_views: [],
+      source_contracts: ["docs/contracts/analytics_dynamic_decision_support_dashboard.md"],
+      source_type: "fixed_backend_aggregation",
+      parser_truth_boundary: "Parser/state owns match and game facts.",
+      analytics_truth_boundary: "Dashboard modules are fixed read-only projections."
+    },
+    schema_version: ANALYTICS_DASHBOARD_MODULES_SCHEMA_VERSION
   };
 }
 
