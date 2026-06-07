@@ -1,0 +1,273 @@
+{
+  "object": "mythic_edge_parser_corpus_manifest",
+  "schema_version": "parser_corpus_manifest.v1",
+  "corpus_id": "mythic_edge_parser_reliability_corpus_v1",
+  "source_privacy": {
+    "raw_private_log_committed": false,
+    "external_logs_committed": false,
+    "local_private_artifacts_committed": false
+  },
+  "entries": [
+    {
+      "entry_id": "bo1_match_win_basic",
+      "entry_type": "golden_replay_manifest",
+      "source_kind": "sanitized_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "sanitized_committable",
+      "sanitization_status": "sanitized",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/48",
+      "authorized_by_contract": "docs/contracts/parser_golden_replay_harness.md",
+      "paths": {
+        "golden_replay_manifest": "tests/fixtures/golden_replay/bo1_match_win_basic.manifest.json"
+      },
+      "scenario_families": [
+        "core_gameplay.standard_bo1",
+        "deck_api.event_set_deck"
+      ],
+      "parser_event_families": [
+        "Rank",
+        "MatchState",
+        "ClientAction",
+        "GameState",
+        "GameResult"
+      ],
+      "parser_claim_families": [
+        "rank_context",
+        "match_lifecycle",
+        "client_action",
+        "game_state",
+        "game_result",
+        "final_reconciliation"
+      ],
+      "coverage_status": "covered_committed",
+      "coverage_basis": [
+        "parser_behavior_verified",
+        "fixture_metadata_only"
+      ],
+      "known_gaps": [],
+      "review_notes": []
+    },
+    {
+      "entry_id": "bo3_sideboard_match_loss",
+      "entry_type": "golden_replay_manifest",
+      "source_kind": "sanitized_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "sanitized_committable",
+      "sanitization_status": "sanitized",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/48",
+      "authorized_by_contract": "docs/contracts/parser_golden_replay_harness.md",
+      "paths": {
+        "golden_replay_manifest": "tests/fixtures/golden_replay/bo3_sideboard_match_loss.manifest.json"
+      },
+      "scenario_families": [
+        "core_gameplay.standard_bo3",
+        "core_gameplay.traditional_bo3",
+        "gameplay_stress.mulligan"
+      ],
+      "parser_event_families": [
+        "Rank",
+        "MatchState",
+        "ClientAction",
+        "GameState",
+        "GameResult"
+      ],
+      "parser_claim_families": [
+        "rank_context",
+        "match_lifecycle",
+        "client_action",
+        "game_state",
+        "game_result",
+        "final_reconciliation"
+      ],
+      "coverage_status": "covered_committed",
+      "coverage_basis": [
+        "parser_behavior_verified",
+        "fixture_metadata_only"
+      ],
+      "known_gaps": [],
+      "review_notes": []
+    },
+    {
+      "entry_id": "draft_parser_family",
+      "entry_type": "golden_replay_manifest",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/126",
+      "authorized_by_contract": "docs/contracts/parser_golden_replay_harness.md",
+      "paths": {
+        "golden_replay_manifest": "tests/fixtures/golden_replay/draft_parser_family.manifest.json"
+      },
+      "scenario_families": [
+        "core_gameplay.draft_only"
+      ],
+      "parser_event_families": [
+        "DraftBot",
+        "DraftHuman",
+        "DraftComplete",
+        "GameState"
+      ],
+      "parser_claim_families": [
+        "draft_bot",
+        "draft_human",
+        "draft_complete",
+        "game_state"
+      ],
+      "coverage_status": "covered_synthetic",
+      "coverage_basis": [
+        "parser_behavior_verified",
+        "fixture_metadata_only"
+      ],
+      "known_gaps": [
+        "draft_with_games"
+      ],
+      "review_notes": [
+        "Synthetic draft parser-family slice covers draft events but not full limited match play."
+      ]
+    },
+    {
+      "entry_id": "feature_equity_corpus_baseline_v1",
+      "entry_type": "feature_equity_report",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/119",
+      "authorized_by_contract": "docs/contracts/parser_feature_equity_corpus_ratchet.md",
+      "paths": {
+        "feature_equity_baseline": "tests/fixtures/feature_equity_corpus/feature_equity_corpus_baseline.v1.json"
+      },
+      "scenario_families": [
+        "manifest.metadata",
+        "mythic_edge.confidence_finality_degradation",
+        "mythic_edge.workbook_row_coverage",
+        "drift_debug.gsm_truncation"
+      ],
+      "parser_event_families": [],
+      "parser_claim_families": [
+        "count_ratchet",
+        "coverage_metadata"
+      ],
+      "coverage_status": "partial",
+      "coverage_basis": [
+        "count_ratchet_only"
+      ],
+      "known_gaps": [
+        "Count ratchet does not prove semantic parser correctness."
+      ],
+      "review_notes": [
+        "Committed count-only baseline summarizes existing golden replay manifests."
+      ]
+    },
+    {
+      "entry_id": "parser_corpus_session_ledger_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/291",
+      "authorized_by_contract": "docs/contracts/parser_corpus_parity_expansion.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json"
+      },
+      "scenario_families": [
+        "session.ledger_metadata"
+      ],
+      "parser_event_families": [],
+      "parser_claim_families": [
+        "corpus_session_metadata"
+      ],
+      "coverage_status": "covered_committed",
+      "coverage_basis": [
+        "fixture_metadata_only"
+      ],
+      "known_gaps": [],
+      "review_notes": []
+    },
+    {
+      "entry_id": "external_reference_category_boundary",
+      "entry_type": "external_reference_category",
+      "source_kind": "external_reference_only",
+      "commit_status": "external_reference_only",
+      "privacy_class": "external_reference_metadata_only",
+      "sanitization_status": "not_applicable_external_reference",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/291",
+      "authorized_by_contract": "docs/contracts/parser_corpus_parity_expansion.md",
+      "paths": {},
+      "scenario_families": [
+        "connection.reconnect",
+        "log_runtime.rotation",
+        "timer.inactivity_timeout",
+        "gameplay_stress.conjure",
+        "gameplay_stress.spellbook",
+        "drift_debug.recycle_or_rollback"
+      ],
+      "parser_event_families": [],
+      "parser_claim_families": [
+        "external_category_reference"
+      ],
+      "coverage_status": "blocked_external_boundary",
+      "coverage_basis": [
+        "external_reference_only"
+      ],
+      "known_gaps": [
+        "External category reference does not import external logs or parser source."
+      ],
+      "review_notes": [
+        "Reference categories require future Mythic Edge fixtures or report-only evidence before support claims."
+      ]
+    }
+  ],
+  "taxonomy": {
+    "scenario_family_version": "parser_corpus_scenario_family.v1",
+    "families": [
+      {"family_id": "manifest.metadata", "title": "Corpus manifest metadata"},
+      {"family_id": "session.ledger_metadata", "title": "Session ledger metadata"},
+      {"family_id": "core_gameplay.standard_bo1", "title": "Standard best-of-one match"},
+      {"family_id": "core_gameplay.standard_bo3", "title": "Standard best-of-three match"},
+      {"family_id": "core_gameplay.traditional_bo3", "title": "Traditional best-of-three match"},
+      {"family_id": "core_gameplay.draft_with_games", "title": "Draft session with games"},
+      {"family_id": "core_gameplay.draft_only", "title": "Draft event flow without games"},
+      {"family_id": "core_gameplay.sealed_entry", "title": "Sealed event entry"},
+      {"family_id": "core_gameplay.sealed_deckbuild", "title": "Sealed deckbuilding"},
+      {"family_id": "core_gameplay.sealed_matches", "title": "Sealed matches"},
+      {"family_id": "log_runtime.detailed_logs_disabled", "title": "Detailed logs disabled"},
+      {"family_id": "log_runtime.rotation", "title": "Log rotation"},
+      {"family_id": "log_runtime.malformed_or_headerless", "title": "Malformed or headerless log"},
+      {"family_id": "log_runtime.timestamp_anomaly", "title": "Timestamp anomaly"},
+      {"family_id": "log_runtime.unknown_entry", "title": "Unknown log entry"},
+      {"family_id": "connection.reconnect", "title": "Reconnect"},
+      {"family_id": "connection.disconnect", "title": "Disconnect"},
+      {"family_id": "connection.firewall_or_network_drop", "title": "Firewall or network drop"},
+      {"family_id": "connection.connection_error_payload", "title": "Connection error payload"},
+      {"family_id": "timer.active_player_timer", "title": "Active player timer"},
+      {"family_id": "timer.inactivity_timeout", "title": "Inactivity timeout"},
+      {"family_id": "timer.pre_match_idle", "title": "Pre-match idle"},
+      {"family_id": "deck_api.start_hook_deck_snapshot", "title": "Start hook deck snapshot"},
+      {"family_id": "deck_api.deck_summary", "title": "Deck summary"},
+      {"family_id": "deck_api.deck_upsert", "title": "Deck upsert"},
+      {"family_id": "deck_api.event_set_deck", "title": "Event set deck"},
+      {"family_id": "deck_api.store_pack_inbox_or_crafting", "title": "Store, pack, inbox, or crafting surface"},
+      {"family_id": "gameplay_stress.mulligan", "title": "Mulligan"},
+      {"family_id": "gameplay_stress.opponent_auto_concede", "title": "Opponent auto-concede"},
+      {"family_id": "gameplay_stress.conjure", "title": "Conjure"},
+      {"family_id": "gameplay_stress.spellbook", "title": "Spellbook"},
+      {"family_id": "gameplay_stress.companion_or_large_deck", "title": "Companion or large deck"},
+      {"family_id": "gameplay_stress.action_attribution", "title": "Action attribution"},
+      {"family_id": "gameplay_stress.event_ordering", "title": "Event ordering"},
+      {"family_id": "drift_debug.gsm_truncation", "title": "GameStateMessage truncation"},
+      {"family_id": "drift_debug.recycle_or_rollback", "title": "Recycle or rollback"},
+      {"family_id": "drift_debug.missing_message_type", "title": "Missing message type"},
+      {"family_id": "drift_debug.rename_or_rotation_collision", "title": "Rename or rotation collision"},
+      {"family_id": "drift_debug.phantom_or_deck_origin", "title": "Phantom or deck origin"},
+      {"family_id": "mythic_edge.evidence_ledger_provenance", "title": "Evidence ledger provenance"},
+      {"family_id": "mythic_edge.confidence_finality_degradation", "title": "Confidence, finality, and degradation"},
+      {"family_id": "mythic_edge.workbook_row_coverage", "title": "Workbook row coverage"},
+      {"family_id": "mythic_edge.live_diagnostics", "title": "Live diagnostics"},
+      {"family_id": "mythic_edge.private_log_report_only_drift", "title": "Private log report-only drift"},
+      {"family_id": "mythic_edge.analytics_readiness_labels", "title": "Analytics readiness labels"}
+    ]
+  }
+}
