@@ -2,18 +2,333 @@
 
 ```text
 schema_version: private_release_e2e_browser_integration_readiness.v1
-issue: https://github.com/Tahjali11/Mythic-Edge/issues/285
+issue: https://github.com/Tahjali11/Mythic-Edge/issues/287
+previous_readiness_issue: https://github.com/Tahjali11/Mythic-Edge/issues/285
+previous_pr: https://github.com/Tahjali11/Mythic-Edge/pull/286
 tracker: https://github.com/Tahjali11/Mythic-Edge/issues/204
 umbrella_issue: https://github.com/Tahjali11/Mythic-Edge/issues/207
 related_match_journal_tracker: https://github.com/Tahjali11/Mythic-Edge/issues/202
 branch_under_test: origin/codex/analytics-foundation
-commit_under_test: 400b19a90169bf52f6ca5bc5af9566419f5fe3a6
+commit_under_test: f0b9cc94808dc09961be0e396e84b7a4ffdbaa6c
 platform: Darwin 24.6.0 arm64
 smoke_mode: disposable_app_data_browser_smoke
 app_data_root_mode: disposable_outside_repo_removed_after_smoke
 backend_url: http://127.0.0.1:8765
 frontend_url: http://127.0.0.1:5178
-verdict: not_ready_privacy_blocked
+verdict: ready_with_acceptable_degradation
+```
+
+## Post-Fix Rerun Addendum
+
+Status: post-fix disposable-root browser smoke passed with acceptable
+degradation.
+
+Codex C reran the contracted smoke for issue #287 after PR #286 merged the
+error-report redaction fix into `codex/analytics-foundation`.
+
+- PR #286 state: merged.
+- Merge commit under test:
+  `f0b9cc94808dc09961be0e396e84b7a4ffdbaa6c`.
+- `origin/codex/analytics-foundation` resolved to that merge commit.
+- Issue #287 was open at rerun time.
+- Previous issue #285 was closed at rerun time.
+- The primary `Mythic-Edge-analytics-foundation` worktree remained dirty/stale
+  with unrelated #203 files, so the rerun used a clean detached sibling
+  worktree at the remote branch head.
+
+Current verdict: `ready_with_acceptable_degradation`.
+
+The previous `not_ready_privacy_blocked` history remains below. It is
+superseded by the post-fix rerun for the current branch head, but preserved as
+the historical evidence that led to PR #286.
+
+### Post-Fix Validation Matrix
+
+| Command | Result | Evidence |
+| --- | --- | --- |
+| `python3 -m pytest -q tests/test_analytics_local_app_backend.py tests/test_analytics_local_app_config.py` | Passed | `41 passed`. |
+| `python3 -m pytest -q tests/test_private_local_v1_setup.py` | Passed | `10 passed`. |
+| `python3 -m pytest -q tests/test_match_journal_cockpit_ui_backend.py tests/test_match_journal_status_api.py` | Passed | `35 passed`. |
+| `python3 -m pytest -q tests/test_analytics_browser_jsonl_upload.py tests/test_analytics_manual_jsonl_import.py` | Passed | `25 passed`. |
+| `python3 -m pytest -q tests/test_analytics_dynamic_decision_support_dashboard.py` | Passed | `8 passed`. |
+| `npm --prefix frontend ci` | Passed | 114 packages installed; 0 vulnerabilities reported. |
+| `npm --prefix frontend run typecheck` | Passed | TypeScript completed without reported errors. |
+| `npm --prefix frontend run test -- --run` | Passed | 3 test files passed; 75 tests passed. |
+| `npm --prefix frontend run build` | Passed | Vite build completed; `frontend/dist` was removed afterward. |
+| `python3 -m ruff check src tests tools` | Passed | Ruff reported no issues. |
+| `git diff --check` | Passed | No whitespace errors after report edit. |
+| `python3 tools/check_agent_docs.py` | Passed | 30 files checked; 0 errors; 0 warnings. |
+| `printf '%s\n' docs/contract_test_reports/private_release_e2e_browser_integration_readiness.md \| python3 tools/check_secret_patterns.py --base origin/codex/analytics-foundation --paths-from-stdin` | Passed | 1 path scanned; forbidden 0; warnings 0. |
+| `printf '%s\n' docs/contract_test_reports/private_release_e2e_browser_integration_readiness.md \| python3 tools/check_protected_surfaces.py --base origin/codex/analytics-foundation --paths-from-stdin` | Passed | 1 changed path; forbidden 0; warnings 0. |
+| Generated/private artifact sweep | Passed | No repo-local SQLite database, SQLite sidecar, or `frontend/dist` artifact found. |
+
+Environment notes:
+
+- Platform: Darwin 24.6.0 arm64.
+- Python: 3.14.3.
+- FastAPI: 0.136.3.
+- Uvicorn: 0.49.0.
+- `python-multipart`: 0.0.30.
+- Node: v24.14.0.
+- npm: 11.9.0.
+
+### Post-Fix Backend Route Matrix
+
+All routes were exercised against the disposable loopback backend.
+
+| Route | HTTP | Status | Schema/Object |
+| --- | ---: | --- | --- |
+| `GET /api/health` | 200 | `ok` | `mythic_edge_local_app_health` |
+| `GET /api/app/setup-status` | 200 | `degraded` | `mythic_edge_local_app_setup_status` |
+| `GET /api/app/config` | 200 | `missing` | `mythic_edge_local_app_config_status` |
+| `GET /api/app/paths` | 200 | `degraded` | `mythic_edge_local_app_paths_status` |
+| `GET /api/analytics/database/status` | 200 | `missing` | `mythic_edge_local_app_analytics_database_status` |
+| `GET /api/analytics/dashboard/modules` | 200 | `missing` | `mythic_edge_local_app_analytics_dashboard_modules` |
+| `GET /api/live/player-log/status` | 200 | `missing` | `mythic_edge_local_app_live_player_log_status` |
+| `GET /api/live/watcher/status` | 200 | `blocked_missing_log` | `mythic_edge_local_app_live_watcher_status` |
+| `GET /api/live/watcher/process` | 200 | `blocked_missing_log` | `mythic_edge_local_app_live_watcher_process_status` |
+| `GET /api/live/watcher/diagnostics` | 200 | `blocked` | `mythic_edge_local_app_live_watcher_diagnostics` |
+| `GET /api/live/ingest/status` | 200 | `disabled` | `mythic_edge_local_app_live_parser_sqlite_capture_status` |
+| `GET /api/runtime/status` | 200 | `ok` | `mythic_edge_local_app_runtime_status` |
+
+### Post-Fix Browser Smoke Matrix
+
+The in-app Browser and Chrome extension surfaces were unavailable in this
+session, so the rerun used a temporary `puppeteer-core` harness under `/tmp`
+against the existing local Google Chrome binary. The temporary harness and
+Chrome profile were deleted after the smoke. No repo files were added by the
+browser fallback.
+
+| Browser observation | Result |
+| --- | --- |
+| Main page HTTP status | 200 |
+| Page title | `Mythic Edge Local Status` |
+| `Mythic Edge Cockpit` heading | Present |
+| Dashboard section | Present |
+| Decision Support section | Present |
+| Analytics / Review area | Present |
+| Import section | Present |
+| Match Journal section | Present |
+| Setup/status content | Present |
+| Live Player.log content | Present |
+| Diagnostics content | Present |
+| Runtime/app connection status content | Present |
+| Error report surface | Present |
+| Contracted dashboard module titles | Present |
+| Loopback API calls | Observed successful calls to `http://127.0.0.1:8765/...` routes. |
+| OpenAI/model-provider controls | Not observed. |
+| Deploy/Google Sheets controls | Not observed. |
+| Console/runtime errors | One non-blocking `favicon.ico` 404; no page errors and no failed app API requests. |
+
+No screenshots were committed.
+
+### Post-Fix Import/Data Recognition Evidence
+
+The safer minimum import path was used.
+
+- Manual import controls rendered in browser smoke.
+- `POST /api/imports/jsonl` with an empty request returned sanitized rejected
+  status with `source_path_required`.
+- No analytics SQLite database was created by this import recognition smoke.
+- No private JSON/JSONL file was read or copied.
+
+### Post-Fix Analytics Dashboard Evidence
+
+`GET /api/analytics/dashboard/modules` returned the contracted module family:
+
+- `play_draw_win_rate`
+- `game1_postboard`
+- `mulligan_opening_hand_outcomes`
+
+With no analytics database in the disposable root, the modules honestly
+reported missing/setup-needed state. This is acceptable degradation for
+disposable empty-data smoke.
+
+### Post-Fix Match Journal Evidence
+
+The disposable-root Match Journal smoke used the contracted unattached note
+path.
+
+- `POST /api/journal/notes` returned HTTP 200.
+- Request used `note_scope = "unattached"`.
+- The synthetic note text began with
+  `MYTHIC_EDGE_SMOKE_TEST_DO_NOT_USE_AS_GAME_REVIEW`.
+- Readback used `GET /api/journal/notes` by exact journal-owned note ID.
+- Readback returned safe metadata only and did not return `note_text`.
+- Disposable app-data artifacts were limited to `db/match_journal.sqlite3`.
+- Analytics SQLite was not created by the Match Journal smoke.
+
+### Post-Fix Live Player.log Evidence
+
+Disposable-root Live Player.log status routes were exercised without reading a
+real Player.log:
+
+- `GET /api/live/player-log/status`: `missing`
+- `GET /api/live/watcher/status`: `blocked_missing_log`
+- `GET /api/live/watcher/process`: `blocked_missing_log`
+- `GET /api/live/watcher/diagnostics`: `blocked`
+- `GET /api/live/ingest/status`: `disabled`
+
+The frontend rendered Live Player.log and diagnostics labels safely. This
+report does not claim final Live Player.log supported readiness; the #275
+private smoke requirement remains approval-gated and unrun.
+
+### Post-Fix Error Report Preview Evidence
+
+Synthetic safe preview request:
+
+- `POST /api/feedback/error-report/preview` returned HTTP 200.
+- Response status: `preview_ready`.
+- `external_submission_enabled`: `false`.
+- Diagnostic category count: 9.
+
+Synthetic redaction probe:
+
+- `POST /api/feedback/error-report/preview` returned HTTP 200.
+- Response status: `preview_ready`.
+- Raw synthetic private local path was absent from generated Markdown.
+- `<redacted_local_path>` was present.
+- Redaction summary reported one private path marker redacted from
+  `actual_behavior`.
+
+The previous privacy blocker was not reproduced at the current branch head.
+
+### Post-Fix Optional Actual-Private-Root Evidence
+
+Not run.
+
+- `approval_scope: actual_app_data_readiness_status_only`: not approved.
+- `approval_scope: actual_player_log_metadata_status_only`: not approved.
+- `approval_scope: actual_match_journal_unattached_smoke_write`: not approved.
+
+This remains acceptable degradation for the current disposable-root private
+release smoke; it prevents stronger real-operator and Live Player.log supported
+claims.
+
+### Post-Fix Generated And Private Artifact Sweep
+
+Cleanup evidence:
+
+- Backend process stopped.
+- Frontend dev process stopped.
+- Backend port `8765` clear after cleanup.
+- Frontend port `5178` clear after cleanup.
+- Disposable app-data root removed.
+- Temporary browser harness and temporary Chrome profile removed from `/tmp`.
+- `frontend/dist` removed after build.
+- Repo-local SQLite artifact sweep found no SQLite database or sidecar files.
+- No generated/private/runtime repo artifact was produced by the rerun.
+
+### Post-Fix Acceptable Degradation
+
+The following degraded states were expected and acceptable:
+
+- analytics database missing in disposable empty-data mode;
+- local app config missing;
+- Live Player.log path missing;
+- watcher/process routes blocked because no configured Player.log was supplied;
+- live SQLite capture disabled;
+- dashboard modules rendering setup-needed / missing state;
+- actual private app-data and Player.log checks unrun because approval was not
+  granted;
+- macOS smoke platform rather than Windows private-local-v1 operator platform;
+- in-app Browser unavailable, with real browser fallback supplied by headless
+  local Chrome.
+
+### Post-Fix Residual Risks
+
+- Actual private app-data readiness was not checked.
+- Actual private Player.log metadata/status smoke was not checked.
+- Windows private-local-v1 launch proof was not rerun in this pass.
+- Browser smoke used headless local Chrome instead of the in-app Browser
+  because the in-app Browser and Chrome extension surfaces were unavailable.
+- A non-blocking favicon 404 remains visible in browser console output.
+
+### Post-Fix Next Recommended Role
+
+Codex E: Module Reviewer.
+
+Review should verify the post-fix `ready_with_acceptable_degradation` verdict,
+with special attention to the redaction probe, the fallback browser evidence,
+the unrun actual-private scopes, and the preserved historical #285 blocker
+record.
+
+Pasteable Codex E prompt:
+
+```yaml
+prompt: |
+  Use the Mythic Edge agent constitution.
+  Use $mythic-edge-workflow.
+
+  Act as Codex E: Module Reviewer for issue #287, post-fix private-release end-to-end browser smoke rerun.
+
+  Review:
+  - docs/contracts/private_release_e2e_browser_integration_readiness.md
+  - docs/contract_test_reports/private_release_e2e_browser_integration_readiness.md
+
+  Context:
+  - Previous issue: https://github.com/Tahjali11/Mythic-Edge/issues/285
+  - Previous PR: https://github.com/Tahjali11/Mythic-Edge/pull/286
+  - Commit under test: f0b9cc94808dc09961be0e396e84b7a4ffdbaa6c
+  - Target branch: codex/analytics-foundation
+
+  Focus:
+  - Verify the current `ready_with_acceptable_degradation` verdict.
+  - Confirm the #286 redaction fix is reflected by focused tests and route-level probe evidence.
+  - Confirm disposable-root backend/frontend/Match Journal/import/dashboard/Live Player.log smoke evidence is accurately summarized.
+  - Confirm fallback headless Chrome browser evidence is acceptable given Browser/iab unavailability.
+  - Confirm actual private app-data and actual Player.log scopes remain unrun and approval-gated.
+  - Confirm no raw private paths, logs, payloads, SQLite contents, secrets, or generated/private artifacts are included.
+
+  Do not:
+  - Target main directly.
+  - Close tracker #204, umbrella #207, tracker #202, or issue #287.
+  - Read actual private app-data or Player.log without explicit approval.
+  - Change parser/runtime/workbook/webhook/App Script/Sheets/OpenAI/AI/coaching/production behavior.
+  - Stage or commit unless explicitly asked.
+```
+
+### Post-Fix Workflow Handoff
+
+```yaml
+workflow_handoff:
+  issue: "https://github.com/Tahjali11/Mythic-Edge/issues/287"
+  previous_issue: "https://github.com/Tahjali11/Mythic-Edge/issues/285"
+  previous_pr: "https://github.com/Tahjali11/Mythic-Edge/pull/286"
+  tracker: "https://github.com/Tahjali11/Mythic-Edge/issues/204"
+  umbrella_issue: "https://github.com/Tahjali11/Mythic-Edge/issues/207"
+  related_match_journal_tracker: "https://github.com/Tahjali11/Mythic-Edge/issues/202"
+  completed_thread: "C"
+  next_thread: "E"
+  source_artifact: "docs/contracts/private_release_e2e_browser_integration_readiness.md"
+  target_artifact: "docs/contract_test_reports/private_release_e2e_browser_integration_readiness.md"
+  verdict: "ready_with_acceptable_degradation"
+  risk_tier: "High"
+  branch: "codex/analytics-foundation"
+  commit_under_test: "f0b9cc94808dc09961be0e396e84b7a4ffdbaa6c"
+  validation:
+    - "python3 -m pytest -q tests/test_analytics_local_app_backend.py tests/test_analytics_local_app_config.py - passed"
+    - "python3 -m pytest -q tests/test_private_local_v1_setup.py - passed"
+    - "python3 -m pytest -q tests/test_match_journal_cockpit_ui_backend.py tests/test_match_journal_status_api.py - passed"
+    - "python3 -m pytest -q tests/test_analytics_browser_jsonl_upload.py tests/test_analytics_manual_jsonl_import.py - passed"
+    - "python3 -m pytest -q tests/test_analytics_dynamic_decision_support_dashboard.py - passed"
+    - "npm --prefix frontend ci - passed"
+    - "npm --prefix frontend run typecheck - passed"
+    - "npm --prefix frontend run test -- --run - passed"
+    - "npm --prefix frontend run build - passed; frontend/dist removed"
+    - "python3 -m ruff check src tests tools - passed"
+    - "git diff --check - passed after report edit"
+    - "python3 tools/check_agent_docs.py - passed"
+    - "path-scoped secret/private marker scan - passed"
+    - "path-scoped protected-surface gate - passed"
+    - "generated/private artifact sweep - passed"
+    - "disposable loopback backend/frontend browser smoke - completed with headless local Chrome fallback"
+  stop_conditions:
+    - "Do not claim production, public release, main, deploy, merge, parser truth, analytics truth, Live Player.log supported, AI, or coaching readiness."
+    - "Do not run actual private app-data or Player.log checks without explicit user approval."
+    - "Do not target main directly."
+    - "Do not close tracker #204, umbrella #207, tracker #202, or issue #287."
+    - "Do not change parser/runtime/workbook/webhook/App Script/Sheets/OpenAI/AI/coaching/production behavior."
 ```
 
 ## Codex D Fixer Addendum
