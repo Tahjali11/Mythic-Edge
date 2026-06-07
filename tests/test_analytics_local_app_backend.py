@@ -334,6 +334,25 @@ def test_error_report_preview_returns_sanitized_markdown_without_writes(tmp_path
     assert not app_root.exists()
 
 
+def test_error_report_preview_redacts_macos_private_temp_path_shape(tmp_path) -> None:
+    private_log_path = "/private/var/folders/zz/test-safe/Private Logs/Player.log"
+    client = _client(tmp_path / "app-data")
+
+    response = client.post(
+        "/api/feedback/error-report/preview",
+        json=_valid_error_report_request(
+            reproduction_steps=f"1. Open the dashboard.\n2. Notice the message mentioning {private_log_path}.",
+        ),
+    )
+    payload = response.json()
+    encoded = json.dumps(payload, sort_keys=True)
+
+    assert response.status_code == 200
+    assert payload["status"] == "preview_ready"
+    assert "<redacted_local_path>" in payload["issue_body_markdown"]
+    assert private_log_path not in encoded
+
+
 def test_error_report_preview_blocks_endpoint_like_user_text_without_echoing_value(tmp_path) -> None:
     endpoint_value = "https://" + "example.invalid/hook"
     client = _client(tmp_path / "app-data")
