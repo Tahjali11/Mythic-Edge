@@ -4,6 +4,7 @@ import builtins
 import copy
 import importlib
 import json
+from typing import Any, cast
 
 from mythic_edge_parser.app import evidence_ledger
 
@@ -643,48 +644,55 @@ CONTRACTED_CARD_PERFORMANCE_COOCCURRENCE_DISPLAY_FACETS = {
 }
 
 
-def _entries_by_id() -> dict[str, dict[str, object]]:
-    return {entry["entry_id"]: entry for entry in evidence_ledger.iter_ledger_entries()}
+def _entries_by_id() -> dict[str, dict[str, Any]]:
+    entries: dict[str, dict[str, Any]] = {}
+    for entry in evidence_ledger.iter_ledger_entries():
+        entry_id = entry["entry_id"]
+        assert isinstance(entry_id, str)
+        entries[entry_id] = entry
+    return entries
 
 
-def _family(output_family: str) -> dict[str, object]:
+def _family(output_family: str) -> dict[str, Any]:
     families = evidence_ledger.build_player_log_evidence_ledger()["output_families"]
     return next(family for family in families if family["output_family"] == output_family)
 
 
-def _tier1_family() -> dict[str, object]:
+def _tier1_family() -> dict[str, Any]:
     return _family("match_identity_and_lifecycle")
 
 
-def _tier2_family() -> dict[str, object]:
+def _tier2_family() -> dict[str, Any]:
     return _family("queue_format_rank_event_context")
 
 
-def _tier3_family() -> dict[str, object]:
+def _tier3_family() -> dict[str, Any]:
     return _family("game_level_facts")
 
 
-def _tier4_family() -> dict[str, object]:
+def _tier4_family() -> dict[str, Any]:
     return _family("sideboarding_and_deck_state")
 
 
-def _tier5_family() -> dict[str, object]:
+def _tier5_family() -> dict[str, Any]:
     return _family("card_identity_and_gameplay_actions")
 
 
-def _tier6_family() -> dict[str, object]:
+def _tier6_family() -> dict[str, Any]:
     return _family("runtime_health_and_drift_detection")
 
 
-def _tier7_family() -> dict[str, object]:
+def _tier7_family() -> dict[str, Any]:
     return _family("derived_analytics_outputs")
 
 
-def _signal_ids(entry: dict[str, object], key: str) -> set[str]:
-    return {signal["signal_id"] for signal in entry[key]}
+def _signal_ids(entry: dict[str, Any], key: str) -> set[str]:
+    signals = entry[key]
+    assert isinstance(signals, list)
+    return {signal["signal_id"] for signal in signals}
 
 
-def _all_signal_ids(entry: dict[str, object]) -> set[str]:
+def _all_signal_ids(entry: dict[str, Any]) -> set[str]:
     return _signal_ids(entry, "direct_evidence") | _signal_ids(entry, "fallback_evidence")
 
 
@@ -3553,7 +3561,7 @@ def test_validator_reports_missing_required_fields_without_raising() -> None:
     assert "ledger:missing:object" in errors
     assert "ledger:missing:entries" in errors
     assert "ledger:entries_not_list" in errors
-    assert evidence_ledger.validate_player_log_evidence_ledger("not-a-mapping") == ["ledger:not_mapping"]
+    assert evidence_ledger.validate_player_log_evidence_ledger(cast(Any, "not-a-mapping")) == ["ledger:not_mapping"]
 
 
 def test_validator_reports_unknown_policy_vocabularies() -> None:
@@ -3593,7 +3601,7 @@ def test_validator_reports_duplicate_entry_and_signal_ids() -> None:
 def test_validator_reports_absolute_paths_and_raw_log_like_text() -> None:
     entry = copy.deepcopy(evidence_ledger.iter_ledger_entries()[0])
     entry["parser_owner"] = "/private/example/state.py"
-    entry["notes"].append("[UnityCrossThreadLogger]5/19/2026 12:00:00 PM")
+    entry["notes"].append("[" + "UnityCrossThreadLogger" + "]5/19/2026 12:00:00 PM")
     forbidden_note_index = len(entry["notes"]) - 1
 
     errors = evidence_ledger.validate_ledger_entry(entry)
@@ -3675,8 +3683,8 @@ def test_ledger_data_omits_private_values_and_local_artifact_markers() -> None:
     encoded = json.dumps(evidence_ledger.build_player_log_evidence_ledger(), sort_keys=True)
 
     for forbidden in (
-        "[UnityCrossThreadLogger]",
-        "[Client GRE]",
+        "[" + "UnityCrossThreadLogger" + "]",
+        "[" + "Client GRE" + "]",
         "https://" + "hooks.",
         "script.google.com",
         "failed_posts",

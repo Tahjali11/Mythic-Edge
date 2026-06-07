@@ -25,6 +25,9 @@ workflow_handoff:
   target_artifact: ""
   risk_tier: ""
   branch: ""
+  internal_project_area: ""
+  truth_owner: ""
+  bridge_code_status: ""
   validation:
     - ""
   stop_conditions:
@@ -35,3 +38,7 @@ Valid `next_thread` values are `A`, `B`, `C`, `D`, `E`, `F`, `G`, or `none`.
 
 Use `tracker` for parent/tracker issues such as queue, audit-suite, or
 constitution-tracking issues. Leave it empty when no tracker exists.
+
+The `internal_project_area`, `truth_owner`, and `bridge_code_status` keys are
+optional routing metadata. Leave them empty or omit them when the source
+artifact predates ADR-0006 vocabulary.

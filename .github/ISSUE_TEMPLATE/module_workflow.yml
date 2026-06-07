@@ -79,6 +79,30 @@ body:
         - repository coordination and agent workflow
     validations:
       required: true
+  - type: dropdown
+    id: internal_project_area
+    attributes:
+      label: Internal project area
+      description: >-
+        Optional ADR-0006 routing vocabulary from docs/internal_project_map.md.
+        Future AI Integration is deferred vocabulary only and does not authorize
+        OpenAI or model-provider runtime integration, AI coaching evaluation,
+        AI-owned parser truth, AI-owned analytics truth, hidden-card truth,
+        gameplay correctness truth, or strategic certainty.
+      options:
+        - N/A / unclear
+        - Parser
+        - Corpus / Provenance
+        - Analytics
+        - Local App / UI
+        - Workbook / Transport
+        - Quality / Governance
+        - Future AI Integration
+        - Shared Support
+        - Generated / Local Artifacts
+        - External / Collaboration Surface
+    validations:
+      required: false
   - type: textarea
     id: first_bad_value
     attributes:
@@ -128,7 +152,7 @@ body:
       label: Protected surfaces and forbidden changes
       description: Name any protected-surface bundles or explicit surfaces that must not change.
       value: |
-        Do not change workbook schema, webhook payload shape, Apps Script behavior, parser event classes, parser state final reconciliation, extractor behavior, match identity, game identity, deduplication, secrets, environment variables, raw logs, generated data, runtime status files, failed posts, or workbook exports unless the contract explicitly authorizes it.
+        Do not change workbook schema, webhook payload shape, Apps Script behavior, parser event classes, parser state final reconciliation, extractor behavior, match identity, game identity, deduplication, secrets, environment variables, raw logs, generated data, runtime status files, transport failure artifacts, or workbook exports unless the contract explicitly authorizes it.
     validations:
       required: true
   - type: textarea

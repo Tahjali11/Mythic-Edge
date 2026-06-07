@@ -1,177 +1,160 @@
 # Mythic Edge
 
-Mythic Edge is a personal MTG Arena data pipeline.
+Mythic Edge is a private local MTG Arena analytics and review app.
 
-At a high level, it does four jobs:
+It turns Arena log evidence into parser-normalized match, game, card, and
+review data that can be explored locally. The current private-local-v1 path is
+local-app-first: a Windows local app, a local SQLite database, manual historical
+JSONL import, live Player.log readiness, curated analytics views, and Match
+Journal review notes.
 
-1. Watches MTGA's `Player.log` while you play.
-2. Turns raw log noise into clean match and game summaries.
-3. Pushes those summaries into your Google Sheet.
-4. Stores local logs and reference data so you can debug, backfill, and build better analytics over time.
+For the detailed private-local-v1 setup and launch path, start here:
 
-## Plain-English Architecture
+- [Private Local V1 Operator Guide](docs/private_local_v1_operator_guide.md)
+
+## Current Shape
 
 ```text
-MTGA Player.log
-  -> event stream + parsers
-  -> in-memory match/game summaries
-  -> local JSONL archive
-  -> Google Sheets webhook
-  -> dashboard analytics
+MTGA Player.log or approved local import input
+  -> parser and parser-normalized facts
+  -> local SQLite analytics storage
+  -> local app backend and frontend
+  -> analytics views and Match Journal review surfaces
 ```
 
-The most important mental model is:
+Important terms:
 
-- `main.py` starts the parser.
-- `src/mythic_edge_parser/app/runner.py` is the main runtime loop.
-- `state.py` is the parser's working memory.
-- `models.py` shapes match and game rows.
-- `tools/google_apps_script/Code.gs` is the Google Sheets receiver.
+- Parser: the Python code that interprets MTGA log events.
+- Parser-normalized facts: match, game, card, and evidence values after the
+  parser/state layer has shaped them into project data models.
+- SQLite: a small local database file used here for local analytics storage.
+- Local app: the private Windows backend and browser UI used as the
+  private-local-v1 front door.
+- Match Journal: human notes, labels, and review context attached to matches or
+  games.
 
-## What To Run
+## Truth Boundaries
 
-- `main.py`
-  The current parser entrypoint.
-- `live_print_filtered_v11_match_summary.py`
-  Older filename kept as a compatibility shortcut.
-- `sync_tier_buckets.py`
-  Refreshes meta-tier source data.
-- `sync_card_catalog.py`
-  Builds the Arena-aware Scryfall card catalog.
-- `validate_arena_ids.py`
-  Checks how well MTGA `grpId` values map to the local card catalog.
-- `backfill_game_log_from_match_logs.py`
-  Replays saved local logs back into `Game Log`.
+The parser/state layer owns parser-managed facts such as match identity, game
+identity, deduplication, game result, play/draw, mulligans, opening hand data,
+gameplay actions, and final reconciliation.
 
-## Folder Map
+SQLite, analytics views, the local app, Match Journal, workbook surfaces, and
+future AI surfaces are downstream or supporting layers. They may store,
+display, summarize, label, or review parser-produced facts, but they do not
+become parser truth.
 
-### Root files
+## Private-Local-V1 Path
 
-- `main.py`
-- `live_print_filtered_v11_match_summary.py`
-- `sync_tier_buckets.py`
-- `sync_card_catalog.py`
-- `validate_arena_ids.py`
-- `backfill_game_log_from_match_logs.py`
-- `README.md`
-- `pyproject.toml`
+Private-local-v1 is the current private Windows operator path. It is not a
+public release, not production readiness, not a slim package, and not an
+installer.
 
-### Main code
+Current private-local-v1 setup facts:
 
-- `src/mythic_edge_parser/app/`
-  App-specific runtime logic, models, diagnostics, outputs, tier sync, and card catalog code.
-- `src/mythic_edge_parser/parsers/`
-  The individual MTGA event parsers.
-- `src/mythic_edge_parser/log/`
-  Low-level log reading and buffering utilities.
+- package mode: `managed_full_checkout`
+- default release ref: `codex/analytics-foundation`
+- default install root: `%LOCALAPPDATA%\MythicEdge\`
+- managed app checkout: `<install_root>\app`
+- generated local data root: `<install_root>\data`
+- local analytics database: `<install_root>\data\db\mythic_edge.sqlite3`
+- frontend URL: `http://127.0.0.1:5173`
+- backend URL: `http://127.0.0.1:8765`
 
-### Tools
+Use the operator guide for command details and safety boundaries before running
+install or proof commands.
 
-- `tools/auto_launcher/`
-  The launcher app and settings flow.
-- `tools/google_apps_script/`
-  The Apps Script webhook code used by the Google Sheet.
-- `tools/scryfall_parser/`
-  Thin wrapper around the integrated card-catalog sync.
+## Local App Surfaces
 
-### Data
+The private local app is the intended front door for this phase.
 
-- `data/match_logs/`
-  Saved local JSONL match/game event logs.
-- `data/oracle_data/`
-  Card catalog outputs and Arena lookup files.
-- `data/tier_sources/`
-  Tier-source snapshots and normalization overrides.
-- `data/runtime_logs/`
-  Daily runtime logs.
-- `data/status/`
-  Latest runtime status snapshot.
-- `data/failed_posts/`
-  Rows that could not be posted to Google Sheets.
-- `data/bad_events/`
-  Event or router failures captured for debugging.
+It currently covers or supports:
 
-## Runtime Health And Troubleshooting
+- setup and readiness status
+- manual historical JSONL import
+- import-quality reporting
+- SQLite-backed match and game history
+- opening hand, mulligan, play/draw, postboard, gameplay-action, and
+  opponent-observation views
+- Match Journal cockpit and write controls
+- live Player.log watcher status and diagnostics readiness
 
-When something goes wrong, start here:
+These surfaces are local development and private-operator support. They do not
+change parser behavior, workbook behavior, Google Sheets behavior, AI behavior,
+or production behavior.
 
-- `data/status/manasight_status_latest.json`
-  Fastest way to see whether the parser is running, what the last event was, and whether webhook posting is succeeding.
-- `data/runtime_logs/<MM_DD_YY>/manasight_runtime.log`
-  Human-readable runtime log.
-- `data/failed_posts/<MM_DD_YY>/failed_posts_<MM_DD_YY>.jsonl`
-  Rows that failed to reach the Google Sheets webhook.
-- `data/bad_events/<MM_DD_YY>/bad_events_<MM_DD_YY>.jsonl`
-  Per-event failures inside the parser.
+## Google Sheets And Legacy Transport
 
-The auto launcher now surfaces the same information directly in its `Runtime health and troubleshooting` panel.
+Google Sheets, the webhook receiver, and Apps Script remain downstream or
+legacy transport/display surfaces. They are still important to the broader
+project history, but they are not the primary private-local-v1 operator path.
 
-From the launcher, you can now:
+Workbook and Apps Script behavior should only change under a scoped contract.
+Workbook formulas must not replace parser-owned truth.
 
-- see the current parser status
-- see the last event the parser processed
-- see the current match and game context
-- see webhook success/failure counts
-- open the status file, runtime log, failed posts folder, and bad events folder with one click
+## Local Data And Privacy
 
-## Google Sheets Design
+Generated and private local data must stay local unless a later scoped contract
+explicitly authorizes otherwise.
 
-The workbook is now organized around normalized rows rather than raw-event dumping:
+Do not commit local databases, MTGA log files, imported JSONL artifacts, runtime
+logs, workbook exports, credentials, environment files, or other machine-local
+operator artifacts.
 
-- `Match Log`
-  One row per match.
-- `Game Log`
-  One row per game.
-- `Dashboard`
-  Analytics and review views.
-- `Helper Table`
-  Hidden backend support logic.
-- `Tier Source Data`
-  Hidden source data for tier buckets.
-
-## Current Card-Catalog Direction
-
-The project now uses an Arena-aware Scryfall card catalog based on `default_cards`, not the older Oracle-only export.
-
-That matters because MTGA gameplay logs expose Arena-facing IDs such as `grpId`, not just Oracle-style card identities.
+The repo keeps a blank `.env.example` template. Real `.env*` files are local
+only.
 
 ## Development
 
-For GitHub/Codex module work, use the four-thread workflow in `docs/codex_module_workflow.md`:
+Contributor and Codex workflow instructions live in:
 
-1. problem representation
-2. module contract
-3. implementation
-4. contract testing
+- `AGENTS.md`
+- `docs/agent_constitution.md`
+- `docs/agent_rules.yml`
+- `docs/codex_module_workflow.md`
+- `docs/agent_threads/`
 
-Shared Codex behavior rules live in `docs/agent_constitution.md`, with role-specific rules in `docs/agent_threads/`.
+For Python development:
 
-```bash
-python -m venv .venv
-.venv\\Scripts\\activate
-pip install -e .[dev]
-pytest
-python -m pytest --cov=src/mythic_edge_parser --cov-report=term-missing tests
-python -m ruff check src tests
+```powershell
+py -m venv .venv
+.\.venv\Scripts\Activate.ps1
+py -m pip install -e ".[dev,app]"
+py -m pytest
+py -m ruff check src tests tools
 ```
 
-For a single local repo-level check on Windows PowerShell:
+For frontend development:
+
+```powershell
+npm --prefix frontend ci
+npm --prefix frontend run typecheck
+npm --prefix frontend run build
+```
+
+For repo validation helpers:
 
 ```powershell
 .\tools\run_repo_checks.ps1
-.\tools\run_repo_checks.ps1 -Coverage
+.\tools\run_touched_file_checks.ps1 <path-to-python-file>
 ```
 
-For a safer touched-files-first lint pass on Windows PowerShell:
+Use the smallest relevant validation command first, then expand only when the
+scope requires it.
 
-```powershell
-.\tools\run_touched_file_checks.ps1 src\mythic_edge_parser\log\entry.py tests\test_entry_buffer_edges.py
-```
+## Current Non-Claims
 
-That script only lints the Python files you name directly, which is useful when the whole repo still has older lint debt.
+Mythic Edge does not currently claim:
 
-## Notes
+- public release readiness
+- production readiness
+- a v1.0 tag or release branch
+- a slim package or standalone installer
+- upgrade or uninstall tooling
+- all-repo scanner cleanliness
+- Pyright as a required failing gate
+- live workbook or deployed Apps Script readiness
+- OpenAI/model-provider runtime integration
+- AI coaching, hidden-card inference, gameplay advice, or best-line truth
 
-- `__pycache__` and `.pytest_cache` are normal Python byproducts.
-- The sheet-facing pipeline is designed to tolerate partial live updates and then reconcile to final match summaries.
-- Opening-hand card analytics are now being built on top of the Arena-aware card catalog and the `Game Log` table.
+Those are future scopes and require separate contract authority.

@@ -18,8 +18,34 @@ from .opponent_card_observations import (
 )
 
 ANALYTICS_REPLAY_INGEST_SCHEMA_VERSION = "analytics_parser_normalized_replay_ingest.v1"
+LIVE_PARSER_OWNED_FACT_CAPTURE_SCHEMA_VERSION = "live_app_parser_owned_fact_capture_sqlite.v1"
 
 _ALLOWED_SOURCE_KINDS = {"sanitized_golden_replay", "saved_event_replay"}
+_LIVE_SOURCE_KIND = "live_parser"
+_LIVE_ALLOWED_FINALITIES = {"final", "reconciled"}
+_LIVE_DEFERRED_PAYLOAD_FIELDS = {
+    "gameplay_action_entries": "live_gameplay_action_capture_deferred",
+    "gameplay_actions": "live_gameplay_action_capture_deferred",
+    "opponent_card_observations": "live_opponent_observation_capture_deferred",
+    "field_evidence_entries": "live_field_evidence_capture_deferred",
+    "field_evidence": "live_field_evidence_capture_deferred",
+}
+_LIVE_FORBIDDEN_PAYLOAD_FIELDS = {
+    "raw_player_log_lines",
+    "player_log_lines",
+    "raw_saved_event_lines",
+    "saved_event_lines",
+    "raw_webhook_payloads",
+    "webhook_payloads",
+    "raw_local_file_paths",
+    "local_file_paths",
+    "player_log_path",
+    "source_path",
+    "source_paths",
+    "private_jsonl_source_paths",
+    "raw_log_hash",
+    "raw_log_hashes",
+}
 _TOUCHED_TABLES = (
     "ingest_runs",
     "matches",
@@ -114,6 +140,34 @@ _PRIVATE_FIELD_EVIDENCE_MARKERS = (
     "secret",
     "password",
 )
+_LIVE_PRIVATE_ROW_VALUE_MARKERS = (
+    "player.log",
+    "[unitycrossthreadlogger]",
+    "[clientgre]",
+    "detailedlogs:",
+    "script.google.com",
+    "https://hooks.",
+    "http://hooks.",
+    "failed_posts",
+    "runtime_status",
+    "webhook",
+    "api_key",
+    "apikey",
+    "access_token",
+    "bearer ",
+)
+_LIVE_PRIVATE_ROW_FIELD_MARKERS = (
+    "player_log",
+    "webhook",
+    "api_key",
+    "apikey",
+    "access_token",
+    "secret",
+    "password",
+    "local_file_path",
+    "raw_log",
+    "raw_saved_event",
+)
 _LOCAL_ABSOLUTE_PATH_ROOTS = (
     "/applications",
     "/etc",
@@ -145,6 +199,7 @@ class ParserNormalizedReplayInput:
     parser_commit: str = ""
     parser_version: str = ""
     generated_at: str = ""
+    session_id: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -167,8 +222,7 @@ def normalize_parser_normalized_replay(replay: Mapping[str, object]) -> ParserNo
         raise AnalyticsReplayIngestError(f"Unsupported parser-normalized replay source_kind: {source_kind}")
 
     source_artifact_label = _required_text(replay.get("source_artifact_label"), "source_artifact_label")
-    if _PRIVATE_LABEL_RE.search(source_artifact_label):
-        raise AnalyticsReplayIngestError("source_artifact_label must be a safe label, not a local path or URL")
+    _validate_safe_source_artifact_label(source_artifact_label)
 
     return ParserNormalizedReplayInput(
         source_kind=source_kind,
@@ -187,6 +241,38 @@ def normalize_parser_normalized_replay(replay: Mapping[str, object]) -> ParserNo
     )
 
 
+def normalize_live_parser_owned_facts(payload: Mapping[str, object]) -> ParserNormalizedReplayInput:
+    if not isinstance(payload, Mapping):
+        raise AnalyticsReplayIngestError("Live parser-owned fact payload must be a mapping")
+
+    source_kind = _required_text(payload.get("source_kind"), "source_kind")
+    if source_kind != _LIVE_SOURCE_KIND:
+        raise AnalyticsReplayIngestError("Live parser-owned fact payload source_kind must be live_parser")
+
+    source_artifact_label = _required_live_safe_label(payload.get("source_artifact_label"), "source_artifact_label")
+    session_id = _required_live_safe_label(payload.get("session_id"), "session_id")
+    _reject_live_forbidden_payload_fields(payload)
+
+    match_log_rows = _mapping_tuple(payload.get("match_log_rows"), "match_log_rows", required=True)
+    game_log_rows = _mapping_tuple(payload.get("game_log_rows"), "game_log_rows", required=True)
+    _reject_live_unsafe_row_payloads(match_log_rows, row_group="match_log_rows")
+    _reject_live_unsafe_row_payloads(game_log_rows, row_group="game_log_rows")
+    _require_live_final_rows(match_log_rows, row_group="match_log_rows", default_finality="reconciled")
+    _require_live_final_rows(game_log_rows, row_group="game_log_rows", default_finality="final")
+
+    return ParserNormalizedReplayInput(
+        source_kind=source_kind,
+        source_artifact_label=source_artifact_label,
+        match_log_rows=match_log_rows,
+        game_log_rows=game_log_rows,
+        parser_version=_optional_text(payload.get("parser_version")) or "",
+        generated_at=_optional_text(payload.get("capture_finished_at"))
+        or _optional_text(payload.get("capture_started_at"))
+        or "",
+        session_id=session_id,
+    )
+
+
 def deterministic_ingest_run_id(replay: ParserNormalizedReplayInput) -> str:
     canonical_payload = {
         "source_kind": replay.source_kind,
@@ -199,6 +285,7 @@ def deterministic_ingest_run_id(replay: ParserNormalizedReplayInput) -> str:
         "parser_commit": replay.parser_commit,
         "parser_version": replay.parser_version,
         "generated_at": replay.generated_at,
+        "session_id": replay.session_id,
     }
     canonical_json = json.dumps(
         _jsonable(canonical_payload),
@@ -218,11 +305,54 @@ def ingest_parser_normalized_replay(
     finished_at: str | None = None,
 ) -> AnalyticsReplayIngestResult:
     normalized = normalize_parser_normalized_replay(replay)
+    return _ingest_normalized_replay(
+        connection,
+        normalized,
+        started_at=started_at,
+        finished_at=finished_at,
+        ingest_optional_fact_families=True,
+    )
+
+
+def ingest_live_parser_owned_facts(
+    connection: sqlite3.Connection,
+    payload: Mapping[str, object],
+    *,
+    started_at: str | None = None,
+    finished_at: str | None = None,
+) -> AnalyticsReplayIngestResult:
+    normalized = normalize_live_parser_owned_facts(payload)
+    live_warnings = _live_payload_warnings(payload)
+    live_skipped = _live_payload_skips(payload)
+    return _ingest_normalized_replay(
+        connection,
+        normalized,
+        started_at=started_at or _optional_text(payload.get("capture_started_at")),
+        finished_at=finished_at or _optional_text(payload.get("capture_finished_at")),
+        ingest_optional_fact_families=False,
+        initial_warnings=live_warnings,
+        initial_skipped=live_skipped,
+    )
+
+
+def _ingest_normalized_replay(
+    connection: sqlite3.Connection,
+    normalized: ParserNormalizedReplayInput,
+    *,
+    started_at: str | None,
+    finished_at: str | None,
+    ingest_optional_fact_families: bool,
+    initial_warnings: list[str] | None = None,
+    initial_skipped: dict[str, int] | None = None,
+) -> AnalyticsReplayIngestResult:
     ingest_run_id = deterministic_ingest_run_id(normalized)
     timestamp = _ingest_timestamp(started_at, normalized.generated_at)
     completed_at = finished_at or timestamp
-    warnings = _deferred_optional_warnings(normalized)
-    skipped = _deferred_optional_skips(normalized)
+    warnings = list(initial_warnings or [])
+    warnings.extend(warning for warning in _deferred_optional_warnings(normalized) if warning not in warnings)
+    skipped = dict(initial_skipped or {})
+    for key, value in _deferred_optional_skips(normalized).items():
+        skipped[key] = skipped.get(key, 0) + value
 
     apply_analytics_migrations(connection)
 
@@ -252,27 +382,28 @@ def ingest_parser_normalized_replay(
             now=timestamp,
             warnings=warnings,
         )
-        _ingest_gameplay_action_entries(
-            connection,
-            normalized.gameplay_action_entries,
-            known_game_ids=known_game_ids,
-            ingest_run_id=ingest_run_id,
-            now=timestamp,
-        )
-        _ingest_opponent_card_observations(
-            connection,
-            normalized.opponent_card_observations,
-            known_game_ids=known_game_ids,
-            ingest_run_id=ingest_run_id,
-            now=timestamp,
-            warnings=warnings,
-        )
-        _ingest_field_evidence_entries(
-            connection,
-            normalized.field_evidence_entries,
-            ingest_run_id=ingest_run_id,
-            now=timestamp,
-        )
+        if ingest_optional_fact_families:
+            _ingest_gameplay_action_entries(
+                connection,
+                normalized.gameplay_action_entries,
+                known_game_ids=known_game_ids,
+                ingest_run_id=ingest_run_id,
+                now=timestamp,
+            )
+            _ingest_opponent_card_observations(
+                connection,
+                normalized.opponent_card_observations,
+                known_game_ids=known_game_ids,
+                ingest_run_id=ingest_run_id,
+                now=timestamp,
+                warnings=warnings,
+            )
+            _ingest_field_evidence_entries(
+                connection,
+                normalized.field_evidence_entries,
+                ingest_run_id=ingest_run_id,
+                now=timestamp,
+            )
         row_counts = _table_counts(connection, _TOUCHED_TABLES)
         _upsert_ingest_run(
             connection,
@@ -1947,6 +2078,153 @@ def _mapping_tuple(value: object, field_name: str, *, required: bool = False) ->
     if required and not rows:
         raise AnalyticsReplayIngestError(f"{field_name} must contain at least one row")
     return tuple(rows)
+
+
+def _validate_safe_source_artifact_label(source_artifact_label: str) -> None:
+    if _PRIVATE_LABEL_RE.search(source_artifact_label):
+        raise AnalyticsReplayIngestError("source_artifact_label must be a safe label, not a local path or URL")
+
+
+def _required_live_safe_label(value: object, field_name: str) -> str:
+    text = _required_text(value, field_name)
+    normalized = text.lower().replace("\\", "/")
+    if _PRIVATE_LABEL_RE.search(text) or normalized.startswith("//") or "/" in normalized:
+        raise AnalyticsReplayIngestError(f"{field_name} must be a safe live parser label")
+    marker_text = normalized.replace("-", "_").replace(" ", "")
+    if any(marker in marker_text for marker in _PRIVATE_FIELD_EVIDENCE_MARKERS):
+        raise AnalyticsReplayIngestError(f"{field_name} must be a safe live parser label")
+    if not _SAFE_DEGRADATION_FLAG_RE.fullmatch(text):
+        raise AnalyticsReplayIngestError(f"{field_name} must be a safe live parser label")
+    return text
+
+
+def _reject_live_forbidden_payload_fields(payload: Mapping[str, object]) -> None:
+    for field_name in sorted(_LIVE_FORBIDDEN_PAYLOAD_FIELDS):
+        if field_name in payload:
+            raise AnalyticsReplayIngestError(f"{field_name} is not allowed in live parser-owned fact payloads")
+
+
+def _reject_live_unsafe_row_payloads(rows: Sequence[Mapping[str, object]], *, row_group: str) -> None:
+    for row_index, row in enumerate(rows):
+        _reject_live_unsafe_row_value(row, f"{row_group}[{row_index}]")
+
+
+def _reject_live_unsafe_row_value(value: object, context: str) -> None:
+    if isinstance(value, Mapping):
+        for field_name, field_value in value.items():
+            if not isinstance(field_name, str):
+                raise AnalyticsReplayIngestError(f"{context} field names must be strings")
+            field_context = f"{context}.{field_name}"
+            if _is_live_forbidden_row_field_name(field_name):
+                raise AnalyticsReplayIngestError(
+                    f"{field_context} is not allowed in live parser-owned fact payloads"
+                )
+            _reject_live_unsafe_row_value(field_value, field_context)
+        return
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        for index, item in enumerate(value):
+            _reject_live_unsafe_row_value(item, f"{context}[{index}]")
+        return
+    if isinstance(value, str) and _is_live_private_row_value(value):
+        raise AnalyticsReplayIngestError(f"{context} must be a safe live parser row value")
+
+
+def _is_live_forbidden_row_field_name(field_name: str) -> bool:
+    normalized = field_name.lower().replace("-", "_").replace(" ", "_")
+    marker_text = normalized.replace("__", "_")
+    return normalized in _LIVE_FORBIDDEN_PAYLOAD_FIELDS or any(
+        marker in marker_text for marker in _LIVE_PRIVATE_ROW_FIELD_MARKERS
+    )
+
+
+def _is_live_private_row_value(value: str) -> bool:
+    text = value.strip()
+    if not text:
+        return False
+    normalized = text.lower().replace("\\", "/")
+    marker_text = normalized.replace("-", "_").replace(" ", "")
+    if (
+        _PRIVATE_LABEL_RE.search(text)
+        or normalized.startswith("//")
+        or any(normalized == root or normalized.startswith(f"{root}/") for root in _LOCAL_ABSOLUTE_PATH_ROOTS)
+        or _SLASH_PREFIXED_DRIVE_PATH_RE.match(normalized) is not None
+        or "bearer " in normalized
+        or any(marker in marker_text for marker in _LIVE_PRIVATE_ROW_VALUE_MARKERS)
+    ):
+        return True
+    return any(
+        marker in normalized
+        for marker in (
+            "secret=",
+            "secret:",
+            "password=",
+            "password:",
+            "token=",
+            "token:",
+        )
+    )
+
+
+def _require_live_final_rows(
+    rows: Sequence[Mapping[str, object]],
+    *,
+    row_group: str,
+    default_finality: str,
+) -> None:
+    for index, row in enumerate(rows):
+        finality = _live_row_finality(row, default_finality=default_finality)
+        if finality not in _LIVE_ALLOWED_FINALITIES:
+            allowed = ", ".join(sorted(_LIVE_ALLOWED_FINALITIES))
+            raise AnalyticsReplayIngestError(f"{row_group}[{index}] finality must be one of {allowed}")
+
+
+def _live_row_finality(row: Mapping[str, object], *, default_finality: str) -> str:
+    for field_name in ("finality", "Finality", "finality_status", "sync_finality", "MTGA Sync Status"):
+        text = _optional_text(row.get(field_name))
+        if text:
+            normalized = text.lower()
+            if normalized == "live":
+                return "live"
+            if normalized == "provisional":
+                return "provisional"
+            if normalized == "final":
+                return "final"
+            if normalized == "reconciled":
+                return "reconciled"
+            return normalized
+    return default_finality
+
+
+def _live_payload_warnings(payload: Mapping[str, object]) -> list[str]:
+    warnings: list[str] = []
+    for field_name, warning in _LIVE_DEFERRED_PAYLOAD_FIELDS.items():
+        if _payload_field_has_entries(payload.get(field_name)) and warning not in warnings:
+            warnings.append(warning)
+    payload_warnings = _text_list(payload.get("warnings"), "warnings")
+    for warning in payload_warnings:
+        if not _SAFE_DEGRADATION_FLAG_RE.fullmatch(warning):
+            raise AnalyticsReplayIngestError("warnings must contain safe labels")
+        if warning not in warnings:
+            warnings.append(warning)
+    return warnings
+
+
+def _live_payload_skips(payload: Mapping[str, object]) -> dict[str, int]:
+    skipped: dict[str, int] = {}
+    for field_name in _LIVE_DEFERRED_PAYLOAD_FIELDS:
+        value = payload.get(field_name)
+        if _payload_field_has_entries(value):
+            if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+                skipped[field_name] = len(value)
+            else:
+                skipped[field_name] = 1
+    return skipped
+
+
+def _payload_field_has_entries(value: object) -> bool:
+    if value in (None, "", (), [], {}):
+        return False
+    return True
 
 
 def _match_id(row: Mapping[str, object], context: str) -> str:

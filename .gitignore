@@ -5,6 +5,10 @@ __pycache__/
 .venv/
 *.egg-info/
 
+.env
+.env.*
+!/.env.example
+
 data/match_logs/
 data/decklists/
 data/runtime_logs/
@@ -18,3 +22,8 @@ data/tier_sources/latest_tier_snapshot.json
 
 _review_*/
 .github/Mythic-Edge/
+
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/coverage/

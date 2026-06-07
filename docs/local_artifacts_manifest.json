@@ -1,0 +1,1115 @@
+{
+  "schema_version": "local_artifacts_manifest.v1",
+  "object": "mythic_edge_local_artifacts_manifest",
+  "description": "Machine-readable classification of Mythic Edge repo-owned, generated, private, and local-only artifacts for report-only environment readiness checks.",
+  "profile_aliases": {
+    "analytics_dev": "analytics_development",
+    "live_parser": "live_parser_readiness"
+  },
+  "profiles": {
+    "clean_clone": {
+      "label": "Clean clone",
+      "description": "Fresh source checkout with no private MTGA data and no initialized local app state.",
+      "artifacts": [
+        "agents_md",
+        "pyproject_toml",
+        "gitignore",
+        "source_package",
+        "tests_tree",
+        "tools_tree",
+        "frontend_package_json",
+        "frontend_source",
+        "private_output_match_logs",
+        "private_output_runtime_logs",
+        "private_output_status_snapshots",
+        "private_output_transport_failures",
+        "private_output_bad_events",
+        "private_output_decklists",
+        "generated_analytics_data",
+        "generated_card_catalog",
+        "generated_tier_source_latest",
+        "frontend_node_modules",
+        "frontend_build_output",
+        "frontend_vite_cache",
+        "frontend_coverage",
+        "python_caches",
+        "env_example_template",
+        "env_files",
+        "credential_json_files",
+        "webhook_url_files",
+        "api_key_files"
+      ]
+    },
+    "local_developer_app": {
+      "label": "Local developer app",
+      "description": "Checkout that can run the local developer backend/frontend shell without requiring generated app state.",
+      "artifacts": [
+        "pyproject_toml",
+        "local_app_package",
+        "frontend_package_json",
+        "frontend_source",
+        "dev_app_tools",
+        "app_data_root",
+        "app_config_file",
+        "analytics_sqlite_database",
+        "app_logs_dir",
+        "app_imports_dir",
+        "app_jobs_dir",
+        "app_diagnostics_dir",
+        "sqlite_sidecar_files",
+        "env_files",
+        "credential_json_files"
+      ]
+    },
+    "analytics_development": {
+      "label": "Analytics development",
+      "description": "Checkout that can run analytics schema, migration, ingest, and view tests from repo-owned source and synthetic data.",
+      "artifacts": [
+        "pyproject_toml",
+        "analytics_migration_sql",
+        "analytics_ingest_module",
+        "analytics_legacy_jsonl_adapter",
+        "analytics_schema_tests",
+        "analytics_ingest_tests",
+        "generated_analytics_data",
+        "private_input_player_log",
+        "private_input_historical_jsonl_file",
+        "private_input_historical_jsonl_folder",
+        "private_output_match_logs",
+        "env_files"
+      ]
+    },
+    "live_parser_readiness": {
+      "label": "Live parser readiness",
+      "description": "Machine intended to run the live parser against MTGA while keeping private evidence and credentials local.",
+      "artifacts": [
+        "main_entrypoint",
+        "parser_state",
+        "parser_models",
+        "parser_outputs",
+        "runtime_surfaces",
+        "private_input_player_log",
+        "private_output_match_logs",
+        "private_output_runtime_logs",
+        "private_output_status_snapshots",
+        "private_output_transport_failures",
+        "private_output_bad_events",
+        "env_files",
+        "webhook_url_files",
+        "api_key_files"
+      ]
+    },
+    "historical_import_readiness": {
+      "label": "Historical import readiness",
+      "description": "Machine intended to import selected historical JSONL artifacts through approved local import flows.",
+      "artifacts": [
+        "local_app_package",
+        "local_app_import_jobs",
+        "analytics_legacy_jsonl_adapter",
+        "analytics_ingest_module",
+        "analytics_manual_import_tests",
+        "app_data_root",
+        "analytics_sqlite_database",
+        "private_input_historical_jsonl_file",
+        "private_input_historical_jsonl_folder",
+        "app_imports_dir",
+        "app_jobs_dir",
+        "env_files"
+      ]
+    },
+    "clean_install_transition_audit": {
+      "label": "Clean-install transition audit",
+      "description": "Report-only pre-v1 checkout retirement readiness audit. It summarizes safe Git metadata and local artifact categories without cleanup or private payload reads.",
+      "artifacts": [
+        "git_working_tree_state",
+        "git_branch_upstream_state",
+        "git_stash_count",
+        "git_untracked_unignored_count",
+        "agents_md",
+        "pyproject_toml",
+        "gitignore",
+        "source_package",
+        "tests_tree",
+        "tools_tree",
+        "frontend_package_json",
+        "frontend_source",
+        "dev_app_tools",
+        "local_app_package",
+        "env_example_template",
+        "env_files",
+        "private_output_match_logs",
+        "private_output_runtime_logs",
+        "private_output_status_snapshots",
+        "private_output_transport_failures",
+        "private_output_bad_events",
+        "private_output_decklists",
+        "generated_analytics_data",
+        "generated_card_catalog",
+        "generated_tier_source_latest",
+        "frontend_node_modules",
+        "frontend_build_output",
+        "frontend_vite_cache",
+        "frontend_coverage",
+        "python_caches",
+        "app_data_root",
+        "analytics_sqlite_database",
+        "sqlite_sidecar_files"
+      ]
+    }
+  },
+  "artifact_classes": {
+    "Repo-Owned Source Files": {
+      "description": "Tracked source, tests, docs, config, and tooling that may be committed when reviewed and in scope.",
+      "default_git_policy": "tracked_allowed"
+    },
+    "Generated Local App State": {
+      "description": "Local app state under the symbolic app data root. It is app-owned generated state and must not be committed.",
+      "default_git_policy": "never_commit"
+    },
+    "Private Local Inputs": {
+      "description": "Operator-selected or machine-local inputs such as MTGA logs, historical JSONL artifacts, and workbook exports.",
+      "default_git_policy": "never_commit"
+    },
+    "Private Local Outputs": {
+      "description": "Parser, runtime, import, or workbook-facing generated outputs that may contain private payloads or local state.",
+      "default_git_policy": "ignored_required"
+    },
+    "Generated Nonprivate Support Data": {
+      "description": "Regenerable support outputs that are not expected to be private but should not become source accidentally.",
+      "default_git_policy": "ignored_required"
+    },
+    "Secret And Credential Surfaces": {
+      "description": "Secret-adjacent files, names, and local configuration surfaces. Values must never be printed by the checker.",
+      "default_git_policy": "never_commit"
+    }
+  },
+  "artifacts": [
+    {
+      "id": "git_working_tree_state",
+      "label": "Git working tree state",
+      "classification": "Repo-Owned Source Files",
+      "path_scope": "git_metadata",
+      "path_pattern": "<git_working_tree>",
+      "git_policy": "external_only",
+      "privacy": "public_repo_source",
+      "profiles": {
+        "clean_install_transition_audit": {"required": false, "missing_severity": "warning", "present_severity": "warning"}
+      },
+      "safe_checks": ["git_status_count"],
+      "forbidden_checks": ["print_changed_paths", "stash_changes", "reset_changes", "clean_files"],
+      "notes": "Reports clean versus dirty status by count only; does not print changed paths."
+    },
+    {
+      "id": "git_branch_upstream_state",
+      "label": "Git branch upstream state",
+      "classification": "Repo-Owned Source Files",
+      "path_scope": "git_metadata",
+      "path_pattern": "<git_branch_upstream>",
+      "git_policy": "external_only",
+      "privacy": "public_repo_source",
+      "profiles": {
+        "clean_install_transition_audit": {"required": false, "missing_severity": "warning", "present_severity": "warning"}
+      },
+      "safe_checks": ["git_upstream_count"],
+      "forbidden_checks": ["fetch_remotes", "push_branch", "change_branch"],
+      "notes": "Reports upstream presence and ahead/behind counts only."
+    },
+    {
+      "id": "git_stash_count",
+      "label": "Git stash count",
+      "classification": "Private Local Inputs",
+      "path_scope": "git_metadata",
+      "path_pattern": "<git_stash_count>",
+      "git_policy": "external_only",
+      "privacy": "unknown_private",
+      "profiles": {
+        "clean_install_transition_audit": {"required": false, "missing_severity": "info", "present_severity": "warning"}
+      },
+      "safe_checks": ["git_stash_count"],
+      "forbidden_checks": ["print_stash_contents", "stash_pop", "stash_drop", "stash_apply"],
+      "notes": "Reports stash count only because stash contents may contain private or unreviewed work."
+    },
+    {
+      "id": "git_untracked_unignored_count",
+      "label": "Git untracked unignored count",
+      "classification": "Private Local Inputs",
+      "path_scope": "git_metadata",
+      "path_pattern": "<git_untracked_unignored_count>",
+      "git_policy": "external_only",
+      "privacy": "unknown_private",
+      "profiles": {
+        "clean_install_transition_audit": {"required": false, "missing_severity": "info", "present_severity": "warning"}
+      },
+      "safe_checks": ["git_untracked_count"],
+      "forbidden_checks": ["print_untracked_filenames", "stage_files", "delete_files"],
+      "notes": "Reports untracked unignored count only; filenames require manual review outside the report."
+    },
+    {
+      "id": "agents_md",
+      "label": "Agent entrypoint",
+      "classification": "Repo-Owned Source Files",
+      "path_scope": "repo_relative",
+      "path_pattern": "AGENTS.md",
+      "git_policy": "tracked_allowed",
+      "privacy": "public_repo_source",
+      "profiles": {
+        "clean_clone": {"required": true},
+        "local_developer_app": {"required": true},
+        "analytics_development": {"required": true}
+      },
+      "safe_checks": ["exists", "file_kind", "git_tracked"],
+      "forbidden_checks": ["judge_policy_correctness"],
+      "notes": "Short repo-local authority entrypoint."
+    },
+    {
+      "id": "pyproject_toml",
+      "label": "Python project metadata",
+      "classification": "Repo-Owned Source Files",
+      "path_scope": "repo_relative",
+      "path_pattern": "pyproject.toml",
+      "git_policy": "tracked_allowed",
+      "privacy": "public_repo_source",
+      "profiles": {
+        "clean_clone": {"required": true},
+        "local_developer_app": {"required": true},
+        "analytics_development": {"required": true},
+        "live_parser_readiness": {"required": true},
+        "historical_import_readiness": {"required": true}
+      },
+      "safe_checks": ["exists", "file_kind", "git_tracked"],
+      "forbidden_checks": ["install_dependencies", "edit_dependencies"],
+      "notes": "Defines package metadata and optional dependency groups."
+    },
+    {
+      "id": "gitignore",
+      "label": "Git ignore policy",
+      "classification": "Repo-Owned Source Files",
+      "path_scope": "repo_relative",
+      "path_pattern": ".gitignore",
+      "git_policy": "tracked_allowed",
+      "privacy": "public_repo_source",
+      "profiles": {
+        "clean_clone": {"required": true}
+      },
+      "safe_checks": ["exists", "file_kind", "git_tracked"],
+      "forbidden_checks": ["edit_ignore_policy"],
+      "notes": "Existing ignore policy is evidence only in this pass."
+    },
+    {
+      "id": "source_package",
+      "label": "Parser package source",
+      "classification": "Repo-Owned Source Files",
+      "path_scope": "repo_relative",
+      "path_pattern": "src/mythic_edge_parser",
+      "git_policy": "tracked_allowed",
+      "privacy": "public_repo_source",
+      "profiles": {
+        "clean_clone": {"required": true}
+      },
+      "safe_checks": ["exists", "directory_kind", "git_tracked"],
+      "forbidden_checks": ["change_parser_behavior"],
+      "notes": "Parser source remains the owner of parser interpretation."
+    },
+    {
+      "id": "tests_tree",
+      "label": "Test suite",
+      "classification": "Repo-Owned Source Files",
+      "path_scope": "repo_relative",
+      "path_pattern": "tests",
+      "git_policy": "tracked_allowed",
+      "privacy": "public_repo_source",
+      "profiles": {
+        "clean_clone": {"required": true}
+      },
+      "safe_checks": ["exists", "directory_kind", "git_tracked"],
+      "forbidden_checks": ["rewrite_tests_broadly"],
+      "notes": "Repo-owned tests and synthetic fixtures."
+    },
+    {
+      "id": "tools_tree",
+      "label": "Tooling scripts",
+      "classification": "Repo-Owned Source Files",
+      "path_scope": "repo_relative",
+      "path_pattern": "tools",
+      "git_policy": "tracked_allowed",
+      "privacy": "public_repo_source",
+      "profiles": {
+        "clean_clone": {"required": true}
+      },
+      "safe_checks": ["exists", "directory_kind", "git_tracked"],
+      "forbidden_checks": ["run_mutating_tools"],
+      "notes": "Repo-owned tooling; individual tools still need scoped authorization before mutation."
+    },
+    {
+      "id": "frontend_package_json",
+      "label": "Frontend package metadata",
+      "classification": "Repo-Owned Source Files",
+      "path_scope": "repo_relative",
+      "path_pattern": "frontend/package.json",
+      "git_policy": "tracked_allowed",
+      "privacy": "public_repo_source",
+      "profiles": {
+        "clean_clone": {"required": true},
+        "local_developer_app": {"required": true}
+      },
+      "safe_checks": ["exists", "file_kind", "git_tracked"],
+      "forbidden_checks": ["install_node_dependencies", "change_frontend_behavior"],
+      "notes": "Local app frontend metadata."
+    },
+    {
+      "id": "frontend_source",
+      "label": "Frontend source tree",
+      "classification": "Repo-Owned Source Files",
+      "path_scope": "repo_relative",
+      "path_pattern": "frontend/src",
+      "git_policy": "tracked_allowed",
+      "privacy": "public_repo_source",
+      "profiles": {
+        "clean_clone": {"required": true},
+        "local_developer_app": {"required": true}
+      },
+      "safe_checks": ["exists", "directory_kind", "git_tracked"],
+      "forbidden_checks": ["change_frontend_behavior"],
+      "notes": "Local app display/control source; not parser truth."
+    },
+    {
+      "id": "dev_app_tools",
+      "label": "Developer app launcher tools",
+      "classification": "Repo-Owned Source Files",
+      "path_scope": "repo_relative",
+      "path_pattern": "tools/dev_app",
+      "git_policy": "tracked_allowed",
+      "privacy": "public_repo_source",
+      "profiles": {
+        "local_developer_app": {"required": true}
+      },
+      "safe_checks": ["exists", "directory_kind", "git_tracked"],
+      "forbidden_checks": ["launch_servers", "install_dependencies"],
+      "notes": "Launcher/bootstrapper support files only."
+    },
+    {
+      "id": "local_app_package",
+      "label": "Local app package",
+      "classification": "Repo-Owned Source Files",
+      "path_scope": "repo_relative",
+      "path_pattern": "src/mythic_edge_parser/local_app",
+      "git_policy": "tracked_allowed",
+      "privacy": "public_repo_source",
+      "profiles": {
+        "local_developer_app": {"required": true},
+        "historical_import_readiness": {"required": true}
+      },
+      "safe_checks": ["exists", "directory_kind", "git_tracked"],
+      "forbidden_checks": ["start_backend", "change_backend_behavior"],
+      "notes": "Local app backend/support package."
+    },
+    {
+      "id": "local_app_import_jobs",
+      "label": "Local app import job support",
+      "classification": "Repo-Owned Source Files",
+      "path_scope": "repo_relative",
+      "path_pattern": "src/mythic_edge_parser/local_app/import_jobs.py",
+      "git_policy": "tracked_allowed",
+      "privacy": "public_repo_source",
+      "profiles": {
+        "historical_import_readiness": {"required": true}
+      },
+      "safe_checks": ["exists", "file_kind", "git_tracked"],
+      "forbidden_checks": ["run_import_jobs", "read_jsonl_payloads"],
+      "notes": "Import job code is inspected only as source presence."
+    },
+    {
+      "id": "analytics_migration_sql",
+      "label": "Analytics migration SQL package data",
+      "classification": "Repo-Owned Source Files",
+      "path_scope": "repo_relative",
+      "path_pattern": "src/mythic_edge_parser/app/analytics_migrations",
+      "git_policy": "tracked_allowed",
+      "privacy": "public_repo_source",
+      "profiles": {
+        "analytics_development": {"required": true}
+      },
+      "safe_checks": ["exists", "directory_kind", "git_tracked"],
+      "forbidden_checks": ["apply_migrations", "create_sqlite_database"],
+      "notes": "Package data for local analytics schema support."
+    },
+    {
+      "id": "analytics_ingest_module",
+      "label": "Analytics ingest module",
+      "classification": "Repo-Owned Source Files",
+      "path_scope": "repo_relative",
+      "path_pattern": "src/mythic_edge_parser/app/analytics_ingest.py",
+      "git_policy": "tracked_allowed",
+      "privacy": "public_repo_source",
+      "profiles": {
+        "analytics_development": {"required": true},
+        "historical_import_readiness": {"required": true}
+      },
+      "safe_checks": ["exists", "file_kind", "git_tracked"],
+      "forbidden_checks": ["run_ingest", "change_analytics_behavior"],
+      "notes": "Downstream analytics support; not parser truth."
+    },
+    {
+      "id": "analytics_legacy_jsonl_adapter",
+      "label": "Legacy JSONL adapter module",
+      "classification": "Repo-Owned Source Files",
+      "path_scope": "repo_relative",
+      "path_pattern": "src/mythic_edge_parser/app/analytics_legacy_jsonl_adapter.py",
+      "git_policy": "tracked_allowed",
+      "privacy": "public_repo_source",
+      "profiles": {
+        "analytics_development": {"required": true},
+        "historical_import_readiness": {"required": true}
+      },
+      "safe_checks": ["exists", "file_kind", "git_tracked"],
+      "forbidden_checks": ["run_import", "read_jsonl_payloads"],
+      "notes": "Compatibility adapter; legacy derived fields are not parser truth."
+    },
+    {
+      "id": "analytics_schema_tests",
+      "label": "Analytics schema tests",
+      "classification": "Repo-Owned Source Files",
+      "path_scope": "repo_relative",
+      "path_pattern": "tests/test_analytics_schema.py",
+      "git_policy": "tracked_allowed",
+      "privacy": "public_repo_source",
+      "profiles": {
+        "analytics_development": {"required": true}
+      },
+      "safe_checks": ["exists", "file_kind", "git_tracked"],
+      "forbidden_checks": ["run_broad_suite"],
+      "notes": "Focused schema validation surface."
+    },
+    {
+      "id": "analytics_ingest_tests",
+      "label": "Analytics ingest tests",
+      "classification": "Repo-Owned Source Files",
+      "path_scope": "repo_relative",
+      "path_pattern": "tests/test_analytics_parser_normalized_replay_ingest.py",
+      "git_policy": "tracked_allowed",
+      "privacy": "public_repo_source",
+      "profiles": {
+        "analytics_development": {"required": true}
+      },
+      "safe_checks": ["exists", "file_kind", "git_tracked"],
+      "forbidden_checks": ["read_private_artifacts"],
+      "notes": "Focused parser-normalized replay ingest test surface."
+    },
+    {
+      "id": "analytics_manual_import_tests",
+      "label": "Manual JSONL import tests",
+      "classification": "Repo-Owned Source Files",
+      "path_scope": "repo_relative",
+      "path_pattern": "tests/test_analytics_manual_jsonl_import.py",
+      "git_policy": "tracked_allowed",
+      "privacy": "public_repo_source",
+      "profiles": {
+        "historical_import_readiness": {"required": true}
+      },
+      "safe_checks": ["exists", "file_kind", "git_tracked"],
+      "forbidden_checks": ["read_private_artifacts"],
+      "notes": "Synthetic tests only; private JSONL artifacts remain local."
+    },
+    {
+      "id": "main_entrypoint",
+      "label": "Parser entrypoint",
+      "classification": "Repo-Owned Source Files",
+      "path_scope": "repo_relative",
+      "path_pattern": "main.py",
+      "git_policy": "tracked_allowed",
+      "privacy": "public_repo_source",
+      "profiles": {
+        "live_parser_readiness": {"required": true}
+      },
+      "safe_checks": ["exists", "file_kind", "git_tracked"],
+      "forbidden_checks": ["start_parser"],
+      "notes": "Presence check only; this checker never starts the parser."
+    },
+    {
+      "id": "parser_state",
+      "label": "Parser state module",
+      "classification": "Repo-Owned Source Files",
+      "path_scope": "repo_relative",
+      "path_pattern": "src/mythic_edge_parser/app/state.py",
+      "git_policy": "tracked_allowed",
+      "privacy": "public_repo_source",
+      "profiles": {
+        "live_parser_readiness": {"required": true}
+      },
+      "safe_checks": ["exists", "file_kind", "git_tracked"],
+      "forbidden_checks": ["change_parser_state"],
+      "notes": "Parser/state layer owns interpretation and final reconciliation."
+    },
+    {
+      "id": "parser_models",
+      "label": "Parser model module",
+      "classification": "Repo-Owned Source Files",
+      "path_scope": "repo_relative",
+      "path_pattern": "src/mythic_edge_parser/app/models.py",
+      "git_policy": "tracked_allowed",
+      "privacy": "public_repo_source",
+      "profiles": {
+        "live_parser_readiness": {"required": true}
+      },
+      "safe_checks": ["exists", "file_kind", "git_tracked"],
+      "forbidden_checks": ["change_parser_models"],
+      "notes": "Normalized parser row and summary models."
+    },
+    {
+      "id": "parser_outputs",
+      "label": "Parser output module",
+      "classification": "Repo-Owned Source Files",
+      "path_scope": "repo_relative",
+      "path_pattern": "src/mythic_edge_parser/app/outputs.py",
+      "git_policy": "tracked_allowed",
+      "privacy": "public_repo_source",
+      "profiles": {
+        "live_parser_readiness": {"required": true}
+      },
+      "safe_checks": ["exists", "file_kind", "git_tracked"],
+      "forbidden_checks": ["post_webhooks", "change_webhook_shape"],
+      "notes": "Output code presence only; no transport actions are run."
+    },
+    {
+      "id": "runtime_surfaces",
+      "label": "Runtime surface module",
+      "classification": "Repo-Owned Source Files",
+      "path_scope": "repo_relative",
+      "path_pattern": "src/mythic_edge_parser/app/runtime_surfaces.py",
+      "git_policy": "tracked_allowed",
+      "privacy": "public_repo_source",
+      "profiles": {
+        "live_parser_readiness": {"required": true}
+      },
+      "safe_checks": ["exists", "file_kind", "git_tracked"],
+      "forbidden_checks": ["read_runtime_payloads", "change_runtime_behavior"],
+      "notes": "Runtime support source; report does not read runtime output files."
+    },
+    {
+      "id": "app_data_root",
+      "label": "Local app data root",
+      "classification": "Generated Local App State",
+      "path_scope": "app_data_relative",
+      "path_pattern": "",
+      "git_policy": "never_commit",
+      "privacy": "private_local",
+      "profiles": {
+        "clean_clone": {"required": false, "missing_severity": "info", "present_severity": "info"},
+        "local_developer_app": {"required": false, "missing_severity": "info", "present_severity": "ok"},
+        "historical_import_readiness": {"required": false, "missing_severity": "info", "present_severity": "ok"}
+      },
+      "safe_checks": ["exists", "directory_kind"],
+      "forbidden_checks": ["create_directory", "list_private_filenames", "read_contents"],
+      "notes": "Symbolic root for app-owned generated state."
+    },
+    {
+      "id": "app_config_file",
+      "label": "Local app config file",
+      "classification": "Generated Local App State",
+      "path_scope": "app_data_relative",
+      "path_pattern": "config/app_config.json",
+      "git_policy": "never_commit",
+      "privacy": "secret_or_credential",
+      "profiles": {
+        "local_developer_app": {"required": false, "missing_severity": "info", "present_severity": "info"}
+      },
+      "safe_checks": ["exists", "file_kind"],
+      "forbidden_checks": ["read_config_values", "print_config_values", "create_config"],
+      "notes": "May contain local paths or secret-like configuration."
+    },
+    {
+      "id": "analytics_sqlite_database",
+      "label": "Local analytics SQLite database",
+      "classification": "Generated Local App State",
+      "path_scope": "app_data_relative",
+      "path_pattern": "db/mythic_edge.sqlite3",
+      "git_policy": "never_commit",
+      "privacy": "private_local",
+      "profiles": {
+        "local_developer_app": {"required": false, "missing_severity": "info", "present_severity": "info"},
+        "historical_import_readiness": {"required": false, "missing_severity": "info", "present_severity": "info"}
+      },
+      "safe_checks": ["exists", "file_kind"],
+      "forbidden_checks": ["inspect_sqlite_rows", "create_sqlite_database", "migrate_database"],
+      "notes": "SQLite presence is reported only; rows are never inspected."
+    },
+    {
+      "id": "app_logs_dir",
+      "label": "Local app logs directory",
+      "classification": "Generated Local App State",
+      "path_scope": "app_data_relative",
+      "path_pattern": "logs",
+      "git_policy": "never_commit",
+      "privacy": "private_local",
+      "profiles": {
+        "local_developer_app": {"required": false, "missing_severity": "info", "present_severity": "info"}
+      },
+      "safe_checks": ["exists", "directory_kind"],
+      "forbidden_checks": ["read_logs", "list_private_filenames", "create_directory"],
+      "notes": "Logs remain local diagnostics."
+    },
+    {
+      "id": "app_imports_dir",
+      "label": "Local app imports directory",
+      "classification": "Generated Local App State",
+      "path_scope": "app_data_relative",
+      "path_pattern": "imports",
+      "git_policy": "never_commit",
+      "privacy": "private_local",
+      "profiles": {
+        "local_developer_app": {"required": false, "missing_severity": "info", "present_severity": "info"},
+        "historical_import_readiness": {"required": false, "missing_severity": "info", "present_severity": "info"}
+      },
+      "safe_checks": ["exists", "directory_kind"],
+      "forbidden_checks": ["read_jsonl_payloads", "list_private_filenames", "create_directory"],
+      "notes": "Import job staging area; this checker does not retain or inspect uploads."
+    },
+    {
+      "id": "app_jobs_dir",
+      "label": "Local app jobs directory",
+      "classification": "Generated Local App State",
+      "path_scope": "app_data_relative",
+      "path_pattern": "jobs",
+      "git_policy": "never_commit",
+      "privacy": "private_local",
+      "profiles": {
+        "local_developer_app": {"required": false, "missing_severity": "info", "present_severity": "info"},
+        "historical_import_readiness": {"required": false, "missing_severity": "info", "present_severity": "info"}
+      },
+      "safe_checks": ["exists", "directory_kind"],
+      "forbidden_checks": ["read_job_payloads", "create_directory"],
+      "notes": "Job metadata remains local app state."
+    },
+    {
+      "id": "app_diagnostics_dir",
+      "label": "Local app diagnostics directory",
+      "classification": "Generated Local App State",
+      "path_scope": "app_data_relative",
+      "path_pattern": "diagnostics",
+      "git_policy": "never_commit",
+      "privacy": "private_local",
+      "profiles": {
+        "local_developer_app": {"required": false, "missing_severity": "info", "present_severity": "info"}
+      },
+      "safe_checks": ["exists", "directory_kind"],
+      "forbidden_checks": ["read_diagnostics", "create_directory"],
+      "notes": "Diagnostics are local-only evidence."
+    },
+    {
+      "id": "sqlite_sidecar_files",
+      "label": "SQLite sidecar files",
+      "classification": "Generated Local App State",
+      "path_scope": "app_data_relative",
+      "path_pattern": "db/mythic_edge.sqlite3-sidecars",
+      "git_policy": "never_commit",
+      "privacy": "private_local",
+      "profiles": {
+        "local_developer_app": {"required": false, "missing_severity": "info", "present_severity": "warning"}
+      },
+      "safe_checks": ["exists"],
+      "forbidden_checks": ["create_sqlite_sidecars", "inspect_sqlite_rows"],
+      "notes": "Represents SQLite WAL, SHM, and journal sidecars without enumerating arbitrary filenames."
+    },
+    {
+      "id": "private_input_player_log",
+      "label": "MTGA Player.log",
+      "classification": "Private Local Inputs",
+      "path_scope": "user_selected",
+      "path_pattern": "<configured_player_log>",
+      "git_policy": "never_commit",
+      "privacy": "private_local",
+      "profiles": {
+        "clean_clone": {"required": false, "missing_severity": "info", "present_severity": "info"},
+        "analytics_development": {"required": false, "missing_severity": "info", "present_severity": "info"},
+        "live_parser_readiness": {"required": true, "missing_severity": "blocked", "present_severity": "ok"}
+      },
+      "env_var": "MTGA_PLAYER_LOG",
+      "example_display_path": "<configured_player_log>",
+      "safe_fixture_policy": "Use committed sanitized fixture slices under tests/fixtures only.",
+      "safe_checks": ["exists", "file_kind"],
+      "forbidden_checks": ["read_contents", "tail_file", "hash_file", "copy_file", "print_raw_path"],
+      "notes": "Local observable evidence only. Parser/state owns interpretation."
+    },
+    {
+      "id": "private_input_historical_jsonl_file",
+      "label": "Selected historical JSONL file",
+      "classification": "Private Local Inputs",
+      "path_scope": "user_selected",
+      "path_pattern": "<source_path>",
+      "git_policy": "never_commit",
+      "privacy": "private_local",
+      "profiles": {
+        "analytics_development": {"required": false, "missing_severity": "info", "present_severity": "info"},
+        "historical_import_readiness": {"required": false, "missing_severity": "info", "present_severity": "ok"}
+      },
+      "example_display_path": "<source_path>",
+      "safe_checks": ["exists", "file_kind", "extension"],
+      "forbidden_checks": ["read_jsonl_payloads", "hash_file", "copy_file", "sanitize_file", "import_file", "print_raw_path"],
+      "notes": "Explicitly selected source only; no raw JSONL contents are read."
+    },
+    {
+      "id": "private_input_historical_jsonl_folder",
+      "label": "Selected historical JSONL folder",
+      "classification": "Private Local Inputs",
+      "path_scope": "user_selected",
+      "path_pattern": "<source_folder>",
+      "git_policy": "never_commit",
+      "privacy": "private_local",
+      "profiles": {
+        "analytics_development": {"required": false, "missing_severity": "info", "present_severity": "info"},
+        "historical_import_readiness": {"required": false, "missing_severity": "info", "present_severity": "ok"}
+      },
+      "example_display_path": "<source_folder>",
+      "safe_checks": ["exists", "directory_kind"],
+      "forbidden_checks": ["enumerate_deep_contents", "read_jsonl_payloads", "copy_folder", "sanitize_folder", "import_folder", "print_raw_path"],
+      "notes": "Folder kind only; private filenames are not listed by default."
+    },
+    {
+      "id": "private_input_workbook_export",
+      "label": "Local workbook export",
+      "classification": "Private Local Inputs",
+      "path_scope": "user_selected",
+      "path_pattern": "<workbook_export>",
+      "git_policy": "never_commit",
+      "privacy": "private_local",
+      "profiles": {
+        "clean_clone": {"required": false, "missing_severity": "info", "present_severity": "warning"}
+      },
+      "safe_checks": ["exists", "file_kind"],
+      "forbidden_checks": ["read_workbook", "print_raw_path"],
+      "notes": "Manual comparison artifact only; not repo source."
+    },
+    {
+      "id": "private_output_match_logs",
+      "label": "Saved parser match logs",
+      "classification": "Private Local Outputs",
+      "path_scope": "repo_relative",
+      "path_pattern": "<placeholder_repo>/data/match_logs/**",
+      "git_policy": "ignored_required",
+      "privacy": "private_local",
+      "profiles": {
+        "clean_clone": {"required": false, "missing_severity": "info", "present_severity": "warning"},
+        "analytics_development": {"required": false, "missing_severity": "info", "present_severity": "warning"},
+        "live_parser_readiness": {"required": false, "missing_severity": "info", "present_severity": "warning"}
+      },
+      "gitignore_expectation": "covered",
+      "example_display_path": "<repo>\\data\\match_logs",
+      "safe_checks": ["exists", "directory_kind", "git_ignored"],
+      "forbidden_checks": ["read_jsonl_payloads", "list_private_filenames", "hash_contents"],
+      "notes": "Private parser output family; tests should use sanitized fixtures instead."
+    },
+    {
+      "id": "private_output_runtime_logs",
+      "label": "Runtime log outputs",
+      "classification": "Private Local Outputs",
+      "path_scope": "repo_relative",
+      "path_pattern": "<placeholder_repo>/data/runtime_logs/**",
+      "git_policy": "ignored_required",
+      "privacy": "private_local",
+      "profiles": {
+        "clean_clone": {"required": false, "missing_severity": "info", "present_severity": "warning"},
+        "live_parser_readiness": {"required": false, "missing_severity": "info", "present_severity": "warning"}
+      },
+      "gitignore_expectation": "covered",
+      "example_display_path": "<repo>\\data\\runtime_logs",
+      "safe_checks": ["exists", "directory_kind", "git_ignored"],
+      "forbidden_checks": ["read_logs", "list_private_filenames"],
+      "notes": "Local runtime diagnostics."
+    },
+    {
+      "id": "private_output_status_snapshots",
+      "label": "Runtime state snapshots",
+      "classification": "Private Local Outputs",
+      "path_scope": "repo_relative",
+      "path_pattern": "<placeholder_repo>/data/status/**",
+      "git_policy": "ignored_required",
+      "privacy": "private_local",
+      "profiles": {
+        "clean_clone": {"required": false, "missing_severity": "info", "present_severity": "warning"},
+        "live_parser_readiness": {"required": false, "missing_severity": "info", "present_severity": "warning"}
+      },
+      "gitignore_expectation": "covered",
+      "example_display_path": "<repo>\\data\\status",
+      "safe_checks": ["exists", "directory_kind", "git_ignored"],
+      "forbidden_checks": ["read_status_payloads", "list_private_filenames"],
+      "notes": "Local current-state snapshots are not repo source."
+    },
+    {
+      "id": "private_output_transport_failures",
+      "label": "Failed transport post queue",
+      "classification": "Private Local Outputs",
+      "path_scope": "repo_relative",
+      "path_pattern": "<placeholder_repo>/data/failed_posts/**",
+      "git_policy": "ignored_required",
+      "privacy": "private_local",
+      "profiles": {
+        "clean_clone": {"required": false, "missing_severity": "info", "present_severity": "warning"},
+        "live_parser_readiness": {"required": false, "missing_severity": "info", "present_severity": "warning"}
+      },
+      "gitignore_expectation": "covered",
+      "example_display_path": "<repo>\\data\\failed_posts",
+      "safe_checks": ["exists", "directory_kind", "git_ignored"],
+      "forbidden_checks": ["read_payloads", "list_private_filenames", "post_webhooks"],
+      "notes": "May contain transport payload details and must stay local."
+    },
+    {
+      "id": "private_output_bad_events",
+      "label": "Bad event captures",
+      "classification": "Private Local Outputs",
+      "path_scope": "repo_relative",
+      "path_pattern": "<placeholder_repo>/data/bad_events/**",
+      "git_policy": "ignored_required",
+      "privacy": "private_local",
+      "profiles": {
+        "clean_clone": {"required": false, "missing_severity": "info", "present_severity": "warning"},
+        "live_parser_readiness": {"required": false, "missing_severity": "info", "present_severity": "warning"}
+      },
+      "gitignore_expectation": "covered",
+      "example_display_path": "<repo>\\data\\bad_events",
+      "safe_checks": ["exists", "directory_kind", "git_ignored"],
+      "forbidden_checks": ["read_event_payloads", "list_private_filenames"],
+      "notes": "Parser diagnostics that may contain raw event context."
+    },
+    {
+      "id": "private_output_decklists",
+      "label": "Local decklist outputs",
+      "classification": "Private Local Outputs",
+      "path_scope": "repo_relative",
+      "path_pattern": "<placeholder_repo>/data/decklists/**",
+      "git_policy": "ignored_required",
+      "privacy": "private_local",
+      "profiles": {
+        "clean_clone": {"required": false, "missing_severity": "info", "present_severity": "warning"}
+      },
+      "gitignore_expectation": "covered",
+      "example_display_path": "<repo>\\data\\decklists",
+      "safe_checks": ["exists", "directory_kind", "git_ignored"],
+      "forbidden_checks": ["read_decklists", "list_private_filenames"],
+      "notes": "Local deck snapshots are not parser truth."
+    },
+    {
+      "id": "generated_analytics_data",
+      "label": "Generated analytics data",
+      "classification": "Generated Nonprivate Support Data",
+      "path_scope": "repo_relative",
+      "path_pattern": "<placeholder_repo>/data/analytics/**",
+      "git_policy": "ignored_required",
+      "privacy": "generated_nonprivate",
+      "profiles": {
+        "clean_clone": {"required": false, "missing_severity": "info", "present_severity": "warning"},
+        "analytics_development": {"required": false, "missing_severity": "info", "present_severity": "warning"}
+      },
+      "gitignore_expectation": "covered",
+      "example_display_path": "<repo>\\data\\analytics",
+      "safe_checks": ["exists", "directory_kind", "git_ignored"],
+      "forbidden_checks": ["create_sqlite_database", "inspect_sqlite_rows", "refresh_data"],
+      "notes": "Regenerable analytics output must not become accidental source."
+    },
+    {
+      "id": "generated_card_catalog",
+      "label": "Generated card catalog data",
+      "classification": "Generated Nonprivate Support Data",
+      "path_scope": "repo_relative",
+      "path_pattern": "<placeholder_repo>/data/oracle_data/**",
+      "git_policy": "ignored_required",
+      "privacy": "generated_nonprivate",
+      "profiles": {
+        "clean_clone": {"required": false, "missing_severity": "info", "present_severity": "warning"}
+      },
+      "gitignore_expectation": "covered",
+      "example_display_path": "<repo>\\data\\oracle_data",
+      "safe_checks": ["exists", "directory_kind", "git_ignored"],
+      "forbidden_checks": ["refresh_card_catalog", "read_generated_dump"],
+      "notes": "Regenerable support data."
+    },
+    {
+      "id": "generated_tier_source_latest",
+      "label": "Generated tier-source snapshot",
+      "classification": "Generated Nonprivate Support Data",
+      "path_scope": "repo_relative",
+      "path_pattern": "<placeholder_repo>/data/tier_sources/latest_tier_snapshot.json",
+      "git_policy": "ignored_required",
+      "privacy": "generated_nonprivate",
+      "profiles": {
+        "clean_clone": {"required": false, "missing_severity": "info", "present_severity": "warning"}
+      },
+      "gitignore_expectation": "covered",
+      "example_display_path": "<repo>\\data\\tier_sources\\latest_tier_snapshot.json",
+      "safe_checks": ["exists", "file_kind", "git_ignored"],
+      "forbidden_checks": ["refresh_tier_sources", "read_generated_dump"],
+      "notes": "Generated snapshot only; committed overrides remain separate."
+    },
+    {
+      "id": "frontend_node_modules",
+      "label": "Frontend dependency directory",
+      "classification": "Generated Nonprivate Support Data",
+      "path_scope": "repo_relative",
+      "path_pattern": "frontend/node_modules",
+      "git_policy": "ignored_required",
+      "privacy": "generated_nonprivate",
+      "profiles": {
+        "clean_clone": {"required": false, "missing_severity": "info", "present_severity": "info"}
+      },
+      "gitignore_expectation": "covered",
+      "safe_checks": ["exists", "directory_kind", "git_ignored"],
+      "forbidden_checks": ["install_dependencies", "delete_dependencies"],
+      "notes": "Generated dependency install output."
+    },
+    {
+      "id": "frontend_build_output",
+      "label": "Frontend build output",
+      "classification": "Generated Nonprivate Support Data",
+      "path_scope": "repo_relative",
+      "path_pattern": "frontend/dist",
+      "git_policy": "ignored_required",
+      "privacy": "generated_nonprivate",
+      "profiles": {
+        "clean_clone": {"required": false, "missing_severity": "info", "present_severity": "info"}
+      },
+      "gitignore_expectation": "covered",
+      "safe_checks": ["exists", "directory_kind", "git_ignored"],
+      "forbidden_checks": ["run_build", "delete_build_output"],
+      "notes": "Generated frontend build output."
+    },
+    {
+      "id": "frontend_vite_cache",
+      "label": "Frontend Vite cache",
+      "classification": "Generated Nonprivate Support Data",
+      "path_scope": "repo_relative",
+      "path_pattern": "frontend/.vite",
+      "git_policy": "ignored_required",
+      "privacy": "generated_nonprivate",
+      "profiles": {
+        "clean_clone": {"required": false, "missing_severity": "info", "present_severity": "info"}
+      },
+      "gitignore_expectation": "covered",
+      "safe_checks": ["exists", "directory_kind", "git_ignored"],
+      "forbidden_checks": ["delete_cache"],
+      "notes": "Generated Vite cache."
+    },
+    {
+      "id": "frontend_coverage",
+      "label": "Frontend coverage output",
+      "classification": "Generated Nonprivate Support Data",
+      "path_scope": "repo_relative",
+      "path_pattern": "frontend/coverage",
+      "git_policy": "ignored_required",
+      "privacy": "generated_nonprivate",
+      "profiles": {
+        "clean_clone": {"required": false, "missing_severity": "info", "present_severity": "info"}
+      },
+      "gitignore_expectation": "covered",
+      "safe_checks": ["exists", "directory_kind", "git_ignored"],
+      "forbidden_checks": ["run_coverage", "delete_coverage"],
+      "notes": "Generated coverage output."
+    },
+    {
+      "id": "python_caches",
+      "label": "Python cache files",
+      "classification": "Generated Nonprivate Support Data",
+      "path_scope": "repo_relative",
+      "path_pattern": "__pycache__",
+      "git_policy": "ignored_required",
+      "privacy": "generated_nonprivate",
+      "profiles": {
+        "clean_clone": {"required": false, "missing_severity": "info", "present_severity": "info"}
+      },
+      "gitignore_expectation": "covered",
+      "safe_checks": ["exists", "directory_kind", "git_ignored"],
+      "forbidden_checks": ["delete_cache"],
+      "notes": "Generated Python cache family."
+    },
+    {
+      "id": "env_files",
+      "label": "Local env files",
+      "classification": "Secret And Credential Surfaces",
+      "path_scope": "repo_relative",
+      "path_pattern": ".env*",
+      "git_policy": "never_commit",
+      "privacy": "secret_or_credential",
+      "profiles": {
+        "clean_clone": {"required": false, "missing_severity": "info", "present_severity": "blocked"},
+        "local_developer_app": {"required": false, "missing_severity": "info", "present_severity": "blocked"},
+        "analytics_development": {"required": false, "missing_severity": "info", "present_severity": "blocked"},
+        "live_parser_readiness": {"required": false, "missing_severity": "info", "present_severity": "blocked"},
+        "historical_import_readiness": {"required": false, "missing_severity": "info", "present_severity": "blocked"}
+      },
+      "gitignore_expectation": "report_if_missing",
+      "safe_checks": ["exists", "git_ignored"],
+      "forbidden_checks": ["read_values", "print_values", "create_secrets", "rotate_secrets"],
+      "notes": "Secret-like local env files must never be committed. This pass records ignore-policy evidence only."
+    },
+    {
+      "id": "env_example_template",
+      "label": "Tracked env example template",
+      "classification": "Repo-Owned Source Files",
+      "path_scope": "repo_relative",
+      "path_pattern": ".env.example",
+      "git_policy": "tracked_allowed",
+      "privacy": "public_repo_source",
+      "profiles": {
+        "clean_clone": {"required": true},
+        "clean_install_transition_audit": {"required": true}
+      },
+      "gitignore_expectation": "not_applicable",
+      "safe_checks": ["exists", "file_kind", "git_tracked", "git_modified"],
+      "forbidden_checks": ["read_values", "print_values", "create_secrets", "rotate_secrets"],
+      "notes": "Exact tracked .env.example is allowed as a blank/placeholder template; secret scanning owns value validation."
+    },
+    {
+      "id": "credential_json_files",
+      "label": "Credential JSON files",
+      "classification": "Secret And Credential Surfaces",
+      "path_scope": "repo_relative",
+      "path_pattern": "<credential_file_pattern>",
+      "git_policy": "never_commit",
+      "privacy": "secret_or_credential",
+      "profiles": {
+        "clean_clone": {"required": false, "missing_severity": "info", "present_severity": "blocked"},
+        "local_developer_app": {"required": false, "missing_severity": "info", "present_severity": "blocked"}
+      },
+      "gitignore_expectation": "unknown",
+      "safe_checks": ["git_ignored"],
+      "forbidden_checks": ["read_values", "print_values", "create_credentials", "rotate_credentials"],
+      "notes": "Represents local credential-style JSON files without naming private files."
+    },
+    {
+      "id": "webhook_url_files",
+      "label": "Webhook URL files",
+      "classification": "Secret And Credential Surfaces",
+      "path_scope": "env_relative",
+      "path_pattern": "<configured_webhook>",
+      "git_policy": "never_commit",
+      "privacy": "secret_or_credential",
+      "profiles": {
+        "clean_clone": {"required": false, "missing_severity": "info", "present_severity": "blocked"},
+        "live_parser_readiness": {"required": false, "missing_severity": "info", "present_severity": "warning"}
+      },
+      "env_var": "MYTHICEDGE_SHEETS_WEBHOOK",
+      "example_display_path": "<configured_webhook>",
+      "gitignore_expectation": "not_applicable",
+      "safe_checks": ["env_var_name_presence"],
+      "forbidden_checks": ["print_env_value", "post_webhooks", "create_secret"],
+      "notes": "Webhook readiness is advisory; values are never printed."
+    },
+    {
+      "id": "api_key_files",
+      "label": "API key files",
+      "classification": "Secret And Credential Surfaces",
+      "path_scope": "env_relative",
+      "path_pattern": "<configured_api_key>",
+      "git_policy": "never_commit",
+      "privacy": "secret_or_credential",
+      "profiles": {
+        "clean_clone": {"required": false, "missing_severity": "info", "present_severity": "blocked"},
+        "live_parser_readiness": {"required": false, "missing_severity": "info", "present_severity": "warning"}
+      },
+      "env_var": "MYTHICEDGE_API_KEY",
+      "example_display_path": "<configured_api_key>",
+      "gitignore_expectation": "not_applicable",
+      "safe_checks": ["env_var_name_presence"],
+      "forbidden_checks": ["print_env_value", "create_secret", "rotate_secret"],
+      "notes": "Reserved secret-adjacent surface; no value is read into report output."
+    }
+  ]
+}

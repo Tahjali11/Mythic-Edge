@@ -32,6 +32,18 @@ Link to the pull request, branch, or changed-file list.
 
 Briefly restate the behavior or documentation package that must be true.
 
+## Internal Project Area Reviewed
+
+State the internal project area named by the issue, contract, handoff, and PR.
+Flag mismatches against `docs/internal_project_map.md` when they create real
+scope, truth-owner, or protected-surface ambiguity.
+
+## Bridge-Code Status Reviewed
+
+State the bridge-code status reviewed. Use the finding lifecycle table for any
+contract, handoff, PR, or implementation mismatch; do not create a separate
+lifecycle category for vocabulary-only issues.
+
 ## Checks Run
 
 ```bash

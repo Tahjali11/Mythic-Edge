@@ -12,6 +12,19 @@ Link to the tracker issue, if any.
 
 Link to the module contract.
 
+## Internal Project Area
+
+Name the contracted internal project area from `docs/internal_project_map.md`.
+
+## Truth Owner
+
+Name the truth owner confirmed during implementation.
+
+## Bridge-Code Status
+
+State one of `not_bridge_code`, `bridge_code`, `shared_support`,
+`ambiguous_pending_follow_up`, or `deferred_future_boundary`.
+
 ## Role Performed
 
 Codex C: Module Implementer, or Codex D: Module Fixer.
@@ -38,6 +51,12 @@ surface.
 List changed function signatures, payload fields, workbook columns, environment
 variables, script entrypoints, docs schemas, issue lifecycle rules, or PR
 lifecycle rules.
+
+## Contracted Area Status
+
+State whether the implementation stayed inside the contracted internal project
+area and whether any downstream consumers or bridge-code boundaries were
+touched.
 
 ## Validation Run
 
