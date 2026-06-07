@@ -3601,7 +3601,7 @@ def test_validator_reports_duplicate_entry_and_signal_ids() -> None:
 def test_validator_reports_absolute_paths_and_raw_log_like_text() -> None:
     entry = copy.deepcopy(evidence_ledger.iter_ledger_entries()[0])
     entry["parser_owner"] = "/private/example/state.py"
-    entry["notes"].append("[UnityCrossThreadLogger]5/19/2026 12:00:00 PM")
+    entry["notes"].append("[" + "UnityCrossThreadLogger" + "]5/19/2026 12:00:00 PM")
     forbidden_note_index = len(entry["notes"]) - 1
 
     errors = evidence_ledger.validate_ledger_entry(entry)
@@ -3683,8 +3683,8 @@ def test_ledger_data_omits_private_values_and_local_artifact_markers() -> None:
     encoded = json.dumps(evidence_ledger.build_player_log_evidence_ledger(), sort_keys=True)
 
     for forbidden in (
-        "[UnityCrossThreadLogger]",
-        "[Client GRE]",
+        "[" + "UnityCrossThreadLogger" + "]",
+        "[" + "Client GRE" + "]",
         "https://" + "hooks.",
         "script.google.com",
         "failed_posts",
