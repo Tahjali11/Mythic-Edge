@@ -169,6 +169,72 @@ Candidate work:
 This phase should improve maintainability and reliability without refactoring for
 style alone or changing protected behavior without a scoped issue and contract.
 
+#### Mythic Edge Code Development
+
+These items improve the codebase itself without adding new parser, analytics,
+Match Journal, cockpit, overlay, Google Sheets, or AI modules. Treat them as
+engineering-maturity work that makes future feature work safer and easier.
+
+1. Type and shape maturity
+   - Expand type-checking coverage for parser events, analytics rows, SQLite
+     records, local API responses, and UI-facing payloads.
+   - Prefer explicit structured shapes over loosely typed dictionaries when a
+     boundary is stable enough to name.
+
+2. Case and naming sensitivity
+   - Centralize event kinds, SQL column names, sheet columns, API fields, route
+     names, and status values.
+   - Decide where mixed-case input is normalized, rejected, or preserved.
+   - Add checks that prevent casing drift from creating duplicate concepts.
+
+3. Import-boundary checks
+   - Keep parser, evidence ledger, analytics, Match Journal, local app, and AI
+     boundaries explicit.
+   - Prevent downstream layers from importing upward into parser truth or
+     rewriting parser-owned identity, state, or deduplication rules.
+
+4. Schema and version discipline
+   - Version durable boundaries such as SQLite migrations, local API payloads,
+     parser event shapes, diagnostics reports, JSON ingest formats, and report
+     artifacts.
+   - Make incompatible artifact shapes fail clearly instead of silently
+     partially working.
+
+5. Invariant tests
+   - Add tests for truths that must remain true across refactors, such as
+     complete game totals, degraded-evidence behavior, journal/parser truth
+     separation, and privacy redaction.
+
+6. Mutation and adversarial tests
+   - Exercise broken, duplicated, truncated, mis-cased, contradictory, or
+     partially missing inputs.
+   - Verify that Mythic Edge rejects, degrades, or reports uncertainty instead
+     of inventing confidence.
+
+7. Dependency and security hygiene
+   - Maintain dependency audit practices, secret/private-marker scans, generated
+     artifact exclusions, and explicit allowlists for committed artifacts.
+   - Keep private local data out of repo artifacts by default.
+
+8. Complexity budget
+   - Track modules with large files, long functions, high branch complexity, or
+     circular dependencies.
+   - Use the results to pick narrow simplification targets, not broad style-only
+     rewrites.
+
+9. Release and readiness matrix
+   - Define what must pass for parser changes, analytics changes, local app/UI
+     changes, SQLite migration changes, and privacy-sensitive changes.
+   - Keep validation selectors and orchestrators as executable authority, with
+     human-readable docs as reference material.
+
+10. Human-readable architecture map
+    - Maintain a plain-language map of what each layer owns: parser facts,
+      evidence/provenance, analytics, Match Journal notes, cockpit display, and
+      optional AI advisory output.
+    - Use the map to help future Codex threads and human reviewers detect
+      boundary drift early.
+
 ### 8. AI-Assisted Coaching Layer
 
 Goal: use AI to summarize, compare, explain, and propose hypotheses from
