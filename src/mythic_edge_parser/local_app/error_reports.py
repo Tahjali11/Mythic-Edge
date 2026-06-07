@@ -48,7 +48,8 @@ EXCLUDED_PRIVATE_DATA = [
 
 _FREEFORM_FIELDS = ("summary", "expected_behavior", "actual_behavior", "reproduction_steps")
 _PRIVATE_PATH_PATTERN = re.compile(
-    r"(?:(?<![A-Za-z0-9_])[A-Za-z]:\\[^\r\n\t|<>\"']+|/(?:Users|home)/[^\r\n\t|<>\"']+)"
+    r"(?:(?<![A-Za-z0-9_])[A-Za-z]:\\[^\r\n\t|<>\"']+"
+    r"|/(?:Users|home|private/var|var/folders|tmp|private/tmp|var/tmp)/[^\r\n\t|<>\"']+)"
 )
 _ENDPOINT_PATTERN = re.compile(r"\b(?:https?|ftp)://\S+", re.IGNORECASE)
 _SECRET_ASSIGNMENT_PATTERN = re.compile(
