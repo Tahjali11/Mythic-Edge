@@ -224,6 +224,33 @@ AI must not own truth for:
    - AI coaching reads analytics and curated context, but remains inference and
      recommendation only.
 
+## Current Strategic Recommendation
+
+After the Player.log evidence ledger / drift protection suite is complete and integrated, prioritize the local
+analytics foundation before building AI-assisted coaching or UI-heavy product layers.
+
+Reason: analytics and coaching become useful only when normalized parser facts, provenance labels, and replayable
+history can be queried consistently. The local analytics foundation should turn parser-normalized outputs into durable
+SQLite facts and deterministic views without making analytics, Google Sheets, or AI the owner of parser truth.
+
+Expected next tracker:
+
+```text
+Local Analytics Foundation
+```
+
+Expected first child issue:
+
+```text
+Codex A: Problem representation for local gameplay fact warehouse foundation
+```
+
+Current problem representation:
+
+```text
+docs/problem_representations/local_analytics_foundation.md
+```
+
 ## Operational Note
 
 Branch cleanup, local worktree reconciliation, and issue/PR lifecycle hygiene
