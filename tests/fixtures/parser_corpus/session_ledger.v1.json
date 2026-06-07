@@ -1,0 +1,112 @@
+{
+  "object": "mythic_edge_parser_corpus_session_ledger",
+  "schema_version": "parser_corpus_session_ledger.v1",
+  "sessions": [
+    {
+      "session_id": "standard_bo1_match_win_basic_v1",
+      "title": "Sanitized Standard Bo1 match win",
+      "source_kind": "sanitized_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "sanitized_committable",
+      "scenario_families": [
+        "core_gameplay.standard_bo1",
+        "deck_api.event_set_deck"
+      ],
+      "format_family": "constructed_standard",
+      "match_shape": "best_of_one",
+      "record_summary": "redacted_or_synthetic_summary",
+      "parser_coverage": {
+        "event_families": {
+          "Rank": 1,
+          "MatchState": 1,
+          "ClientAction": 1,
+          "GameState": 2,
+          "GameResult": 1
+        },
+        "unknown_entries": 0,
+        "truncation_count": 0
+      },
+      "game_rows": {
+        "count": 1,
+        "result_shape": "single_win"
+      },
+      "known_gaps": [],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false
+      }
+    },
+    {
+      "session_id": "standard_bo3_sideboard_loss_v1",
+      "title": "Sanitized Standard Bo3 sideboard match loss",
+      "source_kind": "sanitized_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "sanitized_committable",
+      "scenario_families": [
+        "core_gameplay.standard_bo3",
+        "core_gameplay.traditional_bo3",
+        "gameplay_stress.mulligan"
+      ],
+      "format_family": "constructed_standard",
+      "match_shape": "best_of_three",
+      "record_summary": "redacted_or_synthetic_summary",
+      "parser_coverage": {
+        "event_families": {
+          "Rank": 1,
+          "MatchState": 1,
+          "ClientAction": 2,
+          "GameState": 4,
+          "GameResult": 2
+        },
+        "unknown_entries": 0,
+        "truncation_count": 0
+      },
+      "game_rows": {
+        "count": 2,
+        "result_shape": "win_loss"
+      },
+      "known_gaps": [],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false
+      }
+    },
+    {
+      "session_id": "draft_parser_family_v1",
+      "title": "Synthetic draft parser family slice",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "scenario_families": [
+        "core_gameplay.draft_only"
+      ],
+      "format_family": "limited_draft",
+      "match_shape": "draft_only",
+      "record_summary": "redacted_or_synthetic_summary",
+      "parser_coverage": {
+        "event_families": {
+          "DraftBot": 1,
+          "DraftHuman": 1,
+          "DraftComplete": 1,
+          "GameState": 1
+        },
+        "unknown_entries": 0,
+        "truncation_count": 0
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "draft_with_games"
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false
+      }
+    }
+  ]
+}
