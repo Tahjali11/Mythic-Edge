@@ -192,6 +192,9 @@ const LIVE_WATCHER_PROCESS_PRECONDITION_KEYS = [
   "live_sqlite_ingest_contract_present",
   "frontend_controls_authorized"
 ] as const;
+const SAFE_LIVE_CAPTURE_LABEL_PATTERN = /^[a-z][a-z0-9_]{0,79}$/;
+const SAFE_LIVE_CAPTURE_BLURB_TEXT_PATTERN = /^[A-Za-z0-9][A-Za-z0-9 .,;:!?'"()_-]{0,159}$/;
+const ISO_TIMESTAMP_PREFIX_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/;
 
 export class SetupStatusApiError extends Error {
   code: SetupStatusErrorCode;
@@ -953,6 +956,7 @@ function validateLiveCaptureStatusResponse(payload: unknown): LiveCaptureStatusR
     !isLiveCaptureSummary(payload.capture) ||
     !isLiveCapturePreconditions(payload.preconditions) ||
     !isLiveCaptureState(payload.state) ||
+    !isOptionalLiveCaptureParserStatusBlurb(payload.parser_status_blurb) ||
     !isStringArray(payload.warnings) ||
     !isStringArray(payload.errors)
   ) {
@@ -1921,6 +1925,22 @@ function isStringOrNull(value: unknown): value is string | null {
   return typeof value === "string" || value === null;
 }
 
+function isIsoTimestampOrNull(value: unknown): value is string | null {
+  if (value === null) {
+    return true;
+  }
+  if (typeof value !== "string") {
+    return false;
+  }
+  const text = value.trim();
+  return (
+    text === value &&
+    ISO_TIMESTAMP_PREFIX_PATTERN.test(text) &&
+    !hasUnsafeLocalMarker(text) &&
+    !Number.isNaN(Date.parse(text))
+  );
+}
+
 function isNumberOrNull(value: unknown): value is number | null {
   return typeof value === "number" || value === null;
 }
@@ -1931,6 +1951,50 @@ function isBooleanOrNull(value: unknown): value is boolean | null {
 
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((entry) => typeof entry === "string");
+}
+
+function isOptionalLiveCaptureParserStatusBlurb(value: unknown): boolean {
+  return value === undefined || value === null || isLiveCaptureParserStatusBlurb(value);
+}
+
+function isLiveCaptureParserStatusBlurb(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    isSafeLiveCaptureLabel(value.code) &&
+    isSafeLiveCaptureBlurbText(value.text) &&
+    isSafeLiveCaptureLabel(value.tone)
+  );
+}
+
+function isSafeLiveCaptureLabel(value: unknown): value is string {
+  return typeof value === "string" && SAFE_LIVE_CAPTURE_LABEL_PATTERN.test(value);
+}
+
+function isSafeLiveCaptureBlurbText(value: unknown): value is string {
+  if (typeof value !== "string") {
+    return false;
+  }
+  const text = value.trim();
+  return (
+    text === value &&
+    SAFE_LIVE_CAPTURE_BLURB_TEXT_PATTERN.test(text) &&
+    !hasUnsafeLocalMarker(text)
+  );
+}
+
+function hasUnsafeLocalMarker(value: string): boolean {
+  const lowerValue = value.toLowerCase();
+  return (
+    lowerValue.includes("://") ||
+    lowerValue.includes("webhook") ||
+    lowerValue.includes("token") ||
+    lowerValue.includes("secret") ||
+    lowerValue.includes("api_key") ||
+    lowerValue.includes("password") ||
+    /[A-Za-z]:[\\/]/.test(value) ||
+    value.includes("\\") ||
+    value.includes("/")
+  );
 }
 
 function isLivePlayerLogSummary(value: unknown): boolean {
@@ -2053,8 +2117,8 @@ function isLiveCaptureState(value: unknown): boolean {
     typeof value.supervisor_token_present === "boolean" &&
     isStringOrNull(value.display_path) &&
     value.raw_path_exposed === false &&
-    (!("started_at" in value) || isStringOrNull(value.started_at)) &&
-    (!("updated_at" in value) || isStringOrNull(value.updated_at))
+    (!("started_at" in value) || isIsoTimestampOrNull(value.started_at)) &&
+    (!("updated_at" in value) || isIsoTimestampOrNull(value.updated_at))
   );
 }
 

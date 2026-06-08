@@ -9,6 +9,7 @@ import {
   fetchLiveWatcherDiagnosticsStatus,
   fetchLiveWatcherProcessStatus,
   fetchLiveWatcherStatus,
+  fetchLiveCaptureStatus,
   fetchManualImportJob,
   fetchGameHistory,
   fetchMatchHistory,
@@ -48,6 +49,8 @@ import {
   LEGACY_JSONL_IMPORT_QUALITY_OBJECT,
   LEGACY_JSONL_IMPORT_QUALITY_SCHEMA_VERSION,
   LIVE_PLAYER_LOG_STATUS_OBJECT,
+  LIVE_CAPTURE_SCHEMA_VERSION,
+  LIVE_CAPTURE_STATUS_OBJECT,
   LIVE_STATUS_SCHEMA_VERSION,
   LIVE_WATCHER_DIAGNOSTICS_OBJECT,
   LIVE_WATCHER_DIAGNOSTICS_SCHEMA_VERSION,
@@ -74,6 +77,7 @@ import {
   type GameplayActionReviewResponse,
   type LegacyJsonlImportQuality,
   type LivePlayerLogStatusResponse,
+  type LiveCaptureStatusResponse,
   type LiveWatcherDiagnosticsResponse,
   type LiveWatcherProcessStatusResponse,
   type LiveWatcherStatusResponse,
@@ -270,6 +274,26 @@ describe("api helpers", () => {
     await expect(fetchLiveWatcherDiagnosticsStatus(wrongDiagnosticsSchemaFetch)).rejects.toMatchObject({
       code: "incompatible_response"
     });
+
+    const unsafeBlurbText = String.raw`C:\operator\AppData\Local\MythicEdge\Player.log`;
+    const unsafeLiveCaptureBlurbFetch = vi.fn(async () =>
+      jsonResponse({
+        ...buildLiveCaptureStatusPayload(),
+        parser_status_blurb: {
+          code: "waiting_for_events",
+          text: unsafeBlurbText,
+          tone: "waiting"
+        }
+      })
+    ) as unknown as typeof fetch;
+    await expect(fetchLiveCaptureStatus(unsafeLiveCaptureBlurbFetch)).rejects.toMatchObject({
+      code: "malformed_response"
+    });
+    try {
+      await fetchLiveCaptureStatus(unsafeLiveCaptureBlurbFetch);
+    } catch (error) {
+      expect(String(error)).not.toContain(unsafeBlurbText);
+    }
   });
 
   it("classifies missing required schema fields as malformed responses", async () => {
@@ -981,6 +1005,56 @@ function buildLiveWatcherProcessStatusPayload(): LiveWatcherProcessStatusRespons
     },
     warnings: [],
     errors: []
+  };
+}
+
+function buildLiveCaptureStatusPayload(overrides: Partial<LiveCaptureStatusResponse> = {}): LiveCaptureStatusResponse {
+  return {
+    object: LIVE_CAPTURE_STATUS_OBJECT,
+    schema_version: LIVE_CAPTURE_SCHEMA_VERSION,
+    status: "ready_to_start",
+    mode: "explicit_operator_control",
+    capture: {
+      running: false,
+      start_allowed: true,
+      stop_allowed: false,
+      parser_runner_started: false,
+      tailing_started: false,
+      sqlite_live_writes_enabled: false,
+      external_transport_allowed: false,
+      raw_player_log_storage_enabled: false,
+      supervisor_kind: "local_app_capture_supervisor",
+      source_kind: "live_parser",
+      reason: null
+    },
+    preconditions: [
+      { key: "player_log_ready", status: "pass", reason: null },
+      { key: "app_data_root_available", status: "pass", reason: null },
+      { key: "state_directory_available", status: "pass", reason: null },
+      { key: "single_instance_guard_available", status: "pass", reason: null },
+      { key: "supervisor_target_defined", status: "pass", reason: null },
+      { key: "external_transport_disabled", status: "pass", reason: null },
+      { key: "live_sqlite_ingest_contract_present", status: "pass", reason: null },
+      { key: "analytics_database_available", status: "pass", reason: null },
+      { key: "frontend_controls_authorized", status: "pass", reason: null }
+    ],
+    state: {
+      source: "none",
+      exists: false,
+      status: "not_initialized",
+      stale: false,
+      pid_present: false,
+      pid_verified: false,
+      supervisor_token_present: false,
+      display_path: "<app_data>\\jobs\\live_capture_state.json",
+      raw_path_exposed: false,
+      started_at: null,
+      updated_at: null
+    },
+    last_result: null,
+    warnings: [],
+    errors: [],
+    ...overrides
   };
 }
 

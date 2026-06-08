@@ -8,6 +8,7 @@ export const LIVE_WATCHER_PROCESS_OBJECT = "mythic_edge_local_app_live_watcher_p
 export const LIVE_WATCHER_DIAGNOSTICS_SCHEMA_VERSION = "live_app_watcher_diagnostics.v1";
 export const LIVE_WATCHER_DIAGNOSTICS_OBJECT = "mythic_edge_local_app_live_watcher_diagnostics";
 export const LIVE_CAPTURE_SCHEMA_VERSION = "live_app_explicit_start_capture_control.v1";
+export const LIVE_CAPTURE_DIAGNOSTICS_SCHEMA_VERSION = "live_app_capture_heartbeat_no_row_diagnostics.v1";
 export const LIVE_CAPTURE_STATUS_OBJECT = "mythic_edge_local_app_live_capture_status";
 export const LIVE_CAPTURE_START_RESULT_OBJECT = "mythic_edge_local_app_live_capture_start_result";
 export const LIVE_CAPTURE_STOP_RESULT_OBJECT = "mythic_edge_local_app_live_capture_stop_result";
@@ -273,6 +274,11 @@ export type LiveCaptureStatusResponse = {
     updated_at?: string | null;
   };
   last_result: unknown;
+  parser_status_blurb?: {
+    code: string;
+    text: string;
+    tone: string;
+  } | null;
   warnings: string[];
   errors: string[];
   [key: string]: unknown;
