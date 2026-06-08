@@ -47,6 +47,7 @@ import {
   type GameHistoryResponse,
   type GameplayActionReviewResponse,
   type LegacyJsonlImportQuality,
+  type LiveSqliteCaptureStatusResponse,
   type LivePlayerLogStatusResponse,
   type LiveWatcherDiagnosticsResponse,
   type LiveWatcherProcessStatusResponse,
@@ -81,6 +82,11 @@ describe("SetupStatusApp", () => {
     expect(screen.getByRole("heading", { name: "App connection" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Player.log monitor" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Live capture" })).toBeInTheDocument();
+    const liveCaptureCard = cockpitCard("Live capture");
+    expect(within(liveCaptureCard).getByLabelText("status Capture disabled")).toBeInTheDocument();
+    expect(within(liveCaptureCard).queryByLabelText("status Ready")).not.toBeInTheDocument();
+    expect(within(liveCaptureCard).queryByLabelText("status Capturing")).not.toBeInTheDocument();
+    expect(within(liveCaptureCard).getByText(/Manual refresh only shows rows already stored in SQLite/i)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Analytics database" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Data trust" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Decision Support" })).toBeInTheDocument();
@@ -127,6 +133,91 @@ describe("SetupStatusApp", () => {
     expect(screen.getByText("<app_data>\\db\\match_journal.sqlite3")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Import JSONL" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: unsafeControlName })).not.toBeInTheDocument();
+  });
+
+  it("does not turn watcher readiness into active live capture when SQLite writes are disabled", async () => {
+    render(<SetupStatusApp fetchStatus={() => Promise.resolve(buildPayload())} />);
+
+    await screen.findByRole("heading", { name: "Mythic Edge Cockpit" });
+    const liveCaptureCard = cockpitCard("Live capture");
+
+    expect(within(liveCaptureCard).getByLabelText("status Capture disabled")).toBeInTheDocument();
+    expect(within(liveCaptureCard).queryByLabelText("status Ready")).not.toBeInTheDocument();
+    expect(within(liveCaptureCard).queryByLabelText("status Capturing")).not.toBeInTheDocument();
+    expect(within(liveCaptureCard).getByText(/Player\.log may be detected while live SQLite capture is not running/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Refresh History" })).toBeInTheDocument();
+    expect(screen.queryByText(/refresh history (?:starts|starts live|creates|captures)/i)).not.toBeInTheDocument();
+  });
+
+  it("shows capturing only when strict running, parser, tailing, and SQLite write evidence is present", async () => {
+    render(<SetupStatusApp fetchStatus={() => Promise.resolve(buildPayload(activeLiveCaptureOverrides()))} />);
+
+    await screen.findByRole("heading", { name: "Mythic Edge Cockpit" });
+    const liveCaptureCard = cockpitCard("Live capture");
+
+    expect(within(liveCaptureCard).getByLabelText("status Capturing")).toBeInTheDocument();
+    expect(within(liveCaptureCard).getByText("Live capture is active.")).toBeInTheDocument();
+    expect(within(liveCaptureCard).queryByLabelText("status Ready")).not.toBeInTheDocument();
+  });
+
+  it("honors disabled live SQLite capture over active-looking watcher evidence", async () => {
+    render(
+      <SetupStatusApp
+        fetchStatus={() =>
+          Promise.resolve(
+            buildPayload({
+              ...activeLiveCaptureOverrides(),
+              live_sqlite_capture: buildLiveSqliteCaptureStatusPayload({
+                status: "disabled",
+                mode: "status_only"
+              })
+            })
+          )
+        }
+      />
+    );
+
+    await screen.findByRole("heading", { name: "Mythic Edge Cockpit" });
+    const liveCaptureCard = cockpitCard("Live capture");
+
+    expect(within(liveCaptureCard).getByLabelText("status Capture disabled")).toBeInTheDocument();
+    expect(within(liveCaptureCard).queryByLabelText("status Capturing")).not.toBeInTheDocument();
+    expect(within(liveCaptureCard).queryByLabelText("status Ready")).not.toBeInTheDocument();
+    expect(within(liveCaptureCard).getByText(/Manual refresh only shows rows already stored in SQLite/i)).toBeInTheDocument();
+  });
+
+  it("fails closed when strict live capture fields are missing or malformed", async () => {
+    render(
+      <SetupStatusApp
+        fetchStatus={() =>
+          Promise.resolve(
+            buildPayload({
+              live_sqlite_capture: undefined,
+              live_watcher_process: undefined,
+              live_watcher: {
+                ...buildLiveWatcherStatusPayload(),
+                watcher: {
+                  ...buildLiveWatcherStatusPayload().watcher,
+                  status: "ready",
+                  mode: "readiness_only",
+                  running: false,
+                  parser_runner_started: false,
+                  tailing_started: false,
+                  sqlite_live_writes_enabled: false
+                }
+              }
+            })
+          )
+        }
+      />
+    );
+
+    await screen.findByRole("heading", { name: "Mythic Edge Cockpit" });
+    const liveCaptureCard = cockpitCard("Live capture");
+
+    expect(within(liveCaptureCard).getByLabelText("status Capture disabled")).toBeInTheDocument();
+    expect(within(liveCaptureCard).queryByLabelText("status Ready")).not.toBeInTheDocument();
+    expect(within(liveCaptureCard).queryByLabelText("status Capturing")).not.toBeInTheDocument();
   });
 
   it("prepares and copies a sanitized error report without external submission", async () => {
@@ -1294,6 +1385,14 @@ function withRelativePath(file: File, relativePath: string): File {
   return file;
 }
 
+function cockpitCard(heading: string): HTMLElement {
+  const card = screen.getByRole("heading", { name: heading }).closest("article");
+  if (card === null) {
+    throw new Error(`Missing cockpit card for ${heading}.`);
+  }
+  return card;
+}
+
 function buildPayload(overrides: Partial<SetupStatusResponse> = {}): SetupStatusResponse {
   return {
     object: SETUP_STATUS_OBJECT,
@@ -1315,6 +1414,7 @@ function buildPayload(overrides: Partial<SetupStatusResponse> = {}): SetupStatus
     live_player_log: buildLivePlayerLogStatusPayload(),
     live_watcher: buildLiveWatcherStatusPayload(),
     live_watcher_process: buildLiveWatcherProcessStatusPayload(),
+    live_sqlite_capture: buildLiveSqliteCaptureStatusPayload(),
     analytics_database: {
       status: "missing",
       database: { display_path: "<app_data>\\db\\mythic_edge.sqlite3", schema_status: "missing" }
@@ -1343,6 +1443,48 @@ function buildPayload(overrides: Partial<SetupStatusResponse> = {}): SetupStatus
       live_watcher: "disabled"
     },
     ...overrides
+  };
+}
+
+function activeLiveCaptureOverrides(): Partial<SetupStatusResponse> {
+  const activeWatcher = buildLiveWatcherStatusPayload();
+  activeWatcher.status = "running";
+  activeWatcher.watcher = {
+    ...activeWatcher.watcher,
+    status: "running",
+    running: true,
+    parser_runner_started: true,
+    tailing_started: true,
+    sqlite_live_writes_enabled: true
+  };
+  const activeProcess = buildLiveWatcherProcessStatusPayload();
+  activeProcess.status = "running";
+  activeProcess.process_control = {
+    ...activeProcess.process_control,
+    implementation_status: "running",
+    parser_runner_started: true,
+    tailing_started: true,
+    sqlite_live_writes_enabled: true
+  };
+  activeProcess.watcher = {
+    ...activeProcess.watcher,
+    status: "running",
+    running: true,
+    pid_verified: true
+  };
+  return {
+    live_watcher: activeWatcher,
+    live_watcher_process: activeProcess,
+    live_sqlite_capture: buildLiveSqliteCaptureStatusPayload({
+      status: "running",
+      mode: "live_capture",
+      process_control: {
+        parser_runner_started: true,
+        tailing_started: true,
+        sqlite_live_writes_enabled: true
+      },
+      last_result: { status: "ok" }
+    })
   };
 }
 
@@ -1504,6 +1646,42 @@ function buildLiveWatcherProcessStatusPayload(): LiveWatcherProcessStatusRespons
     },
     warnings: [],
     errors: []
+  };
+}
+
+function buildLiveSqliteCaptureStatusPayload(
+  overrides: Partial<LiveSqliteCaptureStatusResponse> = {}
+): LiveSqliteCaptureStatusResponse {
+  return {
+    object: "mythic_edge_local_app_live_parser_sqlite_capture_status",
+    schema_version: "live_app_parser_owned_fact_capture_sqlite.v1",
+    status: "disabled",
+    mode: "status_only",
+    source_kind: "live_parser",
+    database: {
+      configured: true,
+      display_path: "<app_data>\\db\\mythic_edge.sqlite3"
+    },
+    capabilities: {
+      live_sqlite_capture_contract_present: true,
+      final_match_game_fact_capture_supported: true,
+      provisional_fact_capture_supported: false,
+      gameplay_action_live_capture_supported: false,
+      opponent_observation_live_capture_supported: false,
+      field_evidence_live_capture_supported: false,
+      raw_player_log_storage_supported: false,
+      external_transport_allowed: false,
+      watcher_start_stop_allowed: false
+    },
+    process_control: {
+      parser_runner_started: false,
+      tailing_started: false,
+      sqlite_live_writes_enabled: false
+    },
+    last_result: null,
+    warnings: [],
+    errors: [],
+    ...overrides
   };
 }
 

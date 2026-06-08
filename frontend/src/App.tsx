@@ -3516,12 +3516,7 @@ function buildCockpitStatusItems(
     ? payload.live_player_log.player_log.status
     : statusFromSection(payload.player_log);
   const playerLog = cockpitStatusFromRawStatus(playerLogStatus, "player_log");
-  const liveCaptureStatus = isLiveWatcherStatusResponse(payload.live_watcher)
-    ? payload.live_watcher.watcher.running
-      ? "capturing"
-      : payload.live_watcher.watcher.status
-    : "not_checked";
-  const liveCapture = cockpitStatusFromRawStatus(liveCaptureStatus, "live_capture");
+  const liveCapture = liveCaptureStatusFromSetupPayload(payload);
   const analytics = cockpitStatusFromRawStatus(analyticsHistoryStatus(historyState), "analytics");
   const diagnostics = cockpitStatusFromRawStatus(liveDiagnosticsStatus(liveDiagnosticsState), "trust");
   const journal = cockpitStatusFromRawStatus(matchJournalStatus(journalState), "journal");
@@ -3546,11 +3541,8 @@ function buildCockpitStatusItems(
       label: "Live capture",
       status: liveCapture.label,
       tone: liveCapture.tone,
-      liveActive: liveCapture.label === "Capturing",
-      detail:
-        liveCapture.label === "Capturing"
-          ? "Live capture is active."
-          : "Live mode may be waiting, limited, or blocked; inspect details if needed."
+      liveActive: liveCapture.liveActive,
+      detail: liveCapture.detail
     },
     {
       cue: "DATA",
@@ -3567,6 +3559,123 @@ function buildCockpitStatusItems(
       detail: "Diagnostics and Match Journal context remain available without exposing private values."
     }
   ];
+}
+
+function liveCaptureStatusFromSetupPayload(payload: SetupStatusResponse): {
+  label: string;
+  tone: SetupStatusTone;
+  liveActive: boolean;
+  detail: string;
+} {
+  const liveSqliteCapture = isRecord(payload.live_sqlite_capture) ? payload.live_sqlite_capture : null;
+  const liveCaptureProcessControl = isRecord(liveSqliteCapture?.process_control)
+    ? liveSqliteCapture.process_control
+    : null;
+  const watcherProcessControl = isLiveWatcherProcessStatusResponse(payload.live_watcher_process)
+    ? payload.live_watcher_process.process_control
+    : null;
+  const watcher = isLiveWatcherStatusResponse(payload.live_watcher) ? payload.live_watcher.watcher : null;
+  const liveCaptureStatus = typeof liveSqliteCapture?.status === "string" ? liveSqliteCapture.status : "unknown";
+  const liveCaptureMode = typeof liveSqliteCapture?.mode === "string" ? liveSqliteCapture.mode : "unknown";
+  const watcherStatus = typeof watcher?.status === "string" ? watcher.status : "unknown";
+  const watcherMode = typeof watcher?.mode === "string" ? watcher.mode : "unknown";
+  const processMode = typeof watcherProcessControl?.mode === "string" ? watcherProcessControl.mode : "unknown";
+  const sqliteWritesEnabled = booleanField(liveCaptureProcessControl, "sqlite_live_writes_enabled");
+  const parserRunnerStarted =
+    booleanField(liveCaptureProcessControl, "parser_runner_started") ||
+    booleanField(watcherProcessControl, "parser_runner_started") ||
+    booleanField(watcher, "parser_runner_started");
+  const tailingStarted =
+    booleanField(liveCaptureProcessControl, "tailing_started") ||
+    booleanField(watcherProcessControl, "tailing_started") ||
+    booleanField(watcher, "tailing_started");
+  const watcherRunning =
+    booleanField(watcher, "running") ||
+    (isLiveWatcherProcessStatusResponse(payload.live_watcher_process) && payload.live_watcher_process.watcher.running);
+  const processWritesEnabled =
+    sqliteWritesEnabled ||
+    booleanField(watcherProcessControl, "sqlite_live_writes_enabled") ||
+    booleanField(watcher, "sqlite_live_writes_enabled");
+
+  if (
+    ["blocked", "failed", "error", "unreadable", "crashed", "rejected"].includes(liveCaptureStatus) ||
+    watcherStatus.startsWith("blocked_")
+  ) {
+    return {
+      label: "Blocked",
+      tone: "error",
+      liveActive: false,
+      detail: "Live capture is blocked; inspect setup and live diagnostics."
+    };
+  }
+  if (["unavailable"].includes(liveCaptureStatus)) {
+    return {
+      label: "Unavailable",
+      tone: "unavailable",
+      liveActive: false,
+      detail: "Live capture status is unavailable; inspect setup and live diagnostics."
+    };
+  }
+  if (
+    liveCaptureStatus === "disabled" ||
+    liveCaptureMode === "status_only" ||
+    sqliteWritesEnabled === false
+  ) {
+    return {
+      label: "Capture disabled",
+      tone: "deferred",
+      liveActive: false,
+      detail: "Player.log may be detected while live SQLite capture is not running. Manual refresh only shows rows already stored in SQLite."
+    };
+  }
+  const activeCapture = watcherRunning && parserRunnerStarted && tailingStarted && processWritesEnabled;
+
+  if (activeCapture) {
+    return {
+      label: "Capturing",
+      tone: "ok",
+      liveActive: true,
+      detail: "Live capture is active."
+    };
+  }
+  if (processMode === "safeguards_only" || processWritesEnabled === false) {
+    return {
+      label: "Capture disabled",
+      tone: "deferred",
+      liveActive: false,
+      detail: "Player.log may be detected while live SQLite capture is not running. Manual refresh only shows rows already stored in SQLite."
+    };
+  }
+  if (watcherStatus === "ready" || watcherMode === "readiness_only") {
+    return {
+      label: "Not capturing",
+      tone: "deferred",
+      liveActive: false,
+      detail: "The app is ready to monitor, but it is not currently collecting live analytics."
+    };
+  }
+  if (["missing", "not_configured", "not_initialized"].includes(liveCaptureStatus) || watcherStatus === "not_configured") {
+    return {
+      label: "Setup needed",
+      tone: "missing",
+      liveActive: false,
+      detail: "Live capture needs setup before analytics can collect new rows."
+    };
+  }
+  if (["stopped", "not_started", "not_running", "not_capturing"].includes(liveCaptureStatus)) {
+    return {
+      label: "Waiting for Arena activity",
+      tone: "deferred",
+      liveActive: false,
+      detail: "Live capture is not currently collecting rows; inspect diagnostics if a match just finished."
+    };
+  }
+  return {
+    label: "Needs review",
+    tone: "unknown",
+    liveActive: false,
+    detail: "Live capture status is incomplete or conflicting; inspect setup and live diagnostics."
+  };
 }
 
 function buildCockpitInsights(
@@ -3873,6 +3982,13 @@ function nestedValue(root: SectionStatus, path: string[]): unknown {
     current = current[key];
   }
   return current ?? "unknown";
+}
+
+function booleanField(root: unknown, key: string): boolean | null {
+  if (!isRecord(root) || typeof root[key] !== "boolean") {
+    return null;
+  }
+  return root[key];
 }
 
 function migrationCount(section: SectionStatus): string {

@@ -1738,12 +1738,12 @@ function isLiveWatcherSummary(value: unknown): boolean {
     isRecord(value) &&
     typeof value.status === "string" &&
     value.mode === "readiness_only" &&
-    value.running === false &&
+    typeof value.running === "boolean" &&
     value.start_allowed === false &&
     value.stop_allowed === false &&
-    value.parser_runner_started === false &&
-    value.tailing_started === false &&
-    value.sqlite_live_writes_enabled === false &&
+    typeof value.parser_runner_started === "boolean" &&
+    typeof value.tailing_started === "boolean" &&
+    typeof value.sqlite_live_writes_enabled === "boolean" &&
     isStringOrNull(value.reason)
   );
 }
@@ -1759,9 +1759,9 @@ function isLiveWatcherProcessControl(value: unknown): boolean {
     value.stop_route_enabled === false &&
     value.ui_controls_allowed === false &&
     value.automatic_start_enabled === false &&
-    value.parser_runner_started === false &&
-    value.tailing_started === false &&
-    value.sqlite_live_writes_enabled === false &&
+    typeof value.parser_runner_started === "boolean" &&
+    typeof value.tailing_started === "boolean" &&
+    typeof value.sqlite_live_writes_enabled === "boolean" &&
     value.external_transport_allowed === false &&
     isStringOrNull(value.reason)
   );
@@ -1771,8 +1771,8 @@ function isLiveWatcherProcessSummary(value: unknown): boolean {
   return (
     isRecord(value) &&
     typeof value.status === "string" &&
-    value.running === false &&
-    value.pid_verified === false &&
+    typeof value.running === "boolean" &&
+    typeof value.pid_verified === "boolean" &&
     typeof value.single_instance_guard === "string" &&
     typeof value.supervisor_boundary === "string"
   );
