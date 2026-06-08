@@ -537,8 +537,8 @@ def _read_capture_state(paths: LocalAppPaths) -> dict[str, object]:
         "supervisor_token": str(payload.get("supervisor_token", "") or ""),
         "display_path": display_path,
         "raw_path_exposed": False,
-        "started_at": _safe_text_or_none(payload.get("started_at")),
-        "updated_at": _safe_text_or_none(payload.get("updated_at")),
+        "started_at": _safe_iso_or_none(payload.get("started_at")),
+        "updated_at": _safe_iso_or_none(payload.get("updated_at")),
         "parser_runner_started": bool(payload.get("parser_runner_started", False)),
         "tailing_started": bool(payload.get("tailing_started", False)),
         "sqlite_live_writes_enabled": bool(payload.get("sqlite_live_writes_enabled", False)),
@@ -588,8 +588,8 @@ def _write_capture_state(paths: LocalAppPaths, payload: Mapping[str, object]) ->
         "pid": payload.get("pid") if isinstance(payload.get("pid"), int) else os.getpid(),
         "supervisor_kind": LIVE_CAPTURE_SUPERVISOR_KIND,
         "source_kind": LIVE_CAPTURE_SOURCE_KIND,
-        "started_at": _safe_text_or_none(payload.get("started_at")),
-        "updated_at": _safe_text_or_none(payload.get("updated_at")) or _now_iso(),
+        "started_at": _safe_iso_or_none(payload.get("started_at")),
+        "updated_at": _safe_iso_or_none(payload.get("updated_at")) or _now_iso(),
         "parser_runner_started": bool(payload.get("parser_runner_started", False)),
         "tailing_started": bool(payload.get("tailing_started", False)),
         "sqlite_live_writes_enabled": bool(payload.get("sqlite_live_writes_enabled", False)),
@@ -837,11 +837,17 @@ def _now_iso() -> str:
     return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
 
-def _safe_text_or_none(value: object) -> str | None:
+def _safe_iso_or_none(value: object) -> str | None:
     if not isinstance(value, str):
         return None
     text = value.strip()
-    return text or None
+    if not text:
+        return None
+    try:
+        datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return text
 
 
 def _safe_warning_list(value: object) -> list[str]:

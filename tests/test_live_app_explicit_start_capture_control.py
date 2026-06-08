@@ -140,6 +140,43 @@ def test_capture_status_redacts_unsafe_state_warning_error_and_result_text(tmp_p
     assert unsafe_url not in encoded
 
 
+def test_capture_status_redacts_unsafe_state_timestamp_fields(tmp_path) -> None:
+    app_root = tmp_path / "app-data"
+    player_log_path = tmp_path / "Player.log"
+    _configure_player_log(app_root, player_log_path)
+    unsafe_started_at = r"C:\operator\AppData\Local\MythicEdge\live_capture_state.json"
+    unsafe_updated_at = "https://example.invalid/local/live_capture_state.json"
+    state_file = app_root / "jobs" / LIVE_CAPTURE_STATE_FILENAME
+    state_file.parent.mkdir(parents=True)
+    state_file.write_text(
+        json.dumps(
+            {
+                "status": "capturing",
+                "supervisor_token": "state-token",
+                "pid": 12345,
+                "started_at": unsafe_started_at,
+                "updated_at": unsafe_updated_at,
+                "parser_runner_started": True,
+                "tailing_started": True,
+                "sqlite_live_writes_enabled": True,
+                "warnings": ["waiting_for_events"],
+                "errors": [],
+            },
+        ),
+        encoding="utf-8",
+    )
+    client = _client(app_root)
+
+    payload = client.get("/api/live/capture/status").json()
+    encoded = json.dumps(payload, sort_keys=True)
+
+    assert payload["status"] == "stale"
+    assert payload["state"]["started_at"] is None
+    assert payload["state"]["updated_at"] is None
+    assert unsafe_started_at not in encoded
+    assert unsafe_updated_at not in encoded
+
+
 def test_start_capture_is_explicit_local_only_and_duplicate_safe(tmp_path, monkeypatch) -> None:
     app_root = tmp_path / "app-data"
     player_log_path = tmp_path / "Player.log"
