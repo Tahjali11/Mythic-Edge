@@ -32,6 +32,8 @@ export const ANALYTICS_DASHBOARD_MODULES_OBJECT = "mythic_edge_local_app_analyti
 export const MATCH_JOURNAL_OBJECT = "mythic_edge_local_app_match_journal";
 export const MATCH_JOURNAL_SCHEMA_VERSION = "match_journal_cockpit_ui.v1";
 export const ERROR_REPORT_PREVIEW_SCHEMA = "quality_app_submit_error_report_codex_triage.v1";
+export const ERROR_REPORT_SUBMISSION_OBJECT = "mythic_edge_local_app_error_report_submission";
+export const ERROR_REPORT_SUBMISSION_SCHEMA = "quality_app_error_report_github_submission.v1";
 
 export type SetupStatusTone =
   | "ok"
@@ -491,12 +493,18 @@ export type ErrorReportAffectedArea =
   | "unknown";
 
 export type ErrorReportSeverity = "blocker" | "degraded" | "annoyance" | "question";
+export type ErrorReportType = "bug" | "feedback" | "feature_request";
 
 export type ErrorReportPreviewRequest = {
   summary: string;
-  expected_behavior: string;
-  actual_behavior: string;
-  reproduction_steps: string;
+  report_type: ErrorReportType;
+  expected_behavior?: string;
+  actual_behavior?: string;
+  reproduction_steps?: string;
+  feedback?: string;
+  feature_goal?: string;
+  feature_location?: string;
+  feature_success?: string;
   affected_area: ErrorReportAffectedArea;
   severity: ErrorReportSeverity;
   current_frontend_surface?: string;
@@ -514,7 +522,32 @@ export type ErrorReportPreviewResponse = {
   redaction_summary: string[];
   warnings: string[];
   next_recommended_role: string;
-  external_submission_enabled: false;
+  external_submission_enabled: boolean;
+};
+
+export type ErrorReportSubmissionResponse = {
+  object: typeof ERROR_REPORT_SUBMISSION_OBJECT;
+  schema_version: typeof ERROR_REPORT_SUBMISSION_SCHEMA;
+  status:
+    | "submitted"
+    | "preview_required"
+    | "blocked_privacy_guard"
+    | "blocked_missing_gh"
+    | "blocked_gh_unauthenticated"
+    | "blocked_wrong_repo"
+    | "blocked_label_unavailable"
+    | "submission_failed"
+    | "invalid_request";
+  external_submission_enabled: boolean;
+  submitted: boolean;
+  issue_url: string | null;
+  issue_number: number | null;
+  issue_title: string;
+  issue_body_markdown: string;
+  labels: string[];
+  fallback_available: boolean;
+  warnings: string[];
+  errors: string[];
 };
 
 export type MatchJournalStatus = "ok" | "degraded" | "empty" | "missing" | "unavailable" | "error";
