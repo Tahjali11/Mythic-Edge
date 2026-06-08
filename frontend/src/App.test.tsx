@@ -96,16 +96,19 @@ describe("SetupStatusApp", () => {
     expect(screen.getByText("Checking local app setup")).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Mythic Edge Cockpit" })).toBeInTheDocument();
     expect(screen.getByText("Competitive review, local analytics, and live readiness at a glance.")).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Cockpit health status" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "App connection" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Player.log monitor" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Live capture" })).toBeInTheDocument();
+    const dashboardHeader = screen.getByRole("region", { name: "Mythic Edge Cockpit" });
+    expect(within(dashboardHeader).queryByLabelText("status Needs review")).not.toBeInTheDocument();
+    const cockpitHealth = screen.getByRole("region", { name: "Cockpit health status" });
+    expect(within(cockpitHealth).getAllByRole("article")).toHaveLength(3);
+    expect(within(cockpitHealth).getByRole("heading", { name: "App connection" })).toBeInTheDocument();
+    expect(within(cockpitHealth).queryByRole("heading", { name: "Player.log monitor" })).not.toBeInTheDocument();
+    expect(within(cockpitHealth).getByRole("heading", { name: "Live capture" })).toBeInTheDocument();
     const liveCaptureCard = cockpitCard("Live capture");
     expect(within(liveCaptureCard).getByLabelText("status Ready to start")).toBeInTheDocument();
     expect(within(liveCaptureCard).queryByLabelText("status Capturing")).not.toBeInTheDocument();
-    expect(within(liveCaptureCard).getByText(/New games will not be added to SQLite until capture is started/i)).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Analytics database" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Data trust" })).toBeInTheDocument();
+    expect(within(liveCaptureCard).getByText("Ready to start.")).toBeInTheDocument();
+    expect(within(cockpitHealth).getByRole("heading", { name: "Analytics database" })).toBeInTheDocument();
+    expect(within(cockpitHealth).queryByRole("heading", { name: "Data trust" })).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Decision Support" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Win Rate By Play/Draw" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Game 1 / Postboard" })).toBeInTheDocument();
@@ -120,15 +123,17 @@ describe("SetupStatusApp", () => {
     expect(screen.queryByRole("heading", { name: "Match Journal Cockpit" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Report an Error" })).not.toBeInTheDocument();
     expect(screen.getByRole("complementary", { name: "Local app sections" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Dashboard" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Review" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Feedback" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Coach" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Analytics" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Import" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Diagnostics" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Privacy" })).toBeInTheDocument();
+    const primarySections = screen.getByRole("navigation", { name: "Primary sections" });
+    expect(within(primarySections).getByRole("link", { name: "Dashboard" })).toBeInTheDocument();
+    expect(within(primarySections).getByRole("link", { name: "Coach" })).toBeInTheDocument();
+    expect(within(primarySections).getByRole("link", { name: "Analytics" })).toBeInTheDocument();
+    expect(within(primarySections).getByRole("link", { name: "Review" })).toBeInTheDocument();
+    expect(within(primarySections).getByRole("link", { name: "Feedback" })).toBeInTheDocument();
+    expect(within(primarySections).getByRole("link", { name: "Import" })).toBeInTheDocument();
+    expect(within(primarySections).getByRole("link", { name: "Diagnostics" })).toBeInTheDocument();
+    expect(within(primarySections).getByRole("link", { name: "Privacy" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute("aria-current", "page");
+    expect(screen.queryByText("Current")).not.toBeInTheDocument();
     expect(screen.getByText("Settings")).toBeInTheDocument();
     expect(screen.getByText("Not configured")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Setup Status" })).not.toBeInTheDocument();
@@ -188,7 +193,7 @@ describe("SetupStatusApp", () => {
 
     expect(within(liveCaptureCard).getByLabelText("status Ready to start")).toBeInTheDocument();
     expect(within(liveCaptureCard).queryByLabelText("status Capturing")).not.toBeInTheDocument();
-    expect(within(liveCaptureCard).getByText(/Player\.log is configured, but live capture is not running/i)).toBeInTheDocument();
+    expect(within(liveCaptureCard).getByText("Ready to start.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Refresh History" })).not.toBeInTheDocument();
     expect(screen.queryByText(/refresh history (?:starts|starts live|creates|captures)/i)).not.toBeInTheDocument();
   });
@@ -200,7 +205,7 @@ describe("SetupStatusApp", () => {
     const liveCaptureCard = cockpitCard("Live capture");
 
     expect(within(liveCaptureCard).getByLabelText("status Capturing")).toBeInTheDocument();
-    expect(within(liveCaptureCard).getByText(/Parser, Player\.log tailing, and SQLite writes are active/i)).toBeInTheDocument();
+    expect(within(liveCaptureCard).getByText("Capture active.")).toBeInTheDocument();
     expect(within(liveCaptureCard).queryByLabelText("status Ready to start")).not.toBeInTheDocument();
   });
 
@@ -226,7 +231,7 @@ describe("SetupStatusApp", () => {
 
     expect(within(liveCaptureCard).getByLabelText("status Ready to start")).toBeInTheDocument();
     expect(within(liveCaptureCard).queryByLabelText("status Capturing")).not.toBeInTheDocument();
-    expect(within(liveCaptureCard).getByText(/New games will not be added to SQLite until capture is started/i)).toBeInTheDocument();
+    expect(within(liveCaptureCard).getByText("Ready to start.")).toBeInTheDocument();
   });
 
   it("fails closed when strict live capture fields are missing or malformed", async () => {
@@ -369,7 +374,7 @@ describe("SetupStatusApp", () => {
       expect(stopCapture).toHaveBeenCalledTimes(1);
     });
     expect((await screen.findAllByLabelText("status Stopped")).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText("Capture stopped.")).toBeInTheDocument();
+    expect(screen.getAllByText("Capture stopped.").length).toBeGreaterThanOrEqual(1);
     expect(screen.queryByRole("button", { name: "Stop capture" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Start capture" })).toBeInTheDocument();
     expect(startCapture).not.toHaveBeenCalled();
