@@ -1217,13 +1217,14 @@ export function SetupStatusApp({
 
       {activeRoute === "dashboard" ? (
         <>
-          <CockpitStatusRail items={statusItems} onStartCapture={handleStartCapture} state={liveCaptureControlState} />
+          <CockpitStatusRail items={statusItems} />
           <DashboardModulesSection
             moduleViewPreferences={dashboardModuleViews}
             onModuleViewChange={handleDashboardModuleViewChange}
             state={dashboardModulesState}
           />
           <CoachBoundaryPanel />
+          <DashboardTrustPrivacySignal items={trustSummary} />
           <DashboardRouteCards />
         </>
       ) : null}
@@ -1427,18 +1428,23 @@ function CockpitStatusRail({ items }: { items: CockpitStatusItem[] }) {
     <section className="cockpitRail" aria-label="Cockpit health status">
       {items.map((item) => (
         <article className={`cockpitRailItem tone-${item.tone}`} key={item.label}>
-          <span className="railCue" aria-hidden="true">
-            {item.cue}
-          </span>
-          <div>
+          <div className="cockpitTileHeader">
+            <span className="railCue" aria-hidden="true">
+              {item.cue}
+            </span>
             <h2>{item.label}</h2>
-            <p>{item.detail}</p>
           </div>
+          <p>{item.detail}</p>
           <StatusPill label={item.status} pulse={item.liveActive} tone={item.tone} />
         </article>
       ))}
     </section>
   );
+}
+
+function liveCaptureStartAllowed(state: LiveCaptureControlState): boolean {
+  const payload = liveCaptureControlPayload(state);
+  return state.state !== "submitting" && Boolean(payload?.capture.start_allowed);
 }
 
 function LiveCaptureControlPanel({
@@ -1453,7 +1459,7 @@ function LiveCaptureControlPanel({
   const payload = liveCaptureControlPayload(state);
   const statusLabel = payload ? liveCaptureStatusLabel(payload.status) : state.state === "loading" ? "Checking" : "Unavailable";
   const tone = payload ? liveCaptureTone(payload.status) : state.state === "error" ? "error" : "unknown";
-  const startAllowed = state.state !== "submitting" && Boolean(payload?.capture.start_allowed);
+  const startAllowed = liveCaptureStartAllowed(state);
   const stopAllowed = state.state !== "submitting" && Boolean(payload?.capture.stop_allowed);
   const message =
     state.state === "error"
@@ -1462,9 +1468,8 @@ function LiveCaptureControlPanel({
         ? state.action === "start"
           ? "Starting capture from the local app."
           : "Stopping the app-owned capture supervisor."
-        : state.state === "ready" && state.message
-          ? state.message
-          : liveCaptureControlDetail(payload);
+        : liveCaptureBlurbText(payload) ??
+          (state.state === "ready" && state.message ? state.message : liveCaptureControlDetail(payload));
   return (
     <section className="captureControlPanel" aria-labelledby="live-capture-control-title">
       <div>
@@ -1881,6 +1886,26 @@ function TrustPrivacyLayer({ items }: { items: CockpitInsight[] }) {
             </div>
             <p>{item.detail}</p>
           </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function DashboardTrustPrivacySignal({ items }: { items: CockpitInsight[] }) {
+  return (
+    <section className="dashboardTrustSignal" aria-labelledby="dashboard-trust-title">
+      <div>
+        <p className="eyebrow">Trust and privacy</p>
+        <h2 id="dashboard-trust-title">Trust and Freshness</h2>
+        <p>Compact safe-display signals only. Full details stay in Privacy and technical diagnostics.</p>
+      </div>
+      <div className="dashboardTrustSignalGrid" aria-label="Compact trust and privacy statuses">
+        {items.map((item) => (
+          <div className="dashboardTrustSignalItem" key={item.title}>
+            <span>{item.title}</span>
+            <StatusPill label={item.status} tone={item.tone} />
+          </div>
         ))}
       </div>
     </section>
@@ -4029,11 +4054,8 @@ function compactLiveCaptureDetail(label: string): string {
   if (label === "Capturing") {
     return "Capture active.";
   }
-  if (label === "Ready to start") {
-    return "Ready to start.";
-  }
-  if (label === "Stopped") {
-    return "Capture stopped.";
+  if (label === "Ready to start" || label === "Stopped") {
+    return "Capture is not running.";
   }
   if (label === "Blocked") {
     return "Capture blocked.";
@@ -4186,7 +4208,7 @@ function liveCaptureStatusFromControlOrSetup(
     label: liveCaptureStatusLabel(controlPayload.status),
     tone: liveCaptureTone(controlPayload.status),
     liveActive: controlPayload.status === "capturing" && controlPayload.capture.running,
-    detail: liveCaptureControlDetail(controlPayload)
+    detail: liveCaptureBlurbText(controlPayload) ?? liveCaptureControlDetail(controlPayload)
   };
 }
 
@@ -4282,6 +4304,11 @@ function liveCaptureControlDetail(payload: LiveCaptureStatusResponse | null): st
     return "Live capture failed without exposing private log content.";
   }
   return "Live capture status is incomplete or unavailable; inspect setup and diagnostics.";
+}
+
+function liveCaptureBlurbText(payload: LiveCaptureStatusResponse | null): string | null {
+  const text = payload?.parser_status_blurb?.text?.trim();
+  return text || null;
 }
 
 function liveCaptureControlMessage(status: string): string {

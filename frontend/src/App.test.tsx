@@ -23,6 +23,7 @@ import {
   GAMEPLAY_ACTION_REVIEW_OBJECT,
   LEGACY_JSONL_IMPORT_QUALITY_OBJECT,
   LEGACY_JSONL_IMPORT_QUALITY_SCHEMA_VERSION,
+  LIVE_CAPTURE_DIAGNOSTICS_SCHEMA_VERSION,
   LIVE_CAPTURE_SCHEMA_VERSION,
   LIVE_CAPTURE_START_RESULT_OBJECT,
   LIVE_CAPTURE_STATUS_OBJECT,
@@ -106,7 +107,9 @@ describe("SetupStatusApp", () => {
     const liveCaptureCard = cockpitCard("Live capture");
     expect(within(liveCaptureCard).getByLabelText("status Ready to start")).toBeInTheDocument();
     expect(within(liveCaptureCard).queryByLabelText("status Capturing")).not.toBeInTheDocument();
-    expect(within(liveCaptureCard).getByText("Ready to start.")).toBeInTheDocument();
+    expect(within(liveCaptureCard).getByText("Capture is not running.")).toBeInTheDocument();
+    expect(within(liveCaptureCard).queryByRole("button", { name: "Start capture" })).not.toBeInTheDocument();
+    expect(within(liveCaptureCard).queryByRole("button", { name: "Stop capture" })).not.toBeInTheDocument();
     expect(within(cockpitHealth).getByRole("heading", { name: "Analytics database" })).toBeInTheDocument();
     expect(within(cockpitHealth).queryByRole("heading", { name: "Data trust" })).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Decision Support" })).toBeInTheDocument();
@@ -115,7 +118,12 @@ describe("SetupStatusApp", () => {
     expect(screen.getByRole("heading", { name: "Mulligan / Opening Hand Outcomes" })).toBeInTheDocument();
     expect(screen.getByText("Custom explorer vocabulary is deferred; Journal labels are Journal annotation only.")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Review Context Only" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Trust and Freshness" })).toBeInTheDocument();
+    const dashboardTrust = screen.getByRole("region", { name: "Trust and Freshness" });
+    expect(dashboardTrust).toBeInTheDocument();
+    expect(within(dashboardTrust).getByText("Compact safe-display signals only. Full details stay in Privacy and technical diagnostics.")).toBeInTheDocument();
+    expect(within(dashboardTrust).getByText("Freshness")).toBeInTheDocument();
+    expect(within(dashboardTrust).getByText("Data Quality")).toBeInTheDocument();
+    expect(within(dashboardTrust).getByText("Privacy")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Go Deeper" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Analytics" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Analytics History" })).not.toBeInTheDocument();
@@ -144,9 +152,18 @@ describe("SetupStatusApp", () => {
     expect(screen.queryByText("start route")).not.toBeInTheDocument();
     expect(screen.queryByText("stop route")).not.toBeInTheDocument();
     expect(screen.queryByText("ui controls")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Technical Details & Privacy" })).toBeInTheDocument();
+    expect(
+      screen.getByText("Setup grids, raw status labels, freshness, privacy filtering, and live diagnostics are available on demand.")
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Live Capture Control" })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Show technical details" }));
     expect(await screen.findByRole("heading", { name: "Setup Status" })).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { name: "Trust and Freshness" }).length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByRole("heading", { name: "Freshness" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Data Quality" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Privacy" })).toBeInTheDocument();
     expect(screen.getByText("Backend Reachability")).toBeInTheDocument();
     expect(screen.getByText("<app_data>")).toBeInTheDocument();
     expect(screen.getAllByText("<configured_player_log>").length).toBeGreaterThanOrEqual(1);
@@ -161,6 +178,7 @@ describe("SetupStatusApp", () => {
     expect(screen.getByText("<app_data>\\db\\match_journal.sqlite3")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Import" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Import JSONL" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Live Capture Control" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: unsafeControlName })).not.toBeInTheDocument();
   });
 
@@ -193,7 +211,7 @@ describe("SetupStatusApp", () => {
 
     expect(within(liveCaptureCard).getByLabelText("status Ready to start")).toBeInTheDocument();
     expect(within(liveCaptureCard).queryByLabelText("status Capturing")).not.toBeInTheDocument();
-    expect(within(liveCaptureCard).getByText("Ready to start.")).toBeInTheDocument();
+    expect(within(liveCaptureCard).getByText("Capture is not running.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Refresh History" })).not.toBeInTheDocument();
     expect(screen.queryByText(/refresh history (?:starts|starts live|creates|captures)/i)).not.toBeInTheDocument();
   });
@@ -231,7 +249,7 @@ describe("SetupStatusApp", () => {
 
     expect(within(liveCaptureCard).getByLabelText("status Ready to start")).toBeInTheDocument();
     expect(within(liveCaptureCard).queryByLabelText("status Capturing")).not.toBeInTheDocument();
-    expect(within(liveCaptureCard).getByText("Ready to start.")).toBeInTheDocument();
+    expect(within(liveCaptureCard).getByText("Capture is not running.")).toBeInTheDocument();
   });
 
   it("fails closed when strict live capture fields are missing or malformed", async () => {
@@ -291,6 +309,7 @@ describe("SetupStatusApp", () => {
       })
     );
     const stopCapture = vi.fn(async () => buildLiveCaptureStopResultPayload());
+    setRoute("diagnostics");
     render(
       <SetupStatusApp
         fetchLiveCapture={fetchLiveCapture}
@@ -300,6 +319,7 @@ describe("SetupStatusApp", () => {
       />
     );
 
+    expect(await screen.findByRole("heading", { name: "Live Capture Control" })).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: "Start capture" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Stop capture" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /\b(?:reset|delete|wipe|restart|clear|repair)\b/i })).not.toBeInTheDocument();
@@ -314,6 +334,76 @@ describe("SetupStatusApp", () => {
     expect(screen.queryByRole("button", { name: "Start capture" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Stop capture" })).toBeInTheDocument();
     expect(stopCapture).not.toHaveBeenCalled();
+  });
+
+  it("renders the backend-led live capture blurb without inventing score text", async () => {
+    const fetchLiveCapture = vi.fn(async () =>
+      buildLiveCaptureStatusPayload({
+        status: "capturing",
+        capture: {
+          running: true,
+          start_allowed: false,
+          stop_allowed: true,
+          parser_runner_started: true,
+          tailing_started: true,
+          sqlite_live_writes_enabled: true,
+          external_transport_allowed: false,
+          raw_player_log_storage_enabled: false,
+          supervisor_kind: "local_app_capture_supervisor",
+          source_kind: "live_parser",
+          reason: null
+        },
+        heartbeat: {
+          schema_version: LIVE_CAPTURE_DIAGNOSTICS_SCHEMA_VERSION,
+          status: "waiting",
+          heartbeat_updated_at: "2026-06-08T12:00:00Z",
+          capture_duration_seconds: 12,
+          heartbeat_age_seconds: 1,
+          stale_after_seconds: 30
+        },
+        progress: {
+          schema_version: LIVE_CAPTURE_DIAGNOSTICS_SCHEMA_VERSION,
+          log_poll_count: 4,
+          structured_entry_count: 2,
+          parser_event_count: 1,
+          parser_event_kinds_seen: ["game_state"],
+          match_ids_seen_count: 1,
+          current_match_detected: true,
+          current_match_game_wins: null,
+          current_match_game_losses: null,
+          last_completed_match_result: null,
+          last_completed_match_game_wins: null,
+          last_completed_match_game_losses: null,
+          completed_game_rows_seen: 0,
+          sqlite_write_attempt_count: 0,
+          sqlite_rows_written: 0,
+          last_no_write_reason: "no_completed_game_rows",
+          last_event_seen_at: "2026-06-08T12:00:00Z",
+          last_sqlite_write_at: null
+        },
+        parser_status_blurb: {
+          code: "waiting_for_completed_facts",
+          text: "Capturing; waiting for completed match facts.",
+          tone: "waiting"
+        }
+      })
+    );
+    setRoute("diagnostics");
+    render(
+      <SetupStatusApp
+        fetchLiveCapture={fetchLiveCapture}
+        fetchStatus={() => Promise.resolve(buildPayload())}
+        startCapture={() => Promise.resolve(buildLiveCaptureStartResultPayload())}
+        stopCapture={() => Promise.resolve(buildLiveCaptureStopResultPayload())}
+      />
+    );
+
+    expect(await screen.findByRole("heading", { name: "Live Capture Control" })).toBeInTheDocument();
+    expect(await screen.findByText("Capturing; waiting for completed match facts.")).toBeInTheDocument();
+    expect(screen.queryByText(/\b\d+\s*-\s*\d+\b/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/current match score/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Stop capture" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Start capture" })).not.toBeInTheDocument();
   });
 
   it("stops only when the backend reports an app-owned running capture", async () => {
@@ -356,6 +446,7 @@ describe("SetupStatusApp", () => {
         })
       })
     );
+    setRoute("diagnostics");
     render(
       <SetupStatusApp
         fetchLiveCapture={fetchLiveCapture}
@@ -412,7 +503,7 @@ describe("SetupStatusApp", () => {
     );
 
     expect((await screen.findAllByLabelText("status Blocked")).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText(/blocked by a safe precondition/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("Capture blocked.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Start capture" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Stop capture" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /\b(?:reset|delete|wipe|restart|clear|repair)\b/i })).not.toBeInTheDocument();
