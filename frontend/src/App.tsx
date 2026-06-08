@@ -278,7 +278,8 @@ const RAIL_ITEMS: Array<{ route: AppRoute; label: string }> = [
   { route: "review", label: "Review" },
   { route: "feedback", label: "Feedback" },
   { route: "import", label: "Import" },
-  { route: "diagnostics", label: "Diagnostics" }
+  { route: "diagnostics", label: "Diagnostics" },
+  { route: "privacy", label: "Privacy" }
 ];
 const ERROR_REPORT_AFFECTED_AREA_OPTIONS: Array<{ value: ErrorReportAffectedArea; label: string }> = [
   { value: "local_app_ui", label: "Local App UI" },
@@ -1180,15 +1181,12 @@ export function SetupStatusApp({
   }
 
   const panels = buildPanels(loadState.payload);
-  const overallTone = loadState.unsafeCount > 0 ? "degraded" : statusTone(loadState.payload.status);
   const journalContextSummary = buildMatchJournalContextSummary(historyState);
   const statusItems = buildCockpitStatusItems(
     loadState.payload,
     loadState.unsafeCount,
     historyState,
-    liveDiagnosticsState,
-    liveCaptureControlState,
-    journalState
+    liveCaptureControlState
   );
   const trustSummary = buildTrustSummary(
     loadState.unsafeCount,
@@ -1209,10 +1207,6 @@ export function SetupStatusApp({
           <h1 id="overall-status">Mythic Edge Cockpit</h1>
           <p className="cockpitLead">Competitive review, local analytics, and live readiness at a glance.</p>
         </div>
-        <StatusPill
-          label={loadState.unsafeCount > 0 ? "Needs review" : cockpitStatusFromRawStatus(loadState.payload.status, "app").label}
-          tone={overallTone}
-        />
       </section>
 
       {loadState.unsafeCount > 0 ? (
@@ -1223,12 +1217,7 @@ export function SetupStatusApp({
 
       {activeRoute === "dashboard" ? (
         <>
-          <CockpitStatusRail items={statusItems} />
-          <LiveCaptureControlPanel
-            state={liveCaptureControlState}
-            onStartCapture={handleStartCapture}
-            onStopCapture={handleStopCapture}
-          />
+          <CockpitStatusRail items={statusItems} onStartCapture={handleStartCapture} state={liveCaptureControlState} />
           <DashboardModulesSection
             moduleViewPreferences={dashboardModuleViews}
             onModuleViewChange={handleDashboardModuleViewChange}
@@ -1236,7 +1225,6 @@ export function SetupStatusApp({
           />
           <CoachBoundaryPanel />
           <DashboardRouteCards />
-          <TrustPrivacyLayer items={trustSummary} />
         </>
       ) : null}
 
@@ -1311,7 +1299,7 @@ export function SetupStatusApp({
           <div className="diagnosticsHeader">
             <div>
               <p className="eyebrow">Owner and developer view</p>
-              <h2 id="technical-details-title">Technical Details</h2>
+              <h2 id="technical-details-title">Technical Details & Privacy</h2>
             </div>
             {activeRoute === "dashboard" ? (
               <button
@@ -1345,11 +1333,19 @@ export function SetupStatusApp({
                   ))}
                 </section>
               </section>
+              {activeRoute === "diagnostics" ? (
+                <LiveCaptureControlPanel
+                  state={liveCaptureControlState}
+                  onStartCapture={handleStartCapture}
+                  onStopCapture={handleStopCapture}
+                />
+              ) : null}
+              <TrustPrivacyLayer items={trustSummary} />
               <LiveDiagnosticsPanel diagnosticsState={liveDiagnosticsState} />
             </div>
           ) : (
             <p className="historyStateMessage">
-              Setup grids, raw status labels, process details, and live diagnostics are available on demand.
+              Setup grids, raw status labels, freshness, privacy filtering, and live diagnostics are available on demand.
             </p>
           )}
         </section>
@@ -1374,7 +1370,6 @@ function Shell({ activeRoute = "dashboard", children }: { activeRoute?: AppRoute
           ))}
         </nav>
         <div className="leftRailFooter" aria-label="Local app footer">
-          <RailLink activeRoute={activeRoute} item={{ route: "privacy", label: "Privacy" }} />
           <span className="railMetaLabel">
             Settings
             <span>Not configured</span>
@@ -1402,7 +1397,6 @@ function RailLink({
       href={`#${item.route}`}
     >
       <span>{item.label}</span>
-      {isActive ? <span className="navCurrentMarker">Current</span> : null}
     </a>
   );
 }
@@ -3999,19 +3993,11 @@ function buildCockpitStatusItems(
   payload: SetupStatusResponse,
   unsafeCount: number,
   historyState: HistoryState,
-  liveDiagnosticsState: LiveDiagnosticsState,
-  liveCaptureControlState: LiveCaptureControlState,
-  journalState: MatchJournalState
+  liveCaptureControlState: LiveCaptureControlState
 ): CockpitStatusItem[] {
   const app = unsafeCount > 0 ? { label: "Needs review", tone: "degraded" as const } : cockpitStatusFromRawStatus(payload.status, "app");
-  const playerLogStatus = isLivePlayerLogStatusResponse(payload.live_player_log)
-    ? payload.live_player_log.player_log.status
-    : statusFromSection(payload.player_log);
-  const playerLog = cockpitStatusFromRawStatus(playerLogStatus, "player_log");
   const liveCapture = liveCaptureStatusFromControlOrSetup(liveCaptureControlState, payload);
   const analytics = cockpitStatusFromRawStatus(analyticsHistoryStatus(historyState), "analytics");
-  const diagnostics = cockpitStatusFromRawStatus(liveDiagnosticsStatus(liveDiagnosticsState), "trust");
-  const journal = cockpitStatusFromRawStatus(matchJournalStatus(journalState), "journal");
 
   return [
     {
@@ -4019,14 +4005,7 @@ function buildCockpitStatusItems(
       label: "App connection",
       status: app.label,
       tone: app.tone,
-      detail: "Local backend response is available through the existing setup endpoint."
-    },
-    {
-      cue: "LOG",
-      label: "Player.log monitor",
-      status: playerLog.label,
-      tone: playerLog.tone,
-      detail: playerLog.label === "Ready" ? "Arena log source is configured." : "Check setup details before trusting live capture."
+      detail: app.label === "Ready" ? "Backend reachable." : "Backend response needs review."
     },
     {
       cue: "LIVE",
@@ -4034,23 +4013,35 @@ function buildCockpitStatusItems(
       status: liveCapture.label,
       tone: liveCapture.tone,
       liveActive: liveCapture.liveActive,
-      detail: liveCapture.detail
+      detail: compactLiveCaptureDetail(liveCapture.label)
     },
     {
       cue: "DATA",
       label: "Analytics database",
       status: analytics.label,
       tone: analytics.tone,
-      detail: analytics.label === "Ready" ? "Local match and game history is available." : "Analytics may be empty or limited."
-    },
-    {
-      cue: "QA",
-      label: "Data trust",
-      status: diagnostics.label === "Ready" ? journal.label : diagnostics.label,
-      tone: diagnostics.tone === "ok" ? journal.tone : diagnostics.tone,
-      detail: "Diagnostics and Match Journal context remain available without exposing private values."
+      detail: analytics.label === "Ready" ? "History available." : "No history yet."
     }
   ];
+}
+
+function compactLiveCaptureDetail(label: string): string {
+  if (label === "Capturing") {
+    return "Capture active.";
+  }
+  if (label === "Ready to start") {
+    return "Ready to start.";
+  }
+  if (label === "Stopped") {
+    return "Capture stopped.";
+  }
+  if (label === "Blocked") {
+    return "Capture blocked.";
+  }
+  if (label === "Setup needed") {
+    return "Setup needed.";
+  }
+  return `${label}.`;
 }
 
 function liveCaptureStatusFromSetupPayload(payload: SetupStatusResponse): {
