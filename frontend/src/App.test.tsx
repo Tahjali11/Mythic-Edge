@@ -17,6 +17,8 @@ import {
   EARLY_GAME_HISTORY_SCHEMA_VERSION,
   GAME1_POSTBOARD_SPLIT_REVIEW_OBJECT,
   ERROR_REPORT_PREVIEW_SCHEMA,
+  ERROR_REPORT_SUBMISSION_OBJECT,
+  ERROR_REPORT_SUBMISSION_SCHEMA,
   GAME_HISTORY_OBJECT,
   GAMEPLAY_ACTION_REVIEW_OBJECT,
   LEGACY_JSONL_IMPORT_QUALITY_OBJECT,
@@ -48,6 +50,7 @@ import {
   type AnalyticsDashboardModulesResponse,
   type ErrorReportPreviewRequest,
   type ErrorReportPreviewResponse,
+  type ErrorReportSubmissionResponse,
   type GameHistoryResponse,
   type GameplayActionReviewResponse,
   type LegacyJsonlImportQuality,
@@ -410,7 +413,7 @@ describe("SetupStatusApp", () => {
     expect(screen.queryByRole("button", { name: /\b(?:reset|delete|wipe|restart|clear|repair)\b/i })).not.toBeInTheDocument();
   });
 
-  it("prepares and copies a sanitized error report without external submission", async () => {
+  it("previews before explicit GitHub submission and keeps copy fallback", async () => {
     setRoute("feedback");
     const writeText = vi.fn(async () => undefined);
     Object.defineProperty(navigator, "clipboard", {
@@ -418,11 +421,18 @@ describe("SetupStatusApp", () => {
       value: { writeText }
     });
     const previewReport = vi.fn(async (request: ErrorReportPreviewRequest) => buildErrorReportPreviewPayload(request));
-    render(<SetupStatusApp fetchStatus={() => Promise.resolve(buildPayload())} previewReport={previewReport} />);
+    const submitReport = vi.fn(async (request: ErrorReportPreviewRequest) => buildErrorReportSubmissionPayload(request));
+    render(
+      <SetupStatusApp
+        fetchStatus={() => Promise.resolve(buildPayload())}
+        previewReport={previewReport}
+        submitReport={submitReport}
+      />
+    );
 
     expect(await screen.findByRole("heading", { name: "Report an Error" })).toBeInTheDocument();
-    expect(screen.getAllByText("External submission disabled").length).toBeGreaterThanOrEqual(1);
-    expect(screen.queryByRole("button", { name: /submit error report/i })).not.toBeInTheDocument();
+    expect(screen.getByText("No automatic submission")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /submit report to github/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /create github issue/i })).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Summary"), { target: { value: "Dashboard status did not refresh" } });
@@ -432,7 +442,7 @@ describe("SetupStatusApp", () => {
     fireEvent.change(screen.getByLabelText("Actual behavior"), {
       target: { value: "The dashboard kept old labels after reload." }
     });
-    fireEvent.change(screen.getByLabelText("Reproduction steps"), {
+    fireEvent.change(screen.getByLabelText("Reproduction steps (Optional)"), {
       target: { value: "Open the app.\nReload the dashboard.\nRead the labels." }
     });
 
@@ -443,6 +453,7 @@ describe("SetupStatusApp", () => {
         expect.objectContaining({
           affected_area: "local_app_ui",
           current_frontend_surface: "local_app_cockpit",
+          report_type: "bug",
           severity: "degraded"
         })
       );
@@ -452,15 +463,26 @@ describe("SetupStatusApp", () => {
     expect(screen.getByText("backend_health")).toBeInTheDocument();
     expect(screen.getByText("Excluded private data")).toBeInTheDocument();
     expect(screen.getByText("raw Player.log contents or raw log lines")).toBeInTheDocument();
-    expect(screen.getByDisplayValue(/# \[error-report\] \[local_app_ui\]/)).toBeInTheDocument();
+    expect(screen.getByDisplayValue(/# \[error-report\] \[bug\] \[local_app_ui\]/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Submit report to GitHub" })).toBeInTheDocument();
+    expect(submitReport).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Copy Report" }));
 
     await waitFor(() => {
-      expect(writeText).toHaveBeenCalledWith(expect.stringContaining("# [error-report] [local_app_ui]"));
+      expect(writeText).toHaveBeenCalledWith(expect.stringContaining("# [error-report] [bug] [local_app_ui]"));
     });
     expect(screen.getByText("Copied to clipboard")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /submit error report/i })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Submit report to GitHub" }));
+    await waitFor(() => {
+      expect(submitReport).toHaveBeenCalledWith(expect.objectContaining({ report_type: "bug" }));
+    });
+    expect(await screen.findByRole("heading", { name: "GitHub Issue Created" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "View created issue" })).toHaveAttribute(
+      "href",
+      "https://github.com/Tahjali11/Mythic-Edge/issues/999"
+    );
   });
 
   it("shows blocked sanitized report previews without enabling copy or submission", async () => {
@@ -469,6 +491,7 @@ describe("SetupStatusApp", () => {
       buildErrorReportPreviewPayload(
         {
           summary: "Blocked report",
+          report_type: "bug",
           severity: "blocker",
           expected_behavior: "Preview should block unsafe values.",
           actual_behavior: "Unsafe value was entered.",
@@ -490,14 +513,14 @@ describe("SetupStatusApp", () => {
     fireEvent.change(screen.getByLabelText("Summary"), { target: { value: "Blocked report" } });
     fireEvent.change(screen.getByLabelText("Expected behavior"), { target: { value: "Preview should block unsafe values." } });
     fireEvent.change(screen.getByLabelText("Actual behavior"), { target: { value: "Unsafe value was entered." } });
-    fireEvent.change(screen.getByLabelText("Reproduction steps"), { target: { value: "Open report form." } });
+    fireEvent.change(screen.getByLabelText("Reproduction steps (Optional)"), { target: { value: "Open report form." } });
 
     fireEvent.click(screen.getByRole("button", { name: "Preview Report" }));
 
     expect(await screen.findByText("privacy_guard_blocked:actual_behavior")).toBeInTheDocument();
     expect(screen.getByText(/privacy guard blocked report generation/i)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Copy Report" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /submit error report/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /submit report to github/i })).not.toBeInTheDocument();
   });
 
   it("renders live watcher diagnostics as a read-only safe summary", async () => {
@@ -1705,7 +1728,7 @@ function buildErrorReportPreviewPayload(
   request: ErrorReportPreviewRequest,
   overrides: Partial<ErrorReportPreviewResponse> = {}
 ): ErrorReportPreviewResponse {
-  const issueTitle = `[error-report] [${request.affected_area}] ${request.summary}`;
+  const issueTitle = `[error-report] [${request.report_type}] [${request.affected_area}] ${request.summary}`;
   return {
     schema: ERROR_REPORT_PREVIEW_SCHEMA,
     status: "preview_ready",
@@ -1733,7 +1756,30 @@ function buildErrorReportPreviewPayload(
     redaction_summary: ["No user-entered private path redactions were needed."],
     warnings: [],
     next_recommended_role: "Codex A or Codex B after reviewing the sanitized report",
-    external_submission_enabled: false,
+    external_submission_enabled: true,
+    ...overrides
+  };
+}
+
+function buildErrorReportSubmissionPayload(
+  request: ErrorReportPreviewRequest,
+  overrides: Partial<ErrorReportSubmissionResponse> = {}
+): ErrorReportSubmissionResponse {
+  const preview = buildErrorReportPreviewPayload(request);
+  return {
+    object: ERROR_REPORT_SUBMISSION_OBJECT,
+    schema_version: ERROR_REPORT_SUBMISSION_SCHEMA,
+    status: "submitted",
+    external_submission_enabled: true,
+    submitted: true,
+    issue_url: "https://github.com/Tahjali11/Mythic-Edge/issues/999",
+    issue_number: 999,
+    issue_title: preview.issue_title,
+    issue_body_markdown: preview.issue_body_markdown,
+    labels: ["bug", "layer:dashboard", "workflow:problem"],
+    fallback_available: true,
+    warnings: [],
+    errors: [],
     ...overrides
   };
 }

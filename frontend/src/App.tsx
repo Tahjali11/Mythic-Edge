@@ -25,6 +25,7 @@ import {
   SetupStatusApiError,
   startLiveCapture,
   stopLiveCapture,
+  submitErrorReport,
   submitMatchJournalDisplayCorrection,
   submitMatchJournalExperimentLabel,
   submitMatchJournalNote,
@@ -42,6 +43,8 @@ import {
   type ErrorReportPreviewRequest,
   type ErrorReportPreviewResponse,
   type ErrorReportSeverity,
+  type ErrorReportSubmissionResponse,
+  type ErrorReportType,
   LIVE_PLAYER_LOG_STATUS_OBJECT,
   LIVE_STATUS_SCHEMA_VERSION,
   LIVE_WATCHER_DIAGNOSTICS_OBJECT,
@@ -138,6 +141,7 @@ type SetupStatusAppProps = {
   submitImport?: (request: ManualImportRequest) => Promise<ManualImportJob>;
   submitUpload?: (request: ManualImportUploadRequest) => Promise<ManualImportJob>;
   previewReport?: (request: ErrorReportPreviewRequest) => Promise<ErrorReportPreviewResponse>;
+  submitReport?: (request: ErrorReportPreviewRequest) => Promise<ErrorReportSubmissionResponse>;
 };
 
 type ImportState =
@@ -153,6 +157,11 @@ type ErrorReportPreviewState =
   | { state: "error"; code: ErrorReportApiError["code"]; message: string };
 
 type ErrorReportCopyState = "idle" | "copied" | "unavailable" | "error";
+type ErrorReportSubmissionState =
+  | { state: "idle" }
+  | { state: "submitting" }
+  | { state: "ready"; payload: ErrorReportSubmissionResponse }
+  | { state: "error"; code: ErrorReportApiError["code"]; message: string };
 
 type HistoryState =
   | { state: "loading" }
@@ -288,6 +297,11 @@ const ERROR_REPORT_SEVERITY_OPTIONS: Array<{ value: ErrorReportSeverity; label: 
   { value: "annoyance", label: "Annoyance" },
   { value: "question", label: "Question" }
 ];
+const ERROR_REPORT_TYPE_OPTIONS: Array<{ value: ErrorReportType; label: string }> = [
+  { value: "bug", label: "Bug" },
+  { value: "feedback", label: "Feedback" },
+  { value: "feature_request", label: "Feature Request" }
+];
 
 export function SetupStatusApp({
   fetchStatus = fetchSetupStatus,
@@ -314,7 +328,8 @@ export function SetupStatusApp({
   submitJournalDisplayCorrection = submitMatchJournalDisplayCorrection,
   submitImport = submitManualJsonlImport,
   submitUpload = submitManualJsonlUpload,
-  previewReport = previewErrorReport
+  previewReport = previewErrorReport,
+  submitReport = submitErrorReport
 }: SetupStatusAppProps) {
   const [loadState, setLoadState] = useState<LoadState>({ state: "loading" });
   const [historyState, setHistoryState] = useState<HistoryState>({ state: "loading" });
@@ -1261,7 +1276,7 @@ export function SetupStatusApp({
 
       {activeRoute === "coach" ? <CoachBoundaryPanel /> : null}
 
-      {activeRoute === "feedback" ? <ErrorReportPanel onPreview={previewReport} /> : null}
+      {activeRoute === "feedback" ? <ErrorReportPanel onPreview={previewReport} onSubmitReport={submitReport} /> : null}
 
       {activeRoute === "import" ? (
         <ManualImportPanel
@@ -1950,35 +1965,58 @@ function PrivacyDetailsPanel() {
 }
 
 function ErrorReportPanel({
-  onPreview
+  onPreview,
+  onSubmitReport
 }: {
   onPreview: (request: ErrorReportPreviewRequest) => Promise<ErrorReportPreviewResponse>;
+  onSubmitReport: (request: ErrorReportPreviewRequest) => Promise<ErrorReportSubmissionResponse>;
 }) {
   const [summary, setSummary] = useState("");
   const [expectedBehavior, setExpectedBehavior] = useState("");
   const [actualBehavior, setActualBehavior] = useState("");
   const [reproductionSteps, setReproductionSteps] = useState("");
+  const [feedback, setFeedback] = useState("");
+  const [featureGoal, setFeatureGoal] = useState("");
+  const [featureLocation, setFeatureLocation] = useState("");
+  const [featureSuccess, setFeatureSuccess] = useState("");
+  const [reportType, setReportType] = useState<ErrorReportType>("bug");
   const [affectedArea, setAffectedArea] = useState<ErrorReportAffectedArea>("local_app_ui");
   const [severity, setSeverity] = useState<ErrorReportSeverity>("degraded");
   const [previewState, setPreviewState] = useState<ErrorReportPreviewState>({ state: "idle" });
   const [copyState, setCopyState] = useState<ErrorReportCopyState>("idle");
+  const [submissionState, setSubmissionState] = useState<ErrorReportSubmissionState>({ state: "idle" });
+
+  function buildReportRequest(): ErrorReportPreviewRequest {
+    const request: ErrorReportPreviewRequest = {
+      summary,
+      report_type: reportType,
+      affected_area: affectedArea,
+      severity,
+      current_frontend_surface: "local_app_cockpit",
+      include_diagnostics: ["safe_status_labels"]
+    };
+    if (reportType === "feedback") {
+      request.feedback = feedback;
+    } else if (reportType === "feature_request") {
+      request.feature_goal = featureGoal;
+      request.feature_location = featureLocation;
+      request.feature_success = featureSuccess;
+    } else {
+      request.expected_behavior = expectedBehavior;
+      request.actual_behavior = actualBehavior;
+      request.reproduction_steps = reproductionSteps;
+    }
+    return request;
+  }
 
   async function handlePreview(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setPreviewState({ state: "previewing" });
     setCopyState("idle");
+    setSubmissionState({ state: "idle" });
 
     try {
-      const payload = await onPreview({
-        summary,
-        expected_behavior: expectedBehavior,
-        actual_behavior: actualBehavior,
-        reproduction_steps: reproductionSteps,
-        affected_area: affectedArea,
-        severity,
-        current_frontend_surface: "local_app_cockpit",
-        include_diagnostics: ["safe_status_labels"]
-      });
+      const payload = await onPreview(buildReportRequest());
       setPreviewState({ state: "ready", payload });
     } catch (error) {
       if (error instanceof ErrorReportApiError) {
@@ -1989,6 +2027,27 @@ function ErrorReportPanel({
         state: "error",
         code: "backend_unavailable",
         message: "Error report preview is unavailable."
+      });
+    }
+  }
+
+  async function handleSubmitReport() {
+    if (previewState.state !== "ready" || previewState.payload.status !== "preview_ready") {
+      return;
+    }
+    setSubmissionState({ state: "submitting" });
+    try {
+      const payload = await onSubmitReport(buildReportRequest());
+      setSubmissionState({ state: "ready", payload });
+    } catch (error) {
+      if (error instanceof ErrorReportApiError) {
+        setSubmissionState({ state: "error", code: error.code, message: error.message });
+        return;
+      }
+      setSubmissionState({
+        state: "error",
+        code: "backend_unavailable",
+        message: "Error report submission is unavailable."
       });
     }
   }
@@ -2012,6 +2071,10 @@ function ErrorReportPanel({
 
   const previewPayload = previewState.state === "ready" ? previewState.payload : null;
   const canCopy = previewPayload?.status === "preview_ready" && Boolean(previewPayload.issue_body_markdown);
+  const canSubmit =
+    previewPayload?.status === "preview_ready" &&
+    previewPayload.external_submission_enabled &&
+    submissionState.state !== "submitting";
 
   return (
     <section className="reportPanel" id="report-error" aria-labelledby="report-error-title">
@@ -2020,10 +2083,10 @@ function ErrorReportPanel({
           <p className="eyebrow">Codex triage prep</p>
           <h2 id="report-error-title">Report an Error</h2>
         </div>
-        <StatusPill label="Copy only" tone="deferred" />
+        <StatusPill label="Preview first" tone="deferred" />
       </div>
       <p className="historyStateMessage">
-        Prepare a sanitized Markdown report for later triage. This first slice does not submit to external services.
+        Preview a sanitized report first, then submit it to GitHub only with an explicit click.
       </p>
 
       <form className="reportForm" onSubmit={handlePreview}>
@@ -2051,6 +2114,16 @@ function ErrorReportPanel({
           </select>
         </label>
         <label className="formField">
+          <span>What are you reporting?</span>
+          <select onChange={(event) => setReportType(event.target.value as ErrorReportType)} value={reportType}>
+            {ERROR_REPORT_TYPE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="formField">
           <span>Severity</span>
           <select onChange={(event) => setSeverity(event.target.value as ErrorReportSeverity)} value={severity}>
             {ERROR_REPORT_SEVERITY_OPTIONS.map((option) => (
@@ -2060,41 +2133,94 @@ function ErrorReportPanel({
             ))}
           </select>
         </label>
-        <label className="formField wide">
-          <span>Expected behavior</span>
-          <textarea
-            onChange={(event) => setExpectedBehavior(event.target.value)}
-            placeholder="What should have happened?"
-            required
-            rows={3}
-            value={expectedBehavior}
-          />
-        </label>
-        <label className="formField wide">
-          <span>Actual behavior</span>
-          <textarea
-            onChange={(event) => setActualBehavior(event.target.value)}
-            placeholder="What did you see instead?"
-            required
-            rows={3}
-            value={actualBehavior}
-          />
-        </label>
-        <label className="formField wide">
-          <span>Reproduction steps</span>
-          <textarea
-            onChange={(event) => setReproductionSteps(event.target.value)}
-            placeholder="One step per line is fine."
-            required
-            rows={4}
-            value={reproductionSteps}
-          />
-        </label>
+        {reportType === "bug" ? (
+          <>
+            <label className="formField wide">
+              <span>Expected behavior</span>
+              <textarea
+                onChange={(event) => setExpectedBehavior(event.target.value)}
+                placeholder="What should have happened?"
+                required
+                rows={3}
+                value={expectedBehavior}
+              />
+            </label>
+            <label className="formField wide">
+              <span>Actual behavior</span>
+              <textarea
+                onChange={(event) => setActualBehavior(event.target.value)}
+                placeholder="What did you see instead?"
+                required
+                rows={3}
+                value={actualBehavior}
+              />
+            </label>
+            <label className="formField wide">
+              <span>Reproduction steps (Optional)</span>
+              <textarea
+                onChange={(event) => setReproductionSteps(event.target.value)}
+                placeholder="One step per line is fine."
+                rows={4}
+                value={reproductionSteps}
+              />
+            </label>
+          </>
+        ) : null}
+        {reportType === "feedback" ? (
+          <label className="formField wide">
+            <span>Feedback</span>
+            <textarea
+              maxLength={1200}
+              onChange={(event) => setFeedback(event.target.value)}
+              placeholder="What do you want us to know?"
+              required
+              rows={5}
+              value={feedback}
+            />
+          </label>
+        ) : null}
+        {reportType === "feature_request" ? (
+          <>
+            <label className="formField wide">
+              <span>What should Mythic Edge help you do?</span>
+              <textarea
+                maxLength={280}
+                onChange={(event) => setFeatureGoal(event.target.value)}
+                placeholder="Example: compare play/draw win rate over time."
+                required
+                rows={2}
+                value={featureGoal}
+              />
+            </label>
+            <label className="formField wide">
+              <span>Where would you expect to use it?</span>
+              <textarea
+                maxLength={280}
+                onChange={(event) => setFeatureLocation(event.target.value)}
+                placeholder="Example: Decision Support dashboard."
+                required
+                rows={2}
+                value={featureLocation}
+              />
+            </label>
+            <label className="formField wide">
+              <span>What would make the first version useful?</span>
+              <textarea
+                maxLength={420}
+                onChange={(event) => setFeatureSuccess(event.target.value)}
+                placeholder="Describe the smallest helpful version."
+                required
+                rows={3}
+                value={featureSuccess}
+              />
+            </label>
+          </>
+        ) : null}
         <div className="reportActions">
           <button disabled={previewState.state === "previewing"} type="submit">
             {previewState.state === "previewing" ? "Preparing Preview" : "Preview Report"}
           </button>
-          <span className="reportBoundary">External submission disabled</span>
+          <span className="reportBoundary">No automatic submission</span>
         </div>
       </form>
 
@@ -2133,16 +2259,70 @@ function ErrorReportPanel({
                     Copy Report
                   </button>
                 ) : null}
+                {canSubmit ? (
+                  <button onClick={handleSubmitReport} type="button">
+                    Submit report to GitHub
+                  </button>
+                ) : null}
                 <span className="reportBoundary">{copyStatusText(copyState)}</span>
               </div>
+              {previewPayload.status === "preview_ready" && previewPayload.external_submission_enabled ? (
+                <p className="historyStateMessage">
+                  Submitting creates a GitHub Issue in Tahjali11/Mythic-Edge. No files or screenshots are attached.
+                </p>
+              ) : null}
             </>
           ) : (
             <p className="moduleEmptyState">
               The privacy guard blocked report generation. Remove endpoint-like or secret-like values and preview again.
             </p>
           )}
+          <ErrorReportSubmissionNotice state={submissionState} />
         </section>
       ) : null}
+    </section>
+  );
+}
+
+function ErrorReportSubmissionNotice({ state }: { state: ErrorReportSubmissionState }) {
+  if (state.state === "idle") {
+    return null;
+  }
+  if (state.state === "submitting") {
+    return <p className="jobMessage">Submitting sanitized report to GitHub</p>;
+  }
+  if (state.state === "error") {
+    return (
+      <StatusNotice title="Submission unavailable" status={errorTone(state.code)}>
+        <span>{state.message}</span>
+      </StatusNotice>
+    );
+  }
+  const payload = state.payload;
+  if (payload.submitted && payload.issue_url) {
+    return (
+      <section className="jobResult tone-ok" aria-label="Error report submission result">
+        <div className="panelHeader">
+          <h2>GitHub Issue Created</h2>
+          <StatusPill label="submitted" tone="ok" />
+        </div>
+        <p>
+          <a href={payload.issue_url} rel="noreferrer" target="_blank">
+            View created issue
+          </a>
+        </p>
+        <SummaryRow label="labels" value={formatLabels(payload.labels)} />
+      </section>
+    );
+  }
+  return (
+    <section className={`jobResult tone-${reportSubmissionTone(payload.status)}`} aria-label="Error report submission result">
+      <div className="panelHeader">
+        <h2>GitHub Submission Not Created</h2>
+        <StatusPill label={reportSubmissionStatusLabel(payload.status)} tone={reportSubmissionTone(payload.status)} />
+      </div>
+      <p>Copy Report remains available as the safe fallback.</p>
+      {payload.errors.length > 0 ? <CategoryList title="Submission errors" items={payload.errors} /> : null}
     </section>
   );
 }
@@ -5126,6 +5306,44 @@ function reportPreviewTone(status: ErrorReportPreviewResponse["status"]): SetupS
   return "degraded";
 }
 
+function reportSubmissionStatusLabel(status: ErrorReportSubmissionResponse["status"]): string {
+  if (status === "submitted") {
+    return "submitted";
+  }
+  if (status === "blocked_missing_gh") {
+    return "GitHub CLI missing";
+  }
+  if (status === "blocked_gh_unauthenticated") {
+    return "GitHub auth unavailable";
+  }
+  if (status === "blocked_wrong_repo") {
+    return "GitHub repo unavailable";
+  }
+  if (status === "blocked_label_unavailable") {
+    return "Label unavailable";
+  }
+  if (status === "blocked_privacy_guard") {
+    return "Privacy blocked";
+  }
+  if (status === "invalid_request") {
+    return "Invalid request";
+  }
+  return "Submission failed";
+}
+
+function reportSubmissionTone(status: ErrorReportSubmissionResponse["status"]): SetupStatusTone {
+  if (status === "submitted") {
+    return "ok";
+  }
+  if (status === "blocked_privacy_guard" || status === "blocked_wrong_repo") {
+    return "error";
+  }
+  if (status === "blocked_missing_gh" || status === "blocked_gh_unauthenticated" || status === "blocked_label_unavailable") {
+    return "deferred";
+  }
+  return "degraded";
+}
+
 function copyStatusText(status: ErrorReportCopyState): string {
   if (status === "copied") {
     return "Copied to clipboard";
@@ -5136,7 +5354,7 @@ function copyStatusText(status: ErrorReportCopyState): string {
   if (status === "error") {
     return "Copy failed; select the Markdown text manually";
   }
-  return "No external submission";
+  return "Copy fallback available";
 }
 
 function errorTitle(code: SetupStatusApiError["code"]): string {

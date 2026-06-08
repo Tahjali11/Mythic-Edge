@@ -21,7 +21,7 @@ from .analytics_history import (
     build_play_draw_split_review,
 )
 from .config import load_local_app_config_status
-from .error_reports import build_error_report_preview
+from .error_reports import GitHubIssueSubmitter, build_error_report_preview, build_error_report_submission
 from .import_jobs import (
     BrowserJsonlUploadFile,
     get_import_job,
@@ -64,6 +64,7 @@ def create_app(
     frontend_origins: Sequence[str] | None = None,
     env: Mapping[str, str] = os.environ,
     match_journal_service_factory: JournalServiceFactory | None = None,
+    error_report_submitter: GitHubIssueSubmitter | None = None,
 ) -> FastAPI:
     local_app_paths = build_local_app_paths(app_data_root, env=env)
     resolved_app_data_root = local_app_paths.app_data_root
@@ -189,6 +190,10 @@ def create_app(
     @app.post("/api/feedback/error-report/preview")
     def error_report_preview(request: object = Body(...)) -> dict[str, object]:
         return build_error_report_preview(request, local_app_paths)
+
+    @app.post("/api/feedback/error-report/submit")
+    def error_report_submit(request: object = Body(...)) -> dict[str, object]:
+        return build_error_report_submission(request, local_app_paths, submitter=error_report_submitter)
 
     @app.get("/api/journal")
     async def match_journal(request: Request) -> object:

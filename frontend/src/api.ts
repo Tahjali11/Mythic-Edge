@@ -5,6 +5,8 @@ import {
   ANALYTICS_HISTORY_SCHEMA_VERSION,
   EARLY_GAME_HISTORY_SCHEMA_VERSION,
   ERROR_REPORT_PREVIEW_SCHEMA,
+  ERROR_REPORT_SUBMISSION_OBJECT,
+  ERROR_REPORT_SUBMISSION_SCHEMA,
   GAME_HISTORY_OBJECT,
   GAME1_POSTBOARD_SPLIT_REVIEW_OBJECT,
   GAMEPLAY_ACTION_REVIEW_OBJECT,
@@ -39,6 +41,7 @@ import {
   type ErrorReportApiErrorCode,
   type ErrorReportPreviewRequest,
   type ErrorReportPreviewResponse,
+  type ErrorReportSubmissionResponse,
   type Game1PostboardSplitReviewResponse,
   type GameHistoryResponse,
   type GameplayActionReviewResponse,
@@ -100,6 +103,7 @@ const MATCH_JOURNAL_REVIEW_FLAGS_PATH = "/api/journal/review-flags";
 const MATCH_JOURNAL_EXPERIMENT_LABEL_PATH = "/api/journal/experiment-label";
 const MATCH_JOURNAL_DISPLAY_CORRECTIONS_PATH = "/api/journal/display-corrections";
 const ERROR_REPORT_PREVIEW_PATH = "/api/feedback/error-report/preview";
+const ERROR_REPORT_SUBMIT_PATH = "/api/feedback/error-report/submit";
 const REQUIRED_SETUP_STATUS_FIELDS = [
   "object",
   "schema_version",
@@ -162,6 +166,21 @@ const REQUIRED_ERROR_REPORT_PREVIEW_FIELDS = [
   "warnings",
   "next_recommended_role",
   "external_submission_enabled"
+] as const;
+const REQUIRED_ERROR_REPORT_SUBMISSION_FIELDS = [
+  "object",
+  "schema_version",
+  "status",
+  "external_submission_enabled",
+  "submitted",
+  "issue_url",
+  "issue_number",
+  "issue_title",
+  "issue_body_markdown",
+  "labels",
+  "fallback_available",
+  "warnings",
+  "errors"
 ] as const;
 const LIVE_WATCHER_PROCESS_PRECONDITION_KEYS = [
   "player_log_ready",
@@ -311,6 +330,36 @@ export async function previewErrorReport(
   }
 
   return validateErrorReportPreviewResponse(payload);
+}
+
+export async function submitErrorReport(
+  request: ErrorReportPreviewRequest,
+  fetchImpl: typeof fetch = fetch
+): Promise<ErrorReportSubmissionResponse> {
+  const baseUrl = getErrorReportApiBaseUrl();
+  let response: Response;
+  try {
+    response = await fetchImpl(`${baseUrl}${ERROR_REPORT_SUBMIT_PATH}`, {
+      method: "POST",
+      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      body: JSON.stringify(request)
+    });
+  } catch {
+    throw new ErrorReportApiError("backend_unavailable", "Error report submission is unavailable.");
+  }
+
+  if (!response.ok) {
+    throw new ErrorReportApiError("backend_unavailable", "Error report submission is unavailable.");
+  }
+
+  let payload: unknown;
+  try {
+    payload = await response.json();
+  } catch {
+    throw new ErrorReportApiError("malformed_response", "Error report submission returned malformed JSON.");
+  }
+
+  return validateErrorReportSubmissionResponse(payload);
 }
 
 export async function fetchLivePlayerLogStatus(fetchImpl: typeof fetch = fetch): Promise<LivePlayerLogStatusResponse> {
@@ -1632,7 +1681,7 @@ function validateErrorReportPreviewResponse(payload: unknown): ErrorReportPrevie
     !isStringArray(payload.redaction_summary) ||
     !isStringArray(payload.warnings) ||
     typeof payload.next_recommended_role !== "string" ||
-    payload.external_submission_enabled !== false
+    typeof payload.external_submission_enabled !== "boolean"
   ) {
     throw new ErrorReportApiError("malformed_response", "Error report preview has an unsupported shape.");
   }
@@ -1642,6 +1691,60 @@ function validateErrorReportPreviewResponse(payload: unknown): ErrorReportPrevie
 
 function isErrorReportPreviewStatus(value: unknown): boolean {
   return value === "preview_ready" || value === "invalid_request" || value === "blocked_privacy_guard";
+}
+
+function validateErrorReportSubmissionResponse(payload: unknown): ErrorReportSubmissionResponse {
+  if (!isRecord(payload)) {
+    throw new ErrorReportApiError("malformed_response", "Error report submission must be a JSON object.");
+  }
+
+  for (const field of REQUIRED_ERROR_REPORT_SUBMISSION_FIELDS) {
+    if (!(field in payload)) {
+      throw new ErrorReportApiError("malformed_response", "Error report submission is missing required fields.");
+    }
+  }
+
+  if (payload.object !== ERROR_REPORT_SUBMISSION_OBJECT || payload.schema_version !== ERROR_REPORT_SUBMISSION_SCHEMA) {
+    throw new ErrorReportApiError(
+      "incompatible_response",
+      `Expected error report submission schema ${ERROR_REPORT_SUBMISSION_SCHEMA}.`
+    );
+  }
+
+  if (!isErrorReportSubmissionStatus(payload.status)) {
+    throw new ErrorReportApiError("malformed_response", "Error report submission status is unsupported.");
+  }
+
+  if (
+    typeof payload.external_submission_enabled !== "boolean" ||
+    typeof payload.submitted !== "boolean" ||
+    !isStringOrNull(payload.issue_url) ||
+    !isNumberOrNull(payload.issue_number) ||
+    typeof payload.issue_title !== "string" ||
+    typeof payload.issue_body_markdown !== "string" ||
+    !isStringArray(payload.labels) ||
+    typeof payload.fallback_available !== "boolean" ||
+    !isStringArray(payload.warnings) ||
+    !isStringArray(payload.errors)
+  ) {
+    throw new ErrorReportApiError("malformed_response", "Error report submission has an unsupported shape.");
+  }
+
+  return payload as ErrorReportSubmissionResponse;
+}
+
+function isErrorReportSubmissionStatus(value: unknown): boolean {
+  return (
+    value === "submitted" ||
+    value === "preview_required" ||
+    value === "blocked_privacy_guard" ||
+    value === "blocked_missing_gh" ||
+    value === "blocked_gh_unauthenticated" ||
+    value === "blocked_wrong_repo" ||
+    value === "blocked_label_unavailable" ||
+    value === "submission_failed" ||
+    value === "invalid_request"
+  );
 }
 
 function validateMatchJournalResponse(payload: unknown): MatchJournalResponse {

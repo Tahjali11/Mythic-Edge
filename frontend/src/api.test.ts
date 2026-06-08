@@ -22,7 +22,9 @@ import {
   LiveStatusApiError,
   MatchJournalApiError,
   ManualImportApiError,
+  previewErrorReport,
   SetupStatusApiError,
+  submitErrorReport,
   submitMatchJournalDisplayCorrection,
   submitMatchJournalExperimentLabel,
   submitMatchJournalNote,
@@ -37,6 +39,9 @@ import {
   ANALYTICS_DASHBOARD_MODULES_SCHEMA_VERSION,
   ANALYTICS_HISTORY_SCHEMA_VERSION,
   EARLY_GAME_HISTORY_SCHEMA_VERSION,
+  ERROR_REPORT_PREVIEW_SCHEMA,
+  ERROR_REPORT_SUBMISSION_OBJECT,
+  ERROR_REPORT_SUBMISSION_SCHEMA,
   GAME_HISTORY_OBJECT,
   GAME1_POSTBOARD_SPLIT_REVIEW_OBJECT,
   GAMEPLAY_ACTION_REVIEW_OBJECT,
@@ -63,6 +68,8 @@ import {
   SPLIT_REVIEW_SCHEMA_VERSION,
   type Game1PostboardSplitReviewResponse,
   type AnalyticsDashboardModulesResponse,
+  type ErrorReportPreviewResponse,
+  type ErrorReportSubmissionResponse,
   type GameHistoryResponse,
   type GameplayActionReviewResponse,
   type LegacyJsonlImportQuality,
@@ -98,6 +105,56 @@ describe("api helpers", () => {
     await expect(fetchSetupStatus(fetchImpl)).resolves.toEqual(payload);
     expect(fetchImpl).toHaveBeenCalledWith("/api/app/setup-status", {
       headers: { Accept: "application/json" }
+    });
+  });
+
+  it("submits sanitized error reports through the local backend route", async () => {
+    const payload = buildErrorReportSubmissionPayload();
+    const fetchImpl = vi.fn(async () => jsonResponse(payload)) as unknown as typeof fetch;
+
+    await expect(
+      submitErrorReport(
+        {
+          summary: "Dashboard status did not refresh",
+          report_type: "bug",
+          expected_behavior: "The dashboard should show current safe labels.",
+          actual_behavior: "The dashboard kept old labels after reload.",
+          reproduction_steps: "Open the app.",
+          affected_area: "local_app_ui",
+          severity: "degraded"
+        },
+        fetchImpl
+      )
+    ).resolves.toEqual(payload);
+    expect(fetchImpl).toHaveBeenCalledWith("/api/feedback/error-report/submit", {
+      method: "POST",
+      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      body: expect.stringContaining('"report_type":"bug"')
+    });
+  });
+
+  it("accepts ready error-report previews when external submission is enabled", async () => {
+    const payload = buildErrorReportPreviewPayload({ external_submission_enabled: true });
+    const fetchImpl = vi.fn(async () => jsonResponse(payload)) as unknown as typeof fetch;
+
+    await expect(
+      previewErrorReport(
+        {
+          summary: "Dashboard status did not refresh",
+          report_type: "bug",
+          expected_behavior: "The dashboard should show current safe labels.",
+          actual_behavior: "The dashboard kept old labels after reload.",
+          reproduction_steps: "Open the app.",
+          affected_area: "local_app_ui",
+          severity: "degraded"
+        },
+        fetchImpl
+      )
+    ).resolves.toEqual(payload);
+    expect(fetchImpl).toHaveBeenCalledWith("/api/feedback/error-report/preview", {
+      method: "POST",
+      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      body: expect.stringContaining('"report_type":"bug"')
     });
   });
 
@@ -764,6 +821,42 @@ function buildSetupStatusPayload(): SetupStatusResponse {
     migrations: { status: "ok" },
     runtime: { status: "ok" },
     capabilities: { setup_status: "enabled", match_journal_write_controls: "enabled_on_first_write" }
+  };
+}
+
+function buildErrorReportPreviewPayload(
+  overrides: Partial<ErrorReportPreviewResponse> = {}
+): ErrorReportPreviewResponse {
+  return {
+    schema: ERROR_REPORT_PREVIEW_SCHEMA,
+    status: "preview_ready",
+    issue_title: "[error-report] [bug] [local_app_ui] Dashboard status did not refresh",
+    issue_body_markdown: "# [error-report] [bug] [local_app_ui] Dashboard status did not refresh",
+    included_diagnostic_categories: ["backend_health", "privacy_boundary"],
+    excluded_private_data: ["raw Player.log contents or raw log lines"],
+    redaction_summary: ["No user-entered private path redactions were needed."],
+    warnings: [],
+    next_recommended_role: "Codex A or Codex B after reviewing the sanitized report",
+    external_submission_enabled: false,
+    ...overrides
+  };
+}
+
+function buildErrorReportSubmissionPayload(): ErrorReportSubmissionResponse {
+  return {
+    object: ERROR_REPORT_SUBMISSION_OBJECT,
+    schema_version: ERROR_REPORT_SUBMISSION_SCHEMA,
+    status: "submitted",
+    external_submission_enabled: true,
+    submitted: true,
+    issue_url: "https://github.com/Tahjali11/Mythic-Edge/issues/999",
+    issue_number: 999,
+    issue_title: "[error-report] [bug] [local_app_ui] Dashboard status did not refresh",
+    issue_body_markdown: "# [error-report] [bug] [local_app_ui] Dashboard status did not refresh",
+    labels: ["bug", "layer:dashboard", "workflow:problem"],
+    fallback_available: true,
+    warnings: [],
+    errors: []
   };
 }
 
