@@ -29,6 +29,7 @@ from .import_jobs import (
     run_browser_jsonl_upload_import,
     run_manual_jsonl_import,
 )
+from .live_capture_control import build_live_capture_status, start_live_capture, stop_live_capture
 from .live_watcher_diagnostics import build_live_watcher_diagnostics_status
 from .live_watcher_process import build_live_watcher_process_status
 from .match_journal_cockpit import (
@@ -123,6 +124,18 @@ def create_app(
     @app.get("/api/live/ingest/status")
     def live_ingest_status() -> dict[str, object]:
         return build_live_sqlite_capture_status(local_app_paths)
+
+    @app.get("/api/live/capture/status")
+    def live_capture_status() -> dict[str, object]:
+        return build_live_capture_status(local_app_paths)
+
+    @app.post("/api/live/capture/start")
+    def live_capture_start() -> dict[str, object]:
+        return start_live_capture(local_app_paths)
+
+    @app.post("/api/live/capture/stop")
+    def live_capture_stop() -> dict[str, object]:
+        return stop_live_capture(local_app_paths)
 
     @app.get("/api/analytics/matches")
     def analytics_match_history(request: Request) -> dict[str, object]:

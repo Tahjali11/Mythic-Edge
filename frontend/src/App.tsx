@@ -7,6 +7,7 @@ import {
   fetchGame1PostboardSplitReview,
   fetchGameHistory,
   fetchGameplayActionReview,
+  fetchLiveCaptureStatus,
   fetchLiveWatcherDiagnosticsStatus,
   fetchMatchJournal,
   fetchMatchJournalUnattachedNote,
@@ -22,6 +23,8 @@ import {
   ManualImportApiError,
   MatchJournalApiError,
   SetupStatusApiError,
+  startLiveCapture,
+  stopLiveCapture,
   submitMatchJournalDisplayCorrection,
   submitMatchJournalExperimentLabel,
   submitMatchJournalNote,
@@ -61,6 +64,9 @@ import {
   type GameplayActionReviewResponse,
   type GameplayActionReviewRow,
   type LivePlayerLogStatusResponse,
+  type LiveCaptureStartResult,
+  type LiveCaptureStatusResponse,
+  type LiveCaptureStopResult,
   type LiveWatcherDiagnosticsResponse,
   type LiveWatcherProcessStatusResponse,
   type LiveWatcherStatusResponse,
@@ -100,6 +106,12 @@ type LoadState =
   | { state: "ready"; payload: SetupStatusResponse; unsafeCount: number }
   | { state: "error"; code: SetupStatusApiError["code"]; message: string };
 
+type LiveCaptureControlState =
+  | { state: "loading" }
+  | { state: "ready"; payload: LiveCaptureStatusResponse; message?: string }
+  | { state: "submitting"; payload: LiveCaptureStatusResponse | null; action: "start" | "stop" }
+  | { state: "error"; code: LiveStatusApiError["code"]; message: string; payload?: LiveCaptureStatusResponse | null };
+
 type SetupStatusAppProps = {
   fetchStatus?: () => Promise<SetupStatusResponse>;
   fetchMatches?: () => Promise<MatchHistoryResponse>;
@@ -112,6 +124,9 @@ type SetupStatusAppProps = {
   fetchGame1PostboardSplits?: () => Promise<Game1PostboardSplitReviewResponse>;
   fetchDashboardModules?: () => Promise<AnalyticsDashboardModulesResponse>;
   fetchLiveDiagnostics?: () => Promise<LiveWatcherDiagnosticsResponse>;
+  fetchLiveCapture?: () => Promise<LiveCaptureStatusResponse>;
+  startCapture?: () => Promise<LiveCaptureStartResult>;
+  stopCapture?: () => Promise<LiveCaptureStopResult>;
   fetchJournal?: (context: MatchJournalContext) => Promise<MatchJournalResponse>;
   fetchJournalUnattachedNote?: (request: MatchJournalUnattachedNoteReadbackRequest) => Promise<MatchJournalResponse>;
   submitJournalNote?: (request: MatchJournalNoteRequest) => Promise<MatchJournalResponse>;
@@ -239,11 +254,23 @@ type CockpitInsight = {
   emptyState?: string;
 };
 
+type AppRoute = "dashboard" | "coach" | "analytics" | "review" | "privacy" | "feedback" | "import" | "diagnostics";
+
 const UNATTACHED_SMOKE_NOTE_PREFIX = "MYTHIC_EDGE_SMOKE_TEST_DO_NOT_USE_AS_GAME_REVIEW";
 const UNATTACHED_SMOKE_NOTE_STORAGE_KEY = "mythic_edge.match_journal.unattached_smoke_note_id";
 const DASHBOARD_MODULE_VIEW_PREFERENCES_KEY = "mythic_edge.analytics.dashboard.module_view_preferences.v1";
 const DASHBOARD_MODULE_IDS = new Set(["play_draw_win_rate", "game1_postboard", "mulligan_opening_hand_outcomes"]);
 const DASHBOARD_MODULE_VIEWS = new Set(["bar", "table"]);
+const APP_ROUTES: AppRoute[] = ["dashboard", "coach", "analytics", "review", "privacy", "feedback", "import", "diagnostics"];
+const RAIL_ITEMS: Array<{ route: AppRoute; label: string }> = [
+  { route: "dashboard", label: "Dashboard" },
+  { route: "coach", label: "Coach" },
+  { route: "analytics", label: "Analytics" },
+  { route: "review", label: "Review" },
+  { route: "feedback", label: "Feedback" },
+  { route: "import", label: "Import" },
+  { route: "diagnostics", label: "Diagnostics" }
+];
 const ERROR_REPORT_AFFECTED_AREA_OPTIONS: Array<{ value: ErrorReportAffectedArea; label: string }> = [
   { value: "local_app_ui", label: "Local App UI" },
   { value: "install_launch", label: "Install / Launch" },
@@ -274,6 +301,9 @@ export function SetupStatusApp({
   fetchGame1PostboardSplits = fetchGame1PostboardSplitReview,
   fetchDashboardModules = fetchAnalyticsDashboardModules,
   fetchLiveDiagnostics = fetchLiveWatcherDiagnosticsStatus,
+  fetchLiveCapture = fetchLiveCaptureStatus,
+  startCapture = () => startLiveCapture(),
+  stopCapture = () => stopLiveCapture(),
   fetchJournal = fetchMatchJournal,
   fetchJournalUnattachedNote = fetchMatchJournalUnattachedNote,
   submitJournalNote = submitMatchJournalNote,
@@ -296,11 +326,13 @@ export function SetupStatusApp({
     readDashboardModuleViewPreferences
   );
   const [liveDiagnosticsState, setLiveDiagnosticsState] = useState<LiveDiagnosticsState>({ state: "loading" });
+  const [liveCaptureControlState, setLiveCaptureControlState] = useState<LiveCaptureControlState>({ state: "loading" });
   const [journalState, setJournalState] = useState<MatchJournalState>({ state: "loading" });
   const [journalSubmitState, setJournalSubmitState] = useState<MatchJournalSubmitState>({ state: "idle" });
   const [journalSmokeReadbackState, setJournalSmokeReadbackState] = useState<MatchJournalSmokeReadbackState>({
     state: "idle"
   });
+  const [activeRoute, setActiveRoute] = useState<AppRoute>(readAppRouteFromHash);
   const [sourcePath, setSourcePath] = useState("");
   const [sourcePathsText, setSourcePathsText] = useState("");
   const [uploadFiles, setUploadFiles] = useState<File[]>([]);
@@ -311,6 +343,18 @@ export function SetupStatusApp({
   const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
   const uploadFileInputRef = useRef<HTMLInputElement>(null);
   const uploadFolderInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    function handleHashChange() {
+      setActiveRoute(readAppRouteFromHash());
+    }
+
+    handleHashChange();
+    window.addEventListener("hashchange", handleHashChange);
+    return () => {
+      window.removeEventListener("hashchange", handleHashChange);
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -378,6 +422,37 @@ export function SetupStatusApp({
       active = false;
     };
   }, [fetchLiveDiagnostics]);
+
+  useEffect(() => {
+    let active = true;
+    setLiveCaptureControlState({ state: "loading" });
+
+    fetchLiveCapture()
+      .then((payload) => {
+        if (!active) {
+          return;
+        }
+        setLiveCaptureControlState({ state: "ready", payload });
+      })
+      .catch((error: unknown) => {
+        if (!active) {
+          return;
+        }
+        if (error instanceof LiveStatusApiError) {
+          setLiveCaptureControlState({ state: "error", code: error.code, message: error.message });
+          return;
+        }
+        setLiveCaptureControlState({
+          state: "error",
+          code: "backend_unavailable",
+          message: "Live capture control is unavailable."
+        });
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [fetchLiveCapture]);
 
   useEffect(() => {
     let active = true;
@@ -1015,6 +1090,58 @@ export function SetupStatusApp({
     }
   }
 
+  async function handleStartCapture() {
+    if (liveCaptureControlState.state === "submitting") {
+      return;
+    }
+    const currentPayload = liveCaptureControlPayload(liveCaptureControlState);
+    if (!currentPayload?.capture.start_allowed) {
+      return;
+    }
+    setLiveCaptureControlState({ state: "submitting", action: "start", payload: currentPayload });
+    try {
+      const result = await startCapture();
+      setLiveCaptureControlState({ state: "ready", payload: result.capture_status, message: liveCaptureControlMessage(result.status) });
+    } catch (error: unknown) {
+      if (error instanceof LiveStatusApiError) {
+        setLiveCaptureControlState({ state: "error", code: error.code, message: error.message, payload: currentPayload });
+        return;
+      }
+      setLiveCaptureControlState({
+        state: "error",
+        code: "backend_unavailable",
+        message: "Start capture is unavailable.",
+        payload: currentPayload
+      });
+    }
+  }
+
+  async function handleStopCapture() {
+    if (liveCaptureControlState.state === "submitting") {
+      return;
+    }
+    const currentPayload = liveCaptureControlPayload(liveCaptureControlState);
+    if (!currentPayload?.capture.stop_allowed) {
+      return;
+    }
+    setLiveCaptureControlState({ state: "submitting", action: "stop", payload: currentPayload });
+    try {
+      const result = await stopCapture();
+      setLiveCaptureControlState({ state: "ready", payload: result.capture_status, message: liveCaptureControlMessage(result.status) });
+    } catch (error: unknown) {
+      if (error instanceof LiveStatusApiError) {
+        setLiveCaptureControlState({ state: "error", code: error.code, message: error.message, payload: currentPayload });
+        return;
+      }
+      setLiveCaptureControlState({
+        state: "error",
+        code: "backend_unavailable",
+        message: "Stop capture is unavailable.",
+        payload: currentPayload
+      });
+    }
+  }
+
   if (loadState.state === "loading") {
     return (
       <Shell>
@@ -1045,6 +1172,7 @@ export function SetupStatusApp({
     loadState.unsafeCount,
     historyState,
     liveDiagnosticsState,
+    liveCaptureControlState,
     journalState
   );
   const trustSummary = buildTrustSummary(
@@ -1056,9 +1184,10 @@ export function SetupStatusApp({
     liveDiagnosticsState,
     journalState
   );
+  const technicalDetailsVisible = activeRoute === "diagnostics" || showTechnicalDetails;
 
   return (
-    <Shell>
+    <Shell activeRoute={activeRoute}>
       <section className="summaryBand cockpitHeader" id="dashboard" aria-labelledby="overall-status">
         <div>
           <p className="eyebrow">Mythic Edge Local App</p>
@@ -1077,109 +1206,146 @@ export function SetupStatusApp({
         </StatusNotice>
       ) : null}
 
-      <CockpitStatusRail items={statusItems} />
-      <DashboardModulesSection
-        moduleViewPreferences={dashboardModuleViews}
-        onModuleViewChange={handleDashboardModuleViewChange}
-        state={dashboardModulesState}
-      />
-      <CoachBoundaryPanel />
-      <TrustPrivacyLayer items={trustSummary} />
-      <ErrorReportPanel onPreview={previewReport} />
+      {activeRoute === "dashboard" ? (
+        <>
+          <CockpitStatusRail items={statusItems} />
+          <LiveCaptureControlPanel
+            state={liveCaptureControlState}
+            onStartCapture={handleStartCapture}
+            onStopCapture={handleStopCapture}
+          />
+          <DashboardModulesSection
+            moduleViewPreferences={dashboardModuleViews}
+            onModuleViewChange={handleDashboardModuleViewChange}
+            state={dashboardModulesState}
+          />
+          <CoachBoundaryPanel />
+          <DashboardRouteCards />
+          <TrustPrivacyLayer items={trustSummary} />
+        </>
+      ) : null}
 
-      <section className="detailsStack" id="analytics" aria-labelledby="analytics-details-title">
-        <div className="sectionHeading">
-          <p className="eyebrow">Long-form review</p>
-          <h2 id="analytics-details-title">Review Details</h2>
-          <p className="historyStateMessage">Tables stay below the dashboard so the first screen remains scannable.</p>
-        </div>
-        <AnalyticsHistorySection historyState={historyState} onRefresh={refreshHistory} />
-        <SplitReviewSection splitReviewState={splitReviewState} onRefresh={refreshSplitReview} />
-        <EarlyGameHistorySection earlyGameState={earlyGameState} onRefresh={refreshEarlyGameHistory} />
-        <ActionReviewSection actionReviewState={actionReviewState} onRefresh={refreshActionReview} />
-      </section>
-      <MatchJournalCockpit
-        contextSummary={journalContextSummary}
-        journalState={journalState}
-        onDisplayCorrectionSubmit={handleJournalDisplayCorrectionSubmit}
-        onExperimentLabelSubmit={handleJournalExperimentLabelSubmit}
-        onNoteSubmit={handleJournalNoteSubmit}
-        onOpponentLabelsSubmit={handleJournalOpponentLabelsSubmit}
-        onReviewFlagSubmit={handleJournalReviewFlagSubmit}
-        onUnattachedSmokeNoteSubmit={handleUnattachedSmokeNoteSubmit}
-        smokeReadbackState={journalSmokeReadbackState}
-        submitState={journalSubmitState}
-      />
-      <ManualImportPanel
-        importState={importState}
-        onUploadFolderFilesChange={handleUploadFolderFilesChange}
-        onSubmit={handleManualImport}
-        onUploadFilesChange={handleUploadFilesChange}
-        onUploadSubmit={handleBrowserUpload}
-        sourceLabel={sourceLabel}
-        sourcePath={sourcePath}
-        sourcePathsText={sourcePathsText}
-        setSourceLabel={setSourceLabel}
-        setSourcePath={setSourcePath}
-        setSourcePathsText={setSourcePathsText}
-        uploadFileInputRef={uploadFileInputRef}
-        uploadFolderInputRef={assignUploadFolderInputRef}
-        uploadFiles={uploadFiles}
-        uploadIgnoredFileCount={uploadIgnoredFileCount}
-        uploadSelectionMessage={uploadSelectionMessage}
-      />
-
-      <section className="diagnosticsShell" id="diagnostics" aria-labelledby="technical-details-title">
-        <div className="diagnosticsHeader">
-          <div>
-            <p className="eyebrow">Owner and developer view</p>
-            <h2 id="technical-details-title">Technical Details</h2>
+      {activeRoute === "analytics" ? (
+        <section className="detailsStack" id="analytics" aria-labelledby="analytics-details-title">
+          <div className="sectionHeading">
+            <p className="eyebrow">Read-only analytics</p>
+            <h2 id="analytics-details-title">Analytics</h2>
+            <p className="historyStateMessage">Stored SQLite views stay read-only in this frontend route.</p>
           </div>
-          <button
-            aria-expanded={showTechnicalDetails}
-            aria-controls="technical-details-content"
-            onClick={() => setShowTechnicalDetails((value) => !value)}
-            type="button"
-          >
-            {showTechnicalDetails ? "Hide technical details" : "Show technical details"}
-          </button>
-        </div>
-        {showTechnicalDetails ? (
-          <div id="technical-details-content">
-            <section aria-labelledby="setup-status-title">
-              <div className="panelHeader analyticsHistoryHeader">
-                <div>
-                  <h2 id="setup-status-title">Setup Status</h2>
-                  <p className="historyStateMessage">Raw setup values are available for diagnostics.</p>
+          <DashboardModulesSection
+            moduleViewPreferences={dashboardModuleViews}
+            onModuleViewChange={handleDashboardModuleViewChange}
+            state={dashboardModulesState}
+          />
+          <AnalyticsHistorySection historyState={historyState} onRefresh={refreshHistory} />
+          <SplitReviewSection splitReviewState={splitReviewState} onRefresh={refreshSplitReview} />
+          <EarlyGameHistorySection earlyGameState={earlyGameState} onRefresh={refreshEarlyGameHistory} />
+          <ActionReviewSection actionReviewState={actionReviewState} onRefresh={refreshActionReview} />
+        </section>
+      ) : null}
+
+      {activeRoute === "review" ? (
+        <MatchJournalCockpit
+          contextSummary={journalContextSummary}
+          journalState={journalState}
+          onDisplayCorrectionSubmit={handleJournalDisplayCorrectionSubmit}
+          onExperimentLabelSubmit={handleJournalExperimentLabelSubmit}
+          onNoteSubmit={handleJournalNoteSubmit}
+          onOpponentLabelsSubmit={handleJournalOpponentLabelsSubmit}
+          onReviewFlagSubmit={handleJournalReviewFlagSubmit}
+          onUnattachedSmokeNoteSubmit={handleUnattachedSmokeNoteSubmit}
+          smokeReadbackState={journalSmokeReadbackState}
+          submitState={journalSubmitState}
+        />
+      ) : null}
+
+      {activeRoute === "coach" ? <CoachBoundaryPanel /> : null}
+
+      {activeRoute === "feedback" ? <ErrorReportPanel onPreview={previewReport} /> : null}
+
+      {activeRoute === "import" ? (
+        <ManualImportPanel
+          importState={importState}
+          onUploadFolderFilesChange={handleUploadFolderFilesChange}
+          onSubmit={handleManualImport}
+          onUploadFilesChange={handleUploadFilesChange}
+          onUploadSubmit={handleBrowserUpload}
+          sourceLabel={sourceLabel}
+          sourcePath={sourcePath}
+          sourcePathsText={sourcePathsText}
+          setSourceLabel={setSourceLabel}
+          setSourcePath={setSourcePath}
+          setSourcePathsText={setSourcePathsText}
+          uploadFileInputRef={uploadFileInputRef}
+          uploadFolderInputRef={assignUploadFolderInputRef}
+          uploadFiles={uploadFiles}
+          uploadIgnoredFileCount={uploadIgnoredFileCount}
+          uploadSelectionMessage={uploadSelectionMessage}
+        />
+      ) : null}
+
+      {activeRoute === "privacy" ? (
+        <>
+          <TrustPrivacyLayer items={trustSummary} />
+          <PrivacyDetailsPanel />
+        </>
+      ) : null}
+
+      {activeRoute === "diagnostics" || activeRoute === "dashboard" ? (
+        <section className="diagnosticsShell" id="diagnostics" aria-labelledby="technical-details-title">
+          <div className="diagnosticsHeader">
+            <div>
+              <p className="eyebrow">Owner and developer view</p>
+              <h2 id="technical-details-title">Technical Details</h2>
+            </div>
+            {activeRoute === "dashboard" ? (
+              <button
+                aria-expanded={showTechnicalDetails}
+                aria-controls="technical-details-content"
+                onClick={() => setShowTechnicalDetails((value) => !value)}
+                type="button"
+              >
+                {showTechnicalDetails ? "Hide technical details" : "Show technical details"}
+              </button>
+            ) : null}
+          </div>
+          {technicalDetailsVisible ? (
+            <div id="technical-details-content">
+              <section aria-labelledby="setup-status-title">
+                <div className="panelHeader analyticsHistoryHeader">
+                  <div>
+                    <h2 id="setup-status-title">Setup Status</h2>
+                    <p className="historyStateMessage">Raw setup values are available for diagnostics.</p>
+                  </div>
+                  <StatusPill label={loadState.payload.status} tone={statusTone(loadState.payload.status)} />
                 </div>
-                <StatusPill label={loadState.payload.status} tone={statusTone(loadState.payload.status)} />
-              </div>
-              <section className="panelGrid" aria-label="Setup status sections">
-                <StatusPanel
-                  title="Backend Reachability"
-                  status="ok"
-                  details={[{ label: "aggregate endpoint", value: "/api/app/setup-status" }]}
-                />
-                {panels.map((panel) => (
-                  <StatusPanel key={panel.title} {...panel} />
-                ))}
+                <section className="panelGrid" aria-label="Setup status sections">
+                  <StatusPanel
+                    title="Backend Reachability"
+                    status="ok"
+                    details={[{ label: "aggregate endpoint", value: "/api/app/setup-status" }]}
+                  />
+                  {panels.map((panel) => (
+                    <StatusPanel key={panel.title} {...panel} />
+                  ))}
+                </section>
               </section>
-            </section>
-            <LiveDiagnosticsPanel diagnosticsState={liveDiagnosticsState} />
-          </div>
-        ) : (
-          <p className="historyStateMessage">
-            Setup grids, raw status labels, process details, and live diagnostics are available on demand.
-          </p>
-        )}
-      </section>
+              <LiveDiagnosticsPanel diagnosticsState={liveDiagnosticsState} />
+            </div>
+          ) : (
+            <p className="historyStateMessage">
+              Setup grids, raw status labels, process details, and live diagnostics are available on demand.
+            </p>
+          )}
+        </section>
+      ) : null}
     </Shell>
   );
 }
 
 export default SetupStatusApp;
 
-function Shell({ children }: { children: ReactNode }) {
+function Shell({ activeRoute = "dashboard", children }: { activeRoute?: AppRoute; children: ReactNode }) {
   return (
     <main className="appShell">
       <aside className="leftRail" aria-label="Local app sections">
@@ -1188,16 +1354,12 @@ function Shell({ children }: { children: ReactNode }) {
           <p className="leftRailTitle">Local App</p>
         </div>
         <nav className="leftRailNav" aria-label="Primary sections">
-          <a href="#dashboard">Dashboard</a>
-          <a href="#decision-support">Review</a>
-          <a href="#report-error">Report</a>
-          <a href="#coach">Coach</a>
-          <a href="#analytics">Analytics</a>
-          <a href="#import">Import</a>
-          <a href="#diagnostics">Diagnostics</a>
+          {RAIL_ITEMS.map((item) => (
+            <RailLink activeRoute={activeRoute} item={item} key={item.route} />
+          ))}
         </nav>
         <div className="leftRailFooter" aria-label="Local app footer">
-          <a href="#privacy">Privacy</a>
+          <RailLink activeRoute={activeRoute} item={{ route: "privacy", label: "Privacy" }} />
           <span className="railMetaLabel">
             Settings
             <span>Not configured</span>
@@ -1207,6 +1369,36 @@ function Shell({ children }: { children: ReactNode }) {
       <div className="content">{children}</div>
     </main>
   );
+}
+
+function RailLink({
+  activeRoute,
+  item
+}: {
+  activeRoute: AppRoute;
+  item: { route: AppRoute; label: string };
+}) {
+  const isActive = activeRoute === item.route;
+  return (
+    <a
+      aria-current={isActive ? "page" : undefined}
+      aria-label={item.label}
+      className={isActive ? "isActive" : undefined}
+      href={`#${item.route}`}
+    >
+      <span>{item.label}</span>
+      {isActive ? <span className="navCurrentMarker">Current</span> : null}
+    </a>
+  );
+}
+
+function readAppRouteFromHash(): AppRoute {
+  const rawRoute = window.location.hash.replace(/^#\/?/, "").trim().toLowerCase();
+  return isAppRoute(rawRoute) ? rawRoute : "dashboard";
+}
+
+function isAppRoute(value: string): value is AppRoute {
+  return APP_ROUTES.includes(value as AppRoute);
 }
 
 function StatusNotice({ title, status, children }: { title: string; status: string; children?: ReactNode }) {
@@ -1236,6 +1428,54 @@ function CockpitStatusRail({ items }: { items: CockpitStatusItem[] }) {
           <StatusPill label={item.status} pulse={item.liveActive} tone={item.tone} />
         </article>
       ))}
+    </section>
+  );
+}
+
+function LiveCaptureControlPanel({
+  state,
+  onStartCapture,
+  onStopCapture
+}: {
+  state: LiveCaptureControlState;
+  onStartCapture: () => void;
+  onStopCapture: () => void;
+}) {
+  const payload = liveCaptureControlPayload(state);
+  const statusLabel = payload ? liveCaptureStatusLabel(payload.status) : state.state === "loading" ? "Checking" : "Unavailable";
+  const tone = payload ? liveCaptureTone(payload.status) : state.state === "error" ? "error" : "unknown";
+  const startAllowed = state.state !== "submitting" && Boolean(payload?.capture.start_allowed);
+  const stopAllowed = state.state !== "submitting" && Boolean(payload?.capture.stop_allowed);
+  const message =
+    state.state === "error"
+      ? state.message
+      : state.state === "submitting"
+        ? state.action === "start"
+          ? "Starting capture from the local app."
+          : "Stopping the app-owned capture supervisor."
+        : state.state === "ready" && state.message
+          ? state.message
+          : liveCaptureControlDetail(payload);
+  return (
+    <section className="captureControlPanel" aria-labelledby="live-capture-control-title">
+      <div>
+        <p className="eyebrow">Explicit local control</p>
+        <h2 id="live-capture-control-title">Live Capture Control</h2>
+        <p>{message}</p>
+      </div>
+      <div className="captureControlActions">
+        <StatusPill label={statusLabel} pulse={payload?.status === "capturing"} tone={tone} />
+        {startAllowed ? (
+          <button onClick={onStartCapture} type="button">
+            Start capture
+          </button>
+        ) : null}
+        {stopAllowed ? (
+          <button onClick={onStopCapture} type="button">
+            Stop capture
+          </button>
+        ) : null}
+      </div>
     </section>
   );
 }
@@ -1633,6 +1873,77 @@ function TrustPrivacyLayer({ items }: { items: CockpitInsight[] }) {
             <p>{item.detail}</p>
           </article>
         ))}
+      </div>
+    </section>
+  );
+}
+
+function DashboardRouteCards() {
+  const cards: Array<{ route: AppRoute; title: string; detail: string }> = [
+    {
+      route: "analytics",
+      title: "Analytics",
+      detail: "Open deeper read-only match, game, split, mulligan, and observation views."
+    },
+    {
+      route: "review",
+      title: "Review",
+      detail: "Open Match Journal context and human annotation tools without changing parser truth."
+    },
+    {
+      route: "feedback",
+      title: "Feedback",
+      detail: "Prepare a sanitized copy-first report. External issue submission remains deferred."
+    },
+    {
+      route: "import",
+      title: "Import",
+      detail: "Open manual JSONL import workflows without putting file forms on the dashboard."
+    },
+    {
+      route: "diagnostics",
+      title: "Diagnostics",
+      detail: "Inspect technical setup and live diagnostics only when you need the owner view."
+    }
+  ];
+  return (
+    <section className="routeCardSection" aria-labelledby="route-card-title">
+      <div className="sectionHeading">
+        <p className="eyebrow">Modes</p>
+        <h2 id="route-card-title">Go Deeper</h2>
+      </div>
+      <div className="routeCardGrid">
+        {cards.map((card) => (
+          <a className="routeCard" href={`#${card.route}`} key={card.route}>
+            <span>{card.title}</span>
+            <p>{card.detail}</p>
+          </a>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function PrivacyDetailsPanel() {
+  return (
+    <section className="privacyDetails" aria-labelledby="privacy-details-title">
+      <div className="sectionHeading">
+        <p className="eyebrow">Privacy details</p>
+        <h2 id="privacy-details-title">Local-Only Boundaries</h2>
+      </div>
+      <div className="trustGrid">
+        <article className="trustItem">
+          <h3>Raw logs stay out of the UI</h3>
+          <p>Player.log content, raw JSONL payloads, private paths, hashes, and local artifact contents are not displayed.</p>
+        </article>
+        <article className="trustItem">
+          <h3>Generated data stays local</h3>
+          <p>SQLite files and runtime app data are local support artifacts, not parser truth and not committed frontend state.</p>
+        </article>
+        <article className="trustItem">
+          <h3>External systems are deferred</h3>
+          <p>GitHub submission, Sheets transport, OpenAI runtime calls, and AI coaching stay inactive unless separately contracted.</p>
+        </article>
       </div>
     </section>
   );
@@ -3509,6 +3820,7 @@ function buildCockpitStatusItems(
   unsafeCount: number,
   historyState: HistoryState,
   liveDiagnosticsState: LiveDiagnosticsState,
+  liveCaptureControlState: LiveCaptureControlState,
   journalState: MatchJournalState
 ): CockpitStatusItem[] {
   const app = unsafeCount > 0 ? { label: "Needs review", tone: "degraded" as const } : cockpitStatusFromRawStatus(payload.status, "app");
@@ -3516,7 +3828,7 @@ function buildCockpitStatusItems(
     ? payload.live_player_log.player_log.status
     : statusFromSection(payload.player_log);
   const playerLog = cockpitStatusFromRawStatus(playerLogStatus, "player_log");
-  const liveCapture = liveCaptureStatusFromSetupPayload(payload);
+  const liveCapture = liveCaptureStatusFromControlOrSetup(liveCaptureControlState, payload);
   const analytics = cockpitStatusFromRawStatus(analyticsHistoryStatus(historyState), "analytics");
   const diagnostics = cockpitStatusFromRawStatus(liveDiagnosticsStatus(liveDiagnosticsState), "trust");
   const journal = cockpitStatusFromRawStatus(matchJournalStatus(journalState), "journal");
@@ -3597,6 +3909,14 @@ function liveCaptureStatusFromSetupPayload(payload: SetupStatusResponse): {
     booleanField(watcherProcessControl, "sqlite_live_writes_enabled") ||
     booleanField(watcher, "sqlite_live_writes_enabled");
 
+  if (liveSqliteCapture === null) {
+    return {
+      label: "Needs review",
+      tone: "unknown",
+      liveActive: false,
+      detail: "Live capture status is missing; inspect setup and live diagnostics before testing a new game."
+    };
+  }
   if (
     ["blocked", "failed", "error", "unreadable", "crashed", "rejected"].includes(liveCaptureStatus) ||
     watcherStatus.startsWith("blocked_")
@@ -3622,10 +3942,10 @@ function liveCaptureStatusFromSetupPayload(payload: SetupStatusResponse): {
     sqliteWritesEnabled === false
   ) {
     return {
-      label: "Capture disabled",
+      label: "Ready to start",
       tone: "deferred",
       liveActive: false,
-      detail: "Player.log may be detected while live SQLite capture is not running. Manual refresh only shows rows already stored in SQLite."
+      detail: "Player.log is configured, but live capture is not running. New games will not be added to SQLite until capture is started."
     };
   }
   const activeCapture = watcherRunning && parserRunnerStarted && tailingStarted && processWritesEnabled;
@@ -3635,23 +3955,23 @@ function liveCaptureStatusFromSetupPayload(payload: SetupStatusResponse): {
       label: "Capturing",
       tone: "ok",
       liveActive: true,
-      detail: "Live capture is active."
+      detail: "Parser, Player.log tailing, and SQLite writes are active. New completed games should be added to analytics."
     };
   }
   if (processMode === "safeguards_only" || processWritesEnabled === false) {
     return {
-      label: "Capture disabled",
+      label: "Ready to start",
       tone: "deferred",
       liveActive: false,
-      detail: "Player.log may be detected while live SQLite capture is not running. Manual refresh only shows rows already stored in SQLite."
+      detail: "Player.log is configured, but live capture is not running. New games will not be added to SQLite until capture is started."
     };
   }
   if (watcherStatus === "ready" || watcherMode === "readiness_only") {
     return {
-      label: "Not capturing",
+      label: "Ready to start",
       tone: "deferred",
       liveActive: false,
-      detail: "The app is ready to monitor, but it is not currently collecting live analytics."
+      detail: "Player.log is configured, but live capture is not running. New games will not be added to SQLite until capture is started."
     };
   }
   if (["missing", "not_configured", "not_initialized"].includes(liveCaptureStatus) || watcherStatus === "not_configured") {
@@ -3664,10 +3984,10 @@ function liveCaptureStatusFromSetupPayload(payload: SetupStatusResponse): {
   }
   if (["stopped", "not_started", "not_running", "not_capturing"].includes(liveCaptureStatus)) {
     return {
-      label: "Waiting for Arena activity",
+      label: "Ready to start",
       tone: "deferred",
       liveActive: false,
-      detail: "Live capture is not currently collecting rows; inspect diagnostics if a match just finished."
+      detail: "Live capture is stopped. Start capture before testing a new game if you want it added to analytics."
     };
   }
   return {
@@ -3676,6 +3996,146 @@ function liveCaptureStatusFromSetupPayload(payload: SetupStatusResponse): {
     liveActive: false,
     detail: "Live capture status is incomplete or conflicting; inspect setup and live diagnostics."
   };
+}
+
+function liveCaptureStatusFromControlOrSetup(
+  state: LiveCaptureControlState,
+  payload: SetupStatusResponse
+): {
+  label: string;
+  tone: SetupStatusTone;
+  liveActive: boolean;
+  detail: string;
+} {
+  const controlPayload = liveCaptureControlPayload(state);
+  if (controlPayload === null) {
+    return liveCaptureStatusFromSetupPayload(payload);
+  }
+  return {
+    label: liveCaptureStatusLabel(controlPayload.status),
+    tone: liveCaptureTone(controlPayload.status),
+    liveActive: controlPayload.status === "capturing" && controlPayload.capture.running,
+    detail: liveCaptureControlDetail(controlPayload)
+  };
+}
+
+function liveCaptureControlPayload(state: LiveCaptureControlState): LiveCaptureStatusResponse | null {
+  if (state.state === "ready" || state.state === "submitting") {
+    return state.payload;
+  }
+  if (state.state === "error") {
+    return state.payload ?? null;
+  }
+  return null;
+}
+
+function liveCaptureStatusLabel(status: string): string {
+  if (status === "ready_to_start") {
+    return "Ready to start";
+  }
+  if (status === "capturing") {
+    return "Capturing";
+  }
+  if (status === "starting") {
+    return "Starting";
+  }
+  if (status === "stopping") {
+    return "Stopping";
+  }
+  if (status === "stopped") {
+    return "Stopped";
+  }
+  if (status === "blocked") {
+    return "Blocked";
+  }
+  if (status === "failed" || status === "crashed") {
+    return "Failed";
+  }
+  if (status === "stale") {
+    return "Needs review";
+  }
+  if (status === "degraded") {
+    return "Limited data";
+  }
+  if (status === "unavailable") {
+    return "Unavailable";
+  }
+  return "Needs review";
+}
+
+function liveCaptureTone(status: string): SetupStatusTone {
+  if (status === "capturing") {
+    return "ok";
+  }
+  if (status === "ready_to_start" || status === "starting" || status === "stopping" || status === "stopped") {
+    return "deferred";
+  }
+  if (status === "blocked" || status === "failed" || status === "crashed") {
+    return "error";
+  }
+  if (status === "stale" || status === "degraded") {
+    return "degraded";
+  }
+  if (status === "unavailable") {
+    return "unavailable";
+  }
+  return "unknown";
+}
+
+function liveCaptureControlDetail(payload: LiveCaptureStatusResponse | null): string {
+  if (payload === null) {
+    return "Live capture control status is loading.";
+  }
+  if (payload.status === "capturing") {
+    return "Parser, Player.log tailing, and SQLite writes are active for the app-owned supervisor.";
+  }
+  if (payload.status === "ready_to_start") {
+    return "Player.log is configured, but live capture is not running. Start capture to add completed games to SQLite.";
+  }
+  if (payload.status === "starting") {
+    return "Capture start was accepted; waiting for the app-owned supervisor to report active tailing.";
+  }
+  if (payload.status === "stopped") {
+    return "Live capture is stopped. Start capture before testing a new game if you want it added to analytics.";
+  }
+  if (payload.status === "stopping") {
+    return "The app-owned capture supervisor is stopping.";
+  }
+  if (payload.status === "blocked") {
+    return "Live capture is blocked by a safe precondition; inspect diagnostics before starting.";
+  }
+  if (payload.status === "stale") {
+    return "Capture state is stale or ownership is ambiguous; review before starting or stopping.";
+  }
+  if (payload.status === "failed" || payload.status === "crashed") {
+    return "Live capture failed without exposing private log content.";
+  }
+  return "Live capture status is incomplete or unavailable; inspect setup and diagnostics.";
+}
+
+function liveCaptureControlMessage(status: string): string {
+  if (status === "capturing") {
+    return "Capture is active.";
+  }
+  if (status === "starting") {
+    return "Capture start accepted.";
+  }
+  if (status === "already_running") {
+    return "Capture was already running; no duplicate supervisor was started.";
+  }
+  if (status === "stopped") {
+    return "Capture stopped.";
+  }
+  if (status === "not_running") {
+    return "Capture was not running.";
+  }
+  if (status === "blocked") {
+    return "Capture request was blocked by a safe precondition.";
+  }
+  if (status === "failed") {
+    return "Capture request failed without exposing private log content.";
+  }
+  return "Capture status updated.";
 }
 
 function buildCockpitInsights(

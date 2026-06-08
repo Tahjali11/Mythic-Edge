@@ -7,6 +7,10 @@ export const LIVE_WATCHER_PROCESS_SCHEMA_VERSION = "live_app_player_log_watcher_
 export const LIVE_WATCHER_PROCESS_OBJECT = "mythic_edge_local_app_live_watcher_process_status";
 export const LIVE_WATCHER_DIAGNOSTICS_SCHEMA_VERSION = "live_app_watcher_diagnostics.v1";
 export const LIVE_WATCHER_DIAGNOSTICS_OBJECT = "mythic_edge_local_app_live_watcher_diagnostics";
+export const LIVE_CAPTURE_SCHEMA_VERSION = "live_app_explicit_start_capture_control.v1";
+export const LIVE_CAPTURE_STATUS_OBJECT = "mythic_edge_local_app_live_capture_status";
+export const LIVE_CAPTURE_START_RESULT_OBJECT = "mythic_edge_local_app_live_capture_start_result";
+export const LIVE_CAPTURE_STOP_RESULT_OBJECT = "mythic_edge_local_app_live_capture_stop_result";
 export const MANUAL_IMPORT_JOB_OBJECT = "mythic_edge_local_app_manual_jsonl_import_job";
 export const MANUAL_IMPORT_JOB_SCHEMA_VERSION = "analytics_manual_jsonl_import_ui_job_status.v1";
 export const LEGACY_JSONL_IMPORT_QUALITY_OBJECT = "mythic_edge_legacy_jsonl_import_quality";
@@ -77,12 +81,12 @@ export type LivePlayerLogStatusResponse = {
 export type LiveWatcherSummary = {
   status: string;
   mode: "readiness_only" | string;
-  running: boolean;
+  running: false;
   start_allowed: false;
   stop_allowed: false;
-  parser_runner_started: boolean;
-  tailing_started: boolean;
-  sqlite_live_writes_enabled: boolean;
+  parser_runner_started: false;
+  tailing_started: false;
+  sqlite_live_writes_enabled: false;
   reason: string | null;
 };
 
@@ -232,6 +236,64 @@ export type LiveSqliteCaptureStatusResponse = {
   warnings: string[];
   errors: string[];
   [key: string]: unknown;
+};
+
+export type LiveCaptureStatusResponse = {
+  object: typeof LIVE_CAPTURE_STATUS_OBJECT;
+  schema_version: typeof LIVE_CAPTURE_SCHEMA_VERSION;
+  status: string;
+  mode: "explicit_operator_control";
+  capture: {
+    running: boolean;
+    start_allowed: boolean;
+    stop_allowed: boolean;
+    parser_runner_started: boolean;
+    tailing_started: boolean;
+    sqlite_live_writes_enabled: boolean;
+    external_transport_allowed: false;
+    raw_player_log_storage_enabled: false;
+    supervisor_kind: string;
+    source_kind: "live_parser" | string;
+    reason: string | null;
+  };
+  preconditions: LiveWatcherProcessPrecondition[];
+  state: {
+    source: string;
+    exists: boolean;
+    status: string;
+    stale: boolean;
+    pid_present: boolean;
+    pid_verified: false;
+    supervisor_token_present: boolean;
+    display_path: string | null;
+    raw_path_exposed: false;
+    started_at?: string | null;
+    updated_at?: string | null;
+  };
+  last_result: unknown;
+  warnings: string[];
+  errors: string[];
+  [key: string]: unknown;
+};
+
+export type LiveCaptureStartResult = {
+  object: typeof LIVE_CAPTURE_START_RESULT_OBJECT;
+  schema_version: typeof LIVE_CAPTURE_SCHEMA_VERSION;
+  status: "starting" | "capturing" | "already_running" | "blocked" | "failed" | string;
+  accepted: boolean;
+  capture_status: LiveCaptureStatusResponse;
+  warnings: string[];
+  errors: string[];
+};
+
+export type LiveCaptureStopResult = {
+  object: typeof LIVE_CAPTURE_STOP_RESULT_OBJECT;
+  schema_version: typeof LIVE_CAPTURE_SCHEMA_VERSION;
+  status: "stopping" | "stopped" | "not_running" | "blocked" | "failed" | string;
+  accepted: boolean;
+  capture_status: LiveCaptureStatusResponse;
+  warnings: string[];
+  errors: string[];
 };
 
 export type SetupStatusResponse = {
