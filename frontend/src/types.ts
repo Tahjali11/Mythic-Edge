@@ -77,12 +77,12 @@ export type LivePlayerLogStatusResponse = {
 export type LiveWatcherSummary = {
   status: string;
   mode: "readiness_only" | string;
-  running: false;
+  running: boolean;
   start_allowed: false;
   stop_allowed: false;
-  parser_runner_started: false;
-  tailing_started: false;
-  sqlite_live_writes_enabled: false;
+  parser_runner_started: boolean;
+  tailing_started: boolean;
+  sqlite_live_writes_enabled: boolean;
   reason: string | null;
 };
 
@@ -106,17 +106,17 @@ export type LiveWatcherProcessControl = {
   stop_route_enabled: false;
   ui_controls_allowed: false;
   automatic_start_enabled: false;
-  parser_runner_started: false;
-  tailing_started: false;
-  sqlite_live_writes_enabled: false;
+  parser_runner_started: boolean;
+  tailing_started: boolean;
+  sqlite_live_writes_enabled: boolean;
   external_transport_allowed: false;
   reason: string | null;
 };
 
 export type LiveWatcherProcessSummary = {
   status: string;
-  running: false;
-  pid_verified: false;
+  running: boolean;
+  pid_verified: boolean;
   single_instance_guard: string;
   supervisor_boundary: string;
 };
@@ -212,6 +212,28 @@ export type LiveWatcherDiagnosticsResponse = {
   [key: string]: unknown;
 };
 
+export type LiveSqliteCaptureStatusResponse = {
+  object: "mythic_edge_local_app_live_parser_sqlite_capture_status";
+  schema_version: "live_app_parser_owned_fact_capture_sqlite.v1";
+  status: string;
+  mode: "status_only" | string;
+  source_kind: string;
+  database: {
+    configured: boolean;
+    display_path: string;
+  };
+  capabilities: Record<string, boolean>;
+  process_control: {
+    parser_runner_started: boolean;
+    tailing_started: boolean;
+    sqlite_live_writes_enabled: boolean;
+  };
+  last_result: unknown;
+  warnings: string[];
+  errors: string[];
+  [key: string]: unknown;
+};
+
 export type SetupStatusResponse = {
   object: typeof SETUP_STATUS_OBJECT;
   schema_version: typeof SETUP_STATUS_SCHEMA_VERSION;
@@ -222,6 +244,7 @@ export type SetupStatusResponse = {
   live_player_log?: LivePlayerLogStatusResponse;
   live_watcher?: LiveWatcherStatusResponse;
   live_watcher_process?: LiveWatcherProcessStatusResponse;
+  live_sqlite_capture?: LiveSqliteCaptureStatusResponse;
   analytics_database: SectionStatus;
   match_journal: SectionStatus;
   migrations: SectionStatus;
