@@ -1,10 +1,18 @@
-# Analytics App Frontend Information Architecture Layout Polish Contract-Test Report
+# Analytics App Frontend IA Dashboard Refinement Contract-Test Report
+
+## Findings First
+
+No blocking findings remain in the reviewed #299 frontend Dashboard refinement scope.
+
+CT-299-REFINE-001 is fixed. The default Dashboard Live capture tile is display-only again: it no longer renders a `Start capture` process-control button, and Start/Stop capture controls remain on the Diagnostics live-capture control surface.
+
+CT-299-REFINE-002 is fixed. The default Dashboard again renders a compact `Trust and Freshness` signal while detailed privacy/trust content remains reachable through Privacy or technical details.
 
 ## Issue
 
 https://github.com/Tahjali11/Mythic-Edge/issues/299
 
-Issue lifecycle status during this review: closed. This is a follow-on polish artifact. No issue lifecycle action was taken.
+Issue lifecycle status during this review: closed. This is a follow-on polish confirmation artifact. No issue lifecycle action was taken.
 
 ## Tracker
 
@@ -18,32 +26,38 @@ N/A. The #299 contract treats issues #204 and #207 as historical context for thi
 
 Branch: `codex/analytics-foundation`
 
-Implementation handoff:
+Fixer handoff:
 
-- `docs/implementation_handoffs/analytics_app_frontend_information_architecture_layout_polish_comparison.md`
+- `docs/implementation_handoffs/analytics_app_frontend_information_architecture_layout_polish_fixer.md`
 
-Reviewed focused slices:
+Review artifact updated:
 
-- compact left rail
-- stable active navigation state
-- aligned dashboard status badges
-- frontend-only Dashboard density pass
+- `docs/contract_test_reports/analytics_app_frontend_information_architecture_layout_polish.md`
+
+Reviewed focused slice:
+
+- frontend-only Dashboard refinement confirmation
 
 Reviewed files:
 
+- `docs/contracts/analytics_app_frontend_information_architecture.md`
+- `docs/contract_test_reports/analytics_app_frontend_information_architecture_layout_polish.md`
+- `docs/implementation_handoffs/analytics_app_frontend_information_architecture_layout_polish_fixer.md`
 - `frontend/src/App.tsx`
 - `frontend/src/App.css`
 - `frontend/src/App.test.tsx`
-- `docs/implementation_handoffs/analytics_app_frontend_information_architecture_layout_polish_comparison.md`
-- `docs/contracts/analytics_app_frontend_information_architecture.md`
+
+Related but out-of-scope untracked artifact observed:
+
+- `docs/contracts/analytics_app_dashboard_live_capture_control_clarity.md` is an issue #304 contract artifact, not part of this #299 confirmation. It was not used to expand #299 scope.
 
 ## Report Lifecycle
 
-`report_lifecycle`: `final_approval`
+`report_lifecycle`: `fixed_state_confirmation`
 
 ## Contract Summary
 
-The frontend may polish route display state, navigation layout, active-state styling, Dashboard density, and status badge placement only. It must keep the local app cockpit useful, readable, and truthful without changing backend route shapes, parser behavior, analytics schema or ingest, live watcher behavior, Match Journal backend behavior, workbook/webhook/App Script/Sheets behavior, OpenAI/AI/coaching behavior, Line Tracer behavior, or production behavior.
+The frontend may polish route display state, navigation layout, Dashboard density, and status badge placement only. It must keep the local app cockpit useful, readable, truthful, privacy-safe, and frontend-only without changing backend route shapes, parser behavior, analytics schema or ingest, live watcher behavior, Match Journal backend behavior, workbook/webhook/App Script/Sheets behavior, OpenAI/AI/coaching behavior, Line Tracer behavior, or production behavior.
 
 ## Internal Project Area Reviewed
 
@@ -53,126 +67,111 @@ Local App / UI.
 
 `bridge_code`
 
-This slice remains a frontend display bridge over existing backend/status data. The reviewed changes do not write route state, layout state, or visual badge state back into parser, analytics, live capture, Match Journal, workbook, AI, or production surfaces.
-
-## Findings First
-
-No blocking findings.
+This slice remains a frontend display bridge over existing backend/status data. It does not add new Dashboard process-control behavior.
 
 ## Finding Lifecycle Summary
 
-| finding_id | severity | finding_lifecycle | finding_status | blocking_status | original_evidence | verification_evidence | next_route |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| CT-299-LP-001 | none | `not_reproduced` | no blocking layout-polish mismatch found | not_blocking | Review requested verification of compact rail grouping, stable active state, and dashboard badge alignment for the focused #299 layout-polish slice. | Source review, full frontend validation, desktop browser DOM/layout smoke, and 390px mobile-width browser DOM/layout smoke found the focused rail/status polish consistent with the contract and handoff. | F |
-| CT-299-DP-001 | none | `not_reproduced` | no blocking Dashboard density mismatch found | not_blocking | Follow-on Codex C density pass removed the dashboard header status badge, reduced the default dashboard status row to three cards, shortened tile copy, and pinned card badges bottom-left. | Source review, focused tests, full frontend validation, desktop browser DOM/layout smoke, and 390px mobile-width browser DOM/layout smoke found the density pass readable and consistent with the contract. | F |
+| finding_id | severity | finding_lifecycle | finding_status | blocking_status | verification_evidence | next_route |
+| --- | --- | --- | --- | --- | --- | --- |
+| CT-299-REFINE-001 | P1 | `fixed_state_confirmation` | fixed: Dashboard Live capture tile is display-only; no Dashboard `Start capture` or `Stop capture` button is rendered | not_blocking | Source review of `CockpitStatusRail`, focused frontend tests, full frontend test suite, and provided manual browser smoke | F, with staging limited to reviewed #299 files |
+| CT-299-REFINE-002 | P2 | `fixed_state_confirmation` | fixed: compact Dashboard `Trust and Freshness` signal renders by default | not_blocking | Source review of `DashboardTrustPrivacySignal`, focused frontend tests, full frontend test suite, and provided manual browser smoke | F, with staging limited to reviewed #299 files |
+| CT-299-LP-001 | none | `not_reproduced` | no blocking compact-rail mismatch found | not_blocking | Prior review found stable rail grouping and active route state | F, with staging limited to reviewed #299 files |
 
 ## Confirmed Contract Matches
 
-- `frontend/src/App.tsx` keeps the route model frontend-only and keeps `Privacy` in the primary rail group with Dashboard, Coach, Analytics, Review, Feedback, Import, and Diagnostics.
-- The active rail item still exposes `aria-current="page"`.
-- The active `Current` text pill remains removed, avoiding active/inactive item shape changes.
-- `frontend/src/App.css` uses stable rail link dimensions and a compact active pseudo-element indicator.
-- The Dashboard header no longer renders a top-right status pill.
-- The default Dashboard health row now renders exactly three cards: App connection, Live capture, and Analytics database.
-- Player.log monitor and Data trust are no longer permanent health-row cards, but their owning details remain reachable through Diagnostics and Privacy/Trust surfaces.
-- The Live capture card keeps status distinctions via the status pill, including Stopped, Ready to start, Capturing, Blocked, Setup needed, Unavailable, and Needs review.
-- The implementation preserves the deeper Dashboard sections: Decision Support, Coach boundary, route cards, Trust and Freshness, and Technical Details.
-- Unknown, deferred, degraded, unavailable, not-running, and capture states remain governed by existing status translation logic; this density pass did not turn them into Ready or Capturing.
-- Desktop browser smoke measured all eight rail links at 38px height, with the active dot rendered as 7px by 7px.
-- Desktop browser smoke measured three Dashboard health cards, no Dashboard header status pill, no title/status overlap, and no horizontal overflow.
-- Mobile-width browser smoke at 390px measured all eight rail links at 38px height with no rail link overflow, three stacked health cards, no title/status overlap, and no horizontal overflow.
-- Existing dashboard and route content remains reachable.
-- No destructive controls, arbitrary SQL/database browsing, raw Player.log display, raw private paths, raw hashes, secrets, generated SQLite contents, runtime artifacts, workbook exports, or local-only artifact exposure was introduced.
-- No backend or protected production-facing surfaces were changed.
+- The Dashboard Live capture card no longer exposes a first-screen `Start capture` process-control button.
+- Actual Start/Stop capture controls remain on the explicit Diagnostics live-capture control surface.
+- The Dashboard renders a compact `Trust and Freshness` signal by default.
+- Detailed privacy/trust content remains behind Privacy or technical details.
+- The active navigation state remains stable and visible.
+- Existing Dashboard and route content remains reachable.
+- Unknown, deferred, degraded, unavailable, not-running, and capture states remain visibly distinct and are not translated into Ready or Capturing.
+- Focused frontend tests cover the no-Dashboard-process-control regression and the restored trust/privacy signal.
+- No raw Player.log content, raw JSONL payloads, SQLite contents, raw private paths, raw hashes, secrets, endpoint values, environment values, generated artifacts, runtime logs, workbook exports, or local-only artifacts are rendered in the reviewed #299 surface.
+- No backend route shape, parser behavior, analytics schema/ingest, live watcher backend behavior, Match Journal backend behavior, workbook/webhook/App Script/Sheets behavior, OpenAI/AI/coaching behavior, Line Tracer behavior, or production behavior was changed by this reviewed #299 frontend scope.
 
 ## Contract Mismatches
 
-None found.
+None found in the reviewed #299 confirmation scope.
 
 ## Missing Tests Or Safeguards
 
-No blocking missing test was found.
+No blocking missing safeguards remain for CT-299-REFINE-001 or CT-299-REFINE-002.
 
-Focused tests now assert:
-
-- Privacy is in the primary nav.
-- The `Current` pill is absent.
-- The Dashboard header no longer has a status pill.
-- The Dashboard health row has exactly three cards.
-- Player.log monitor and Data trust are absent from the default health row.
-- Live capture compact copy remains status-specific.
-
-CSS dimensions and badge alignment are not directly asserted in Vitest/JSDOM. This review covered that visual risk with read-only browser DOM/layout smoke at desktop and 390px mobile width.
+Independent browser smoke was not rerun by this Codex E confirmation thread. The report relies on the provided manual browser smoke evidence plus source review and automated frontend validation.
 
 ## Validation Run
 
 ```powershell
 git status --short --branch --untracked-files=all
-git diff --name-status
-gh issue view 299 --repo Tahjali11/Mythic-Edge --json number,title,state,url
 npm --prefix frontend run typecheck
-npm --prefix frontend run test -- --run
+npm --prefix frontend test -- --run
 npm --prefix frontend run build
 Remove generated frontend/dist
 git diff --check
 py tools\check_agent_docs.py
-Browser DOM/layout smoke at http://127.0.0.1:5173/#dashboard
-Path-scoped protected-surface scan over reviewed files
-Path-scoped secret/private-marker scan over reviewed files
+Path-scoped protected-surface scan over reviewed #299 files
+Path-scoped secret/private-marker scan over reviewed #299 files
 ```
 
 Results:
 
 - Branch/status: `codex/analytics-foundation...origin/codex/analytics-foundation`.
-- Dirty files before report update: `frontend/src/App.css`, `frontend/src/App.test.tsx`, `frontend/src/App.tsx`, and untracked layout-polish implementation handoff/report.
-- Unrelated untracked docs observed and left untouched:
-  - `docs/contracts/live_app_capture_heartbeat_no_row_diagnostics.md`
-  - `docs/problem_representations/setup_app_private_local_v1_installation_wizard_prompt.md`
-- `git diff --name-status`: frontend-only code/test diff before report update.
-- Issue #299: closed.
+- Worktree status includes reviewed #299 frontend/report files plus unrelated dirty/untracked local work. See "Drift Notes".
 - `npm --prefix frontend run typecheck`: passed.
-- `npm --prefix frontend run test -- --run`: passed, 3 files, 86 tests.
+- `npm --prefix frontend test -- --run`: passed, 3 files, 89 tests.
 - `npm --prefix frontend run build`: passed.
 - `frontend/dist`: removed after build validation.
-- `git diff --check`: passed.
+- `git diff --check`: passed with an unrelated Git line-ending warning for `tests/test_stream_unit.py`.
 - `py tools\check_agent_docs.py`: passed, 46 files checked, 0 errors, 0 warnings.
-- Browser desktop DOM/layout smoke: passed; all 8 primary rail links present, active Dashboard link had `aria-current="page"`, no `Current` text was visible, active dot measured 7px by 7px, the Dashboard header had 0 status pills, the Dashboard health row had exactly 3 cards, no health-card title/status overlap was measured, and no horizontal overflow was measured.
-- Browser mobile-width DOM/layout smoke at 390px: passed; all 8 primary rail links present, all rail links measured 38px high, no rail link overflow was measured, the Dashboard header had 0 status pills, the Dashboard health row had exactly 3 stacked cards, no health-card title/status overlap was measured, and no horizontal overflow was measured.
+- Path-scoped protected-surface scan over reviewed #299 files: passed, forbidden 0, warnings 0.
+- Path-scoped secret/private-marker scan over reviewed #299 files: passed, forbidden 0, warnings 0.
+
+## Manual Browser Smoke Status
+
+Manual browser smoke evidence was provided for this confirmation pass:
+
+- Backend and frontend were run locally on paired ports.
+- Dashboard loaded successfully instead of showing Backend unavailable.
+- Dashboard did not show a Start capture button.
+- Live capture card showed a red Blocked status label, which is acceptable status display for this smoke.
+- Dashboard showed the Trust and Freshness section.
+- Temporary cleanup found the temp app-data root already absent.
+
+Codex E did not start or stop a watcher and did not independently rerun browser automation in this confirmation thread.
 
 ## Protected-Surface Status
 
 Path-scoped protected-surface scan status: passed, forbidden 0, warnings 0.
 
-No reviewed evidence showed changes to backend route shapes, parser behavior, parser state final reconciliation, parser event classes, match/game identity, deduplication, analytics schema/migrations/ingest, live watcher behavior, Match Journal backend behavior, workbook schema, webhook payload shape, Apps Script behavior, Google Sheets behavior, OpenAI/model-provider behavior, AI/coaching behavior, Line Tracer behavior, or production behavior.
+Source review found the reviewed #299 slice limited to frontend display/test/report files. No touched backend route, parser, analytics schema/ingest, live watcher backend, Match Journal backend, workbook schema, webhook payload, Apps Script, Google Sheets, OpenAI/model-provider, AI/coaching, Line Tracer, or production behavior change was accepted under this report.
 
 ## Secret/Private-Marker Status
 
 Path-scoped secret/private-marker scan status: passed, forbidden 0, warnings 0.
 
-No raw Player.log content, raw JSONL payloads, SQLite contents, raw private paths, raw hashes, secrets, endpoint values, environment values, generated artifacts, runtime logs, workbook exports, or local-only artifacts were exposed by the reviewed diff or browser smoke output.
+Source review and provided browser smoke did not expose raw Player.log content, raw JSONL payloads, SQLite contents, raw private paths, raw hashes, secrets, endpoint values, environment values, generated artifacts, runtime logs, workbook exports, or local-only artifacts.
 
 ## Generated Artifact Status
 
-`frontend/dist` was created by build validation and removed. No generated build output, SQLite database, raw log, runtime artifact, workbook export, app-data file, or local-only artifact was intentionally retained.
-
-## Browser And Visual Smoke Status
-
-Desktop browser DOM/layout smoke passed against `http://127.0.0.1:5173/#dashboard`.
-
-Mobile-width browser DOM/layout smoke passed at 390px.
-
-The smoke checked DOM/layout measurements rather than saving screenshots, so no screenshot artifact cleanup was required.
-
-## Remaining Risk
-
-Mobile still requires scrolling to see all three health cards because the rail remains visible above the Dashboard content. This is not a blocking mismatch for this density pass because the cards are readable, stacked cleanly, and do not overlap or overflow at 390px.
+`frontend/dist` was created by build validation and removed. No generated build output, SQLite database, raw log, runtime artifact, workbook export, app-data file, or local-only artifact was intentionally retained by this Codex E review.
 
 ## Drift Notes
 
-- Issue lifecycle drift: issue #299 is already closed while this follow-on polish remains in the local worktree.
-- Repo/worktree state: the focused frontend files and layout-polish handoff/report are dirty or untracked until Codex F stages them intentionally.
-- Unrelated untracked docs were present and ignored.
-- No workbook, deployment, live watcher, private app-data, or production state was inspected or changed.
+Current worktree contains unrelated dirty/untracked files outside the reviewed #299 confirmation package:
+
+- `frontend/src/api.test.ts`
+- `frontend/src/api.ts`
+- `frontend/src/types.ts`
+- `src/mythic_edge_parser/local_app/live_capture_control.py`
+- `src/mythic_edge_parser/stream.py`
+- `tests/test_live_app_explicit_start_capture_control.py`
+- `tests/test_stream_unit.py`
+- `docs/contracts/analytics_app_dashboard_live_capture_control_clarity.md`
+- `docs/contracts/live_app_capture_heartbeat_no_row_diagnostics.md`
+- `docs/implementation_handoffs/live_app_capture_heartbeat_no_row_diagnostics_comparison.md`
+
+Codex F must not stage those unrelated files for a #299 submitter pass unless a later reviewed package explicitly includes them.
 
 ## Forbidden Scope
 
@@ -180,13 +179,19 @@ Forbidden scope was not touched by this Codex E review. No implementation files 
 
 ## Recommendation
 
-Approve this focused layout-polish and Dashboard density slice for Codex F.
+Route to Codex F for a carefully scoped submitter pass if the user wants this follow-on #299 frontend polish submitted. Codex F should stage only:
 
-Codex F should stage only the reviewed frontend files plus the layout-polish handoff and this contract-test report. Because #299 is already closed, F/G should use issue-linking wording that reflects this as a follow-on polish artifact rather than re-closing #299.
+- `docs/contract_test_reports/analytics_app_frontend_information_architecture_layout_polish.md`
+- `docs/implementation_handoffs/analytics_app_frontend_information_architecture_layout_polish_fixer.md`
+- `frontend/src/App.tsx`
+- `frontend/src/App.css`
+- `frontend/src/App.test.tsx`
+
+Because issue #299 is already closed, the PR/commit should avoid close keywords and describe this as follow-on frontend polish for #299 unless the user gives different lifecycle instructions.
 
 ## Next Workflow Action
 
-Next role: Codex F / Module Submitter.
+Next role: Codex F / Module Submitter, if submission is desired.
 
 Pasteable prompt:
 
@@ -194,7 +199,7 @@ Pasteable prompt:
 Use the Mythic Edge agent constitution.
 Use $mythic-edge-workflow.
 
-Act as Codex F: Module Submitter for the focused #299 frontend layout-polish and Dashboard density slice.
+Act as Codex F: Module Submitter for the reviewed #299 frontend Dashboard refinement fixes.
 
 Issue:
 https://github.com/Tahjali11/Mythic-Edge/issues/299
@@ -202,53 +207,65 @@ https://github.com/Tahjali11/Mythic-Edge/issues/299
 Branch:
 codex/analytics-foundation
 
-Contract:
-docs/contracts/analytics_app_frontend_information_architecture.md
-
-Implementation handoff:
-docs/implementation_handoffs/analytics_app_frontend_information_architecture_layout_polish_comparison.md
-
-Review artifact:
+Reviewed artifact:
 docs/contract_test_reports/analytics_app_frontend_information_architecture_layout_polish.md
 
-Reviewed files:
+Fixer handoff:
+docs/implementation_handoffs/analytics_app_frontend_information_architecture_layout_polish_fixer.md
+
+Goal:
+Stage only the reviewed #299 follow-on frontend polish files, commit, push a feature branch, and open or update a draft PR targeting codex/analytics-foundation. Do not include unrelated dirty/untracked local work.
+
+Reviewed files allowed for this Codex F pass:
+- docs/contract_test_reports/analytics_app_frontend_information_architecture_layout_polish.md
+- docs/implementation_handoffs/analytics_app_frontend_information_architecture_layout_polish_fixer.md
 - frontend/src/App.tsx
 - frontend/src/App.css
 - frontend/src/App.test.tsx
-- docs/implementation_handoffs/analytics_app_frontend_information_architecture_layout_polish_comparison.md
-- docs/contract_test_reports/analytics_app_frontend_information_architecture_layout_polish.md
 
-Goal:
-Stage only the reviewed #299 layout-polish/Dashboard-density files, commit them, push a branch, and open a draft PR to codex/analytics-foundation. Since issue #299 is already closed, do not use closing keywords; use Refs #299.
+Do not stage:
+- frontend/src/api.test.ts
+- frontend/src/api.ts
+- frontend/src/types.ts
+- src/mythic_edge_parser/local_app/live_capture_control.py
+- src/mythic_edge_parser/stream.py
+- tests/test_live_app_explicit_start_capture_control.py
+- tests/test_stream_unit.py
+- docs/contracts/analytics_app_dashboard_live_capture_control_clarity.md
+- docs/contracts/live_app_capture_heartbeat_no_row_diagnostics.md
+- docs/implementation_handoffs/live_app_capture_heartbeat_no_row_diagnostics_comparison.md
 
-Suggested validation before commit:
+Validation before commit:
 - git status --short --branch --untracked-files=all
 - npm --prefix frontend run typecheck
-- npm --prefix frontend run test -- --run
+- npm --prefix frontend test -- --run
 - npm --prefix frontend run build
+- remove frontend/dist after build validation if created
 - git diff --check
 - py tools\check_agent_docs.py
-- path-scoped protected-surface scan over staged files
-- path-scoped secret/private-marker scan over staged files
-- remove frontend/dist after build validation if created
+- path-scoped protected-surface scan over the reviewed #299 files
+- path-scoped secret/private-marker scan over the reviewed #299 files
 
 Do not:
-- stage unrelated files
 - target main
-- close issue #299 or mark trackers complete
-- change backend route shapes, parser behavior, analytics schema/ingest, live watcher behavior, Match Journal backend behavior, workbook/webhook/App Script/Sheets behavior, OpenAI/AI/coaching behavior, Line Tracer behavior, or production behavior
+- merge or close issue #299
+- stage unrelated dirty/untracked files
+- start, stop, restart, tail, or control a real live watcher
+- read, copy, hash, summarize, or expose raw Player.log contents
+- change backend/API/parser/analytics/live watcher/Match Journal/workbook/webhook/App Script/Sheets/OpenAI/AI/coaching/production behavior
 - expose raw/private/generated/local artifacts
 
 Final output:
 - role performed
-- files staged
-- commit hash
-- draft PR URL and target branch
+- branch and PR
+- files staged/committed
 - validation run and result
-- protected-surface and secret/private-marker status
 - generated artifact status
-- remaining risk
-- workflow_handoff block routing to Codex G
+- protected-surface status
+- secret/private-marker status
+- forbidden scope status
+- remaining risks
+- workflow_handoff block
 ```
 
 ```yaml
@@ -256,27 +273,25 @@ workflow_handoff:
   issue: "https://github.com/Tahjali11/Mythic-Edge/issues/299"
   completed_thread: "E"
   next_thread: "F"
-  source_artifact: "docs/contracts/analytics_app_frontend_information_architecture.md"
-  implementation_handoff: "docs/implementation_handoffs/analytics_app_frontend_information_architecture_layout_polish_comparison.md"
-  target_artifact: "docs/contract_test_reports/analytics_app_frontend_information_architecture_layout_polish.md"
-  focused_slice: "compact left rail, stable active nav state, aligned dashboard status badges, Dashboard density"
-  risk_tier: "Low-to-medium frontend-only"
   branch: "codex/analytics-foundation"
-  findings:
-    - "No blocking findings."
+  review_artifact: "docs/contract_test_reports/analytics_app_frontend_information_architecture_layout_polish.md"
+  fixer_handoff: "docs/implementation_handoffs/analytics_app_frontend_information_architecture_layout_polish_fixer.md"
+  findings_confirmed_fixed:
+    - "CT-299-REFINE-001 P1: Dashboard no longer exposes a live capture Start capture process-control button from the #299 display-polish slice."
+    - "CT-299-REFINE-002 P2: Default Dashboard again shows a compact Trust and Freshness signal."
   validation:
-    - "npm --prefix frontend run typecheck -> passed"
-    - "npm --prefix frontend run test -- --run -> passed, 3 files, 86 tests"
-    - "npm --prefix frontend run build -> passed; frontend/dist removed"
-    - "git diff --check -> passed"
-    - "py tools\\check_agent_docs.py -> passed"
-    - "desktop browser DOM/layout smoke -> passed"
-    - "390px mobile-width browser DOM/layout smoke -> passed"
-    - "path-scoped protected-surface scan -> passed, forbidden 0, warnings 0"
-    - "path-scoped secret/private-marker scan -> passed, forbidden 0, warnings 0"
-  protected_surface_status: "passed"
-  secret_private_marker_status: "passed"
+    - "frontend typecheck -> passed"
+    - "frontend tests -> passed, 3 files, 89 tests"
+    - "frontend build -> passed; frontend/dist removed"
+    - "git diff --check -> passed with unrelated CRLF warning on tests/test_stream_unit.py"
+    - "agent docs check -> passed"
+    - "path-scoped protected-surface scan over reviewed #299 files -> passed, forbidden 0, warnings 0"
+    - "path-scoped secret/private-marker scan over reviewed #299 files -> passed, forbidden 0, warnings 0"
+  manual_browser_smoke_status: "provided evidence accepted; not independently rerun by this Codex E thread"
   generated_artifacts_kept: false
   forbidden_scope_touched: false
+  remaining_risks:
+    - "Worktree contains unrelated dirty/untracked files that Codex F must not stage for this #299 package."
+    - "Issue #299 is already closed; submitter should avoid close keywords unless lifecycle instructions change."
   next_recommended_role: "Codex F: Module Submitter"
 ```
