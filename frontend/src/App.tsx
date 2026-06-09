@@ -1817,8 +1817,7 @@ type DashboardLiveCaptureAction =
   | { kind: "start"; label: "Start capture"; disabled: false }
   | { kind: "stop"; label: "Stop capture"; disabled: false }
   | { kind: "pending"; label: "Starting capture" | "Stopping capture"; disabled: true }
-  | { kind: "diagnostics"; label: "View live capture diagnostics"; disabled: false }
-  | { kind: "none"; label: string; disabled: true };
+  | { kind: "blocked"; label: string; ariaLabel: string; disabled: true };
 
 function DashboardLiveCaptureControl({
   state,
@@ -1848,13 +1847,20 @@ function DashboardLiveCaptureControl({
             {action.label === "Starting capture" ? "Starting" : "Stopping"}
           </button>
         ) : null}
-        {action.kind === "diagnostics" ? (
-          <a className="captureLifecycleLink" href="#diagnostics" aria-label={action.label}>
-            View diagnostics
-          </a>
+        {action.kind === "blocked" ? (
+          <button aria-label={action.ariaLabel} className="captureLifecycleButton isPending" disabled type="button">
+            {action.label}
+          </button>
         ) : null}
-        {action.kind === "none" ? <span className="captureLifecycleMuted">{action.label}</span> : null}
       </div>
+      <a
+        className="captureDiagnosticsLink"
+        href="#diagnostics"
+        aria-label="View live capture diagnostics"
+        title="View live capture diagnostics"
+      >
+        <span aria-hidden="true">i</span>
+      </a>
     </div>
   );
 }
@@ -1868,12 +1874,15 @@ function dashboardLiveCaptureAction(state: LiveCaptureControlState): DashboardLi
     };
   }
   if (state.state === "loading") {
-    return { kind: "none", label: "Checking", disabled: true };
+    return { kind: "blocked", label: "Checking", ariaLabel: "Checking live capture status", disabled: true };
   }
 
   const payload = liveCaptureControlPayload(state);
-  if (payload === null || state.state === "error" || liveCaptureDashboardBlocked(payload)) {
-    return { kind: "diagnostics", label: "View live capture diagnostics", disabled: false };
+  if (payload === null || state.state === "error") {
+    return { kind: "blocked", label: "Unavailable", ariaLabel: "Live capture unavailable", disabled: true };
+  }
+  if (liveCaptureDashboardBlocked(payload)) {
+    return dashboardLiveCaptureBlockedAction(payload);
   }
   if (payload.status === "capturing" && payload.capture.running && payload.capture.stop_allowed) {
     return { kind: "stop", label: "Stop capture", disabled: false };
@@ -1887,7 +1896,20 @@ function dashboardLiveCaptureAction(state: LiveCaptureControlState): DashboardLi
   if (payload.status === "stopping") {
     return { kind: "pending", label: "Stopping capture", disabled: true };
   }
-  return { kind: "diagnostics", label: "View live capture diagnostics", disabled: false };
+  return dashboardLiveCaptureBlockedAction(payload);
+}
+
+function dashboardLiveCaptureBlockedAction(payload: LiveCaptureStatusResponse): DashboardLiveCaptureAction {
+  if (payload.status === "unavailable") {
+    return { kind: "blocked", label: "Unavailable", ariaLabel: "Live capture unavailable", disabled: true };
+  }
+  if (payload.status === "starting") {
+    return { kind: "pending", label: "Starting capture", disabled: true };
+  }
+  if (payload.status === "stopping") {
+    return { kind: "pending", label: "Stopping capture", disabled: true };
+  }
+  return { kind: "blocked", label: "Needs review", ariaLabel: "Live capture needs review", disabled: true };
 }
 
 function liveCaptureDashboardBlocked(payload: LiveCaptureStatusResponse): boolean {
@@ -4519,7 +4541,7 @@ function buildCockpitStatusItems(
       status: liveCapture.label,
       tone: liveCapture.tone,
       liveActive: liveCapture.liveActive,
-      detail: compactLiveCaptureDetail(liveCapture.label)
+      detail: compactLiveCaptureDetail(liveCapture.label, liveCapture.detail)
     },
     {
       cue: "DATA",
@@ -4531,7 +4553,7 @@ function buildCockpitStatusItems(
   ];
 }
 
-function compactLiveCaptureDetail(label: string): string {
+function compactLiveCaptureDetail(label: string, detail?: string): string {
   if (label === "Capturing") {
     return "Capture active.";
   }
@@ -4543,6 +4565,12 @@ function compactLiveCaptureDetail(label: string): string {
   }
   if (label === "Setup needed") {
     return "Setup needed.";
+  }
+  if (label === "Needs review" && detail) {
+    return detail;
+  }
+  if (label === "Unavailable") {
+    return "Status unavailable.";
   }
   return `${label}.`;
 }
@@ -4690,8 +4718,18 @@ function liveCaptureStatusFromControlOrSetup(
     label: dashboardStatus.label,
     tone: dashboardStatus.tone,
     liveActive: dashboardStatus.liveActive,
-    detail: liveCaptureBlurbText(controlPayload) ?? liveCaptureControlDetail(controlPayload)
+    detail: liveCaptureDashboardDetail(controlPayload)
   };
+}
+
+function liveCaptureDashboardDetail(payload: LiveCaptureStatusResponse): string {
+  if (payload.status === "stale" || payload.state.stale || payload.capture.reason === "capture_state_stale") {
+    return "Capture state is stale; open diagnostics.";
+  }
+  if (liveCaptureDashboardBlocked(payload)) {
+    return liveCaptureControlDetail(payload);
+  }
+  return liveCaptureBlurbText(payload) ?? liveCaptureControlDetail(payload);
 }
 
 function liveCaptureControlPayload(state: LiveCaptureControlState): LiveCaptureStatusResponse | null {
