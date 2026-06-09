@@ -4553,7 +4553,13 @@ function buildCockpitStatusItems(
   ];
 }
 
+const LIVE_CAPTURE_RECORDED_MATCH_DETAIL = "Most recent completed match was recorded.";
+
 function compactLiveCaptureDetail(label: string, detail?: string): string {
+  const safeDetail = detail?.trim();
+  if (safeDetail === LIVE_CAPTURE_RECORDED_MATCH_DETAIL) {
+    return safeDetail;
+  }
   if (label === "Capturing") {
     return "Capture active.";
   }
