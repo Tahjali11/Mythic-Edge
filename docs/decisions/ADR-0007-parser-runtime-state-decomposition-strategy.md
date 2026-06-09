@@ -1,6 +1,6 @@
 # ADR-0007: Parser Runtime State Decomposition Strategy
 
-Status: Proposed
+Status: Accepted
 
 Date: 2026-06-09
 
@@ -9,7 +9,7 @@ Decision owners / workflow role:
 - Codex A: problem representation for issue #307.
 - Codex B: ADR adoption contract.
 - Codex C: ADR adoption implementation pass.
-- Codex E: pending ADR contract-test review.
+- Codex E: ADR contract-test review.
 
 Related issues:
 
@@ -18,6 +18,7 @@ Related issues:
 Related PRs:
 
 - https://github.com/Tahjali11/Mythic-Edge/pull/308
+- https://github.com/Tahjali11/Mythic-Edge/pull/309
 
 Related contracts, handoffs, or review reports:
 
@@ -25,10 +26,13 @@ Related contracts, handoffs, or review reports:
 - `docs/implementation_handoffs/parser_runtime_state_decomposition_comparison.md`
 - `docs/contract_test_reports/parser_runtime_state_decomposition.md`
 - `docs/contracts/adr_0007_parser_runtime_state_decomposition_strategy.md`
+- `docs/contracts/adr_0007_acceptance_lifecycle.md`
 - `src/mythic_edge_parser/app/posting_state.py`
 - `src/mythic_edge_parser/app/state.py`
 - `tests/test_state.py`
 - PR #308 merge commit `19192f718f8b50e1d7fe962d02455b0c933985ad`
+- PR #309 merge commit `0bfef5066cb2264fda7337ee511ffb8bf67490f7`
+- `docs/implementation_handoffs/adr_0007_acceptance_lifecycle_comparison.md`
 
 Related ADRs:
 
@@ -67,7 +71,9 @@ aliases and helper behavior.
 The original parser runtime state decomposition contract intentionally deferred
 ADR-0007 until after a successful pilot. That condition has now been satisfied,
 so this ADR records the durable strategy without authorizing another extraction
-or any parser behavior change.
+or any parser behavior change. PR #309 then merged the Proposed ADR-0007
+governance package into `codex/analytics-foundation` at merge commit
+`0bfef5066cb2264fda7337ee511ffb8bf67490f7`.
 
 ## Decision
 
@@ -213,6 +219,10 @@ The underlying pilot evidence is recorded in:
 - `docs/contract_test_reports/parser_runtime_state_decomposition.md`
 - PR #308
 - merge commit `19192f718f8b50e1d7fe962d02455b0c933985ad`
+- PR #309
+- merge commit `0bfef5066cb2264fda7337ee511ffb8bf67490f7`
+- `docs/contracts/adr_0007_acceptance_lifecycle.md`
+- `docs/implementation_handoffs/adr_0007_acceptance_lifecycle_comparison.md`
 
 The contract-test report for the pilot recorded no blocking findings and
 approved submitter routing after focused parser/runtime tests, parser
@@ -229,8 +239,8 @@ None.
 
 ## Follow-Ups
 
-- Route this Proposed ADR through Codex E contract testing before treating it
-  as durable precedent.
+- Route this Accepted status update through Codex E contract testing, Codex F
+  submitter work, and Codex G merge closeout before issue #307 is closed.
 - Future parser runtime state cluster extractions should cite this ADR and
   create a focused contract before editing code.
 - Future alias removal or broad caller migration should be handled as a
@@ -240,3 +250,6 @@ None.
 
 This ADR records the strategy proven by the `PostingState` pilot. It does not
 change parser behavior and does not close issue #307 by itself.
+
+Acceptance becomes durable precedent only through reviewed merge of this
+status update into `codex/analytics-foundation`.
