@@ -30,6 +30,8 @@ export const PLAY_DRAW_SPLIT_REVIEW_OBJECT = "mythic_edge_local_app_play_draw_sp
 export const GAME1_POSTBOARD_SPLIT_REVIEW_OBJECT = "mythic_edge_local_app_game1_postboard_split_review";
 export const ANALYTICS_DASHBOARD_MODULES_SCHEMA_VERSION = "analytics_dynamic_decision_support_dashboard.v1";
 export const ANALYTICS_DASHBOARD_MODULES_OBJECT = "mythic_edge_local_app_analytics_dashboard_modules";
+export const ANALYTICS_REFRESH_STATE_SCHEMA_VERSION = "analytics_auto_refresh_after_match_completion.v1";
+export const ANALYTICS_REFRESH_STATE_OBJECT = "mythic_edge_local_app_analytics_refresh_state";
 export const MATCH_JOURNAL_OBJECT = "mythic_edge_local_app_match_journal";
 export const MATCH_JOURNAL_SCHEMA_VERSION = "match_journal_cockpit_ui.v1";
 export const ERROR_REPORT_PREVIEW_SCHEMA = "quality_app_submit_error_report_codex_triage.v1";
@@ -752,6 +754,29 @@ export type GameHistoryResponse = {
   pagination: AnalyticsHistoryPagination;
   summary: AnalyticsHistorySummary;
   rows: GameHistoryRow[];
+  warnings: string[];
+  errors: string[];
+};
+
+export type AnalyticsRefreshStateStatus = "ok" | "empty" | "missing" | "unavailable" | "degraded" | "error";
+
+export type AnalyticsRefreshStateRowCounts = {
+  ingest_runs: number;
+  matches: number;
+  games: number;
+  match_results: number;
+  game_results: number;
+};
+
+export type AnalyticsRefreshStateResponse = {
+  object: typeof ANALYTICS_REFRESH_STATE_OBJECT;
+  schema_version: typeof ANALYTICS_REFRESH_STATE_SCHEMA_VERSION;
+  status: AnalyticsRefreshStateStatus;
+  analytics_revision: string | null;
+  latest_completed_match_result_available: boolean;
+  latest_completed_match_seen_at: string | null;
+  latest_completed_ingest_finished_at: string | null;
+  row_counts: AnalyticsRefreshStateRowCounts;
   warnings: string[];
   errors: string[];
 };

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -14,6 +14,8 @@ import {
   ANALYTICS_DASHBOARD_MODULES_OBJECT,
   ANALYTICS_DASHBOARD_MODULES_SCHEMA_VERSION,
   ANALYTICS_HISTORY_SCHEMA_VERSION,
+  ANALYTICS_REFRESH_STATE_OBJECT,
+  ANALYTICS_REFRESH_STATE_SCHEMA_VERSION,
   EARLY_GAME_HISTORY_SCHEMA_VERSION,
   GAME1_POSTBOARD_SPLIT_REVIEW_OBJECT,
   ERROR_REPORT_PREVIEW_SCHEMA,
@@ -49,6 +51,7 @@ import {
   SPLIT_REVIEW_SCHEMA_VERSION,
   type Game1PostboardSplitReviewResponse,
   type AnalyticsDashboardModulesResponse,
+  type AnalyticsRefreshStateResponse,
   type ErrorReportPreviewRequest,
   type ErrorReportPreviewResponse,
   type ErrorReportSubmissionResponse,
@@ -80,6 +83,8 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
+  vi.restoreAllMocks();
   window.localStorage.clear();
   window.sessionStorage.clear();
 });
@@ -710,6 +715,62 @@ describe("SetupStatusApp", () => {
       expect(fetchMatches).toHaveBeenCalledTimes(2);
       expect(fetchGames).toHaveBeenCalledTimes(2);
     });
+  });
+
+  it("polls sanitized refresh state and reloads existing analytics views after revision changes", async () => {
+    vi.useFakeTimers();
+    const fetchAnalyticsRefreshState = vi
+      .fn()
+      .mockResolvedValueOnce(buildAnalyticsRefreshStatePayload({ analytics_revision: "analytics-refresh-v1:baseline" }))
+      .mockResolvedValueOnce(buildAnalyticsRefreshStatePayload({ analytics_revision: "analytics-refresh-v1:changed" }));
+    const fetchMatches = vi.fn(async () => buildMatchHistoryPayload());
+    const fetchGames = vi.fn(async () => buildGameHistoryPayload());
+    const fetchOpeningHands = vi.fn(async () => buildOpeningHandHistoryPayload());
+    const fetchMulligans = vi.fn(async () => buildMulliganHistoryPayload());
+    const fetchGameplayActions = vi.fn(async () => buildGameplayActionReviewPayload());
+    const fetchOpponentObservations = vi.fn(async () => buildOpponentObservationReviewPayload());
+    const fetchPlayDrawSplits = vi.fn(async () => buildPlayDrawSplitReviewPayload());
+    const fetchGame1PostboardSplits = vi.fn(async () => buildGame1PostboardSplitReviewPayload());
+    const fetchDashboardModules = vi.fn(async () => buildAnalyticsDashboardModulesPayload());
+
+    render(
+      <SetupStatusApp
+        fetchAnalyticsRefreshState={fetchAnalyticsRefreshState}
+        fetchDashboardModules={fetchDashboardModules}
+        fetchGame1PostboardSplits={fetchGame1PostboardSplits}
+        fetchGames={fetchGames}
+        fetchGameplayActions={fetchGameplayActions}
+        fetchMatches={fetchMatches}
+        fetchMulligans={fetchMulligans}
+        fetchOpeningHands={fetchOpeningHands}
+        fetchOpponentObservations={fetchOpponentObservations}
+        fetchPlayDrawSplits={fetchPlayDrawSplits}
+        fetchStatus={() => Promise.resolve(buildPayload())}
+      />
+    );
+
+    await flushAsyncUpdates();
+    expect(screen.getByLabelText("Analytics auto-refresh")).toHaveTextContent("Analytics checked");
+    expect(fetchAnalyticsRefreshState).toHaveBeenCalledTimes(1);
+    expect(fetchMatches).toHaveBeenCalledTimes(1);
+    expect(fetchDashboardModules).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      vi.advanceTimersByTime(25_000);
+    });
+    await flushAsyncUpdates();
+
+    expect(fetchAnalyticsRefreshState).toHaveBeenCalledTimes(2);
+    expect(fetchMatches).toHaveBeenCalledTimes(2);
+    expect(fetchGames).toHaveBeenCalledTimes(2);
+    expect(fetchOpeningHands).toHaveBeenCalledTimes(2);
+    expect(fetchMulligans).toHaveBeenCalledTimes(2);
+    expect(fetchGameplayActions).toHaveBeenCalledTimes(2);
+    expect(fetchOpponentObservations).toHaveBeenCalledTimes(2);
+    expect(fetchPlayDrawSplits).toHaveBeenCalledTimes(2);
+    expect(fetchGame1PostboardSplits).toHaveBeenCalledTimes(2);
+    expect(fetchDashboardModules).toHaveBeenCalledTimes(2);
+    expect(screen.getByLabelText("Analytics auto-refresh")).toHaveTextContent("Analytics updated");
   });
 
   it("renders Match Journal cockpit context and bundle without pilot-error or destructive controls", async () => {
@@ -1732,6 +1793,14 @@ function cockpitCard(heading: string): HTMLElement {
     throw new Error(`Missing cockpit card for ${heading}.`);
   }
   return card;
+}
+
+async function flushAsyncUpdates() {
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+  });
 }
 
 function buildPayload(overrides: Partial<SetupStatusResponse> = {}): SetupStatusResponse {
@@ -2990,6 +3059,30 @@ function emptyDashboardModule(
       analytics_truth_boundary: "Dashboard modules are fixed read-only projections."
     },
     schema_version: ANALYTICS_DASHBOARD_MODULES_SCHEMA_VERSION
+  };
+}
+
+function buildAnalyticsRefreshStatePayload(
+  overrides: Partial<AnalyticsRefreshStateResponse> = {}
+): AnalyticsRefreshStateResponse {
+  return {
+    object: ANALYTICS_REFRESH_STATE_OBJECT,
+    schema_version: ANALYTICS_REFRESH_STATE_SCHEMA_VERSION,
+    status: "ok",
+    analytics_revision: "analytics-refresh-v1:synthetic",
+    latest_completed_match_result_available: true,
+    latest_completed_match_seen_at: "2026-06-08T00:10:00Z",
+    latest_completed_ingest_finished_at: "2026-06-08T00:10:01Z",
+    row_counts: {
+      ingest_runs: 1,
+      matches: 1,
+      games: 3,
+      match_results: 1,
+      game_results: 3
+    },
+    warnings: [],
+    errors: [],
+    ...overrides
   };
 }
 
