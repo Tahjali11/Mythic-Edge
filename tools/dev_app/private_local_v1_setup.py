@@ -21,6 +21,8 @@ from mythic_edge_parser.app.analytics_migration_loader import (
     apply_analytics_migrations,
     iter_analytics_migrations,
 )
+from mythic_edge_parser.local_app.config import write_local_app_config
+from mythic_edge_parser.local_app.paths import build_local_app_paths
 
 try:
     from tools.dev_app import dev_app_launcher as launcher
@@ -94,6 +96,7 @@ class PrivateLocalV1Config:
     release_ref: str = DEFAULT_RELEASE_REF
     initialize_sqlite: bool = False
     managed_app_checkout: bool = False
+    player_log_path: Path | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -175,12 +178,16 @@ def run_private_local_v1_setup(config: PrivateLocalV1Config) -> dict[str, object
     if config.mode == "install" and existing_install_handling["status"] == "blocked":
         errors.append("existing_install_detected")
 
+    player_log_configuration = _player_log_configuration_status(config.player_log_path)
+    errors.extend(_player_log_configuration_errors(player_log_configuration))
+
     migration_inventory = _migration_inventory()
     if migration_inventory["status"] != "ok":
         errors.append("migration_inventory_unavailable")
 
     folder_creation = _folder_status(paths)
     sqlite_initialization = _sqlite_status_not_run(paths)
+    config_write = _config_write_not_run(config)
     if config.mode == "install" and not errors:
         folder_creation = create_v1_folder_tree(paths)
         if config.initialize_sqlite:
@@ -188,6 +195,10 @@ def run_private_local_v1_setup(config: PrivateLocalV1Config) -> dict[str, object
         else:
             sqlite_initialization = _sqlite_status_not_run(paths)
             warnings.append("sqlite_initialization_not_requested")
+        if config.player_log_path is not None:
+            config_write = _write_private_local_v1_config(paths, config.player_log_path)
+            if config_write["status"] != "ok":
+                errors.extend(str(error) for error in config_write["errors"])
 
     dependency_install = {
         "status": "not_run",
@@ -208,6 +219,8 @@ def run_private_local_v1_setup(config: PrivateLocalV1Config) -> dict[str, object
         app_data_policy=app_data_policy,
         migration_inventory=migration_inventory,
         sqlite_initialization=sqlite_initialization,
+        player_log_configuration=player_log_configuration,
+        config_write=config_write,
         dependency_install=dependency_install,
         privacy=privacy,
         warnings=warnings,
@@ -221,6 +234,8 @@ def run_private_local_v1_setup(config: PrivateLocalV1Config) -> dict[str, object
         folder_creation=folder_creation,
         migration_inventory=migration_inventory,
         sqlite_initialization=sqlite_initialization,
+        player_log_configuration=player_log_configuration,
+        config_write=config_write,
         dependency_install=dependency_install,
         launch_status=launch_status,
         existing_install_handling=existing_install_handling,
@@ -241,6 +256,8 @@ def run_private_local_v1_setup(config: PrivateLocalV1Config) -> dict[str, object
         **_package_readiness_metadata(config.release_ref),
         "install_root": "<install_root>",
         "data_root": "<install_root>\\data",
+        "player_log_configuration": player_log_configuration,
+        "config_write": config_write,
         "manifest": manifest,
         "report": report,
         "warnings": warnings,
@@ -335,6 +352,7 @@ def run_private_local_v1_proof(
                 mode="install",
                 release_ref=config.release_ref,
                 initialize_sqlite=config.initialize_sqlite,
+                player_log_path=None,
                 managed_app_checkout=not config.existing_checkout,
             )
         )
@@ -548,6 +566,147 @@ def initialize_analytics_sqlite(paths: PrivateLocalV1Paths) -> dict[str, object]
     }
 
 
+def _player_log_configuration_status(player_log_path: Path | None) -> dict[str, object]:
+    if player_log_path is None:
+        return {
+            "status": "not_configured",
+            "source": "not_provided",
+            "display_path": "<player_log_not_configured>",
+            "exists": False,
+            "path_kind": "not_checked",
+            "metadata_access": "not_checked",
+            "contents_read": False,
+            "tailing_started": False,
+            "size_bytes": None,
+            "last_modified_at": None,
+            "last_modified_age_seconds": None,
+            "warnings": [],
+            "errors": [],
+        }
+
+    try:
+        path_stat = player_log_path.stat()
+    except FileNotFoundError:
+        return _selected_player_log_status(
+            status="missing",
+            exists=False,
+            path_kind="missing",
+            metadata_access="accessible",
+            errors=["player_log_missing"],
+        )
+    except PermissionError:
+        return _selected_player_log_status(
+            status="unreadable",
+            exists=False,
+            path_kind="unknown",
+            metadata_access="denied",
+            warnings=["player_log_unreadable"],
+            errors=["player_log_metadata_denied"],
+        )
+    except OSError:
+        return _selected_player_log_status(
+            status="unreadable",
+            exists=False,
+            path_kind="unknown",
+            metadata_access="unavailable",
+            warnings=["player_log_unreadable"],
+            errors=["player_log_metadata_unavailable"],
+        )
+
+    path_kind = "file" if player_log_path.is_file() else "directory" if player_log_path.is_dir() else "unknown"
+    last_modified = datetime.fromtimestamp(path_stat.st_mtime, tz=UTC)
+    age_seconds = max(0.0, (datetime.now(UTC) - last_modified).total_seconds())
+    warnings = [] if path_kind == "file" else ["player_log_not_file"]
+    errors = [] if path_kind == "file" else ["player_log_not_file"]
+    return _selected_player_log_status(
+        status="accepted" if path_kind == "file" else "not_file",
+        exists=True,
+        path_kind=path_kind,
+        metadata_access="accessible",
+        size_bytes=max(0, int(path_stat.st_size)),
+        last_modified_at=last_modified.isoformat().replace("+00:00", "Z"),
+        last_modified_age_seconds=age_seconds,
+        warnings=warnings,
+        errors=errors,
+    )
+
+
+def _selected_player_log_status(
+    *,
+    status: str,
+    exists: bool,
+    path_kind: str,
+    metadata_access: str,
+    size_bytes: int | None = None,
+    last_modified_at: str | None = None,
+    last_modified_age_seconds: float | None = None,
+    warnings: list[str] | None = None,
+    errors: list[str] | None = None,
+) -> dict[str, object]:
+    return {
+        "status": status,
+        "source": "manual_selection",
+        "display_path": "<selected_player_log>",
+        "exists": exists,
+        "path_kind": path_kind,
+        "metadata_access": metadata_access,
+        "contents_read": False,
+        "tailing_started": False,
+        "size_bytes": size_bytes,
+        "last_modified_at": last_modified_at,
+        "last_modified_age_seconds": last_modified_age_seconds,
+        "warnings": warnings or [],
+        "errors": errors or [],
+    }
+
+
+def _player_log_configuration_errors(player_log_configuration: Mapping[str, object]) -> list[str]:
+    if player_log_configuration["status"] in {"not_configured", "accepted"}:
+        return []
+    errors = player_log_configuration.get("errors", [])
+    return [str(error) for error in errors] if isinstance(errors, list) else ["player_log_configuration_failed"]
+
+
+def _config_write_not_run(config: PrivateLocalV1Config) -> dict[str, object]:
+    if config.player_log_path is None:
+        reason = "player_log_path_not_provided"
+    elif config.mode == "check":
+        reason = "check_mode_non_mutating"
+    else:
+        reason = "blocked_before_config_write"
+    return {
+        "status": "not_run",
+        "reason": reason,
+        "config_file": "<install_root>\\data\\config\\app_config.json",
+        "written_fields": [],
+        "encoding": "utf-8",
+        "utf8_bom_written": False,
+        "raw_values_included": False,
+        "errors": [],
+    }
+
+
+def _write_private_local_v1_config(paths: PrivateLocalV1Paths, player_log_path: Path) -> dict[str, object]:
+    local_paths = build_local_app_paths(paths.data_root)
+    write_result = write_local_app_config(
+        local_paths,
+        {
+            "analytics_database_path": str(paths.analytics_database),
+            "player_log_path": str(player_log_path),
+        },
+    )
+    return {
+        "status": "ok" if write_result.status == "written" else write_result.status,
+        "reason": None if write_result.status == "written" else "config_write_failed",
+        "config_file": "<install_root>\\data\\config\\app_config.json",
+        "written_fields": list(write_result.written_fields),
+        "encoding": "utf-8",
+        "utf8_bom_written": False,
+        "raw_values_included": False,
+        "errors": list(write_result.errors),
+    }
+
+
 def run_command(command: Sequence[str], cwd: Path) -> CommandOutcome:
     try:
         completed = subprocess.run(  # noqa: S603 - command vectors are contract-owned setup steps.
@@ -598,6 +757,8 @@ def _existing_install_handling_status(paths: PrivateLocalV1Paths, *, config: Pri
 
 def _existing_install_indicators(paths: PrivateLocalV1Paths, *, config: PrivateLocalV1Config) -> list[str]:
     indicators: list[str] = []
+    if (paths.config_dir / "app_config.json").exists():
+        indicators.append("app_config")
     if paths.install_manifest.exists():
         indicators.append("install_manifest")
     if paths.setup_report.exists():
@@ -623,6 +784,7 @@ def _has_existing_generated_data(paths: PrivateLocalV1Paths) -> bool:
     if not paths.data_root.exists():
         return False
     expected_artifact_paths = {
+        (paths.config_dir / "app_config.json").resolve(),
         paths.install_manifest.resolve(),
         paths.setup_report.resolve(),
         paths.analytics_database.resolve(),
@@ -656,6 +818,8 @@ def _build_install_manifest(
     app_data_policy: dict[str, object],
     migration_inventory: dict[str, object],
     sqlite_initialization: dict[str, object],
+    player_log_configuration: dict[str, object],
+    config_write: dict[str, object],
     dependency_install: dict[str, object],
     privacy: dict[str, bool],
     warnings: list[str],
@@ -678,6 +842,8 @@ def _build_install_manifest(
         "git": _git_status(config.source_checkout),
         "migrations": migration_inventory,
         "sqlite_initialization": sqlite_initialization,
+        "player_log_configuration": player_log_configuration,
+        "config_write": config_write,
         "ai_review": {
             "status": "reserved_only",
             "folders": [
@@ -703,6 +869,8 @@ def _build_setup_report(
     folder_creation: dict[str, object],
     migration_inventory: dict[str, object],
     sqlite_initialization: dict[str, object],
+    player_log_configuration: dict[str, object],
+    config_write: dict[str, object],
     dependency_install: dict[str, object],
     launch_status: dict[str, str],
     existing_install_handling: dict[str, object],
@@ -725,6 +893,8 @@ def _build_setup_report(
         "git_checkout": source_status,
         "existing_install_handling": existing_install_handling,
         "sqlite_initialization": sqlite_initialization,
+        "player_log_configuration": player_log_configuration,
+        "config_write": config_write,
         "migration_status": migration_inventory,
         **launch_status,
         "git_artifact_safety": {
@@ -1005,6 +1175,7 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     parser.add_argument("--source-checkout", type=Path, default=Path.cwd())
     parser.add_argument("--install-root", type=Path)
     parser.add_argument("--initialize-sqlite", action="store_true")
+    parser.add_argument("--player-log-path", type=Path)
     parser.add_argument("--repo-url", default=DEFAULT_REPO_URL)
     parser.add_argument("--release-ref", default=DEFAULT_RELEASE_REF)
     parser.add_argument("--no-open", action="store_true")
@@ -1051,6 +1222,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         mode=mode,
         release_ref=args.release_ref,
         initialize_sqlite=args.initialize_sqlite,
+        player_log_path=args.player_log_path,
     )
     result = run_private_local_v1_setup(config)
     if args.json_report:

@@ -7,7 +7,11 @@ from mythic_edge_parser.app.analytics_migration_loader import apply_analytics_mi
 from mythic_edge_parser.app.match_journal_migration_loader import apply_match_journal_migrations
 from mythic_edge_parser.local_app import live_watcher_process
 from mythic_edge_parser.local_app import setup_status as setup_status_module
-from mythic_edge_parser.local_app.config import _is_safe_unexpected_field_name, load_local_app_config_status
+from mythic_edge_parser.local_app.config import (
+    _is_safe_unexpected_field_name,
+    load_local_app_config_status,
+    write_local_app_config,
+)
 from mythic_edge_parser.local_app.live_watcher_process import build_live_watcher_process_status
 from mythic_edge_parser.local_app.paths import build_local_app_paths, build_path_status
 from mythic_edge_parser.local_app.setup_status import (
@@ -78,6 +82,60 @@ def test_config_status_reports_missing_and_invalid_json_without_echoing_content(
     assert invalid["config_file"]["status"] == "invalid_json"
     assert '{"player_log_path": ' not in encoded
     assert str(paths.config_file.parent) not in encoded
+
+
+def test_config_status_tolerates_utf8_bom_without_echoing_values(tmp_path) -> None:
+    paths = build_local_app_paths(tmp_path / "app-data")
+    player_log_path = tmp_path / "Player.log"
+    player_log_path.write_text("private log body must not be read", encoding="utf-8")
+    paths.config_file.parent.mkdir(parents=True)
+    paths.config_file.write_text(json.dumps({"player_log_path": str(player_log_path)}), encoding="utf-8-sig")
+
+    status = load_local_app_config_status(paths)
+    encoded = json.dumps(status, sort_keys=True)
+
+    assert status["status"] == "ok"
+    assert status["config_file"]["status"] == "present"
+    assert status["loaded_fields"] == ["player_log_path"]
+    assert str(player_log_path) not in encoded
+    assert "private log body" not in encoded
+
+
+def test_write_local_app_config_writes_utf8_without_bom_and_allowed_fields_only(tmp_path) -> None:
+    paths = build_local_app_paths(tmp_path / "app-data")
+    player_log_path = tmp_path / "Player.log"
+    database_path = tmp_path / "mythic_edge.sqlite3"
+
+    write_result = write_local_app_config(
+        paths,
+        {
+            "analytics_database_path": str(database_path),
+            "backend_host": "127.0.0.1",
+            "player_log_path": str(player_log_path),
+        },
+    )
+
+    assert write_result.status == "written"
+    assert write_result.written_fields == ("player_log_path", "analytics_database_path", "backend_host")
+    assert paths.config_file.read_bytes()[:3] != b"\xef\xbb\xbf"
+
+    status = load_local_app_config_status(paths)
+    encoded = json.dumps(status, sort_keys=True)
+
+    assert status["status"] == "ok"
+    assert status["loaded_fields"] == ["player_log_path", "analytics_database_path", "backend_host"]
+    assert str(player_log_path) not in encoded
+    assert str(database_path) not in encoded
+
+
+def test_write_local_app_config_rejects_unexpected_fields_without_writing(tmp_path) -> None:
+    paths = build_local_app_paths(tmp_path / "app-data")
+
+    write_result = write_local_app_config(paths, {"api_key": "not-written"})
+
+    assert write_result.status == "invalid_shape"
+    assert write_result.errors == ("config_unexpected_fields",)
+    assert not paths.config_file.exists()
 
 
 def test_config_status_reports_safe_field_names_and_redacts_secret_like_fields(tmp_path) -> None:

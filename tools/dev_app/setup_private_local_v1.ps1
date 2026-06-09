@@ -12,6 +12,7 @@ param(
     [string]$SourceCheckout,
     [string]$RepoUrl,
     [string]$ReleaseRef,
+    [string]$PlayerLogPath,
     [int]$BackendPort = 8765,
     [int]$FrontendPort = 5173
 )
@@ -55,6 +56,10 @@ if ($InstallRoot) {
 
 if ($InitializeSqlite) {
     $argsList += "--initialize-sqlite"
+}
+
+if ($PlayerLogPath) {
+    $argsList += @("--player-log-path", $PlayerLogPath)
 }
 
 if ($RepoUrl) {
