@@ -255,6 +255,8 @@ describe("SetupStatusApp", () => {
       "href",
       "#diagnostics"
     );
+    expect(startCapture).not.toHaveBeenCalled();
+    expect(stopCapture).not.toHaveBeenCalled();
 
     fireEvent.click(startButton);
 
@@ -286,6 +288,78 @@ describe("SetupStatusApp", () => {
     resolveStop(buildLiveCaptureStopResultPayload());
     expect(await within(liveCaptureCard).findByRole("button", { name: "Start capture" })).toBeInTheDocument();
     expect(within(liveCaptureCard).getByLabelText("status Stopped")).toBeInTheDocument();
+  });
+
+  it("surfaces the backend-led recorded-match signal in the dashboard live capture tile", async () => {
+    render(
+      <SetupStatusApp
+        fetchLiveCapture={() =>
+          Promise.resolve(
+            buildLiveCaptureStatusPayload({
+              status: "capturing",
+              capture: {
+                running: true,
+                start_allowed: false,
+                stop_allowed: true,
+                parser_runner_started: true,
+                tailing_started: true,
+                sqlite_live_writes_enabled: true,
+                external_transport_allowed: false,
+                raw_player_log_storage_enabled: false,
+                supervisor_kind: "local_app_capture_supervisor",
+                source_kind: "live_parser",
+                reason: null
+              },
+              heartbeat: {
+                schema_version: LIVE_CAPTURE_DIAGNOSTICS_SCHEMA_VERSION,
+                status: "ok",
+                heartbeat_updated_at: "2026-06-08T12:00:00Z",
+                capture_duration_seconds: 120,
+                heartbeat_age_seconds: 1,
+                stale_after_seconds: 30
+              },
+              progress: {
+                schema_version: LIVE_CAPTURE_DIAGNOSTICS_SCHEMA_VERSION,
+                log_poll_count: 12,
+                log_chunks_seen: 3,
+                structured_entry_count: 16,
+                parser_event_count: 8,
+                parser_event_kinds_seen: ["game_state", "match_completed"],
+                match_ids_seen_count: 1,
+                current_match_detected: false,
+                current_match_game_wins: null,
+                current_match_game_losses: null,
+                last_completed_match_result: null,
+                last_completed_match_game_wins: null,
+                last_completed_match_game_losses: null,
+                completed_game_rows_seen: 3,
+                sqlite_write_attempt_count: 1,
+                sqlite_rows_written: 3,
+                last_no_write_reason: "rows_written",
+                last_event_seen_at: "2026-06-08T12:01:00Z",
+                last_sqlite_write_at: "2026-06-08T12:01:02Z"
+              },
+              parser_status_blurb: {
+                code: "most_recent_match_completed",
+                text: "Most recent completed match was recorded.",
+                tone: "ok"
+              }
+            })
+          )
+        }
+        fetchStatus={() => Promise.resolve(buildPayload())}
+      />
+    );
+
+    await screen.findByRole("heading", { name: "Mythic Edge Cockpit" });
+    const liveCaptureCard = cockpitCard("Live capture");
+
+    expect(await within(liveCaptureCard).findByText("Most recent completed match was recorded.")).toBeInTheDocument();
+    expect(within(liveCaptureCard).getByLabelText("status Capturing")).toBeInTheDocument();
+    expect(within(liveCaptureCard).getByRole("button", { name: "Stop capture" })).toBeInTheDocument();
+    expect(within(liveCaptureCard).queryByRole("button", { name: "Start capture" })).not.toBeInTheDocument();
+    expect(within(liveCaptureCard).queryByText(/\b\d+\s*-\s*\d+\b/)).not.toBeInTheDocument();
+    expect(within(liveCaptureCard).queryByText(/current match score/i)).not.toBeInTheDocument();
   });
 
   it("does not show dashboard start or stop actions when live capture control is unavailable", async () => {
