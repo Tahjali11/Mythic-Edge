@@ -228,6 +228,15 @@ h3 {
   margin-top: 0;
 }
 
+.cockpitTileFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 36px;
+  min-width: 0;
+}
+
 .cockpitTileHeader {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -330,6 +339,74 @@ h3 {
   background: #2f6d4a;
   cursor: pointer;
   font-weight: 800;
+}
+
+.dashboardCaptureControl {
+  display: flex;
+  justify-content: flex-end;
+  min-width: 8.6rem;
+}
+
+.dashboardCaptureActionSlot {
+  display: flex;
+  justify-content: flex-end;
+  width: 8.6rem;
+}
+
+.captureLifecycleButton,
+.captureLifecycleLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  width: 8.6rem;
+  border: 1px solid #2f6d4a;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.1;
+  text-align: center;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.captureLifecycleButton {
+  color: #ffffff;
+  background: #2f6d4a;
+  cursor: pointer;
+}
+
+.captureLifecycleButton.isStopping {
+  border-color: #8a5a2b;
+  background: #8a5a2b;
+}
+
+.captureLifecycleButton.isPending,
+.captureLifecycleButton:disabled {
+  border-color: #73808b;
+  color: #ffffff;
+  background: #73808b;
+  cursor: not-allowed;
+}
+
+.captureLifecycleLink {
+  color: #315571;
+  background: #eff5f7;
+}
+
+.captureLifecycleMuted {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  width: 8.6rem;
+  color: #596067;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.1;
+  text-align: center;
+  white-space: nowrap;
 }
 
 .cockpitSection,
@@ -1105,6 +1182,20 @@ dd {
   .dashboardTrustSignalGrid,
   .trustGrid {
     grid-template-columns: 1fr;
+  }
+
+  .cockpitTileFooter {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .dashboardCaptureControl,
+  .dashboardCaptureActionSlot,
+  .captureLifecycleButton,
+  .captureLifecycleLink,
+  .captureLifecycleMuted {
+    width: 100%;
+    min-width: 0;
   }
 
   .manualImportForm {

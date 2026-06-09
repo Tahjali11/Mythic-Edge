@@ -1503,7 +1503,12 @@ export function SetupStatusApp({
 
       {activeRoute === "dashboard" ? (
         <>
-          <CockpitStatusRail items={statusItems} />
+          <CockpitStatusRail
+            items={statusItems}
+            liveCaptureControlState={liveCaptureControlState}
+            onStartCapture={handleStartCapture}
+            onStopCapture={handleStopCapture}
+          />
           <AnalyticsAutoRefreshNotice state={analyticsAutoRefreshState} />
           <DashboardModulesSection
             moduleViewPreferences={dashboardModuleViews}
@@ -1755,7 +1760,17 @@ function StatusNotice({ title, status, children }: { title: string; status: stri
   );
 }
 
-function CockpitStatusRail({ items }: { items: CockpitStatusItem[] }) {
+function CockpitStatusRail({
+  items,
+  liveCaptureControlState,
+  onStartCapture,
+  onStopCapture
+}: {
+  items: CockpitStatusItem[];
+  liveCaptureControlState: LiveCaptureControlState;
+  onStartCapture: () => void;
+  onStopCapture: () => void;
+}) {
   return (
     <section className="cockpitRail" aria-label="Cockpit health status">
       {items.map((item) => (
@@ -1767,7 +1782,16 @@ function CockpitStatusRail({ items }: { items: CockpitStatusItem[] }) {
             <h2>{item.label}</h2>
           </div>
           <p>{item.detail}</p>
-          <StatusPill label={item.status} pulse={item.liveActive} tone={item.tone} />
+          <div className="cockpitTileFooter">
+            <StatusPill label={item.status} pulse={item.liveActive} tone={item.tone} />
+            {item.label === "Live capture" ? (
+              <DashboardLiveCaptureControl
+                state={liveCaptureControlState}
+                onStartCapture={onStartCapture}
+                onStopCapture={onStopCapture}
+              />
+            ) : null}
+          </div>
         </article>
       ))}
     </section>
@@ -1787,6 +1811,120 @@ function AnalyticsAutoRefreshNotice({ state }: { state: AnalyticsAutoRefreshStat
 function liveCaptureStartAllowed(state: LiveCaptureControlState): boolean {
   const payload = liveCaptureControlPayload(state);
   return state.state !== "submitting" && Boolean(payload?.capture.start_allowed);
+}
+
+type DashboardLiveCaptureAction =
+  | { kind: "start"; label: "Start capture"; disabled: false }
+  | { kind: "stop"; label: "Stop capture"; disabled: false }
+  | { kind: "pending"; label: "Starting capture" | "Stopping capture"; disabled: true }
+  | { kind: "diagnostics"; label: "View live capture diagnostics"; disabled: false }
+  | { kind: "none"; label: string; disabled: true };
+
+function DashboardLiveCaptureControl({
+  state,
+  onStartCapture,
+  onStopCapture
+}: {
+  state: LiveCaptureControlState;
+  onStartCapture: () => void;
+  onStopCapture: () => void;
+}) {
+  const action = dashboardLiveCaptureAction(state);
+  return (
+    <div className="dashboardCaptureControl" aria-label="Live capture lifecycle control">
+      <div className="dashboardCaptureActionSlot">
+        {action.kind === "start" ? (
+          <button className="captureLifecycleButton" onClick={onStartCapture} type="button">
+            {action.label}
+          </button>
+        ) : null}
+        {action.kind === "stop" ? (
+          <button className="captureLifecycleButton isStopping" onClick={onStopCapture} type="button">
+            {action.label}
+          </button>
+        ) : null}
+        {action.kind === "pending" ? (
+          <button aria-label={action.label} className="captureLifecycleButton isPending" disabled type="button">
+            {action.label === "Starting capture" ? "Starting" : "Stopping"}
+          </button>
+        ) : null}
+        {action.kind === "diagnostics" ? (
+          <a className="captureLifecycleLink" href="#diagnostics" aria-label={action.label}>
+            View diagnostics
+          </a>
+        ) : null}
+        {action.kind === "none" ? <span className="captureLifecycleMuted">{action.label}</span> : null}
+      </div>
+    </div>
+  );
+}
+
+function dashboardLiveCaptureAction(state: LiveCaptureControlState): DashboardLiveCaptureAction {
+  if (state.state === "submitting") {
+    return {
+      kind: "pending",
+      label: state.action === "start" ? "Starting capture" : "Stopping capture",
+      disabled: true
+    };
+  }
+  if (state.state === "loading") {
+    return { kind: "none", label: "Checking", disabled: true };
+  }
+
+  const payload = liveCaptureControlPayload(state);
+  if (payload === null || state.state === "error" || liveCaptureDashboardBlocked(payload)) {
+    return { kind: "diagnostics", label: "View live capture diagnostics", disabled: false };
+  }
+  if (payload.status === "capturing" && payload.capture.running && payload.capture.stop_allowed) {
+    return { kind: "stop", label: "Stop capture", disabled: false };
+  }
+  if ((payload.status === "ready_to_start" || payload.status === "stopped") && !payload.capture.running && payload.capture.start_allowed) {
+    return { kind: "start", label: "Start capture", disabled: false };
+  }
+  if (payload.status === "starting") {
+    return { kind: "pending", label: "Starting capture", disabled: true };
+  }
+  if (payload.status === "stopping") {
+    return { kind: "pending", label: "Stopping capture", disabled: true };
+  }
+  return { kind: "diagnostics", label: "View live capture diagnostics", disabled: false };
+}
+
+function liveCaptureDashboardBlocked(payload: LiveCaptureStatusResponse): boolean {
+  if (payload.status === "capturing" && !payload.capture.running) {
+    return true;
+  }
+  if ((payload.status === "ready_to_start" || payload.status === "stopped") && payload.capture.running) {
+    return true;
+  }
+  if (payload.state.stale) {
+    return true;
+  }
+  return ["blocked", "failed", "crashed", "stale", "degraded", "unknown", "unavailable"].includes(payload.status);
+}
+
+function liveCaptureDashboardStatus(payload: LiveCaptureStatusResponse): {
+  label: string;
+  tone: SetupStatusTone;
+  liveActive: boolean;
+} {
+  if (!liveCaptureDashboardBlocked(payload)) {
+    return {
+      label: liveCaptureStatusLabel(payload.status),
+      tone: liveCaptureTone(payload.status),
+      liveActive: payload.status === "capturing" && payload.capture.running
+    };
+  }
+  if (payload.status === "blocked") {
+    return { label: "Blocked", tone: "error", liveActive: false };
+  }
+  if (payload.status === "failed" || payload.status === "crashed") {
+    return { label: "Failed", tone: "error", liveActive: false };
+  }
+  if (payload.status === "unavailable") {
+    return { label: "Unavailable", tone: "unavailable", liveActive: false };
+  }
+  return { label: "Needs review", tone: "unknown", liveActive: false };
 }
 
 function LiveCaptureControlPanel({
@@ -4547,10 +4685,11 @@ function liveCaptureStatusFromControlOrSetup(
   if (controlPayload === null) {
     return liveCaptureStatusFromSetupPayload(payload);
   }
+  const dashboardStatus = liveCaptureDashboardStatus(controlPayload);
   return {
-    label: liveCaptureStatusLabel(controlPayload.status),
-    tone: liveCaptureTone(controlPayload.status),
-    liveActive: controlPayload.status === "capturing" && controlPayload.capture.running,
+    label: dashboardStatus.label,
+    tone: dashboardStatus.tone,
+    liveActive: dashboardStatus.liveActive,
     detail: liveCaptureBlurbText(controlPayload) ?? liveCaptureControlDetail(controlPayload)
   };
 }
