@@ -22,6 +22,7 @@ from .extractors import (
 )
 from .grp_id_catalog import bootstrap_grp_id_catalog, resolve_grp_id_entry
 from .models import MatchSummary
+from .posting_state import PostingState
 from .sheet_schema import GAME_LOG_SYNC_FIELDS as _GAME_LOG_SYNC_FIELDS
 from .sheet_schema import MATCH_LOG_SYNC_FIELDS as _MATCH_LOG_SYNC_FIELDS
 
@@ -37,19 +38,12 @@ class ParserRuntimeState:
     local_turn_keys: set[tuple[Any, ...]] = field(default_factory=set)
     local_hand_snapshot_keys: set[tuple[Any, ...]] = field(default_factory=set)
     sheets_turn_keys: set[tuple[Any, ...]] = field(default_factory=set)
-    posted_submit_deck_keys: set[tuple[Any, Any]] = field(default_factory=set)
-    posted_sideboard_keys: set[tuple[Any, Any]] = field(default_factory=set)
+    posting: PostingState = field(default_factory=PostingState)
     last_posted_rank: str = ""
     latest_rank_text: str = ""
     latest_rank_class: Any = ""
     latest_rank_level: Any = ""
     latest_rank_percentile: Any = None
-    game_rows_posted: set[tuple[Any, Any]] = field(default_factory=set)
-    match_rows_posted: set[Any] = field(default_factory=set)
-    posted_match_summaries: set[str] = field(default_factory=set)
-    posted_match_log_rows: set[str] = field(default_factory=set)
-    last_posted_match_log_rows: dict[str, dict[str, Any]] = field(default_factory=dict)
-    last_posted_game_log_rows: dict[tuple[str, int], dict[str, Any]] = field(default_factory=dict)
     context: dict[str, Any] = field(default_factory=lambda: dict(_DEFAULT_CONTEXT))
     mulligan_counts: dict[tuple[str, Any], int] = field(default_factory=dict)
     match_summaries: dict[str, MatchSummary] = field(default_factory=dict)
@@ -63,23 +57,97 @@ class ParserRuntimeState:
     arena_card_lookup_ready: bool = False
     gameplay_card_lookup_ready: bool = False
 
+    @staticmethod
+    def _replace_set_contents(target: set[Any], values: set[Any]) -> None:
+        target.clear()
+        target.update(values)
+
+    @staticmethod
+    def _replace_dict_contents(target: dict[Any, Any], values: dict[Any, Any]) -> None:
+        target.clear()
+        target.update(values)
+
+    @property
+    def posted_submit_deck_keys(self) -> set[tuple[Any, Any]]:
+        return self.posting.posted_submit_deck_keys
+
+    @posted_submit_deck_keys.setter
+    def posted_submit_deck_keys(self, values: set[tuple[Any, Any]]) -> None:
+        self._replace_set_contents(self.posting.posted_submit_deck_keys, values)
+
+    @property
+    def posted_sideboard_keys(self) -> set[tuple[Any, Any]]:
+        return self.posting.posted_sideboard_keys
+
+    @posted_sideboard_keys.setter
+    def posted_sideboard_keys(self, values: set[tuple[Any, Any]]) -> None:
+        self._replace_set_contents(self.posting.posted_sideboard_keys, values)
+
+    @property
+    def game_rows_posted(self) -> set[tuple[Any, Any]]:
+        return self.posting.game_rows_posted
+
+    @game_rows_posted.setter
+    def game_rows_posted(self, values: set[tuple[Any, Any]]) -> None:
+        self._replace_set_contents(self.posting.game_rows_posted, values)
+
+    @property
+    def match_rows_posted(self) -> set[Any]:
+        return self.posting.match_rows_posted
+
+    @match_rows_posted.setter
+    def match_rows_posted(self, values: set[Any]) -> None:
+        self._replace_set_contents(self.posting.match_rows_posted, values)
+
+    @property
+    def posted_match_summaries(self) -> set[str]:
+        return self.posting.posted_match_summaries
+
+    @posted_match_summaries.setter
+    def posted_match_summaries(self, values: set[str]) -> None:
+        self._replace_set_contents(self.posting.posted_match_summaries, values)
+
+    @property
+    def posted_match_log_rows(self) -> set[str]:
+        return self.posting.posted_match_log_rows
+
+    @posted_match_log_rows.setter
+    def posted_match_log_rows(self, values: set[str]) -> None:
+        self._replace_set_contents(self.posting.posted_match_log_rows, values)
+
+    @property
+    def last_posted_match_log_rows(self) -> dict[str, dict[str, Any]]:
+        return self.posting.last_posted_match_log_rows
+
+    @last_posted_match_log_rows.setter
+    def last_posted_match_log_rows(self, values: dict[str, dict[str, Any]]) -> None:
+        self._replace_dict_contents(self.posting.last_posted_match_log_rows, values)
+
+    @property
+    def last_posted_game_log_rows(self) -> dict[tuple[str, int], dict[str, Any]]:
+        return self.posting.last_posted_game_log_rows
+
+    @last_posted_game_log_rows.setter
+    def last_posted_game_log_rows(self, values: dict[tuple[str, int], dict[str, Any]]) -> None:
+        self._replace_dict_contents(self.posting.last_posted_game_log_rows, values)
+
 
 RUNTIME_STATE = ParserRuntimeState()
 
-# Backward-compatible aliases for modules and tests that mutate the live containers
-# directly. The owned state object is the primary source of truth; these aliases
-# point to the same mutable objects.
+# Backward-compatible aliases for modules and tests that mutate live bridge
+# containers directly.
 _LOCAL_TURN_KEYS = RUNTIME_STATE.local_turn_keys
 _LOCAL_HAND_SNAPSHOT_KEYS = RUNTIME_STATE.local_hand_snapshot_keys
 _SHEETS_TURN_KEYS = RUNTIME_STATE.sheets_turn_keys
-_POSTED_SUBMIT_DECK_KEYS = RUNTIME_STATE.posted_submit_deck_keys
-_POSTED_SIDEBOARD_KEYS = RUNTIME_STATE.posted_sideboard_keys
-_GAME_ROWS_POSTED = RUNTIME_STATE.game_rows_posted
-_MATCH_ROWS_POSTED = RUNTIME_STATE.match_rows_posted
-_POSTED_MATCH_SUMMARIES = RUNTIME_STATE.posted_match_summaries
-_POSTED_MATCH_LOG_ROWS = RUNTIME_STATE.posted_match_log_rows
-_LAST_POSTED_MATCH_LOG_ROWS = RUNTIME_STATE.last_posted_match_log_rows
-_LAST_POSTED_GAME_LOG_ROWS = RUNTIME_STATE.last_posted_game_log_rows
+_POSTING_STATE = RUNTIME_STATE.posting
+_POSTED_SUBMIT_DECK_KEYS = _POSTING_STATE.posted_submit_deck_keys
+_POSTED_SIDEBOARD_KEYS = _POSTING_STATE.posted_sideboard_keys
+_GAME_ROWS_POSTED = _POSTING_STATE.game_rows_posted
+_MATCH_ROWS_POSTED = _POSTING_STATE.match_rows_posted
+_POSTED_MATCH_SUMMARIES = _POSTING_STATE.posted_match_summaries
+_POSTED_MATCH_LOG_ROWS = _POSTING_STATE.posted_match_log_rows
+_LAST_POSTED_MATCH_LOG_ROWS = _POSTING_STATE.last_posted_match_log_rows
+_LAST_POSTED_GAME_LOG_ROWS = _POSTING_STATE.last_posted_game_log_rows
 _CONTEXT = RUNTIME_STATE.context
 _MULLIGAN_COUNTS = RUNTIME_STATE.mulligan_counts
 _MATCH_SUMMARIES = RUNTIME_STATE.match_summaries
@@ -421,14 +489,7 @@ def reset_runtime_state() -> None:
     _LOCAL_TURN_KEYS.clear()
     _LOCAL_HAND_SNAPSHOT_KEYS.clear()
     _SHEETS_TURN_KEYS.clear()
-    _POSTED_SUBMIT_DECK_KEYS.clear()
-    _POSTED_SIDEBOARD_KEYS.clear()
-    _GAME_ROWS_POSTED.clear()
-    _MATCH_ROWS_POSTED.clear()
-    _POSTED_MATCH_SUMMARIES.clear()
-    _POSTED_MATCH_LOG_ROWS.clear()
-    _LAST_POSTED_MATCH_LOG_ROWS.clear()
-    _LAST_POSTED_GAME_LOG_ROWS.clear()
+    _POSTING_STATE.reset()
     _MULLIGAN_COUNTS.clear()
     _MATCH_SUMMARIES.clear()
     _GAME_INSTANCE_GRP_IDS.clear()
@@ -722,7 +783,7 @@ def build_match_log_update(match_id: str) -> tuple[dict[str, Any] | None, list[s
 
     is_final = _match_summary_ready(summary)
     row = summary.to_match_log_row(final=is_final)
-    previous_row = _LAST_POSTED_MATCH_LOG_ROWS.get(match_id)
+    previous_row = _POSTING_STATE.last_posted_match_log_rows.get(match_id)
     changed_fields = _changed_fields(previous_row, row, _MATCH_LOG_SYNC_FIELDS)
 
     if not changed_fields:
@@ -731,7 +792,7 @@ def build_match_log_update(match_id: str) -> tuple[dict[str, Any] | None, list[s
 
 
 def mark_match_log_posted(match_id: str, row: dict[str, Any]) -> None:
-    _LAST_POSTED_MATCH_LOG_ROWS[match_id] = dict(row)
+    _POSTING_STATE.mark_match_log_posted(match_id, row)
 
 
 def build_game_log_updates(match_id: str) -> list[tuple[dict[str, Any], list[str], bool]]:
@@ -745,7 +806,7 @@ def build_game_log_updates(match_id: str) -> list[tuple[dict[str, Any], list[str
         if key is None:
             continue
 
-        previous_row = _LAST_POSTED_GAME_LOG_ROWS.get(key)
+        previous_row = _POSTING_STATE.last_posted_game_log_rows.get(key)
         changed_fields = _changed_fields(previous_row, row, _GAME_LOG_SYNC_FIELDS)
 
         if not changed_fields:
@@ -761,7 +822,7 @@ def mark_game_log_posted(match_id: str, game_number: Any, row: dict[str, Any]) -
     key = _game_log_key(match_id, game_number)
     if key is None:
         return
-    _LAST_POSTED_GAME_LOG_ROWS[key] = dict(row)
+    _POSTING_STATE.mark_game_log_posted(key, row)
 
 
 def get_match_summary(match_id: str) -> MatchSummary | None:
