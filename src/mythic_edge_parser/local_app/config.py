@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
@@ -26,6 +27,13 @@ class LocalAppConfigRead:
     loaded_fields: tuple[str, ...]
     unexpected_fields: tuple[str, ...]
     secret_like_field_count: int
+    errors: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class LocalAppConfigWrite:
+    status: str
+    written_fields: tuple[str, ...]
     errors: tuple[str, ...]
 
 
@@ -79,7 +87,7 @@ def read_local_app_config(paths: LocalAppPaths) -> LocalAppConfigRead:
         )
 
     try:
-        payload = json.loads(config_file.read_text(encoding="utf-8"))
+        payload = json.loads(config_file.read_text(encoding="utf-8-sig"))
     except json.JSONDecodeError:
         return LocalAppConfigRead(
             status="invalid_json",
@@ -131,6 +139,33 @@ def read_local_app_config(paths: LocalAppPaths) -> LocalAppConfigRead:
     )
 
 
+def write_local_app_config(paths: LocalAppPaths, values: Mapping[str, Any]) -> LocalAppConfigWrite:
+    config_file = paths.config_file
+    if config_file is None:
+        return LocalAppConfigWrite(status="unavailable", written_fields=(), errors=("app_data_root_unavailable",))
+
+    allowed = set(ALLOWED_CONFIG_FIELDS)
+    if any(key not in allowed for key in values):
+        return LocalAppConfigWrite(status="invalid_shape", written_fields=(), errors=("config_unexpected_fields",))
+
+    payload = {key: values[key] for key in ALLOWED_CONFIG_FIELDS if key in values}
+    errors = _config_shape_errors(payload)
+    if errors:
+        return LocalAppConfigWrite(status="invalid_shape", written_fields=(), errors=tuple(errors))
+
+    try:
+        config_file.parent.mkdir(parents=True, exist_ok=True)
+        config_file.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    except OSError:
+        return LocalAppConfigWrite(status="unwritable", written_fields=(), errors=("config_unwritable",))
+
+    return LocalAppConfigWrite(
+        status="written",
+        written_fields=tuple(key for key in ALLOWED_CONFIG_FIELDS if key in payload),
+        errors=(),
+    )
+
+
 def _top_level_config_status(config_status: str) -> str:
     if config_status == "present":
         return "ok"
@@ -153,6 +188,16 @@ def _is_safe_unexpected_field_name(field_name: object) -> bool:
 
 def _config_shape_errors(values: dict[str, Any]) -> list[str]:
     errors: list[str] = []
+
+    player_log_path = values.get("player_log_path")
+    if player_log_path is not None and (not isinstance(player_log_path, str) or not player_log_path.strip()):
+        errors.append("player_log_path_invalid")
+
+    analytics_database_path = values.get("analytics_database_path")
+    if analytics_database_path is not None and (
+        not isinstance(analytics_database_path, str) or not analytics_database_path.strip()
+    ):
+        errors.append("analytics_database_path_invalid")
 
     backend_host = values.get("backend_host")
     if backend_host is not None and backend_host not in {"127.0.0.1", "localhost"}:
