@@ -62,9 +62,16 @@ def test_reset_runtime_state_restores_default_shared_state() -> None:
 
 def test_reset_runtime_state_preserves_alias_identity_and_resets_scalars() -> None:
     runtime_state = state.RUNTIME_STATE
+    posting_state = runtime_state.posting
     alias_objects = {
         "context": state._CONTEXT,
         "summaries": state._MATCH_SUMMARIES,
+        "posted_submit_deck_keys": state._POSTED_SUBMIT_DECK_KEYS,
+        "posted_sideboard_keys": state._POSTED_SIDEBOARD_KEYS,
+        "game_rows_posted": state._GAME_ROWS_POSTED,
+        "match_rows_posted": state._MATCH_ROWS_POSTED,
+        "posted_match_summaries": state._POSTED_MATCH_SUMMARIES,
+        "posted_match_log_rows": state._POSTED_MATCH_LOG_ROWS,
         "posted_match_rows": state._LAST_POSTED_MATCH_LOG_ROWS,
         "posted_game_rows": state._LAST_POSTED_GAME_LOG_ROWS,
         "mulligan_counts": state._MULLIGAN_COUNTS,
@@ -96,8 +103,15 @@ def test_reset_runtime_state_preserves_alias_identity_and_resets_scalars() -> No
     state.reset_runtime_state()
 
     assert state.RUNTIME_STATE is runtime_state
+    assert state.RUNTIME_STATE.posting is posting_state
     assert state._CONTEXT is alias_objects["context"]
     assert state._MATCH_SUMMARIES is alias_objects["summaries"]
+    assert state._POSTED_SUBMIT_DECK_KEYS is alias_objects["posted_submit_deck_keys"]
+    assert state._POSTED_SIDEBOARD_KEYS is alias_objects["posted_sideboard_keys"]
+    assert state._GAME_ROWS_POSTED is alias_objects["game_rows_posted"]
+    assert state._MATCH_ROWS_POSTED is alias_objects["match_rows_posted"]
+    assert state._POSTED_MATCH_SUMMARIES is alias_objects["posted_match_summaries"]
+    assert state._POSTED_MATCH_LOG_ROWS is alias_objects["posted_match_log_rows"]
     assert state._LAST_POSTED_MATCH_LOG_ROWS is alias_objects["posted_match_rows"]
     assert state._LAST_POSTED_GAME_LOG_ROWS is alias_objects["posted_game_rows"]
     assert state._MULLIGAN_COUNTS is alias_objects["mulligan_counts"]
@@ -123,6 +137,29 @@ def test_reset_runtime_state_preserves_alias_identity_and_resets_scalars() -> No
     assert state._ARENA_CARD_LOOKUP is None
     assert state._ARENA_CARD_LOOKUP_READY is False
     assert state._GAMEPLAY_CARD_LOOKUP_READY is False
+
+
+def test_posting_state_bridge_aliases_point_to_nested_state() -> None:
+    state.reset_runtime_state()
+
+    posting = state.RUNTIME_STATE.posting
+
+    assert state.RUNTIME_STATE.posted_submit_deck_keys is posting.posted_submit_deck_keys
+    assert state.RUNTIME_STATE.posted_sideboard_keys is posting.posted_sideboard_keys
+    assert state.RUNTIME_STATE.game_rows_posted is posting.game_rows_posted
+    assert state.RUNTIME_STATE.match_rows_posted is posting.match_rows_posted
+    assert state.RUNTIME_STATE.posted_match_summaries is posting.posted_match_summaries
+    assert state.RUNTIME_STATE.posted_match_log_rows is posting.posted_match_log_rows
+    assert state.RUNTIME_STATE.last_posted_match_log_rows is posting.last_posted_match_log_rows
+    assert state.RUNTIME_STATE.last_posted_game_log_rows is posting.last_posted_game_log_rows
+    assert state._POSTED_SUBMIT_DECK_KEYS is posting.posted_submit_deck_keys
+    assert state._POSTED_SIDEBOARD_KEYS is posting.posted_sideboard_keys
+    assert state._GAME_ROWS_POSTED is posting.game_rows_posted
+    assert state._MATCH_ROWS_POSTED is posting.match_rows_posted
+    assert state._POSTED_MATCH_SUMMARIES is posting.posted_match_summaries
+    assert state._POSTED_MATCH_LOG_ROWS is posting.posted_match_log_rows
+    assert state._LAST_POSTED_MATCH_LOG_ROWS is posting.last_posted_match_log_rows
+    assert state._LAST_POSTED_GAME_LOG_ROWS is posting.last_posted_game_log_rows
 
 
 def test_unknown_event_kind_is_complete_noop() -> None:
