@@ -1810,8 +1810,9 @@ function LiveCaptureControlPanel({
         ? state.action === "start"
           ? "Starting capture from the local app."
           : "Stopping the app-owned capture supervisor."
-        : liveCaptureBlurbText(payload) ??
-          (state.state === "ready" && state.message ? state.message : liveCaptureControlDetail(payload));
+        : state.state === "ready" && state.message
+          ? state.message
+          : liveCaptureBlurbText(payload) ?? liveCaptureControlDetail(payload);
   return (
     <section className="captureControlPanel" aria-labelledby="live-capture-control-title">
       <div>

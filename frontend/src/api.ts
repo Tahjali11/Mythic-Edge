@@ -16,6 +16,7 @@ import {
   LEGACY_JSONL_IMPORT_QUALITY_SCHEMA_VERSION,
   LIVE_PLAYER_LOG_STATUS_OBJECT,
   LIVE_CAPTURE_SCHEMA_VERSION,
+  LIVE_CAPTURE_DIAGNOSTICS_SCHEMA_VERSION,
   LIVE_CAPTURE_START_RESULT_OBJECT,
   LIVE_CAPTURE_STATUS_OBJECT,
   LIVE_CAPTURE_STOP_RESULT_OBJECT,
@@ -997,7 +998,9 @@ function validateLiveCaptureStatusResponse(payload: unknown): LiveCaptureStatusR
     !isLiveCaptureSummary(payload.capture) ||
     !isLiveCapturePreconditions(payload.preconditions) ||
     !isLiveCaptureState(payload.state) ||
-    !isOptionalLiveCaptureParserStatusBlurb(payload.parser_status_blurb) ||
+    !isLiveCaptureHeartbeat(payload.heartbeat) ||
+    !isLiveCaptureProgress(payload.progress) ||
+    !isLiveCaptureParserStatusBlurb(payload.parser_status_blurb) ||
     !isStringArray(payload.warnings) ||
     !isStringArray(payload.errors)
   ) {
@@ -2039,6 +2042,14 @@ function isNumberOrNull(value: unknown): value is number | null {
   return typeof value === "number" || value === null;
 }
 
+function isNonNegativeNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+
+function isOptionalNonNegativeNumber(value: unknown): value is number | null {
+  return value === null || isNonNegativeNumber(value);
+}
+
 function isBooleanOrNull(value: unknown): value is boolean | null {
   return typeof value === "boolean" || value === null;
 }
@@ -2047,8 +2058,43 @@ function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((entry) => typeof entry === "string");
 }
 
-function isOptionalLiveCaptureParserStatusBlurb(value: unknown): boolean {
-  return value === undefined || value === null || isLiveCaptureParserStatusBlurb(value);
+function isLiveCaptureHeartbeat(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    value.schema_version === LIVE_CAPTURE_DIAGNOSTICS_SCHEMA_VERSION &&
+    isSafeLiveCaptureLabel(value.status) &&
+    isIsoTimestampOrNull(value.heartbeat_updated_at) &&
+    isNonNegativeNumber(value.capture_duration_seconds) &&
+    isNumberOrNull(value.heartbeat_age_seconds) &&
+    (value.heartbeat_age_seconds === null || isNonNegativeNumber(value.heartbeat_age_seconds)) &&
+    isNonNegativeNumber(value.stale_after_seconds)
+  );
+}
+
+function isLiveCaptureProgress(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    value.schema_version === LIVE_CAPTURE_DIAGNOSTICS_SCHEMA_VERSION &&
+    isNonNegativeNumber(value.log_poll_count) &&
+    isNonNegativeNumber(value.log_chunks_seen) &&
+    isNonNegativeNumber(value.structured_entry_count) &&
+    isNonNegativeNumber(value.parser_event_count) &&
+    Array.isArray(value.parser_event_kinds_seen) &&
+    value.parser_event_kinds_seen.every(isSafeLiveCaptureLabel) &&
+    isNonNegativeNumber(value.match_ids_seen_count) &&
+    typeof value.current_match_detected === "boolean" &&
+    isOptionalNonNegativeNumber(value.current_match_game_wins) &&
+    isOptionalNonNegativeNumber(value.current_match_game_losses) &&
+    (value.last_completed_match_result === null || isSafeLiveCaptureLabel(value.last_completed_match_result)) &&
+    isOptionalNonNegativeNumber(value.last_completed_match_game_wins) &&
+    isOptionalNonNegativeNumber(value.last_completed_match_game_losses) &&
+    isNonNegativeNumber(value.completed_game_rows_seen) &&
+    isNonNegativeNumber(value.sqlite_write_attempt_count) &&
+    isNonNegativeNumber(value.sqlite_rows_written) &&
+    isSafeLiveCaptureLabel(value.last_no_write_reason) &&
+    isIsoTimestampOrNull(value.last_event_seen_at) &&
+    isIsoTimestampOrNull(value.last_sqlite_write_at)
+  );
 }
 
 function isLiveCaptureParserStatusBlurb(value: unknown): boolean {
