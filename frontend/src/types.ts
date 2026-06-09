@@ -243,6 +243,43 @@ export type LiveSqliteCaptureStatusResponse = {
   [key: string]: unknown;
 };
 
+export type LiveCaptureHeartbeat = {
+  schema_version: typeof LIVE_CAPTURE_DIAGNOSTICS_SCHEMA_VERSION;
+  status: string;
+  heartbeat_updated_at: string | null;
+  capture_duration_seconds: number;
+  heartbeat_age_seconds: number | null;
+  stale_after_seconds: number;
+};
+
+export type LiveCaptureProgress = {
+  schema_version: typeof LIVE_CAPTURE_DIAGNOSTICS_SCHEMA_VERSION;
+  log_poll_count: number;
+  log_chunks_seen: number;
+  structured_entry_count: number;
+  parser_event_count: number;
+  parser_event_kinds_seen: string[];
+  match_ids_seen_count: number;
+  current_match_detected: boolean;
+  current_match_game_wins: number | null;
+  current_match_game_losses: number | null;
+  last_completed_match_result: string | null;
+  last_completed_match_game_wins: number | null;
+  last_completed_match_game_losses: number | null;
+  completed_game_rows_seen: number;
+  sqlite_write_attempt_count: number;
+  sqlite_rows_written: number;
+  last_no_write_reason: string;
+  last_event_seen_at: string | null;
+  last_sqlite_write_at: string | null;
+};
+
+export type LiveCaptureParserStatusBlurb = {
+  code: string;
+  text: string;
+  tone: string;
+};
+
 export type LiveCaptureStatusResponse = {
   object: typeof LIVE_CAPTURE_STATUS_OBJECT;
   schema_version: typeof LIVE_CAPTURE_SCHEMA_VERSION;
@@ -276,11 +313,9 @@ export type LiveCaptureStatusResponse = {
     updated_at?: string | null;
   };
   last_result: unknown;
-  parser_status_blurb?: {
-    code: string;
-    text: string;
-    tone: string;
-  } | null;
+  heartbeat: LiveCaptureHeartbeat;
+  progress: LiveCaptureProgress;
+  parser_status_blurb: LiveCaptureParserStatusBlurb;
   warnings: string[];
   errors: string[];
   [key: string]: unknown;

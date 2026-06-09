@@ -369,6 +369,7 @@ describe("SetupStatusApp", () => {
         progress: {
           schema_version: LIVE_CAPTURE_DIAGNOSTICS_SCHEMA_VERSION,
           log_poll_count: 4,
+          log_chunks_seen: 0,
           structured_entry_count: 2,
           parser_event_count: 1,
           parser_event_kinds_seen: ["game_state"],
@@ -2117,6 +2118,40 @@ function buildLiveCaptureStatusPayload(overrides: Partial<LiveCaptureStatusRespo
       updated_at: null
     },
     last_result: null,
+    heartbeat: {
+      schema_version: LIVE_CAPTURE_DIAGNOSTICS_SCHEMA_VERSION,
+      status: "not_started",
+      heartbeat_updated_at: null,
+      capture_duration_seconds: 0,
+      heartbeat_age_seconds: null,
+      stale_after_seconds: 30
+    },
+    progress: {
+      schema_version: LIVE_CAPTURE_DIAGNOSTICS_SCHEMA_VERSION,
+      log_poll_count: 0,
+      log_chunks_seen: 0,
+      structured_entry_count: 0,
+      parser_event_count: 0,
+      parser_event_kinds_seen: [],
+      match_ids_seen_count: 0,
+      current_match_detected: false,
+      current_match_game_wins: null,
+      current_match_game_losses: null,
+      last_completed_match_result: null,
+      last_completed_match_game_wins: null,
+      last_completed_match_game_losses: null,
+      completed_game_rows_seen: 0,
+      sqlite_write_attempt_count: 0,
+      sqlite_rows_written: 0,
+      last_no_write_reason: "not_started",
+      last_event_seen_at: null,
+      last_sqlite_write_at: null
+    },
+    parser_status_blurb: {
+      code: "ready_to_start",
+      text: "Ready to start capture.",
+      tone: "neutral"
+    },
     warnings: [],
     errors: [],
     ...overrides

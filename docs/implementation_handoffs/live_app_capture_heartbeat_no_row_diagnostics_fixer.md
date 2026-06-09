@@ -8,89 +8,83 @@ Codex D: Module Fixer.
 
 - Issue: https://github.com/Tahjali11/Mythic-Edge/issues/302
 - Related issue: https://github.com/Tahjali11/Mythic-Edge/issues/294
-- Branch used: `codex/analytics-foundation`
+- Prior narrow fixer PR: https://github.com/Tahjali11/Mythic-Edge/pull/306
+- Worktree: sibling checkout `MythicEdge-live-capture-diagnostics-302`
+- Branch: `codex/live-capture-diagnostics-restore-302`
+- Base branch: `origin/codex/analytics-foundation`
 
-## Source Context
+## Source Artifacts
 
-Codex E routed two findings back to D:
+- Contract: `docs/contracts/live_app_capture_heartbeat_no_row_diagnostics.md`
+- Implementation handoff: `docs/implementation_handoffs/live_app_capture_heartbeat_no_row_diagnostics_comparison.md`
+- Review artifact: `docs/contract_test_reports/live_app_capture_heartbeat_no_row_diagnostics.md`
 
-- CT-302-001 P1: persisted heartbeat/progress/state timestamp-like fields could echo unsafe app-data strings through `GET /api/live/capture/status`.
-- CT-302-002 P2: frontend validation could accept and render arbitrary `parser_status_blurb.text` from malformed live-capture status payloads.
+## Finding Fixed
 
-The handoff reported an observed branch mismatch. The worktree was clean, the expected branch existed, and the relevant code paths matched, so D switched to `codex/analytics-foundation` before editing.
+`CT-302-003 P2`: failed SQLite ingest attempts could be double-counted in `sqlite_write_attempt_count`.
 
-The named #302 contract and review artifacts were not present in this checkout:
-
-- `docs/contracts/live_app_capture_heartbeat_no_row_diagnostics.md`
-- `docs/implementation_handoffs/live_app_capture_heartbeat_no_row_diagnostics_comparison.md`
-- `docs/contract_test_reports/live_app_capture_heartbeat_no_row_diagnostics.md`
-
-This fixer pass stayed anchored to issue #302 and the concrete E findings.
+Codex E found that the live capture loop incremented `progress["sqlite_write_attempt_count"]` before `_write_live_facts(...)` and again in the ingest exception handler. One failed approved #244 SQLite ingest call could therefore report two attempts.
 
 ## Fix Summary
 
-- Backend live capture state now exposes and persists `started_at` and `updated_at` only when they parse as timestamps.
-- Unsafe timestamp-like persisted state strings are converted to `null` in status payloads and do not echo through status/start/stop envelopes.
-- Frontend live-capture API validation now rejects unsafe optional `parser_status_blurb` payloads before React can render them.
-- Frontend live-capture state validation now treats `started_at` and `updated_at` as timestamp fields rather than arbitrary strings.
-- Added the missing `LIVE_CAPTURE_DIAGNOSTICS_SCHEMA_VERSION` export already referenced by the existing #302 frontend test.
+- Added a focused failed-ingest regression using a fake stream/subscriber and monkeypatched parser row builders.
+- The regression proves one failed `_write_live_facts(...)` call reports `sqlite_write_attempt_count == 1`.
+- The regression also proves `last_no_write_reason == "sqlite_write_failed"` and that raw exception/path text does not appear in the public status payload.
+- Removed the extra exception-handler increment because the approved ingest call is already counted immediately before `_write_live_facts(...)`.
 
-## Files Changed
+## Files Changed By This Fixer Pass
 
 - `src/mythic_edge_parser/local_app/live_capture_control.py`
 - `tests/test_live_app_explicit_start_capture_control.py`
-- `frontend/src/api.ts`
-- `frontend/src/api.test.ts`
-- `frontend/src/types.ts`
 - `docs/implementation_handoffs/live_app_capture_heartbeat_no_row_diagnostics_fixer.md`
 
-## Tests Added
-
-- `test_capture_status_redacts_unsafe_state_timestamp_fields`
-  - proves unsafe persisted `started_at` and `updated_at` values are not echoed and are returned as `null`.
-- Frontend API regression inside malformed live-status response coverage
-  - proves path-shaped `parser_status_blurb.text` is rejected as `malformed_response` and not included in the thrown error text.
+The broader restored #302 package remains present in this isolated worktree.
 
 ## Validation Run
 
 - `py -m pytest -q tests\test_live_app_explicit_start_capture_control.py`
-  - passed: 9 passed, 1 existing third-party warning.
-- `npm --prefix frontend test -- --run src/api.test.ts`
-  - passed: 32 passed.
-- `py -m pytest -q tests\test_live_app_explicit_start_capture_control.py tests\test_analytics_local_app_backend.py tests\test_live_app_parser_owned_fact_capture_sqlite.py`
-  - passed: 49 passed, 1 existing third-party warning.
+  - passed: 12 passed, 1 existing FastAPI/Starlette warning.
+- `py -m pytest -q tests\test_live_app_explicit_start_capture_control.py tests\test_analytics_local_app_backend.py`
+  - passed: 41 passed, 1 existing FastAPI/Starlette warning.
+- `py -m pytest -q tests\test_live_app_parser_owned_fact_capture_sqlite.py tests\test_stream_unit.py`
+  - passed: 12 passed.
 - `npm --prefix frontend run typecheck`
   - passed.
-- `npm --prefix frontend test -- --run src/api.test.ts src/App.test.tsx`
-  - passed: 83 passed.
+- `npm --prefix frontend run test -- --run`
+  - passed: 91 passed.
 - `npm --prefix frontend run build`
   - passed; generated `frontend/dist` was removed after validation.
 - `py -m ruff check src tests tools`
   - passed.
-- `py tools\check_agent_docs.py`
-  - passed.
 - `git diff --check`
   - passed after this handoff artifact was added.
-- Path-scoped protected-surface scan over changed files
-  - passed: forbidden 0, warnings 0.
-- Path-scoped secret/private-marker scan over changed files
-  - passed: forbidden 0, warnings 0.
+- `py tools\check_agent_docs.py`
+  - passed.
+
+## Protected-Surface Status
+
+Path-scoped protected-surface scan over the full touched #302 package passed with forbidden 0 and warnings 0.
+
+## Secret/Private-Marker Status
+
+Path-scoped secret/private-marker scan over the full touched #302 package passed with forbidden 0 and warnings 0.
+
+## Generated/Private Artifact Status
+
+`frontend/dist` was generated by build validation and removed.
+
+No real watcher was started or stopped. No raw Player.log, raw JSONL, private path, raw hash, SQLite contents, SQL text, stack trace, secret, environment value, runtime artifact, workbook export, or local-only private artifact was read, copied, hashed, stored, or exposed.
 
 ## Forbidden Scope Status
 
 Forbidden scope touched: false.
 
-No parser behavior, parser final reconciliation, analytics schema/migrations, workbook/webhook/App Script/Sheets behavior, production behavior, OpenAI/AI behavior, real Player.log handling, real watcher control, generated database artifacts, raw logs, secrets, or external transport behavior were changed.
-
-## Generated Artifact Status
-
-`frontend/dist` was created by build validation and removed.
+No #294 auto-refresh behavior, parser truth, parser final reconciliation, parser event classes, match/game identity, analytics schema/migrations, workbook/webhook/App Script/Sheets behavior, OpenAI/AI/coaching/Line Tracer behavior, or production behavior was changed.
 
 ## Remaining Risks
 
-- The #302 contract/comparison/report artifacts named by the handoff were absent locally, so this D pass could not verify wording against those documents.
-- Full heartbeat/progress diagnostics are not implemented by this patch; this pass only fixes the two privacy/validation findings routed by Codex E.
-- A real private MTGA smoke remains operator-owned and was not run.
+- Real private MTGA live smoke was not run.
+- The restored #302 package is still uncommitted/untracked in this isolated worktree and awaits Codex E confirmation before submitter routing.
 
 ## Next Recommended Role
 
@@ -103,15 +97,17 @@ workflow_handoff:
   role_performed: "Codex D: Module Fixer"
   issue: "https://github.com/Tahjali11/Mythic-Edge/issues/302"
   related_issue: "https://github.com/Tahjali11/Mythic-Edge/issues/294"
+  prior_narrow_fixer_pr: "https://github.com/Tahjali11/Mythic-Edge/pull/306"
   completed_thread: "D"
   next_thread: "E"
   next_role: "Codex E: Module Reviewer / confirmation thread"
-  branch: "codex/analytics-foundation"
+  worktree: "MythicEdge-live-capture-diagnostics-302"
+  branch: "codex/live-capture-diagnostics-restore-302"
+  base_branch: "origin/codex/analytics-foundation"
   source_artifact: "docs/contract_test_reports/live_app_capture_heartbeat_no_row_diagnostics.md"
   produced_artifact: "docs/implementation_handoffs/live_app_capture_heartbeat_no_row_diagnostics_fixer.md"
   findings_fixed:
-    - "CT-302-001 P1: unsafe persisted timestamp-like live-capture state fields no longer echo through GET /api/live/capture/status."
-    - "CT-302-002 P2: unsafe parser_status_blurb.text payloads are rejected by frontend live-capture API validation."
+    - "CT-302-003 P2: failed SQLite ingest attempts no longer double-count sqlite_write_attempt_count."
   generated_artifacts_kept: false
   forbidden_scope_touched: false
   next_recommended_role: "Codex E confirmation thread"

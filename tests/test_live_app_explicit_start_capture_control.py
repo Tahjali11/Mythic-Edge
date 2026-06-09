@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 import json
+import sqlite3
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -10,9 +12,11 @@ from mythic_edge_parser.app import config as app_config
 from mythic_edge_parser.local_app import live_capture_control, setup_status
 from mythic_edge_parser.local_app.backend import create_app
 from mythic_edge_parser.local_app.live_capture_control import (
+    LIVE_CAPTURE_DIAGNOSTICS_SCHEMA_VERSION,
     LIVE_CAPTURE_SCHEMA_VERSION,
     LIVE_CAPTURE_STATE_FILENAME,
 )
+from mythic_edge_parser.local_app.paths import build_local_app_paths
 
 
 class _FakeSupervisor:
@@ -31,6 +35,35 @@ class _FakeSupervisor:
                 "tailing_started": True,
                 "sqlite_live_writes_enabled": True,
                 "updated_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+                "heartbeat": {
+                    "schema_version": LIVE_CAPTURE_DIAGNOSTICS_SCHEMA_VERSION,
+                    "status": "waiting",
+                    "heartbeat_updated_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+                    "capture_duration_seconds": 0,
+                    "heartbeat_age_seconds": 0,
+                    "stale_after_seconds": 30,
+                },
+                "progress": {
+                    "schema_version": LIVE_CAPTURE_DIAGNOSTICS_SCHEMA_VERSION,
+                    "log_poll_count": 0,
+                    "log_chunks_seen": 0,
+                    "structured_entry_count": 0,
+                    "parser_event_count": 0,
+                    "parser_event_kinds_seen": [],
+                    "match_ids_seen_count": 0,
+                    "current_match_detected": False,
+                    "current_match_game_wins": None,
+                    "current_match_game_losses": None,
+                    "last_completed_match_result": None,
+                    "last_completed_match_game_wins": None,
+                    "last_completed_match_game_losses": None,
+                    "completed_game_rows_seen": 0,
+                    "sqlite_write_attempt_count": 0,
+                    "sqlite_rows_written": 0,
+                    "last_no_write_reason": "no_parser_events_routed",
+                    "last_event_seen_at": None,
+                    "last_sqlite_write_at": None,
+                },
                 "warnings": ["waiting_for_events"],
                 "errors": [],
             },
@@ -42,6 +75,26 @@ class _FakeSupervisor:
 
     def is_running(self) -> bool:
         return self.running
+
+
+class _FakeStream:
+    def __init__(self) -> None:
+        self.shutdown_called = False
+
+    async def shutdown(self) -> None:
+        self.shutdown_called = True
+
+
+class _FakeSubscriber:
+    def __init__(self, event: object) -> None:
+        self._event = event
+        self._sent = False
+
+    async def recv(self) -> object | None:
+        if self._sent:
+            return None
+        self._sent = True
+        return self._event
 
 
 def _client(app_data_root: Path) -> TestClient:
@@ -80,6 +133,17 @@ def test_capture_status_get_is_read_only_and_ready_to_start_when_preconditions_p
     assert payload["capture"]["raw_player_log_storage_enabled"] is False
     assert payload["state"]["display_path"] == "<app_data>\\jobs\\live_capture_state.json"
     assert payload["state"]["raw_path_exposed"] is False
+    assert payload["heartbeat"]["schema_version"] == LIVE_CAPTURE_DIAGNOSTICS_SCHEMA_VERSION
+    assert payload["heartbeat"]["status"] == "not_started"
+    assert payload["heartbeat"]["heartbeat_updated_at"] is None
+    assert payload["progress"]["schema_version"] == LIVE_CAPTURE_DIAGNOSTICS_SCHEMA_VERSION
+    assert payload["progress"]["log_chunks_seen"] == 0
+    assert payload["progress"]["last_no_write_reason"] == "not_started"
+    assert payload["parser_status_blurb"] == {
+        "code": "ready_to_start",
+        "text": "Ready to start capture.",
+        "tone": "neutral",
+    }
     assert not (app_root / "jobs").exists()
     assert not (app_root / "db" / "mythic_edge.sqlite3").exists()
     assert str(player_log_path) not in encoded
@@ -136,6 +200,86 @@ def test_capture_status_redacts_unsafe_state_warning_error_and_result_text(tmp_p
     assert "sqlite_write_failed" in status_payload["errors"]
     assert "unsafe_state_error_redacted" in status_payload["errors"]
     assert "raw_path" not in status_payload["last_result"]
+    assert unsafe_path not in encoded
+    assert unsafe_url not in encoded
+
+
+def test_capture_status_sanitizes_heartbeat_progress_and_blurb_boundaries(tmp_path) -> None:
+    app_root = tmp_path / "app-data"
+    player_log_path = tmp_path / "Player.log"
+    _configure_player_log(app_root, player_log_path)
+    unsafe_path = r"C:\operator\AppData\Local\MythicEdge\Player.log"
+    unsafe_url = "https://example.invalid/private/path"
+    now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    state_file = app_root / "jobs" / LIVE_CAPTURE_STATE_FILENAME
+    state_file.parent.mkdir(parents=True)
+    state_file.write_text(
+        json.dumps(
+            {
+                "status": "failed",
+                "supervisor_token": "state-token",
+                "pid": 12345,
+                "started_at": now,
+                "updated_at": now,
+                "parser_runner_started": True,
+                "tailing_started": True,
+                "sqlite_live_writes_enabled": False,
+                "heartbeat": {
+                    "schema_version": LIVE_CAPTURE_DIAGNOSTICS_SCHEMA_VERSION,
+                    "status": "waiting",
+                    "heartbeat_updated_at": unsafe_path,
+                    "capture_duration_seconds": -12,
+                    "heartbeat_age_seconds": -1,
+                    "stale_after_seconds": 30,
+                },
+                "progress": {
+                    "schema_version": LIVE_CAPTURE_DIAGNOSTICS_SCHEMA_VERSION,
+                    "log_poll_count": 2,
+                    "log_chunks_seen": -1,
+                    "structured_entry_count": 1,
+                    "parser_event_count": 1,
+                    "parser_event_kinds_seen": ["game_state", unsafe_path, "GameStateEvent"],
+                    "match_ids_seen_count": 1,
+                    "current_match_detected": True,
+                    "current_match_game_wins": None,
+                    "current_match_game_losses": None,
+                    "last_completed_match_result": unsafe_url,
+                    "last_completed_match_game_wins": None,
+                    "last_completed_match_game_losses": None,
+                    "completed_game_rows_seen": 0,
+                    "sqlite_write_attempt_count": 1,
+                    "sqlite_rows_written": 0,
+                    "last_no_write_reason": "sqlite_write_failed",
+                    "last_event_seen_at": unsafe_path,
+                    "last_sqlite_write_at": unsafe_url,
+                },
+                "warnings": ["waiting_for_events", unsafe_path],
+                "errors": ["sqlite_write_failed", unsafe_url],
+            },
+        ),
+        encoding="utf-8",
+    )
+    client = _client(app_root)
+
+    payload = client.get("/api/live/capture/status").json()
+    encoded = json.dumps(payload, sort_keys=True)
+
+    assert payload["status"] == "failed"
+    assert payload["heartbeat"]["schema_version"] == LIVE_CAPTURE_DIAGNOSTICS_SCHEMA_VERSION
+    assert payload["heartbeat"]["heartbeat_updated_at"] == now
+    assert payload["heartbeat"]["heartbeat_age_seconds"] is not None
+    assert payload["progress"]["schema_version"] == LIVE_CAPTURE_DIAGNOSTICS_SCHEMA_VERSION
+    assert payload["progress"]["log_chunks_seen"] == 0
+    assert payload["progress"]["parser_event_kinds_seen"] == ["game_state"]
+    assert payload["progress"]["last_completed_match_result"] is None
+    assert payload["progress"]["last_event_seen_at"] is None
+    assert payload["progress"]["last_sqlite_write_at"] is None
+    assert payload["progress"]["last_no_write_reason"] == "sqlite_write_failed"
+    assert payload["parser_status_blurb"] == {
+        "code": "sqlite_write_failed",
+        "text": "SQLite write failed. Review diagnostics.",
+        "tone": "error",
+    }
     assert unsafe_path not in encoded
     assert unsafe_url not in encoded
 
@@ -207,11 +351,101 @@ def test_start_capture_is_explicit_local_only_and_duplicate_safe(tmp_path, monke
     assert status_payload["capture"]["tailing_started"] is True
     assert status_payload["capture"]["sqlite_live_writes_enabled"] is True
     assert status_payload["capture"]["external_transport_allowed"] is False
+    assert status_payload["heartbeat"]["schema_version"] == LIVE_CAPTURE_DIAGNOSTICS_SCHEMA_VERSION
+    assert status_payload["heartbeat"]["status"] == "waiting"
+    assert status_payload["heartbeat"]["heartbeat_age_seconds"] is not None
+    assert status_payload["heartbeat"]["heartbeat_age_seconds"] <= 30
+    assert status_payload["progress"]["schema_version"] == LIVE_CAPTURE_DIAGNOSTICS_SCHEMA_VERSION
+    assert status_payload["progress"]["last_no_write_reason"] == "no_parser_events_routed"
+    assert status_payload["parser_status_blurb"] == {
+        "code": "listening_for_events",
+        "text": "Listening for Player.log events.",
+        "tone": "waiting",
+    }
     assert (app_root / "jobs" / "live_capture_state.json").is_file()
     assert (app_root / "jobs" / "live_capture_lock.json").is_file()
     assert (app_root / "db" / "mythic_edge.sqlite3").is_file()
     assert str(player_log_path) not in encoded
     assert "private log body" not in encoded
+
+
+def test_capture_status_marks_stale_heartbeat_without_changing_capture_ownership(tmp_path, monkeypatch) -> None:
+    app_root = tmp_path / "app-data"
+    player_log_path = tmp_path / "Player.log"
+    _configure_player_log(app_root, player_log_path)
+    monkeypatch.setattr(live_capture_control, "_build_supervisor", _fake_supervisor_factory)
+    client = _client(app_root)
+
+    client.post("/api/live/capture/start")
+    state_file = app_root / "jobs" / LIVE_CAPTURE_STATE_FILENAME
+    payload = json.loads(state_file.read_text(encoding="utf-8"))
+    stale_heartbeat = (datetime.now(UTC) - timedelta(seconds=45)).isoformat().replace("+00:00", "Z")
+    payload["updated_at"] = datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    payload["heartbeat"]["heartbeat_updated_at"] = stale_heartbeat
+    state_file.write_text(json.dumps(payload), encoding="utf-8")
+
+    status_payload = client.get("/api/live/capture/status").json()
+
+    assert status_payload["status"] == "capturing"
+    assert status_payload["heartbeat"]["status"] == "stale"
+    assert status_payload["heartbeat"]["heartbeat_age_seconds"] >= 30
+    assert status_payload["progress"]["last_no_write_reason"] == "no_parser_events_routed"
+
+
+def test_failed_live_ingest_counts_one_sqlite_write_attempt_without_leaking_error_text(tmp_path, monkeypatch) -> None:
+    app_root = tmp_path / "app-data"
+    player_log_path = tmp_path / "Player.log"
+    _configure_player_log(app_root, player_log_path)
+    paths = build_local_app_paths(app_root)
+    event = object()
+    fake_stream = _FakeStream()
+    unsafe_error = r"C:\operator\AppData\Local\MythicEdge\mythic_edge.sqlite3"
+
+    async def _fake_stream_start(_player_log_path: Path):
+        return fake_stream, _FakeSubscriber(event)
+
+    def _failing_write_live_facts(_paths, _payload):
+        raise sqlite3.DatabaseError(unsafe_error)
+
+    monkeypatch.setattr(live_capture_control.MtgaEventStream, "start", _fake_stream_start)
+    monkeypatch.setattr(live_capture_control, "_update_match_summary", lambda _event: None)
+    monkeypatch.setattr(
+        live_capture_control,
+        "get_context_snapshot",
+        lambda: {"current_match_id": "match:ingest-fail"},
+    )
+    monkeypatch.setattr(
+        live_capture_control,
+        "build_match_log_row",
+        lambda _match_id: {"Match Result": "W"},
+    )
+    monkeypatch.setattr(
+        live_capture_control,
+        "build_game_summary_rows",
+        lambda _match_id: [{"Game Result": "Win"}],
+    )
+    monkeypatch.setattr(live_capture_control, "_write_live_facts", _failing_write_live_facts)
+
+    supervisor = live_capture_control.LocalAppLiveCaptureSupervisor(paths, ownership_id="test-owner")
+    asyncio.run(supervisor._run_async())
+
+    payload = _client(app_root).get("/api/live/capture/status").json()
+    encoded = json.dumps(payload, sort_keys=True)
+
+    assert fake_stream.shutdown_called is True
+    assert payload["status"] == "failed"
+    assert payload["progress"]["sqlite_write_attempt_count"] == 1
+    assert payload["progress"]["sqlite_rows_written"] == 0
+    assert payload["progress"]["last_no_write_reason"] == "sqlite_write_failed"
+    assert payload["parser_status_blurb"] == {
+        "code": "sqlite_write_failed",
+        "text": "SQLite write failed. Review diagnostics.",
+        "tone": "error",
+    }
+    assert payload["errors"] == ["sqlite_write_failed"]
+    assert unsafe_error not in encoded
+    assert "DatabaseError" not in encoded
+    assert "SELECT" not in encoded.upper()
 
 
 def test_stop_capture_stops_only_registered_app_owned_supervisor(tmp_path, monkeypatch) -> None:

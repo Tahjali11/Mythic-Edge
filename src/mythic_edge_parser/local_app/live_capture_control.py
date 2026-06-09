@@ -33,13 +33,47 @@ LIVE_CAPTURE_STATUS_OBJECT = "mythic_edge_local_app_live_capture_status"
 LIVE_CAPTURE_START_RESULT_OBJECT = "mythic_edge_local_app_live_capture_start_result"
 LIVE_CAPTURE_STOP_RESULT_OBJECT = "mythic_edge_local_app_live_capture_stop_result"
 LIVE_CAPTURE_SCHEMA_VERSION = "live_app_explicit_start_capture_control.v1"
+LIVE_CAPTURE_DIAGNOSTICS_SCHEMA_VERSION = "live_app_capture_heartbeat_no_row_diagnostics.v1"
 LIVE_CAPTURE_STATE_FILENAME = "live_capture_state.json"
 LIVE_CAPTURE_LOCK_FILENAME = "live_capture_lock.json"
 LIVE_CAPTURE_STATE_STALE_SECONDS = 15 * 60
+LIVE_CAPTURE_HEARTBEAT_STALE_SECONDS = 30
+LIVE_CAPTURE_HEARTBEAT_UPDATE_SECONDS = 10
 LIVE_CAPTURE_SOURCE_KIND = "live_parser"
 LIVE_CAPTURE_SUPERVISOR_KIND = "local_app_capture_supervisor"
 _SAFE_STATE_LABEL_MAX_LENGTH = 80
 _SAFE_STATE_LABEL_CHARS = frozenset("abcdefghijklmnopqrstuvwxyz0123456789_")
+_NO_WRITE_REASONS = frozenset(
+    {
+        "not_started",
+        "no_log_bytes_seen",
+        "no_log_chunks_seen",
+        "no_structured_entries_seen",
+        "no_parser_events_routed",
+        "no_match_id_seen",
+        "no_completed_game_rows",
+        "match_row_not_ready",
+        "sqlite_ingest_not_attempted",
+        "sqlite_write_failed",
+        "capture_stopped_before_completion",
+        "capture_state_stale",
+        "rows_written",
+        "unknown",
+    }
+)
+_HEARTBEAT_STATUSES = frozenset(
+    {
+        "not_started",
+        "starting",
+        "waiting",
+        "progress",
+        "rows_written",
+        "blocked",
+        "failed",
+        "stale",
+        "unknown",
+    }
+)
 
 _REGISTRY_LOCK = threading.RLock()
 _SUPERVISORS: dict[str, "_LiveCaptureSupervisorProtocol"] = {}
@@ -117,6 +151,7 @@ def start_live_capture(paths: LocalAppPaths) -> dict[str, object]:
             )
         supervisor = _build_supervisor(paths, ownership_id=supervisor_id)
         _SUPERVISORS[_registry_key(paths)] = supervisor
+        started_at = _now_iso()
         _write_capture_state(
             paths,
             {
@@ -125,14 +160,16 @@ def start_live_capture(paths: LocalAppPaths) -> dict[str, object]:
                 "pid": os.getpid(),
                 "supervisor_kind": LIVE_CAPTURE_SUPERVISOR_KIND,
                 "source_kind": LIVE_CAPTURE_SOURCE_KIND,
-                "started_at": _now_iso(),
-                "updated_at": _now_iso(),
+                "started_at": started_at,
+                "updated_at": started_at,
                 "parser_runner_started": True,
                 "tailing_started": False,
                 "sqlite_live_writes_enabled": False,
                 "external_transport_allowed": False,
                 "raw_player_log_storage_enabled": False,
                 "last_result": None,
+                "heartbeat": _heartbeat_state("starting", started_at=started_at, heartbeat_updated_at=started_at),
+                "progress": _default_progress("no_parser_events_routed"),
                 "warnings": [],
                 "errors": [],
             },
@@ -141,6 +178,7 @@ def start_live_capture(paths: LocalAppPaths) -> dict[str, object]:
             supervisor.start()
         except Exception:
             _SUPERVISORS.pop(_registry_key(paths), None)
+            failed_at = _now_iso()
             _write_capture_state(
                 paths,
                 {
@@ -149,14 +187,16 @@ def start_live_capture(paths: LocalAppPaths) -> dict[str, object]:
                     "pid": os.getpid(),
                     "supervisor_kind": LIVE_CAPTURE_SUPERVISOR_KIND,
                     "source_kind": LIVE_CAPTURE_SOURCE_KIND,
-                    "started_at": _now_iso(),
-                    "updated_at": _now_iso(),
+                    "started_at": started_at,
+                    "updated_at": failed_at,
                     "parser_runner_started": False,
                     "tailing_started": False,
                     "sqlite_live_writes_enabled": False,
                     "external_transport_allowed": False,
                     "raw_player_log_storage_enabled": False,
                     "last_result": None,
+                    "heartbeat": _heartbeat_state("failed", started_at=started_at, heartbeat_updated_at=failed_at),
+                    "progress": _default_progress("no_parser_events_routed"),
                     "warnings": [],
                     "errors": ["supervisor_start_failed"],
                 },
@@ -201,7 +241,21 @@ def stop_live_capture(paths: LocalAppPaths) -> dict[str, object]:
                 errors=["supervisor_ownership_unverified"],
             )
 
-        _write_capture_state(paths, {**state, "status": "stopping", "updated_at": _now_iso()})
+        stopping_at = _now_iso()
+        _write_capture_state(
+            paths,
+            {
+                **state,
+                "status": "stopping",
+                "updated_at": stopping_at,
+                "heartbeat": _heartbeat_state(
+                    "waiting",
+                    started_at=state.get("started_at"),
+                    heartbeat_updated_at=stopping_at,
+                ),
+                "progress": _progress_with_reason(state.get("progress"), "capture_stopped_before_completion"),
+            },
+        )
         try:
             supervisor.stop()
         except Exception:
@@ -213,16 +267,23 @@ def stop_live_capture(paths: LocalAppPaths) -> dict[str, object]:
                 errors=["supervisor_stop_failed"],
             )
         _SUPERVISORS.pop(_registry_key(paths), None)
+        stopped_at = _now_iso()
         _write_capture_state(
             paths,
             {
                 **state,
                 "status": "stopped",
-                "updated_at": _now_iso(),
+                "updated_at": stopped_at,
                 "parser_runner_started": False,
                 "tailing_started": False,
                 "sqlite_live_writes_enabled": False,
                 "last_result": _safe_last_result(state.get("last_result")),
+                "heartbeat": _heartbeat_state(
+                    "not_started",
+                    started_at=state.get("started_at"),
+                    heartbeat_updated_at=stopped_at,
+                ),
+                "progress": _progress_with_reason(state.get("progress"), "capture_stopped_before_completion"),
             },
         )
 
@@ -255,15 +316,23 @@ class LocalAppLiveCaptureSupervisor:
         try:
             asyncio.run(self._run_async())
         except Exception:
+            crashed_at = _now_iso()
+            state = _read_capture_state(self.paths)
             _write_capture_state(
                 self.paths,
                 {
-                    **_read_capture_state(self.paths),
+                    **state,
                     "status": "failed",
-                    "updated_at": _now_iso(),
+                    "updated_at": crashed_at,
                     "parser_runner_started": False,
                     "tailing_started": False,
                     "sqlite_live_writes_enabled": False,
+                    "heartbeat": _heartbeat_state(
+                        "failed",
+                        started_at=state.get("started_at"),
+                        heartbeat_updated_at=crashed_at,
+                    ),
+                    "progress": _progress_with_reason(state.get("progress"), "unknown"),
                     "errors": ["supervisor_crashed"],
                 },
             )
@@ -271,12 +340,20 @@ class LocalAppLiveCaptureSupervisor:
     async def _run_async(self) -> None:
         player_log_path = _configured_player_log_path(self.paths)
         if player_log_path is None:
+            blocked_at = _now_iso()
+            state = _read_capture_state(self.paths)
             _write_capture_state(
                 self.paths,
                 {
-                    **_read_capture_state(self.paths),
+                    **state,
                     "status": "blocked",
-                    "updated_at": _now_iso(),
+                    "updated_at": blocked_at,
+                    "heartbeat": _heartbeat_state(
+                        "blocked",
+                        started_at=state.get("started_at"),
+                        heartbeat_updated_at=blocked_at,
+                    ),
+                    "progress": _progress_with_reason(state.get("progress"), "not_started"),
                     "errors": ["player_log_not_ready"],
                 },
             )
@@ -286,45 +363,114 @@ class LocalAppLiveCaptureSupervisor:
         try:
             stream, subscriber = await MtgaEventStream.start(player_log_path)
         except StreamError:
+            failed_at = _now_iso()
+            state = _read_capture_state(self.paths)
             _write_capture_state(
                 self.paths,
                 {
-                    **_read_capture_state(self.paths),
+                    **state,
                     "status": "failed",
-                    "updated_at": _now_iso(),
+                    "updated_at": failed_at,
                     "parser_runner_started": False,
                     "tailing_started": False,
                     "sqlite_live_writes_enabled": False,
+                    "heartbeat": _heartbeat_state(
+                        "failed",
+                        started_at=state.get("started_at"),
+                        heartbeat_updated_at=failed_at,
+                    ),
+                    "progress": _progress_with_reason(state.get("progress"), "no_log_chunks_seen"),
                     "errors": ["tailer_start_failed"],
                 },
             )
             return
 
+        progress = _default_progress("no_parser_events_routed")
+        heartbeat_at = _now_iso()
         _write_capture_state(
             self.paths,
             {
                 **_read_capture_state(self.paths),
                 "status": "capturing",
-                "updated_at": _now_iso(),
+                "updated_at": heartbeat_at,
                 "parser_runner_started": True,
                 "tailing_started": True,
                 "sqlite_live_writes_enabled": True,
+                "heartbeat": _heartbeat_state(
+                    "waiting",
+                    started_at=_read_capture_state(self.paths).get("started_at"),
+                    heartbeat_updated_at=heartbeat_at,
+                ),
+                "progress": progress,
                 "warnings": ["waiting_for_events"],
                 "errors": [],
             },
         )
         written_matches: set[str] = set()
+        seen_match_ids: set[str] = set()
+        last_heartbeat_write = datetime.now(UTC)
         try:
             while not self._stop_event.is_set():
                 try:
                     event = await asyncio.wait_for(subscriber.recv(), timeout=0.25)
                 except TimeoutError:
+                    progress["log_poll_count"] = int(progress["log_poll_count"]) + 1
+                    heartbeat_due = (
+                        datetime.now(UTC) - last_heartbeat_write
+                    ).total_seconds() >= LIVE_CAPTURE_HEARTBEAT_UPDATE_SECONDS
+                    if heartbeat_due:
+                        _write_capture_state(
+                            self.paths,
+                            {
+                                **_read_capture_state(self.paths),
+                                "status": "capturing",
+                                "updated_at": _now_iso(),
+                                "heartbeat": _heartbeat_state(
+                                    _heartbeat_status_from_progress(progress),
+                                    started_at=_read_capture_state(self.paths).get("started_at"),
+                                    heartbeat_updated_at=_now_iso(),
+                                ),
+                                "progress": progress,
+                                "warnings": ["waiting_for_events"],
+                                "errors": [],
+                            },
+                        )
+                        last_heartbeat_write = datetime.now(UTC)
                     continue
                 if event is None:
                     break
+                event_seen_at = _now_iso()
+                progress["structured_entry_count"] = int(progress["structured_entry_count"]) + 1
+                progress["parser_event_count"] = int(progress["parser_event_count"]) + 1
+                progress["last_event_seen_at"] = event_seen_at
+                progress["last_no_write_reason"] = "no_match_id_seen"
+                _append_event_kind(progress, _safe_event_kind_label(event))
                 _update_match_summary(event)
                 match_id = str(get_context_snapshot().get("current_match_id", "") or "")
-                if not match_id or match_id in written_matches:
+                if match_id:
+                    seen_match_ids.add(match_id)
+                    progress["match_ids_seen_count"] = len(seen_match_ids)
+                    progress["current_match_detected"] = True
+                if not match_id:
+                    _write_capture_state(
+                        self.paths,
+                        {
+                            **_read_capture_state(self.paths),
+                            "status": "capturing",
+                            "updated_at": event_seen_at,
+                            "heartbeat": _heartbeat_state(
+                                "progress",
+                                started_at=_read_capture_state(self.paths).get("started_at"),
+                                heartbeat_updated_at=event_seen_at,
+                            ),
+                            "progress": progress,
+                            "warnings": ["waiting_for_events"],
+                            "errors": [],
+                        },
+                    )
+                    last_heartbeat_write = datetime.now(UTC)
+                    continue
+                if match_id in written_matches:
                     continue
                 match_row = build_match_log_row(match_id)
                 game_rows = [
@@ -332,8 +478,48 @@ class LocalAppLiveCaptureSupervisor:
                     for row in build_game_summary_rows(match_id)
                     if str(row.get("Game Result", "") or "").strip()
                 ]
-                if match_row is None or not game_rows:
+                progress["completed_game_rows_seen"] = len(game_rows)
+                if match_row is None:
+                    progress["last_no_write_reason"] = "match_row_not_ready"
+                    _write_capture_state(
+                        self.paths,
+                        {
+                            **_read_capture_state(self.paths),
+                            "status": "capturing",
+                            "updated_at": event_seen_at,
+                            "heartbeat": _heartbeat_state(
+                                "progress",
+                                started_at=_read_capture_state(self.paths).get("started_at"),
+                                heartbeat_updated_at=event_seen_at,
+                            ),
+                            "progress": progress,
+                            "warnings": ["waiting_for_events"],
+                            "errors": [],
+                        },
+                    )
+                    last_heartbeat_write = datetime.now(UTC)
                     continue
+                if not game_rows:
+                    progress["last_no_write_reason"] = "no_completed_game_rows"
+                    _write_capture_state(
+                        self.paths,
+                        {
+                            **_read_capture_state(self.paths),
+                            "status": "capturing",
+                            "updated_at": event_seen_at,
+                            "heartbeat": _heartbeat_state(
+                                "progress",
+                                started_at=_read_capture_state(self.paths).get("started_at"),
+                                heartbeat_updated_at=event_seen_at,
+                            ),
+                            "progress": progress,
+                            "warnings": ["waiting_for_events"],
+                            "errors": [],
+                        },
+                    )
+                    last_heartbeat_write = datetime.now(UTC)
+                    continue
+                progress["sqlite_write_attempt_count"] = int(progress["sqlite_write_attempt_count"]) + 1
                 result = _write_live_facts(
                     self.paths,
                     {
@@ -348,13 +534,26 @@ class LocalAppLiveCaptureSupervisor:
                     },
                 )
                 written_matches.add(match_id)
+                written_at = _now_iso()
+                progress["sqlite_rows_written"] = int(progress["sqlite_rows_written"]) + _row_count_total(
+                    result.row_counts
+                )
+                progress["last_no_write_reason"] = "rows_written"
+                progress["last_sqlite_write_at"] = written_at
+                progress["last_completed_match_result"] = _safe_completed_match_result(match_row)
                 _write_capture_state(
                     self.paths,
                     {
                         **_read_capture_state(self.paths),
                         "status": "capturing",
-                        "updated_at": _now_iso(),
+                        "updated_at": written_at,
                         "sqlite_live_writes_enabled": True,
+                        "heartbeat": _heartbeat_state(
+                            "rows_written",
+                            started_at=_read_capture_state(self.paths).get("started_at"),
+                            heartbeat_updated_at=written_at,
+                        ),
+                        "progress": progress,
                         "last_result": {
                             "status": result.status,
                             "row_counts": result.row_counts,
@@ -365,29 +564,45 @@ class LocalAppLiveCaptureSupervisor:
                         "errors": [],
                     },
                 )
+                last_heartbeat_write = datetime.now(UTC)
         except (AnalyticsReplayIngestError, sqlite3.DatabaseError, OSError):
+            failed_at = _now_iso()
+            progress["last_no_write_reason"] = "sqlite_write_failed"
             _write_capture_state(
                 self.paths,
                 {
                     **_read_capture_state(self.paths),
                     "status": "failed",
-                    "updated_at": _now_iso(),
+                    "updated_at": failed_at,
                     "sqlite_live_writes_enabled": False,
+                    "heartbeat": _heartbeat_state(
+                        "failed",
+                        started_at=_read_capture_state(self.paths).get("started_at"),
+                        heartbeat_updated_at=failed_at,
+                    ),
+                    "progress": progress,
                     "errors": ["sqlite_write_failed"],
                 },
             )
         finally:
             await stream.shutdown()
             if self._stop_event.is_set():
+                stopped_at = _now_iso()
                 _write_capture_state(
                     self.paths,
                     {
                         **_read_capture_state(self.paths),
                         "status": "stopped",
-                        "updated_at": _now_iso(),
+                        "updated_at": stopped_at,
                         "parser_runner_started": False,
                         "tailing_started": False,
                         "sqlite_live_writes_enabled": False,
+                        "heartbeat": _heartbeat_state(
+                            "not_started",
+                            started_at=_read_capture_state(self.paths).get("started_at"),
+                            heartbeat_updated_at=stopped_at,
+                        ),
+                        "progress": _progress_with_reason(progress, "capture_stopped_before_completion"),
                     },
                 )
 
@@ -432,6 +647,8 @@ def _status_payload(
     warnings: list[str],
     errors: list[str],
 ) -> dict[str, object]:
+    heartbeat = _safe_heartbeat(state.get("heartbeat"), status=status, state=state)
+    progress = _safe_progress(state.get("progress"), status=status, last_result=last_result)
     return {
         "object": LIVE_CAPTURE_STATUS_OBJECT,
         "schema_version": LIVE_CAPTURE_SCHEMA_VERSION,
@@ -441,6 +658,13 @@ def _status_payload(
         "preconditions": preconditions,
         "state": _safe_state_summary(state),
         "last_result": last_result,
+        "heartbeat": heartbeat,
+        "progress": progress,
+        "parser_status_blurb": _parser_status_blurb(
+            status=status,
+            reason=str(capture.get("reason") or ""),
+            progress=progress,
+        ),
         "warnings": warnings,
         "errors": errors,
     }
@@ -543,6 +767,8 @@ def _read_capture_state(paths: LocalAppPaths) -> dict[str, object]:
         "tailing_started": bool(payload.get("tailing_started", False)),
         "sqlite_live_writes_enabled": bool(payload.get("sqlite_live_writes_enabled", False)),
         "last_result": _safe_last_result(payload.get("last_result")),
+        "heartbeat": _safe_heartbeat(payload.get("heartbeat"), status=status, state=payload),
+        "progress": _safe_progress(payload.get("progress"), status=status, last_result=payload.get("last_result")),
         "warnings": _safe_warning_list(payload.get("warnings")),
         "errors": _safe_error_list(payload.get("errors")),
     }
@@ -571,6 +797,8 @@ def _default_state(
         "tailing_started": False,
         "sqlite_live_writes_enabled": False,
         "last_result": None,
+        "heartbeat": _safe_heartbeat(None, status=status, state={}),
+        "progress": _safe_progress(None, status=status, last_result=None),
         "warnings": [],
         "errors": errors or [],
     }
@@ -596,6 +824,16 @@ def _write_capture_state(paths: LocalAppPaths, payload: Mapping[str, object]) ->
         "external_transport_allowed": False,
         "raw_player_log_storage_enabled": False,
         "last_result": _safe_last_result(payload.get("last_result")),
+        "heartbeat": _safe_heartbeat(
+            payload.get("heartbeat"),
+            status=str(payload.get("status", "unknown") or "unknown"),
+            state=payload,
+        ),
+        "progress": _safe_progress(
+            payload.get("progress"),
+            status=str(payload.get("status", "unknown") or "unknown"),
+            last_result=payload.get("last_result"),
+        ),
         "warnings": _safe_warning_list(payload.get("warnings")),
         "errors": _safe_error_list(payload.get("errors")),
     }
@@ -628,6 +866,287 @@ def _safe_state_summary(state: Mapping[str, object]) -> dict[str, object]:
         "started_at": state.get("started_at"),
         "updated_at": state.get("updated_at"),
     }
+
+
+def _heartbeat_state(
+    status: str,
+    *,
+    started_at: object,
+    heartbeat_updated_at: object,
+) -> dict[str, object]:
+    return {
+        "schema_version": LIVE_CAPTURE_DIAGNOSTICS_SCHEMA_VERSION,
+        "status": status if status in _HEARTBEAT_STATUSES else "unknown",
+        "heartbeat_updated_at": _safe_iso_or_none(heartbeat_updated_at),
+        "capture_duration_seconds": _capture_duration_seconds(
+            _safe_iso_or_none(started_at),
+            _safe_iso_or_none(heartbeat_updated_at),
+        ),
+        "heartbeat_age_seconds": _heartbeat_age_seconds(_safe_iso_or_none(heartbeat_updated_at)),
+        "stale_after_seconds": LIVE_CAPTURE_HEARTBEAT_STALE_SECONDS,
+    }
+
+
+def _safe_heartbeat(value: object, *, status: str, state: Mapping[str, object]) -> dict[str, object]:
+    heartbeat = value if isinstance(value, Mapping) else {}
+    started_at = _safe_iso_or_none(state.get("started_at"))
+    heartbeat_updated_at = _safe_iso_or_none(heartbeat.get("heartbeat_updated_at")) or _safe_iso_or_none(
+        state.get("updated_at")
+    )
+    heartbeat_status = _safe_state_label(heartbeat.get("status")) if heartbeat else None
+    if heartbeat_status not in _HEARTBEAT_STATUSES:
+        heartbeat_status = _default_heartbeat_status(status)
+    age_seconds = _heartbeat_age_seconds(heartbeat_updated_at)
+    if status in {"starting", "capturing", "stopping"} and age_seconds is not None:
+        if age_seconds > LIVE_CAPTURE_HEARTBEAT_STALE_SECONDS:
+            heartbeat_status = "stale"
+    if status in {"blocked", "failed", "stale"}:
+        heartbeat_status = _default_heartbeat_status(status)
+    return {
+        "schema_version": LIVE_CAPTURE_DIAGNOSTICS_SCHEMA_VERSION,
+        "status": heartbeat_status,
+        "heartbeat_updated_at": heartbeat_updated_at,
+        "capture_duration_seconds": _capture_duration_seconds(started_at, heartbeat_updated_at),
+        "heartbeat_age_seconds": age_seconds,
+        "stale_after_seconds": LIVE_CAPTURE_HEARTBEAT_STALE_SECONDS,
+    }
+
+
+def _default_heartbeat_status(status: str) -> str:
+    if status == "starting":
+        return "starting"
+    if status == "capturing":
+        return "waiting"
+    if status == "blocked":
+        return "blocked"
+    if status == "failed":
+        return "failed"
+    if status == "stale":
+        return "stale"
+    if status in {"ready_to_start", "stopped", "not_initialized"}:
+        return "not_started"
+    return "unknown"
+
+
+def _default_progress(reason: str) -> dict[str, object]:
+    return {
+        "schema_version": LIVE_CAPTURE_DIAGNOSTICS_SCHEMA_VERSION,
+        "log_poll_count": 0,
+        "log_chunks_seen": 0,
+        "structured_entry_count": 0,
+        "parser_event_count": 0,
+        "parser_event_kinds_seen": [],
+        "match_ids_seen_count": 0,
+        "current_match_detected": False,
+        "current_match_game_wins": None,
+        "current_match_game_losses": None,
+        "last_completed_match_result": None,
+        "last_completed_match_game_wins": None,
+        "last_completed_match_game_losses": None,
+        "completed_game_rows_seen": 0,
+        "sqlite_write_attempt_count": 0,
+        "sqlite_rows_written": 0,
+        "last_no_write_reason": reason if reason in _NO_WRITE_REASONS else "unknown",
+        "last_event_seen_at": None,
+        "last_sqlite_write_at": None,
+    }
+
+
+def _safe_progress(value: object, *, status: str, last_result: object) -> dict[str, object]:
+    progress = _default_progress(_default_no_write_reason(status=status, last_result=last_result))
+    if not isinstance(value, Mapping):
+        return progress
+    for key in (
+        "log_poll_count",
+        "log_chunks_seen",
+        "structured_entry_count",
+        "parser_event_count",
+        "match_ids_seen_count",
+        "completed_game_rows_seen",
+        "sqlite_write_attempt_count",
+        "sqlite_rows_written",
+    ):
+        progress[key] = _safe_non_negative_int(value.get(key))
+    progress["parser_event_kinds_seen"] = _safe_progress_label_list(value.get("parser_event_kinds_seen"))
+    progress["current_match_detected"] = bool(value.get("current_match_detected", False))
+    progress["current_match_game_wins"] = _safe_optional_non_negative_int(value.get("current_match_game_wins"))
+    progress["current_match_game_losses"] = _safe_optional_non_negative_int(value.get("current_match_game_losses"))
+    progress["last_completed_match_result"] = _safe_state_label(value.get("last_completed_match_result"))
+    progress["last_completed_match_game_wins"] = _safe_optional_non_negative_int(
+        value.get("last_completed_match_game_wins")
+    )
+    progress["last_completed_match_game_losses"] = _safe_optional_non_negative_int(
+        value.get("last_completed_match_game_losses")
+    )
+    reason = _safe_state_label(value.get("last_no_write_reason"))
+    if reason in _NO_WRITE_REASONS:
+        progress["last_no_write_reason"] = reason
+    if int(progress["sqlite_rows_written"]) > 0:
+        progress["last_no_write_reason"] = "rows_written"
+    if status == "stale":
+        progress["last_no_write_reason"] = "capture_state_stale"
+    progress["last_event_seen_at"] = _safe_iso_or_none(value.get("last_event_seen_at"))
+    progress["last_sqlite_write_at"] = _safe_iso_or_none(value.get("last_sqlite_write_at"))
+    return progress
+
+
+def _progress_with_reason(value: object, reason: str) -> dict[str, object]:
+    progress = _safe_progress(value, status="capturing", last_result=None)
+    if int(progress["sqlite_rows_written"]) > 0 and reason == "capture_stopped_before_completion":
+        progress["last_no_write_reason"] = "rows_written"
+    else:
+        progress["last_no_write_reason"] = reason if reason in _NO_WRITE_REASONS else "unknown"
+    return progress
+
+
+def _default_no_write_reason(*, status: str, last_result: object) -> str:
+    safe_last_result = _safe_last_result(last_result)
+    row_counts = safe_last_result.get("row_counts") if isinstance(safe_last_result, Mapping) else {}
+    if _row_count_total(row_counts) > 0:
+        return "rows_written"
+    if status == "stale":
+        return "capture_state_stale"
+    if status in {"ready_to_start", "blocked", "not_initialized"}:
+        return "not_started"
+    if status == "stopped":
+        return "capture_stopped_before_completion"
+    if status == "failed":
+        return "unknown"
+    return "no_parser_events_routed"
+
+
+def _heartbeat_status_from_progress(progress: Mapping[str, object]) -> str:
+    if _safe_non_negative_int(progress.get("sqlite_rows_written")) > 0:
+        return "rows_written"
+    if _safe_non_negative_int(progress.get("parser_event_count")) > 0 or bool(progress.get("current_match_detected")):
+        return "progress"
+    return "waiting"
+
+
+def _parser_status_blurb(*, status: str, reason: str, progress: Mapping[str, object]) -> dict[str, str]:
+    last_no_write_reason = str(progress.get("last_no_write_reason", "unknown") or "unknown")
+    if status == "blocked" and reason.startswith("player_log"):
+        return _blurb("not_configured", "Configure Player.log to start capture.", "warning")
+    if status == "ready_to_start":
+        return _blurb("ready_to_start", "Ready to start capture.", "neutral")
+    if status == "starting":
+        return _blurb("starting", "Starting live capture.", "waiting")
+    if status == "stale" or last_no_write_reason == "capture_state_stale":
+        return _blurb("capture_state_stale", "Capture heartbeat stopped. Restart capture.", "warning")
+    if status == "failed" or last_no_write_reason == "sqlite_write_failed":
+        return _blurb("sqlite_write_failed", "SQLite write failed. Review diagnostics.", "error")
+    if status == "stopped":
+        return _blurb("stopped", "Capture stopped.", "neutral")
+    if status == "capturing":
+        if _safe_non_negative_int(progress.get("sqlite_rows_written")) > 0:
+            return _blurb("most_recent_match_completed", "Most recent completed match was recorded.", "ok")
+        if bool(progress.get("current_match_detected")):
+            return _blurb("waiting_for_completed_facts", "Capturing; waiting for completed match facts.", "waiting")
+        if _safe_non_negative_int(progress.get("parser_event_count")) > 0:
+            return _blurb("waiting_for_next_match", "Waiting for next match.", "waiting")
+        return _blurb("listening_for_events", "Listening for Player.log events.", "waiting")
+    return _blurb("unknown", "Live capture status is unavailable.", "warning")
+
+
+def _blurb(code: str, text: str, tone: str) -> dict[str, str]:
+    return {"code": code, "text": text, "tone": tone}
+
+
+def _append_event_kind(progress: dict[str, object], label: str) -> None:
+    labels = _safe_progress_label_list(progress.get("parser_event_kinds_seen"))
+    if label not in labels:
+        labels.append(label)
+    progress["parser_event_kinds_seen"] = labels
+
+
+def _safe_event_kind_label(event: object) -> str:
+    raw_kind = getattr(event, "kind", None)
+    if not isinstance(raw_kind, str) or not raw_kind.strip():
+        raw_kind = type(event).__name__
+    label_chars: list[str] = []
+    previous_was_separator = False
+    for character in raw_kind.strip():
+        if character.isupper() and label_chars and not previous_was_separator:
+            label_chars.append("_")
+        if character.isalnum():
+            label_chars.append(character.lower())
+            previous_was_separator = False
+        elif not previous_was_separator:
+            label_chars.append("_")
+            previous_was_separator = True
+    label = "".join(label_chars).strip("_")
+    return _safe_state_label(label) or "unknown"
+
+
+def _safe_completed_match_result(match_row: Mapping[str, object]) -> str | None:
+    result = str(match_row.get("Match Result", "") or "").strip().lower().replace(" ", "_")
+    return _safe_state_label(result)
+
+
+def _safe_progress_label_list(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    labels: list[str] = []
+    for entry in value:
+        label = _safe_state_label(entry)
+        if label is not None and label not in labels:
+            labels.append(label)
+    return labels
+
+
+def _safe_non_negative_int(value: object) -> int:
+    if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+        return value
+    return 0
+
+
+def _safe_optional_non_negative_int(value: object) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+        return value
+    return None
+
+
+def _row_count_total(row_counts: object) -> int:
+    if not isinstance(row_counts, Mapping):
+        return 0
+    total = 0
+    for count in row_counts.values():
+        if isinstance(count, int) and not isinstance(count, bool) and count > 0:
+            total += count
+    return total
+
+
+def _heartbeat_age_seconds(value: str | None) -> int | None:
+    if value is None:
+        return None
+    parsed = _parse_iso_datetime(value)
+    if parsed is None:
+        return None
+    age = int((datetime.now(UTC) - parsed).total_seconds())
+    return age if age >= 0 else None
+
+
+def _capture_duration_seconds(started_at: str | None, heartbeat_updated_at: str | None) -> int:
+    started = _parse_iso_datetime(started_at)
+    if started is None:
+        return 0
+    ended = _parse_iso_datetime(heartbeat_updated_at) or datetime.now(UTC)
+    duration = int((ended - started).total_seconds())
+    return max(0, duration)
+
+
+def _parse_iso_datetime(value: str | None) -> datetime | None:
+    if value is None:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
 
 
 def _player_log_ready(paths: LocalAppPaths) -> _PlayerLogReady:
