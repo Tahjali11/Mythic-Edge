@@ -3,6 +3,8 @@ import {
   ANALYTICS_DASHBOARD_MODULES_OBJECT,
   ANALYTICS_DASHBOARD_MODULES_SCHEMA_VERSION,
   ANALYTICS_HISTORY_SCHEMA_VERSION,
+  ANALYTICS_REFRESH_STATE_OBJECT,
+  ANALYTICS_REFRESH_STATE_SCHEMA_VERSION,
   EARLY_GAME_HISTORY_SCHEMA_VERSION,
   ERROR_REPORT_PREVIEW_SCHEMA,
   ERROR_REPORT_SUBMISSION_OBJECT,
@@ -38,6 +40,7 @@ import {
   type AnalyticsHistoryErrorCode,
   type AnalyticsHistoryStatus,
   type AnalyticsDashboardModulesResponse,
+  type AnalyticsRefreshStateResponse,
   type ErrorReportApiErrorCode,
   type ErrorReportPreviewRequest,
   type ErrorReportPreviewResponse,
@@ -93,6 +96,7 @@ const OPPONENT_CARD_OBSERVATION_REVIEW_PATH = "/api/analytics/opponent-card-obse
 const PLAY_DRAW_SPLIT_REVIEW_PATH = "/api/analytics/play-draw-splits";
 const GAME1_POSTBOARD_SPLIT_REVIEW_PATH = "/api/analytics/game1-postboard-splits";
 const ANALYTICS_DASHBOARD_MODULES_PATH = "/api/analytics/dashboard/modules";
+const ANALYTICS_REFRESH_STATE_PATH = "/api/analytics/refresh-state";
 const MANUAL_IMPORT_PATH = "/api/imports/jsonl";
 const MANUAL_IMPORT_UPLOAD_PATH = "/api/imports/jsonl/upload";
 const MANUAL_IMPORT_JOB_PATH = "/api/imports/jobs";
@@ -151,6 +155,18 @@ const REQUIRED_ANALYTICS_DASHBOARD_MODULES_FIELDS = [
   "database",
   "modules",
   "custom_explorer",
+  "warnings",
+  "errors"
+] as const;
+const REQUIRED_ANALYTICS_REFRESH_STATE_FIELDS = [
+  "object",
+  "schema_version",
+  "status",
+  "analytics_revision",
+  "latest_completed_match_result_available",
+  "latest_completed_match_seen_at",
+  "latest_completed_ingest_finished_at",
+  "row_counts",
   "warnings",
   "errors"
 ] as const;
@@ -515,6 +531,31 @@ export async function fetchAnalyticsDashboardModules(
   }
 
   return validateAnalyticsDashboardModulesResponse(payload);
+}
+
+export async function fetchAnalyticsRefreshState(fetchImpl: typeof fetch = fetch): Promise<AnalyticsRefreshStateResponse> {
+  const baseUrl = getAnalyticsHistoryApiBaseUrl();
+  let response: Response;
+  try {
+    response = await fetchImpl(`${baseUrl}${ANALYTICS_REFRESH_STATE_PATH}`, {
+      headers: { Accept: "application/json" }
+    });
+  } catch {
+    throw new AnalyticsHistoryApiError("backend_unavailable", "Analytics refresh state is unavailable.");
+  }
+
+  if (!response.ok) {
+    throw new AnalyticsHistoryApiError("backend_unavailable", "Analytics refresh state is unavailable.");
+  }
+
+  let payload: unknown;
+  try {
+    payload = await response.json();
+  } catch {
+    throw new AnalyticsHistoryApiError("malformed_response", "Analytics refresh state returned malformed JSON.");
+  }
+
+  return validateAnalyticsRefreshStateResponse(payload);
 }
 
 export async function submitManualJsonlImport(
@@ -1335,6 +1376,44 @@ function validateAnalyticsDashboardModulesResponse(payload: unknown): AnalyticsD
   return payload as AnalyticsDashboardModulesResponse;
 }
 
+function validateAnalyticsRefreshStateResponse(payload: unknown): AnalyticsRefreshStateResponse {
+  if (!isRecord(payload)) {
+    throw new AnalyticsHistoryApiError("malformed_response", "Analytics refresh state must be a JSON object.");
+  }
+
+  for (const field of REQUIRED_ANALYTICS_REFRESH_STATE_FIELDS) {
+    if (!(field in payload)) {
+      throw new AnalyticsHistoryApiError("malformed_response", "Analytics refresh state is missing required fields.");
+    }
+  }
+
+  if (payload.schema_version !== ANALYTICS_REFRESH_STATE_SCHEMA_VERSION) {
+    throw new AnalyticsHistoryApiError(
+      "incompatible_response",
+      `Expected analytics refresh state schema ${ANALYTICS_REFRESH_STATE_SCHEMA_VERSION}.`
+    );
+  }
+
+  if (payload.object !== ANALYTICS_REFRESH_STATE_OBJECT) {
+    throw new AnalyticsHistoryApiError("malformed_response", "Analytics refresh state object is unsupported.");
+  }
+
+  if (
+    !isAnalyticsHistoryStatus(payload.status) ||
+    !isStringOrNull(payload.analytics_revision) ||
+    typeof payload.latest_completed_match_result_available !== "boolean" ||
+    !isIsoTimestampOrNull(payload.latest_completed_match_seen_at) ||
+    !isIsoTimestampOrNull(payload.latest_completed_ingest_finished_at) ||
+    !isAnalyticsRefreshStateRowCounts(payload.row_counts) ||
+    !isStringArray(payload.warnings) ||
+    !isStringArray(payload.errors)
+  ) {
+    throw new AnalyticsHistoryApiError("malformed_response", "Analytics refresh state has an unsupported shape.");
+  }
+
+  return payload as AnalyticsRefreshStateResponse;
+}
+
 function isAnalyticsHistoryStatus(value: unknown): value is AnalyticsHistoryStatus {
   return (
     value === "ok" ||
@@ -1344,6 +1423,21 @@ function isAnalyticsHistoryStatus(value: unknown): value is AnalyticsHistoryStat
     value === "degraded" ||
     value === "error"
   );
+}
+
+function isAnalyticsRefreshStateRowCounts(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    isSafeIntegerCount(value.ingest_runs) &&
+    isSafeIntegerCount(value.matches) &&
+    isSafeIntegerCount(value.games) &&
+    isSafeIntegerCount(value.match_results) &&
+    isSafeIntegerCount(value.game_results)
+  );
+}
+
+function isSafeIntegerCount(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0;
 }
 
 function validateMatchHistoryRows(rows: unknown): void {

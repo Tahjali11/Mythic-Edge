@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   fetchAnalyticsDashboardModules,
+  fetchAnalyticsRefreshState,
   fetchGameplayActionReview,
   AnalyticsHistoryApiError,
   fetchGame1PostboardSplitReview,
@@ -39,6 +40,8 @@ import {
   ANALYTICS_DASHBOARD_MODULES_OBJECT,
   ANALYTICS_DASHBOARD_MODULES_SCHEMA_VERSION,
   ANALYTICS_HISTORY_SCHEMA_VERSION,
+  ANALYTICS_REFRESH_STATE_OBJECT,
+  ANALYTICS_REFRESH_STATE_SCHEMA_VERSION,
   EARLY_GAME_HISTORY_SCHEMA_VERSION,
   ERROR_REPORT_PREVIEW_SCHEMA,
   ERROR_REPORT_SUBMISSION_OBJECT,
@@ -71,6 +74,7 @@ import {
   SPLIT_REVIEW_SCHEMA_VERSION,
   type Game1PostboardSplitReviewResponse,
   type AnalyticsDashboardModulesResponse,
+  type AnalyticsRefreshStateResponse,
   type ErrorReportPreviewResponse,
   type ErrorReportSubmissionResponse,
   type GameHistoryResponse,
@@ -695,6 +699,52 @@ describe("api helpers", () => {
       })
     ) as unknown as typeof fetch;
     await expect(fetchAnalyticsDashboardModules(malformedRowsFetch)).rejects.toMatchObject({
+      code: "malformed_response"
+    });
+  });
+
+  it("fetches and validates analytics refresh-state responses", async () => {
+    const payload = buildAnalyticsRefreshStatePayload();
+    const fetchImpl = vi.fn(async () => jsonResponse(payload)) as unknown as typeof fetch;
+
+    await expect(fetchAnalyticsRefreshState(fetchImpl)).resolves.toEqual(payload);
+    expect(fetchImpl).toHaveBeenCalledWith("/api/analytics/refresh-state", {
+      headers: { Accept: "application/json" }
+    });
+  });
+
+  it("rejects malformed analytics refresh-state responses safely", async () => {
+    const wrongSchemaFetch = vi.fn(async () =>
+      jsonResponse({ ...buildAnalyticsRefreshStatePayload(), schema_version: ANALYTICS_DASHBOARD_MODULES_SCHEMA_VERSION })
+    ) as unknown as typeof fetch;
+    await expect(fetchAnalyticsRefreshState(wrongSchemaFetch)).rejects.toMatchObject({
+      code: "incompatible_response"
+    });
+
+    const wrongObjectFetch = vi.fn(async () =>
+      jsonResponse({ ...buildAnalyticsRefreshStatePayload(), object: ANALYTICS_DASHBOARD_MODULES_OBJECT })
+    ) as unknown as typeof fetch;
+    await expect(fetchAnalyticsRefreshState(wrongObjectFetch)).rejects.toMatchObject({
+      code: "malformed_response"
+    });
+
+    const malformedCountsFetch = vi.fn(async () =>
+      jsonResponse({
+        ...buildAnalyticsRefreshStatePayload(),
+        row_counts: { ...buildAnalyticsRefreshStatePayload().row_counts, match_results: -1 }
+      })
+    ) as unknown as typeof fetch;
+    await expect(fetchAnalyticsRefreshState(malformedCountsFetch)).rejects.toMatchObject({
+      code: "malformed_response"
+    });
+
+    const unsafeTimestampFetch = vi.fn(async () =>
+      jsonResponse({
+        ...buildAnalyticsRefreshStatePayload(),
+        latest_completed_match_seen_at: String.raw`C:\operator\AppData\Local\MythicEdge\Player.log`
+      })
+    ) as unknown as typeof fetch;
+    await expect(fetchAnalyticsRefreshState(unsafeTimestampFetch)).rejects.toMatchObject({
       code: "malformed_response"
     });
   });
@@ -1910,6 +1960,27 @@ function buildAnalyticsDashboardModulesPayload(): AnalyticsDashboardModulesRespo
       metrics: ["games_played", "wins", "losses", "win_rate"],
       warnings: ["custom_explorer_builder_deferred"],
       errors: []
+    },
+    warnings: [],
+    errors: []
+  };
+}
+
+function buildAnalyticsRefreshStatePayload(): AnalyticsRefreshStateResponse {
+  return {
+    object: ANALYTICS_REFRESH_STATE_OBJECT,
+    schema_version: ANALYTICS_REFRESH_STATE_SCHEMA_VERSION,
+    status: "ok",
+    analytics_revision: "analytics-refresh-v1:synthetic",
+    latest_completed_match_result_available: true,
+    latest_completed_match_seen_at: "2026-06-08T00:10:00Z",
+    latest_completed_ingest_finished_at: "2026-06-08T00:10:01Z",
+    row_counts: {
+      ingest_runs: 1,
+      matches: 1,
+      games: 3,
+      match_results: 1,
+      game_results: 3
     },
     warnings: [],
     errors: []

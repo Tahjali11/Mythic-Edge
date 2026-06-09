@@ -4,6 +4,7 @@ import "./App.css";
 import {
   AnalyticsHistoryApiError,
   fetchAnalyticsDashboardModules,
+  fetchAnalyticsRefreshState as fetchAnalyticsRefreshStateApi,
   fetchGame1PostboardSplitReview,
   fetchGameHistory,
   fetchGameplayActionReview,
@@ -60,6 +61,7 @@ import {
   type AnalyticsDashboardModule,
   type AnalyticsDashboardModulesResponse,
   type AnalyticsDashboardModuleView,
+  type AnalyticsRefreshStateResponse,
   type Game1PostboardSplitReviewResponse,
   type Game1PostboardSplitRow,
   type GameHistoryResponse,
@@ -126,6 +128,7 @@ type SetupStatusAppProps = {
   fetchPlayDrawSplits?: () => Promise<PlayDrawSplitReviewResponse>;
   fetchGame1PostboardSplits?: () => Promise<Game1PostboardSplitReviewResponse>;
   fetchDashboardModules?: () => Promise<AnalyticsDashboardModulesResponse>;
+  fetchAnalyticsRefreshState?: () => Promise<AnalyticsRefreshStateResponse>;
   fetchLiveDiagnostics?: () => Promise<LiveWatcherDiagnosticsResponse>;
   fetchLiveCapture?: () => Promise<LiveCaptureStatusResponse>;
   startCapture?: () => Promise<LiveCaptureStartResult>;
@@ -203,6 +206,13 @@ type DashboardModulesState =
   | { state: "ready"; payload: AnalyticsDashboardModulesResponse; unsafeCount: number }
   | { state: "error"; code: AnalyticsHistoryApiError["code"]; message: string };
 
+type AnalyticsAutoRefreshState =
+  | { state: "checking"; checkedAt: string | null }
+  | { state: "up_to_date"; checkedAt: string | null }
+  | { state: "updated"; checkedAt: string }
+  | { state: "paused"; checkedAt: string | null }
+  | { state: "degraded"; checkedAt: string | null; message: string };
+
 type LiveDiagnosticsState =
   | { state: "loading" }
   | { state: "ready"; payload: LiveWatcherDiagnosticsResponse; unsafeCount: number }
@@ -268,6 +278,7 @@ type AppRoute = "dashboard" | "coach" | "analytics" | "review" | "privacy" | "fe
 const UNATTACHED_SMOKE_NOTE_PREFIX = "MYTHIC_EDGE_SMOKE_TEST_DO_NOT_USE_AS_GAME_REVIEW";
 const UNATTACHED_SMOKE_NOTE_STORAGE_KEY = "mythic_edge.match_journal.unattached_smoke_note_id";
 const DASHBOARD_MODULE_VIEW_PREFERENCES_KEY = "mythic_edge.analytics.dashboard.module_view_preferences.v1";
+const ANALYTICS_AUTO_REFRESH_INTERVAL_MS = 25_000;
 const DASHBOARD_MODULE_IDS = new Set(["play_draw_win_rate", "game1_postboard", "mulligan_opening_hand_outcomes"]);
 const DASHBOARD_MODULE_VIEWS = new Set(["bar", "table"]);
 const APP_ROUTES: AppRoute[] = ["dashboard", "coach", "analytics", "review", "privacy", "feedback", "import", "diagnostics"];
@@ -315,6 +326,7 @@ export function SetupStatusApp({
   fetchPlayDrawSplits = fetchPlayDrawSplitReview,
   fetchGame1PostboardSplits = fetchGame1PostboardSplitReview,
   fetchDashboardModules = fetchAnalyticsDashboardModules,
+  fetchAnalyticsRefreshState = fetchAnalyticsRefreshStateApi,
   fetchLiveDiagnostics = fetchLiveWatcherDiagnosticsStatus,
   fetchLiveCapture = fetchLiveCaptureStatus,
   startCapture = () => startLiveCapture(),
@@ -341,6 +353,13 @@ export function SetupStatusApp({
   const [dashboardModuleViews, setDashboardModuleViews] = useState<Record<string, AnalyticsDashboardModuleView>>(
     readDashboardModuleViewPreferences
   );
+  const [analyticsAutoRefreshState, setAnalyticsAutoRefreshState] = useState<AnalyticsAutoRefreshState>({
+    state: "checking",
+    checkedAt: null
+  });
+  const analyticsRefreshRevisionRef = useRef<string | null>(null);
+  const analyticsAutoRefreshInFlightRef = useRef(false);
+  const analyticsViewLoadingRef = useRef(false);
   const [liveDiagnosticsState, setLiveDiagnosticsState] = useState<LiveDiagnosticsState>({ state: "loading" });
   const [liveCaptureControlState, setLiveCaptureControlState] = useState<LiveCaptureControlState>({ state: "loading" });
   const [journalState, setJournalState] = useState<MatchJournalState>({ state: "loading" });
@@ -359,6 +378,12 @@ export function SetupStatusApp({
   const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
   const uploadFileInputRef = useRef<HTMLInputElement>(null);
   const uploadFolderInputRef = useRef<HTMLInputElement>(null);
+  analyticsViewLoadingRef.current =
+    historyState.state === "loading" ||
+    earlyGameState.state === "loading" ||
+    actionReviewState.state === "loading" ||
+    splitReviewState.state === "loading" ||
+    dashboardModulesState.state === "loading";
 
   useEffect(() => {
     function handleHashChange() {
@@ -664,6 +689,267 @@ export function SetupStatusApp({
       active = false;
     };
   }, [fetchDashboardModules]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function refreshHistoryFromAutoRefresh() {
+      setHistoryState({ state: "loading" });
+      try {
+        const [matches, games] = await Promise.all([fetchMatches(), fetchGames()]);
+        if (!active) {
+          return;
+        }
+        setHistoryState({
+          state: "ready",
+          matches,
+          games,
+          unsafeCount: countUnsafeHistoryValues(matches, games)
+        });
+      } catch (error: unknown) {
+        if (!active) {
+          return;
+        }
+        if (error instanceof AnalyticsHistoryApiError) {
+          setHistoryState({ state: "error", code: error.code, message: error.message });
+          return;
+        }
+        setHistoryState({
+          state: "error",
+          code: "backend_unavailable",
+          message: "Analytics history backend is unavailable."
+        });
+      }
+    }
+
+    async function refreshEarlyGameFromAutoRefresh() {
+      setEarlyGameState({ state: "loading" });
+      try {
+        const [openingHands, mulligans] = await Promise.all([fetchOpeningHands(), fetchMulligans()]);
+        if (!active) {
+          return;
+        }
+        setEarlyGameState({
+          state: "ready",
+          openingHands,
+          mulligans,
+          unsafeCount: countUnsafeEarlyGameHistoryValues(openingHands, mulligans)
+        });
+      } catch (error: unknown) {
+        if (!active) {
+          return;
+        }
+        if (error instanceof AnalyticsHistoryApiError) {
+          setEarlyGameState({ state: "error", code: error.code, message: error.message });
+          return;
+        }
+        setEarlyGameState({
+          state: "error",
+          code: "backend_unavailable",
+          message: "Analytics history backend is unavailable."
+        });
+      }
+    }
+
+    async function refreshActionReviewFromAutoRefresh() {
+      setActionReviewState({ state: "loading" });
+      try {
+        const [gameplayActions, opponentObservations] = await Promise.all([
+          fetchGameplayActions(),
+          fetchOpponentObservations()
+        ]);
+        if (!active) {
+          return;
+        }
+        setActionReviewState({
+          state: "ready",
+          gameplayActions,
+          opponentObservations,
+          unsafeCount: countUnsafeActionReviewValues(gameplayActions, opponentObservations)
+        });
+      } catch (error: unknown) {
+        if (!active) {
+          return;
+        }
+        if (error instanceof AnalyticsHistoryApiError) {
+          setActionReviewState({ state: "error", code: error.code, message: error.message });
+          return;
+        }
+        setActionReviewState({
+          state: "error",
+          code: "backend_unavailable",
+          message: "Analytics history backend is unavailable."
+        });
+      }
+    }
+
+    async function refreshSplitReviewFromAutoRefresh() {
+      setSplitReviewState({ state: "loading" });
+      try {
+        const [playDrawSplits, game1PostboardSplits] = await Promise.all([
+          fetchPlayDrawSplits(),
+          fetchGame1PostboardSplits()
+        ]);
+        if (!active) {
+          return;
+        }
+        setSplitReviewState({
+          state: "ready",
+          playDrawSplits,
+          game1PostboardSplits,
+          unsafeCount: countUnsafeSplitReviewValues(playDrawSplits, game1PostboardSplits)
+        });
+      } catch (error: unknown) {
+        if (!active) {
+          return;
+        }
+        if (error instanceof AnalyticsHistoryApiError) {
+          setSplitReviewState({ state: "error", code: error.code, message: error.message });
+          return;
+        }
+        setSplitReviewState({
+          state: "error",
+          code: "backend_unavailable",
+          message: "Analytics history backend is unavailable."
+        });
+      }
+    }
+
+    async function refreshDashboardModulesFromAutoRefresh() {
+      setDashboardModulesState({ state: "loading" });
+      try {
+        const payload = await fetchDashboardModules();
+        if (!active) {
+          return;
+        }
+        setDashboardModulesState({
+          state: "ready",
+          payload,
+          unsafeCount: countUnsafeDashboardModuleValues(payload)
+        });
+      } catch (error: unknown) {
+        if (!active) {
+          return;
+        }
+        if (error instanceof AnalyticsHistoryApiError) {
+          setDashboardModulesState({ state: "error", code: error.code, message: error.message });
+          return;
+        }
+        setDashboardModulesState({
+          state: "error",
+          code: "backend_unavailable",
+          message: "Analytics dashboard modules are unavailable."
+        });
+      }
+    }
+
+    async function refreshAllAnalyticsViews() {
+      await Promise.all([
+        refreshHistoryFromAutoRefresh(),
+        refreshEarlyGameFromAutoRefresh(),
+        refreshActionReviewFromAutoRefresh(),
+        refreshSplitReviewFromAutoRefresh(),
+        refreshDashboardModulesFromAutoRefresh()
+      ]);
+    }
+
+    async function checkAnalyticsRefreshState() {
+      if (!active || analyticsAutoRefreshInFlightRef.current) {
+        return;
+      }
+      if (document.visibilityState === "hidden") {
+        setAnalyticsAutoRefreshState((current) => ({ state: "paused", checkedAt: current.checkedAt }));
+        return;
+      }
+
+      analyticsAutoRefreshInFlightRef.current = true;
+      setAnalyticsAutoRefreshState((current) => ({ state: "checking", checkedAt: current.checkedAt }));
+      try {
+        const payload = await fetchAnalyticsRefreshState();
+        if (!active) {
+          return;
+        }
+
+        const checkedAt = formatAutoRefreshCheckedAt(new Date());
+        const nextRevision = payload.analytics_revision;
+        const previousRevision = analyticsRefreshRevisionRef.current;
+        const safeToRefresh = payload.status === "ok" || payload.status === "empty";
+
+        if (!safeToRefresh) {
+          if (nextRevision !== null) {
+            analyticsRefreshRevisionRef.current = nextRevision;
+          }
+          setAnalyticsAutoRefreshState({
+            state: "degraded",
+            checkedAt,
+            message: "Auto-refresh is degraded; manual refresh remains available."
+          });
+          return;
+        }
+
+        if (nextRevision !== null && previousRevision !== null && nextRevision !== previousRevision) {
+          if (analyticsViewLoadingRef.current) {
+            setAnalyticsAutoRefreshState({ state: "checking", checkedAt });
+            return;
+          }
+          analyticsRefreshRevisionRef.current = nextRevision;
+          await refreshAllAnalyticsViews();
+          if (!active) {
+            return;
+          }
+          setAnalyticsAutoRefreshState({ state: "updated", checkedAt });
+          return;
+        }
+
+        if (nextRevision !== null) {
+          analyticsRefreshRevisionRef.current = nextRevision;
+        }
+        setAnalyticsAutoRefreshState({ state: "up_to_date", checkedAt });
+      } catch {
+        if (!active) {
+          return;
+        }
+        setAnalyticsAutoRefreshState((current) => ({
+          state: "degraded",
+          checkedAt: current.checkedAt,
+          message: "Auto-refresh check is unavailable; manual refresh remains available."
+        }));
+      } finally {
+        analyticsAutoRefreshInFlightRef.current = false;
+      }
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        void checkAnalyticsRefreshState();
+        return;
+      }
+      setAnalyticsAutoRefreshState((current) => ({ state: "paused", checkedAt: current.checkedAt }));
+    }
+
+    void checkAnalyticsRefreshState();
+    const intervalId = window.setInterval(() => {
+      void checkAnalyticsRefreshState();
+    }, ANALYTICS_AUTO_REFRESH_INTERVAL_MS);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [
+    fetchAnalyticsRefreshState,
+    fetchDashboardModules,
+    fetchGame1PostboardSplits,
+    fetchGames,
+    fetchGameplayActions,
+    fetchMatches,
+    fetchMulligans,
+    fetchOpeningHands,
+    fetchOpponentObservations,
+    fetchPlayDrawSplits
+  ]);
 
   useEffect(() => {
     let active = true;
@@ -1218,6 +1504,7 @@ export function SetupStatusApp({
       {activeRoute === "dashboard" ? (
         <>
           <CockpitStatusRail items={statusItems} />
+          <AnalyticsAutoRefreshNotice state={analyticsAutoRefreshState} />
           <DashboardModulesSection
             moduleViewPreferences={dashboardModuleViews}
             onModuleViewChange={handleDashboardModuleViewChange}
@@ -1236,6 +1523,7 @@ export function SetupStatusApp({
             <h2 id="analytics-details-title">Analytics</h2>
             <p className="historyStateMessage">Stored SQLite views stay read-only in this frontend route.</p>
           </div>
+          <AnalyticsAutoRefreshNotice state={analyticsAutoRefreshState} />
           <DashboardModulesSection
             moduleViewPreferences={dashboardModuleViews}
             onModuleViewChange={handleDashboardModuleViewChange}
@@ -1411,6 +1699,50 @@ function isAppRoute(value: string): value is AppRoute {
   return APP_ROUTES.includes(value as AppRoute);
 }
 
+function analyticsAutoRefreshNoticeContent(state: AnalyticsAutoRefreshState): {
+  title: string;
+  detail: string;
+  tone: SetupStatusTone;
+} {
+  if (state.state === "updated") {
+    return {
+      title: "Analytics auto-refresh",
+      detail: `Analytics updated ${state.checkedAt}.`,
+      tone: "ok"
+    };
+  }
+  if (state.state === "paused") {
+    return {
+      title: "Analytics auto-refresh",
+      detail: "Auto-refresh is paused while this tab is hidden.",
+      tone: "deferred"
+    };
+  }
+  if (state.state === "degraded") {
+    return {
+      title: "Analytics auto-refresh",
+      detail: state.message,
+      tone: "degraded"
+    };
+  }
+  if (state.state === "checking") {
+    return {
+      title: "Analytics auto-refresh",
+      detail: state.checkedAt === null ? "Checking for safe analytics updates." : "Checking for safe analytics updates.",
+      tone: "unknown"
+    };
+  }
+  return {
+    title: "Analytics auto-refresh",
+    detail: state.checkedAt === null ? "Waiting for analytics refresh state." : `Analytics checked ${state.checkedAt}.`,
+    tone: "ok"
+  };
+}
+
+function formatAutoRefreshCheckedAt(date: Date): string {
+  return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+
 function StatusNotice({ title, status, children }: { title: string; status: string; children?: ReactNode }) {
   return (
     <section className={`notice tone-${statusTone(status)}`} aria-labelledby="status-notice">
@@ -1438,6 +1770,16 @@ function CockpitStatusRail({ items }: { items: CockpitStatusItem[] }) {
           <StatusPill label={item.status} pulse={item.liveActive} tone={item.tone} />
         </article>
       ))}
+    </section>
+  );
+}
+
+function AnalyticsAutoRefreshNotice({ state }: { state: AnalyticsAutoRefreshState }) {
+  const content = analyticsAutoRefreshNoticeContent(state);
+  return (
+    <section className={`autoRefreshNotice tone-${content.tone}`} aria-live="polite" aria-label="Analytics auto-refresh">
+      <span>{content.title}</span>
+      <p>{content.detail}</p>
     </section>
   );
 }

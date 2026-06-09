@@ -20,6 +20,7 @@ from .analytics_history import (
     build_opponent_card_observation_review,
     build_play_draw_split_review,
 )
+from .analytics_refresh_state import build_analytics_refresh_state
 from .config import load_local_app_config_status
 from .error_reports import GitHubIssueSubmitter, build_error_report_preview, build_error_report_submission
 from .import_jobs import (
@@ -56,6 +57,7 @@ LOOPBACK_HOSTS = {"127.0.0.1", "localhost"}
 HISTORY_QUERY_PARAM_INVALID = "analytics_history_query_parameter_invalid"
 HISTORY_QUERY_PARAM_NOT_ALLOWED = "analytics_history_query_parameter_not_allowed"
 DASHBOARD_QUERY_PARAM_NOT_ALLOWED = "analytics_dashboard_query_parameter_not_allowed"
+REFRESH_STATE_QUERY_PARAM_NOT_ALLOWED = "analytics_refresh_state_query_parameter_not_allowed"
 
 
 def create_app(
@@ -183,6 +185,11 @@ def create_app(
         _reject_dashboard_query_params(request)
         return build_analytics_dashboard_modules(local_app_paths)
 
+    @app.get("/api/analytics/refresh-state")
+    def analytics_refresh_state(request: Request) -> dict[str, object]:
+        _reject_refresh_state_query_params(request)
+        return build_analytics_refresh_state(local_app_paths)
+
     @app.get("/api/runtime/status")
     def runtime_state() -> dict[str, object]:
         return build_runtime_state()
@@ -298,6 +305,11 @@ def _reject_unknown_history_query_params(request: Request) -> None:
 def _reject_dashboard_query_params(request: Request) -> None:
     if request.query_params:
         raise HTTPException(status_code=422, detail={"error": DASHBOARD_QUERY_PARAM_NOT_ALLOWED})
+
+
+def _reject_refresh_state_query_params(request: Request) -> None:
+    if request.query_params:
+        raise HTTPException(status_code=422, detail={"error": REFRESH_STATE_QUERY_PARAM_NOT_ALLOWED})
 
 
 def _history_pagination(request: Request) -> tuple[int, int]:
