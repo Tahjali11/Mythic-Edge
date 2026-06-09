@@ -586,8 +586,12 @@ def run_private_local_v1_proof(
                     warnings.append("browser_open_failed")
 
     if children and config.stop_after_verify:
-        launcher.cleanup_children(children)
-        launch_status["process_cleanup"] = "stopped_proof_started_processes"
+        cleanup_completed = launcher.cleanup_children(children)
+        if cleanup_completed:
+            launch_status["process_cleanup"] = "stopped_proof_started_processes"
+        else:
+            launch_status["process_cleanup"] = "cleanup_incomplete"
+            errors.append("process_cleanup_incomplete")
     elif children and config.leave_running:
         launch_status["process_cleanup"] = "left_running_by_request"
 
