@@ -343,23 +343,25 @@ h3 {
 
 .dashboardCaptureControl {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
-  min-width: 8.6rem;
+  gap: 6px;
+  min-width: 10.4rem;
 }
 
 .dashboardCaptureActionSlot {
   display: flex;
   justify-content: flex-end;
-  width: 8.6rem;
+  flex: 0 0 7.8rem;
+  width: 7.8rem;
 }
 
-.captureLifecycleButton,
-.captureLifecycleLink {
+.captureLifecycleButton {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   min-height: 32px;
-  width: 8.6rem;
+  width: 7.8rem;
   border: 1px solid #2f6d4a;
   border-radius: 6px;
   padding: 6px 10px;
@@ -390,23 +392,29 @@ h3 {
   cursor: not-allowed;
 }
 
-.captureLifecycleLink {
-  color: #315571;
-  background: #eff5f7;
-}
-
-.captureLifecycleMuted {
+.captureDiagnosticsLink {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex: 0 0 32px;
+  width: 32px;
   min-height: 32px;
-  width: 8.6rem;
-  color: #596067;
+  border: 1px solid #b8c5ce;
+  border-radius: 6px;
+  color: #315571;
+  background: #eff5f7;
   font-size: 0.78rem;
   font-weight: 800;
   line-height: 1.1;
   text-align: center;
+  text-decoration: none;
   white-space: nowrap;
+}
+
+.captureDiagnosticsLink:hover,
+.captureDiagnosticsLink:focus-visible {
+  border-color: #315571;
+  background: #e0ecf2;
 }
 
 .cockpitSection,
@@ -1191,11 +1199,22 @@ dd {
 
   .dashboardCaptureControl,
   .dashboardCaptureActionSlot,
-  .captureLifecycleButton,
-  .captureLifecycleLink,
-  .captureLifecycleMuted {
+  .captureLifecycleButton {
     width: 100%;
     min-width: 0;
+  }
+
+  .dashboardCaptureControl {
+    justify-content: space-between;
+  }
+
+  .dashboardCaptureActionSlot {
+    flex: 1 1 auto;
+  }
+
+  .captureDiagnosticsLink {
+    flex: 0 0 36px;
+    width: 36px;
   }
 
   .manualImportForm {

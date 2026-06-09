@@ -251,6 +251,10 @@ describe("SetupStatusApp", () => {
     expect(within(liveCaptureCard).getByLabelText("Live capture lifecycle control")).toBeInTheDocument();
     expect(within(liveCaptureCard).getByLabelText("status Ready to start")).toBeInTheDocument();
     expect(within(liveCaptureCard).getByRole("button", { name: "Start capture" })).toBe(startButton);
+    expect(within(liveCaptureCard).getByRole("link", { name: "View live capture diagnostics" })).toHaveAttribute(
+      "href",
+      "#diagnostics"
+    );
 
     fireEvent.click(startButton);
 
@@ -264,6 +268,10 @@ describe("SetupStatusApp", () => {
     resolveStart(buildLiveCaptureStartResultPayload());
     expect(await within(liveCaptureCard).findByRole("button", { name: "Stop capture" })).toBeInTheDocument();
     expect(within(liveCaptureCard).getByLabelText("status Capturing")).toBeInTheDocument();
+    expect(within(liveCaptureCard).getByRole("link", { name: "View live capture diagnostics" })).toHaveAttribute(
+      "href",
+      "#diagnostics"
+    );
     expect(within(liveCaptureCard).queryByRole("button", { name: "Start capture" })).not.toBeInTheDocument();
 
     fireEvent.click(within(liveCaptureCard).getByRole("button", { name: "Stop capture" }));
@@ -297,6 +305,67 @@ describe("SetupStatusApp", () => {
     );
     expect(within(liveCaptureCard).queryByRole("button", { name: "Start capture" })).not.toBeInTheDocument();
     expect(within(liveCaptureCard).queryByRole("button", { name: "Stop capture" })).not.toBeInTheDocument();
+  });
+
+  it("fails closed for stale dashboard capture state without implying restart", async () => {
+    render(
+      <SetupStatusApp
+        fetchLiveCapture={() =>
+          Promise.resolve(
+            buildLiveCaptureStatusPayload({
+              status: "stale",
+              capture: {
+                running: false,
+                start_allowed: false,
+                stop_allowed: false,
+                parser_runner_started: false,
+                tailing_started: false,
+                sqlite_live_writes_enabled: false,
+                external_transport_allowed: false,
+                raw_player_log_storage_enabled: false,
+                supervisor_kind: "local_app_capture_supervisor",
+                source_kind: "live_parser",
+                reason: "capture_state_stale"
+              },
+              state: {
+                source: "state_file",
+                exists: true,
+                status: "stale",
+                stale: true,
+                pid_present: true,
+                pid_verified: false,
+                supervisor_token_present: true,
+                display_path: "<app_data>\\jobs\\live_capture_state.json",
+                raw_path_exposed: false,
+                started_at: "2026-06-08T12:00:00Z",
+                updated_at: "2026-06-08T12:00:00Z"
+              },
+              parser_status_blurb: {
+                code: "capture_state_stale",
+                text: "Capture heartbeat stopped. Restart capture.",
+                tone: "warning"
+              }
+            })
+          )
+        }
+        fetchStatus={() => Promise.resolve(buildPayload())}
+      />
+    );
+
+    await screen.findByRole("heading", { name: "Mythic Edge Cockpit" });
+    const liveCaptureCard = cockpitCard("Live capture");
+
+    expect(await within(liveCaptureCard).findByLabelText("status Needs review")).toBeInTheDocument();
+    expect(within(liveCaptureCard).queryByLabelText("status Ready to start")).not.toBeInTheDocument();
+    expect(within(liveCaptureCard).getByText("Capture state is stale; open diagnostics.")).toBeInTheDocument();
+    expect(within(liveCaptureCard).getByRole("button", { name: "Live capture needs review" })).toBeDisabled();
+    expect(within(liveCaptureCard).getByRole("link", { name: "View live capture diagnostics" })).toHaveAttribute(
+      "href",
+      "#diagnostics"
+    );
+    expect(within(liveCaptureCard).queryByRole("button", { name: "Start capture" })).not.toBeInTheDocument();
+    expect(within(liveCaptureCard).queryByRole("button", { name: "Stop capture" })).not.toBeInTheDocument();
+    expect(within(liveCaptureCard).queryByText(/restart capture/i)).not.toBeInTheDocument();
   });
 
   it("shows capturing only when strict running, parser, tailing, and SQLite write evidence is present", async () => {
