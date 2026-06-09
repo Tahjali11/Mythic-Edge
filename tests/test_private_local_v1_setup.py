@@ -738,6 +738,42 @@ def test_proof_mode_orchestrates_existing_checkout_without_real_side_effects(tmp
     assert str(source_checkout) not in json.dumps(proof_report, sort_keys=True)
 
 
+def test_proof_mode_reports_incomplete_cleanup_when_started_process_survives(tmp_path: Path) -> None:
+    source_checkout = _make_source_checkout(tmp_path)
+    install_root = tmp_path / "private-local-v1"
+    commands = ProofCommandRecorder()
+    processes = ProofProcessRecorder(stubborn_names={"frontend"})
+
+    result = setup.run_private_local_v1_proof(
+        setup.PrivateLocalV1ProofConfig(
+            install_root=install_root,
+            source_checkout=source_checkout,
+            existing_checkout=True,
+            no_open=True,
+            stop_after_verify=True,
+        ),
+        command_runner=commands.run,
+        http_verifier=_passing_http_verifier,
+        tool_resolver=_tool_resolver,
+        module_finder=_module_finder,
+        port_checker=lambda _host, _port: True,
+        process_launcher=processes.launch,
+        browser_opener=lambda _url: False,
+        platform_name="Windows",
+        settle_seconds=0,
+    )
+
+    paths = setup.build_private_local_v1_paths(install_root)
+    proof_report = json.loads((paths.diagnostics_dir / "setup_proof_report.json").read_text(encoding="utf-8"))
+
+    assert result["status"] == "failed"
+    assert result["launch"]["process_cleanup"] == "cleanup_incomplete"
+    assert "process_cleanup_incomplete" in result["errors"]
+    assert proof_report["launch"]["process_cleanup"] == "cleanup_incomplete"
+    assert processes.by_name["backend"].terminated is True
+    assert processes.by_name["frontend"].killed is True
+
+
 def test_proof_mode_can_clone_into_v1_app_root_with_fake_repo(tmp_path: Path) -> None:
     seed_checkout = _make_source_checkout(tmp_path)
     install_root = tmp_path / "private-local-v1"
@@ -874,9 +910,11 @@ class ProofProcessCall:
 
 
 class ProofProcessRecorder:
-    def __init__(self) -> None:
+    def __init__(self, *, stubborn_names: set[str] | None = None) -> None:
         self.calls: list[ProofProcessCall] = []
         self.processes: list[ProofProcess] = []
+        self.by_name: dict[str, ProofProcess] = {}
+        self.stubborn_names = stubborn_names or set()
 
     def launch(
         self,
@@ -887,24 +925,30 @@ class ProofProcessRecorder:
     ) -> "ProofProcess":
         name = "backend" if "uvicorn" in command else "frontend"
         log_handle.write(f"{name} started\n".encode())
-        process = ProofProcess()
+        process = ProofProcess(stubborn=name in self.stubborn_names)
         self.calls.append(ProofProcessCall(name, list(command), cwd, dict(env)))
         self.processes.append(process)
+        self.by_name[name] = process
         return process
 
 
 class ProofProcess:
-    def __init__(self) -> None:
+    def __init__(self, *, stubborn: bool = False) -> None:
         self.terminated = False
         self.killed = False
+        self.stubborn = stubborn
 
     def poll(self) -> int | None:
+        if self.stubborn:
+            return None
         return 0 if self.terminated or self.killed else None
 
     def terminate(self) -> None:
         self.terminated = True
 
     def wait(self, timeout: float | None = None) -> int:
+        if self.stubborn:
+            raise TimeoutError
         self.terminated = True
         return 0
 
