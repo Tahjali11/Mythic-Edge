@@ -2,6 +2,7 @@ param(
     [switch]$Check,
     [switch]$Install,
     [switch]$Proof,
+    [switch]$Wizard,
     [switch]$ExistingCheckout,
     [switch]$InitializeSqlite,
     [switch]$NoOpen,
@@ -19,12 +20,12 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$selectedModes = @($Check, $Install, $Proof) | Where-Object { $_ }
+$selectedModes = @($Check, $Install, $Proof, $Wizard) | Where-Object { $_ }
 if ($selectedModes.Count -gt 1) {
-    throw "Choose only one of -Check, -Install, or -Proof."
+    throw "Choose only one of -Check, -Install, -Proof, or -Wizard."
 }
 
-if (-not $Check -and -not $Install -and -not $Proof) {
+if (-not $Check -and -not $Install -and -not $Proof -and -not $Wizard) {
     $Check = $true
 }
 
@@ -35,6 +36,9 @@ $argsList = @("tools\dev_app\private_local_v1_setup.py")
 
 if ($Proof) {
     $argsList += "--proof"
+}
+elseif ($Wizard) {
+    $argsList += "--wizard"
 }
 elseif ($Install) {
     $argsList += "--install"
