@@ -21,7 +21,7 @@ If an accepted ADR appears to conflict with a higher-priority instruction or gov
 
 Handoffs, review reports, PR descriptions, and tracker comments can cite ADRs, but they do not supersede accepted ADRs by themselves.
 
-ADRs cannot authorize protected-surface changes by implication. Parser behavior, parser state final reconciliation, workbook schema, webhook payload shape, Apps Script behavior, event classes, event kinds, parser payload shapes, match/game identity, deduplication, secrets, generated data, raw logs, runtime status files, failed posts, workbook exports, production deployment behavior, and merge-to-main policy still require explicit issue, contract, review, and validation authority.
+ADRs cannot authorize protected-surface changes by implication. Parser behavior, parser state final reconciliation, workbook schema, webhook request/response contracts, Apps Script behavior, event classes, event kinds, parser message shapes, match/game identity, deduplication, secrets, generated data, raw logs, runtime health files, transport failure artifacts, workbook exports, production deployment behavior, and merge-to-main policy still require explicit issue, contract, review, and validation authority.
 
 ## When An ADR Is Required
 
