@@ -30,18 +30,16 @@ Edge locally. It includes:
 The local open core preserves the current project shape: Mythic Edge is a
 private local MTG Arena analytics and review app.
 
-## Future Hosted Services
+## Future Separately Offered Services
 
-Future hosted or paid services may be separate from the local open core. A
-future service could include account-based cloud sync, multi-machine analytics,
-hosted dashboards, managed backups, hosted storage, hosted AI review summaries,
-convenience hosting, managed deployments, or private production
-infrastructure.
+Future separately offered services may be separate from the local open core.
+This policy intentionally does not describe their feature set, methods,
+infrastructure, pricing, availability, or operating model.
 
-This policy does not implement or authorize those services. Any future hosted,
-cloud, payment, account, OpenAI/model-provider, or production work needs its
-own issue, contract, privacy boundary, credential policy, and explicit user
-approval.
+This policy does not implement or authorize those services. Any future external,
+credentialed, model-provider, account, managed-operation, or production-facing
+work needs its own issue, contract, privacy boundary, credential policy, and
+explicit user approval.
 
 ## Private And Generated Data
 
@@ -60,8 +58,8 @@ source:
 - secrets, credentials, API keys, tokens, webhook URLs, spreadsheet IDs, and
   environment values;
 - production configs and private deployment infrastructure;
-- hosted service account data;
-- private service operations data;
+- service account data;
+- service operations data;
 - generated/local-only artifacts that are not committed source.
 
 ## Trademarks And Brand Assets
@@ -82,9 +80,9 @@ Mythic Edge does not currently claim:
 
 - public release readiness;
 - production readiness;
-- hosted service readiness;
-- payment, account, cloud, or managed deployment readiness;
-- OpenAI/model-provider runtime integration;
+- separately offered service readiness;
+- account, external integration, or managed operation readiness;
+- model-provider runtime integration;
 - AI coaching, hidden-card inference, gameplay advice, or best-line truth;
 - a trademark policy beyond the boundary stated here;
 - a third-party dependency license audit.

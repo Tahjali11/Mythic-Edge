@@ -54,13 +54,13 @@ Codex E: Module Reviewer / contract-test thread.
 - README includes a concise `License And Open-Core Boundary` section linking
   `LICENSE` and `LICENSE_POLICY.md`.
 - `LICENSE_POLICY.md` explains what is licensed, the local open core, future
-  hosted services, private/generated data, trademark/brand boundaries, no
+  separately offered services, private/generated data, trademark/brand boundaries, no
   legal advice, and current non-claims.
 - `NOTICE` remains absent, and the implementation handoff documents the
   rationale.
-- Future hosted/paid service language is boundary-setting only. It does not
-  implement or promise hosted services, accounts, cloud sync, payment flows,
-  OpenAI/model-provider runtime behavior, production behavior, or AI coaching.
+- Future separately offered service language is boundary-setting only. It does
+  not implement or promise external services, account flows, model-provider
+  runtime behavior, production behavior, or AI coaching.
 - Private/generated/local artifacts are explicitly excluded from source
   distribution claims.
 - Trademark and brand assets are not accidentally licensed by implication.
@@ -110,7 +110,8 @@ cover the changed behavior surface.
 Passed. Forbidden 0, warnings 0.
 
 No parser/runtime/analytics/local-app/workbook/webhook/App Script/Sheets/
-OpenAI/AI/coaching/Line Tracer/output transport/production behavior changed.
+model-provider/AI/coaching/Line Tracer/output transport/production behavior
+changed.
 
 ## Secret / Private-Marker Status
 
@@ -132,8 +133,8 @@ did not leave root `build`, `dist`, or `*.egg-info` artifacts.
   license keeps the standard Apache-2.0 text and appendix without inserting a
   project-specific owner.
 - Third-party dependency license audit remains a future maturity task.
-- Public release readiness, production readiness, hosted service readiness,
-  and AI/model-provider runtime integration remain unclaimed.
+- Public release readiness, production readiness, separately offered service
+  readiness, and model-provider runtime integration remain unclaimed.
 - Codex F should sync/rebase the branch before submission because it is now
   behind `origin/codex/analytics-foundation` by 2 commits.
 

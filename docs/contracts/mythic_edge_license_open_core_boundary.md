@@ -5,13 +5,13 @@
 `mythic_edge_license_open_core_boundary`
 
 Plain English: this contract defines the intended license posture for Mythic
-Edge's public/local source code and the boundary between the free local core and
-possible future hosted or paid services.
+Edge's public/local source code and the boundary between the local core and
+possible future separately offered services.
 
 This is a Codex B contract-writing artifact only. It is not legal advice. It
-does not implement license-file changes, package metadata changes, hosted
-services, payment flows, cloud sync, AI runtime behavior, production deployment,
-or parser/runtime behavior changes.
+does not implement license-file changes, package metadata changes, external
+services, account flows, model-provider runtime behavior, production
+deployment, or parser/runtime behavior changes.
 
 ## Source Issue
 
@@ -48,7 +48,7 @@ Reasons:
 - the repo currently has package license metadata but no root license file;
 - license metadata, README language, and open-core service language must stay
   consistent;
-- overclaiming legal, public-release, production, or hosted-service promises
+- overclaiming legal, public-release, production, or service promises
   would create project risk;
 - mixing this scope with unrelated CodeQL/security remediation work would make
   review and submission unsafe.
@@ -60,7 +60,7 @@ Quality / Governance.
 This contract owns licensing documentation, package metadata expectations, and
 the project policy boundary for open local source versus future services. It
 does not own parser truth, analytics truth, local app runtime truth, deployment
-truth, service pricing, or legal advice.
+truth, service strategy, or legal advice.
 
 ## Internal Project Area
 
@@ -72,9 +72,9 @@ Adjacent areas:
   presentation are collaboration surfaces;
 - Generated / Local Artifacts, because the license boundary must exclude
   private/generated/local artifacts from source distribution claims;
-- Future AI Integration, only as a deferred boundary for possible hosted AI
-  review services. Naming that area here does not authorize OpenAI or
-  model-provider runtime integration.
+- Future AI Integration, only as a deferred boundary for possible future
+  model-provider work. Naming that area here does not authorize model-provider
+  runtime integration.
 
 ## Truth Owner
 
@@ -108,11 +108,10 @@ Forbidden reverse flow:
 - license/open-core docs must not authorize parser behavior changes;
 - package metadata changes must not imply public release readiness by
   themselves;
-- future hosted-service language must not authorize cloud, payment, account,
-  OpenAI/model-provider, AI coaching, production, Google Sheets, or deployment
-  behavior;
+- future service-boundary language must not authorize external service,
+  account, model-provider, production, Google Sheets, or deployment behavior;
 - repo license language must not imply that private user data, raw logs,
-  generated databases, secrets, local artifacts, trademarks, logos, hosted
+  generated databases, secrets, local artifacts, trademarks, logos, service
   infrastructure, or production configs are public source artifacts.
 
 ## Files Owned By This Contract
@@ -133,9 +132,9 @@ project-specific notice or third-party notice requirement that belongs in the
 repo now. Otherwise `NOTICE` should remain deferred.
 
 Codex C must not edit runtime code, parser code, analytics behavior, local app
-UI/backend behavior, workbook/webhook/App Script/Sheets behavior, hosted
-service code, payment/account code, OpenAI/model-provider runtime code, secrets,
-raw logs, generated data, or local-only artifacts.
+UI/backend behavior, workbook/webhook/App Script/Sheets behavior, external
+service code, account code, model-provider runtime code, secrets, raw logs,
+generated data, or local-only artifacts.
 
 ## Current License-State Finding
 
@@ -149,7 +148,7 @@ license = "MIT"
 
 - No root `LICENSE`, `LICENCE`, `COPYING`, or `NOTICE` file was present.
 - `README.md` describes the private-local-v1 shape and non-claims, but does not
-  currently define a repo license or open-core hosted-service boundary.
+  currently define a repo license or open-core service boundary.
 - `docs/contracts/private_local_v1_package_footprint_release_ref.md` notes that
   future slim package/public/shared release work should include license and
   release metadata.
@@ -177,8 +176,8 @@ Rationale:
 - Apache-2.0 is permissive and compatible with a free local source project;
 - Apache-2.0 includes explicit patent-license language, which is useful for a
   project that may later become public and service-adjacent;
-- Apache-2.0 does not prevent future paid hosted services, managed sync,
-  dashboards, backups, accounts, or AI review from being separate services;
+- Apache-2.0 does not prevent future separately offered services from remaining
+  separate from the local open core;
 - Apache-2.0 is clearer than leaving MIT metadata without a root license file.
 
 If Codex C or the user decides MIT is preferred instead, route back to Codex B
@@ -210,30 +209,20 @@ This open-core boundary preserves the current README framing: Mythic Edge is a
 private local MTG Arena analytics and review app, and the local tool remains the
 basic free/open source experience.
 
-## Future Hosted / Paid Service Boundary
+## Future Separately Offered Service Boundary
 
-Future hosted or paid services may be separate from the local open core.
+Future separately offered services may be separate from the local open core.
 
-Possible future service scope:
-
-- account-based cloud sync;
-- multi-machine analytics sync;
-- hosted dashboards;
-- managed backups;
-- hosted storage;
-- hosted AI review or coaching summaries;
-- convenience hosting;
-- managed deployments;
-- private production service configuration;
-- operations, monitoring, and infrastructure needed to run a hosted service.
+This contract intentionally does not describe their feature set, methods,
+infrastructure, pricing, availability, or operating model.
 
 This contract does not implement or authorize those services. It only preserves
 room for them by saying the repo license for the local open core does not
-promise that every future hosted convenience layer, account system, deployment
-configuration, hosted data store, managed AI workflow, or production
+promise that every future service layer, account system, deployment
+configuration, operations artifact, model-provider workflow, or production
 infrastructure artifact will be public source.
 
-Any future hosted/cloud/payment/account/OpenAI/model-provider runtime work needs
+Any future external-service/account/model-provider/production-facing work needs
 its own issue, contract, privacy boundary, credential policy, data-retention
 policy, and explicit user approval.
 
@@ -252,8 +241,8 @@ The repo license and open-core policy must clearly exclude or reserve:
 - secrets, credentials, API keys, tokens, webhook URLs, spreadsheet IDs, and
   environment values;
 - production configs and private deployment infrastructure;
-- hosted service account data;
-- private service operations data;
+- service account data;
+- service operations data;
 - trademarks, logos, brand assets, and domain names unless a future policy
   explicitly licenses them;
 - generated/local-only artifacts that are not committed source.
@@ -310,7 +299,7 @@ Required content:
 - the local parser, local analytics, local app, setup tooling, tests, and docs
   are part of the local open core;
 - generated/private/local artifacts are not source and must not be committed;
-- future hosted services may be separate;
+- future separately offered services may be separate;
 - license docs are not public-release, production, or legal-advice claims.
 
 The README section should stay concise and link to `LICENSE` and
@@ -325,7 +314,7 @@ Preferred `LICENSE_POLICY.md` sections:
 
 - `What Is Licensed`
 - `Local Open Core`
-- `Future Hosted Services`
+- `Future Separately Offered Services`
 - `Private And Generated Data`
 - `Trademarks And Brand Assets`
 - `No Legal Advice`
@@ -356,7 +345,7 @@ The migration must avoid a half-state:
 
 - do not add Apache-2.0 README language while leaving `pyproject.toml` as MIT;
 - do not update `pyproject.toml` away from MIT without adding a root `LICENSE`;
-- do not claim hosted-service policy without a README or policy explanation.
+- do not claim service-boundary policy without a README or policy explanation.
 
 ## Protected Surfaces
 
@@ -436,8 +425,8 @@ Codex C should adjust the path list to files actually changed.
 - `NOTICE` is either absent with rationale or present with specific current
   notice requirements.
 - Public/local open core is defined without restricting the basic local tool.
-- Future hosted/paid service boundary is defined without implementing or
-  promising hosted services.
+- Future separately offered service boundary is defined without implementing or
+  promising services.
 - Excluded private/generated/local artifacts are named.
 - Trademark/logo/brand assets are not accidentally licensed by implication.
 - No runtime product behavior changes are included.
@@ -454,7 +443,7 @@ Codex C should adjust the path list to files actually changed.
   Dependency/license visibility beyond the project license remains a future
   maturity task if needed.
 - This contract does not define pricing, service terms, privacy policy, terms
-  of service, trademark policy, or hosted data-retention policy.
+  of service, trademark policy, or service data-retention policy.
 
 ## Next Workflow Action
 
@@ -514,9 +503,8 @@ Implement only:
 Do not:
 - treat this as legal advice;
 - target main;
-- implement hosted services, payments, accounts, cloud sync, production
-  deployment, OpenAI/model-provider runtime behavior, AI coaching, or Line
-  Tracer behavior;
+- implement external services, account flows, production deployment,
+  model-provider runtime behavior, AI coaching, or Line Tracer behavior;
 - change parser behavior, analytics behavior, local app/UI behavior, workbook
   schema, webhook payload shape, Apps Script behavior, Google Sheets behavior,
   output transport, or production behavior;
@@ -569,7 +557,7 @@ workflow_handoff:
   stop_conditions:
     - "Do not treat this as legal advice."
     - "Do not target main."
-    - "Do not implement hosted service, payment, account, cloud, production, OpenAI, AI/coaching, or Line Tracer behavior."
+    - "Do not implement external service, account, production, model-provider, AI/coaching, or Line Tracer behavior."
     - "Do not change parser/runtime/analytics/local-app/workbook/webhook/App Script/Sheets/output transport behavior."
     - "Do not touch secrets, raw logs, private JSONL artifacts, generated databases, runtime files, failed posts, workbook exports, app-data files, or local-only artifacts."
     - "Do not mix unrelated CodeQL/security remediation changes into this license slice."

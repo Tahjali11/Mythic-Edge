@@ -41,9 +41,9 @@ Forbidden reverse flow:
 
 - license docs do not authorize parser behavior changes;
 - package metadata does not imply public release readiness;
-- open-core policy does not implement hosted services, payments, accounts,
-  cloud sync, production deployment, OpenAI/model-provider runtime behavior,
-  AI/coaching behavior, or Line Tracer behavior;
+- open-core policy does not implement external services, account flows,
+  production deployment, model-provider runtime behavior, AI/coaching behavior,
+  or Line Tracer behavior;
 - repo license docs do not claim private/generated/local artifacts are source.
 
 ## Role Performed
@@ -79,7 +79,7 @@ Contract expectation:
 - `pyproject.toml` license metadata says `Apache-2.0`;
 - README includes concise license/open-core language;
 - a policy document exists unless README alone can carry the boundary cleanly;
-- private/generated/local artifacts, trademarks, hosted services, and legal
+- private/generated/local artifacts, trademarks, future services, and legal
   non-claims are explicit;
 - no `NOTICE` file is added without a current notice requirement;
 - no runtime product behavior changes are included.
@@ -148,15 +148,15 @@ license = "Apache-2.0"
   are the local open core.
 - Stated that generated/private/local artifacts are not source and must not be
   committed.
-- Stated that future hosted services may be separate.
+- Stated that future separately offered services may be separate.
 - Preserved non-claims for legal advice, public release readiness, production
-  readiness, and hosted-service promises.
+  readiness, and service promises.
 
 ### `LICENSE_POLICY.md`
 
 - Added `What Is Licensed`.
 - Added `Local Open Core`.
-- Added `Future Hosted Services`.
+- Added `Future Separately Offered Services`.
 - Added `Private And Generated Data`.
 - Added `Trademarks And Brand Assets`.
 - Added `No Legal Advice`.
@@ -247,7 +247,7 @@ Codex E should verify:
 - no MIT half-state remains in project license metadata;
 - README and `LICENSE_POLICY.md` do not modify or weaken the Apache-2.0 license
   text;
-- hosted-service language preserves future optional services without
+- service-boundary language preserves future optional services without
   implementing or promising them;
 - generated/private/local artifacts and trademarks are excluded by policy
   without making legal-advice claims;
@@ -305,11 +305,11 @@ Verify:
 - root LICENSE exists and contains Apache-2.0 text;
 - pyproject.toml metadata is Apache-2.0, not MIT;
 - README links LICENSE and LICENSE_POLICY.md and stays concise;
-- LICENSE_POLICY.md explains local open core, future hosted services,
+- LICENSE_POLICY.md explains local open core, future separately offered services,
   private/generated data, trademarks, no legal advice, and current non-claims;
 - NOTICE remains absent with a documented rationale;
 - no runtime code, parser behavior, analytics behavior, local app behavior,
-  workbook/webhook/App Script/Sheets behavior, OpenAI/AI/coaching behavior,
+  workbook/webhook/App Script/Sheets behavior, model-provider/AI/coaching behavior,
   production behavior, CodeQL remediation, secrets, raw logs, generated data,
   or local-only artifacts are included.
 
@@ -364,6 +364,6 @@ workflow_handoff:
     - "Do not treat this as legal advice."
     - "Do not target main."
     - "Do not mix unrelated CodeQL/security remediation changes into this license slice."
-    - "Do not change parser/runtime/analytics/local-app/workbook/webhook/App Script/Sheets/output transport/OpenAI/AI/coaching/production behavior."
+    - "Do not change parser/runtime/analytics/local-app/workbook/webhook/App Script/Sheets/output transport/model-provider/AI/coaching/production behavior."
     - "Do not touch secrets, raw logs, private JSONL artifacts, generated databases, runtime files, failed posts, workbook exports, app-data files, or local-only artifacts."
 ```

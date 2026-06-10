@@ -115,9 +115,9 @@ The local parser, local analytics, local app, setup tooling, tests, and docs
 are the local open core. Generated/private/local artifacts are not source and
 must not be committed.
 
-Future hosted services may be separate from the local open core. This license
-section is not legal advice, public release readiness, production readiness, or
-a hosted-service promise.
+Future separately offered services may be separate from the local open core.
+This license section is not legal advice, public release readiness, production
+readiness, or a service promise.
 
 ## Development
 
