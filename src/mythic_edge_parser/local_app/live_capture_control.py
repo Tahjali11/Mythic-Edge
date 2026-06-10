@@ -8,7 +8,7 @@ import sqlite3
 import threading
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Protocol
 
@@ -26,6 +26,12 @@ from mythic_edge_parser.app.state import (
 )
 from mythic_edge_parser.stream import MtgaEventStream, StreamError
 
+from .mtga_process_lifecycle import (
+    MTGA_PROCESS_SCHEMA_VERSION,
+    MTGA_RECONNECT_WINDOW_SECONDS,
+    build_automation_readiness,
+    build_mtga_process_status,
+)
 from .paths import LocalAppPaths, display_app_path
 from .setup_status import build_analytics_database_status, build_live_player_log_status
 
@@ -39,6 +45,7 @@ LIVE_CAPTURE_LOCK_FILENAME = "live_capture_lock.json"
 LIVE_CAPTURE_STATE_STALE_SECONDS = 15 * 60
 LIVE_CAPTURE_HEARTBEAT_STALE_SECONDS = 30
 LIVE_CAPTURE_HEARTBEAT_UPDATE_SECONDS = 10
+MTGA_PROCESS_SUPERVISOR_CHECK_SECONDS = 1
 LIVE_CAPTURE_SOURCE_KIND = "live_parser"
 LIVE_CAPTURE_SUPERVISOR_KIND = "local_app_capture_supervisor"
 _SAFE_STATE_LABEL_MAX_LENGTH = 80
@@ -74,6 +81,29 @@ _HEARTBEAT_STATUSES = frozenset(
         "unknown",
     }
 )
+_MTGA_LIFECYCLE_STATUSES = frozenset(
+    {
+        "ready_to_start",
+        "starting",
+        "capturing",
+        "mtga_unavailable",
+        "reconnect_window",
+        "shutting_down",
+        "stopped",
+        "blocked",
+        "failed",
+        "unknown",
+    }
+)
+_MTGA_SHUTDOWN_REASONS = frozenset(
+    {
+        "mtga_unavailable_timeout",
+        "operator_stop_requested",
+        "supervisor_stop_requested",
+        "supervisor_error",
+        "unknown",
+    }
+)
 
 _REGISTRY_LOCK = threading.RLock()
 _SUPERVISORS: dict[str, "_LiveCaptureSupervisorProtocol"] = {}
@@ -102,6 +132,7 @@ class _PlayerLogReady:
 def build_live_capture_status(paths: LocalAppPaths) -> dict[str, object]:
     state = _read_capture_state(paths)
     supervisor = _registered_supervisor(paths)
+    mtga_process = build_mtga_process_status()
     player_log_ready = _player_log_ready(paths)
     preconditions = _build_preconditions(paths, player_log_ready, write_check=False)
     status, reason = _status_from_state(
@@ -116,6 +147,7 @@ def build_live_capture_status(paths: LocalAppPaths) -> dict[str, object]:
         capture=capture,
         preconditions=preconditions,
         state=state,
+        mtga_process=mtga_process,
         last_result=_safe_last_result(state.get("last_result")),
         warnings=_warnings_for_status(status, state),
         errors=_errors_for_status(status, reason, state),
@@ -254,6 +286,17 @@ def stop_live_capture(paths: LocalAppPaths) -> dict[str, object]:
                     heartbeat_updated_at=stopping_at,
                 ),
                 "progress": _progress_with_reason(state.get("progress"), "capture_stopped_before_completion"),
+                "mtga_lifecycle": _mtga_lifecycle_state(
+                    status="shutting_down",
+                    mtga_process_status=str(
+                        _safe_mtga_lifecycle_state(state.get("mtga_lifecycle")).get("mtga_process_status")
+                        or "unknown"
+                    ),
+                    checked_at=stopping_at,
+                    shutdown_reason="operator_stop_requested",
+                    last_detected_at=_safe_mtga_lifecycle_state(state.get("mtga_lifecycle")).get("last_detected_at"),
+                    warnings=["capture_shutdown_started"],
+                ),
             },
         )
         try:
@@ -284,6 +327,17 @@ def stop_live_capture(paths: LocalAppPaths) -> dict[str, object]:
                     heartbeat_updated_at=stopped_at,
                 ),
                 "progress": _progress_with_reason(state.get("progress"), "capture_stopped_before_completion"),
+                "mtga_lifecycle": _mtga_lifecycle_state(
+                    status="stopped",
+                    mtga_process_status=str(
+                        _safe_mtga_lifecycle_state(state.get("mtga_lifecycle")).get("mtga_process_status")
+                        or "unknown"
+                    ),
+                    checked_at=stopped_at,
+                    shutdown_reason="operator_stop_requested",
+                    last_detected_at=_safe_mtga_lifecycle_state(state.get("mtga_lifecycle")).get("last_detected_at"),
+                    warnings=["capture_shutdown_completed"],
+                ),
             },
         )
 
@@ -409,12 +463,21 @@ class LocalAppLiveCaptureSupervisor:
         written_matches: set[str] = set()
         seen_match_ids: set[str] = set()
         last_heartbeat_write = datetime.now(UTC)
+        last_mtga_process_check = datetime.min.replace(tzinfo=UTC)
         try:
             while not self._stop_event.is_set():
                 try:
                     event = await asyncio.wait_for(subscriber.recv(), timeout=0.25)
                 except TimeoutError:
                     progress["log_poll_count"] = int(progress["log_poll_count"]) + 1
+                    now = datetime.now(UTC)
+                    process_check_due = (
+                        now - last_mtga_process_check
+                    ).total_seconds() >= MTGA_PROCESS_SUPERVISOR_CHECK_SECONDS
+                    if process_check_due:
+                        last_mtga_process_check = now
+                        if self._tick_mtga_lifecycle(progress, now=now):
+                            break
                     heartbeat_due = (
                         datetime.now(UTC) - last_heartbeat_write
                     ).total_seconds() >= LIVE_CAPTURE_HEARTBEAT_UPDATE_SECONDS
@@ -588,10 +651,11 @@ class LocalAppLiveCaptureSupervisor:
             await stream.shutdown()
             if self._stop_event.is_set():
                 stopped_at = _now_iso()
+                state = _read_capture_state(self.paths)
                 _write_capture_state(
                     self.paths,
                     {
-                        **_read_capture_state(self.paths),
+                        **state,
                         "status": "stopped",
                         "updated_at": stopped_at,
                         "parser_runner_started": False,
@@ -603,8 +667,148 @@ class LocalAppLiveCaptureSupervisor:
                             heartbeat_updated_at=stopped_at,
                         ),
                         "progress": _progress_with_reason(progress, "capture_stopped_before_completion"),
+                        "mtga_lifecycle": _stopped_mtga_lifecycle_state(state, stopped_at=stopped_at),
                     },
                 )
+
+    def _tick_mtga_lifecycle(self, progress: Mapping[str, object], *, now: datetime) -> bool:
+        checked_at = _iso_datetime(now)
+        mtga_process = build_mtga_process_status(checked_at=now)
+        process_status = _safe_state_label(mtga_process.get("status")) or "unknown"
+        state = _read_capture_state(self.paths)
+        lifecycle = _safe_mtga_lifecycle_state(state.get("mtga_lifecycle"))
+
+        if process_status == "detected":
+            warnings = ["waiting_for_events"]
+            if lifecycle.get("status") == "reconnect_window":
+                warnings.append("mtga_reconnected")
+            _write_capture_state(
+                self.paths,
+                {
+                    **state,
+                    "status": "capturing",
+                    "updated_at": checked_at,
+                    "heartbeat": _heartbeat_state(
+                        _heartbeat_status_from_progress(progress),
+                        started_at=state.get("started_at"),
+                        heartbeat_updated_at=checked_at,
+                    ),
+                    "progress": progress,
+                    "mtga_lifecycle": _mtga_lifecycle_state(
+                        status="capturing",
+                        mtga_process_status=process_status,
+                        checked_at=checked_at,
+                        last_detected_at=checked_at,
+                        warnings=warnings[1:],
+                    ),
+                    "warnings": warnings,
+                    "errors": [],
+                },
+            )
+            return False
+
+        if process_status == "not_detected":
+            reconnect_started_at = _safe_iso_or_none(lifecycle.get("reconnect_started_at")) or checked_at
+            started = _parse_iso_datetime(reconnect_started_at) or now
+            deadline = started + timedelta(seconds=MTGA_RECONNECT_WINDOW_SECONDS)
+            deadline_at = _iso_datetime(deadline)
+            if now >= deadline:
+                _write_capture_state(
+                    self.paths,
+                    {
+                        **state,
+                        "status": "stopping",
+                        "updated_at": checked_at,
+                        "heartbeat": _heartbeat_state(
+                            "waiting",
+                            started_at=state.get("started_at"),
+                            heartbeat_updated_at=checked_at,
+                        ),
+                        "progress": _progress_with_reason(progress, "capture_stopped_before_completion"),
+                        "mtga_lifecycle": _mtga_lifecycle_state(
+                            status="shutting_down",
+                            mtga_process_status=process_status,
+                            checked_at=checked_at,
+                            reconnect_started_at=reconnect_started_at,
+                            reconnect_deadline_at=deadline_at,
+                            shutdown_reason="mtga_unavailable_timeout",
+                            last_detected_at=lifecycle.get("last_detected_at"),
+                            warnings=[
+                                "mtga_not_detected",
+                                "mtga_unavailable_timeout",
+                                "capture_shutdown_started",
+                            ],
+                        ),
+                        "warnings": [
+                            "waiting_for_events",
+                            "mtga_not_detected",
+                            "mtga_unavailable_timeout",
+                            "capture_shutdown_started",
+                        ],
+                        "errors": [],
+                    },
+                )
+                self._stop_event.set()
+                return True
+
+            _write_capture_state(
+                self.paths,
+                {
+                    **state,
+                    "status": "capturing",
+                    "updated_at": checked_at,
+                    "heartbeat": _heartbeat_state(
+                        _heartbeat_status_from_progress(progress),
+                        started_at=state.get("started_at"),
+                        heartbeat_updated_at=checked_at,
+                    ),
+                    "progress": progress,
+                    "mtga_lifecycle": _mtga_lifecycle_state(
+                        status="reconnect_window",
+                        mtga_process_status=process_status,
+                        checked_at=checked_at,
+                        reconnect_started_at=reconnect_started_at,
+                        reconnect_deadline_at=deadline_at,
+                        last_detected_at=lifecycle.get("last_detected_at"),
+                        warnings=["mtga_not_detected", "mtga_reconnect_window_active"],
+                    ),
+                    "warnings": [
+                        "waiting_for_events",
+                        "mtga_not_detected",
+                        "mtga_reconnect_window_active",
+                    ],
+                    "errors": [],
+                },
+            )
+            return False
+
+        warning_codes = _safe_warning_list(mtga_process.get("warnings"))
+        error_codes = _safe_error_list(mtga_process.get("errors"))
+        _write_capture_state(
+            self.paths,
+            {
+                **state,
+                "status": "capturing",
+                "updated_at": checked_at,
+                "heartbeat": _heartbeat_state(
+                    _heartbeat_status_from_progress(progress),
+                    started_at=state.get("started_at"),
+                    heartbeat_updated_at=checked_at,
+                ),
+                "progress": progress,
+                "mtga_lifecycle": _mtga_lifecycle_state(
+                    status="capturing",
+                    mtga_process_status=process_status,
+                    checked_at=checked_at,
+                    last_detected_at=lifecycle.get("last_detected_at"),
+                    warnings=warning_codes,
+                    errors=error_codes,
+                ),
+                "warnings": ["waiting_for_events", *warning_codes],
+                "errors": [],
+            },
+        )
+        return False
 
 
 def _write_live_facts(paths: LocalAppPaths, payload: Mapping[str, object]):
@@ -643,12 +847,14 @@ def _status_payload(
     capture: dict[str, object],
     preconditions: list[dict[str, str | None]],
     state: dict[str, object],
+    mtga_process: Mapping[str, object],
     last_result: object,
     warnings: list[str],
     errors: list[str],
 ) -> dict[str, object]:
     heartbeat = _safe_heartbeat(state.get("heartbeat"), status=status, state=state)
     progress = _safe_progress(state.get("progress"), status=status, last_result=last_result)
+    mtga_lifecycle = _mtga_lifecycle_for_status(status=status, state=state, mtga_process=mtga_process)
     return {
         "object": LIVE_CAPTURE_STATUS_OBJECT,
         "schema_version": LIVE_CAPTURE_SCHEMA_VERSION,
@@ -660,6 +866,7 @@ def _status_payload(
         "last_result": last_result,
         "heartbeat": heartbeat,
         "progress": progress,
+        "mtga_lifecycle": mtga_lifecycle,
         "parser_status_blurb": _parser_status_blurb(
             status=status,
             reason=str(capture.get("reason") or ""),
@@ -668,6 +875,102 @@ def _status_payload(
         "warnings": warnings,
         "errors": errors,
     }
+
+
+def _mtga_lifecycle_for_status(
+    *,
+    status: str,
+    state: Mapping[str, object],
+    mtga_process: Mapping[str, object],
+) -> dict[str, object]:
+    lifecycle = _safe_mtga_lifecycle_state(state.get("mtga_lifecycle"))
+    process_status = _safe_state_label(mtga_process.get("status")) or "unknown"
+    checked_at = _safe_iso_or_none(mtga_process.get("checked_at")) or _now_iso()
+    lifecycle_status = _derived_mtga_lifecycle_status(status=status, lifecycle=lifecycle, process_status=process_status)
+    reconnect_deadline_at = lifecycle.get("reconnect_deadline_at")
+    warnings = _safe_warning_list(lifecycle.get("warnings")) + [
+        warning
+        for warning in _safe_warning_list(mtga_process.get("warnings"))
+        if warning not in _safe_warning_list(lifecycle.get("warnings"))
+    ]
+    if lifecycle_status == "reconnect_window" and "mtga_reconnect_window_active" not in warnings:
+        warnings.append("mtga_reconnect_window_active")
+    if lifecycle_status == "mtga_unavailable" and "mtga_not_detected" not in warnings:
+        warnings.append("mtga_not_detected")
+    if process_status == "unsupported_platform" and "mtga_process_detection_unsupported" not in warnings:
+        warnings.append("mtga_process_detection_unsupported")
+
+    return {
+        "schema_version": MTGA_PROCESS_SCHEMA_VERSION,
+        "status": lifecycle_status,
+        "mtga_process_status": process_status,
+        "reconnect_window_seconds": MTGA_RECONNECT_WINDOW_SECONDS,
+        "reconnect_started_at": lifecycle.get("reconnect_started_at"),
+        "reconnect_deadline_at": reconnect_deadline_at,
+        "seconds_remaining": _seconds_until(reconnect_deadline_at) if lifecycle_status == "reconnect_window" else None,
+        "shutdown_reason": lifecycle.get("shutdown_reason"),
+        "last_detected_at": checked_at if process_status == "detected" else lifecycle.get("last_detected_at"),
+        "last_checked_at": checked_at,
+        "automation_start_allowed": False,
+        "automation_readiness": build_automation_readiness(mtga_process),
+        "warnings": warnings,
+        "errors": _merge_safe_codes(
+            _safe_error_list(lifecycle.get("errors")),
+            _safe_error_list(mtga_process.get("errors")),
+        ),
+    }
+
+
+def _derived_mtga_lifecycle_status(
+    *,
+    status: str,
+    lifecycle: Mapping[str, object],
+    process_status: str,
+) -> str:
+    stored_status = _safe_state_label(lifecycle.get("status"))
+    if stored_status in {"reconnect_window", "shutting_down"}:
+        return stored_status
+    if status == "ready_to_start":
+        return "mtga_unavailable" if process_status == "not_detected" else "ready_to_start"
+    if status == "capturing":
+        return "mtga_unavailable" if process_status == "not_detected" else "capturing"
+    if status in _MTGA_LIFECYCLE_STATUSES:
+        return status
+    return "unknown"
+
+
+def _safe_mtga_lifecycle_state(value: object) -> dict[str, object]:
+    lifecycle = value if isinstance(value, Mapping) else {}
+    status = _safe_state_label(lifecycle.get("status")) if lifecycle else None
+    if status not in _MTGA_LIFECYCLE_STATUSES:
+        status = "unknown"
+    process_status = _safe_state_label(lifecycle.get("mtga_process_status")) if lifecycle else None
+    if process_status not in {"detected", "not_detected", "unsupported_platform", "detector_unavailable", "unknown"}:
+        process_status = "unknown"
+    shutdown_reason = _safe_state_label(lifecycle.get("shutdown_reason")) if lifecycle else None
+    if shutdown_reason not in _MTGA_SHUTDOWN_REASONS:
+        shutdown_reason = None
+    return {
+        "schema_version": MTGA_PROCESS_SCHEMA_VERSION,
+        "status": status,
+        "mtga_process_status": process_status,
+        "reconnect_window_seconds": MTGA_RECONNECT_WINDOW_SECONDS,
+        "reconnect_started_at": _safe_iso_or_none(lifecycle.get("reconnect_started_at")) if lifecycle else None,
+        "reconnect_deadline_at": _safe_iso_or_none(lifecycle.get("reconnect_deadline_at")) if lifecycle else None,
+        "seconds_remaining": _safe_optional_non_negative_int(lifecycle.get("seconds_remaining")) if lifecycle else None,
+        "shutdown_reason": shutdown_reason,
+        "last_detected_at": _safe_iso_or_none(lifecycle.get("last_detected_at")) if lifecycle else None,
+        "last_checked_at": _safe_iso_or_none(lifecycle.get("last_checked_at")) if lifecycle else None,
+        "warnings": _safe_warning_list(lifecycle.get("warnings")) if lifecycle else [],
+        "errors": _safe_error_list(lifecycle.get("errors")) if lifecycle else [],
+    }
+
+
+def _seconds_until(deadline_at: object) -> int | None:
+    deadline = _parse_iso_datetime(_safe_iso_or_none(deadline_at))
+    if deadline is None:
+        return None
+    return max(0, int((deadline - datetime.now(UTC)).total_seconds()))
 
 
 def _start_result(
@@ -769,6 +1072,7 @@ def _read_capture_state(paths: LocalAppPaths) -> dict[str, object]:
         "last_result": _safe_last_result(payload.get("last_result")),
         "heartbeat": _safe_heartbeat(payload.get("heartbeat"), status=status, state=payload),
         "progress": _safe_progress(payload.get("progress"), status=status, last_result=payload.get("last_result")),
+        "mtga_lifecycle": _safe_mtga_lifecycle_state(payload.get("mtga_lifecycle")),
         "warnings": _safe_warning_list(payload.get("warnings")),
         "errors": _safe_error_list(payload.get("errors")),
     }
@@ -799,6 +1103,7 @@ def _default_state(
         "last_result": None,
         "heartbeat": _safe_heartbeat(None, status=status, state={}),
         "progress": _safe_progress(None, status=status, last_result=None),
+        "mtga_lifecycle": _safe_mtga_lifecycle_state(None),
         "warnings": [],
         "errors": errors or [],
     }
@@ -834,6 +1139,7 @@ def _write_capture_state(paths: LocalAppPaths, payload: Mapping[str, object]) ->
             status=str(payload.get("status", "unknown") or "unknown"),
             last_result=payload.get("last_result"),
         ),
+        "mtga_lifecycle": _safe_mtga_lifecycle_state(payload.get("mtga_lifecycle")),
         "warnings": _safe_warning_list(payload.get("warnings")),
         "errors": _safe_error_list(payload.get("errors")),
     }
@@ -1265,6 +1571,7 @@ def _state_start_blocker(state: Mapping[str, object]) -> str | None:
 
 def _blocked_status_payload(paths: LocalAppPaths, reason: str) -> dict[str, object]:
     state = _read_capture_state(paths)
+    mtga_process = build_mtga_process_status()
     player_log_ready = _player_log_ready(paths)
     preconditions = _build_preconditions(paths, player_log_ready, write_check=False)
     return _status_payload(
@@ -1272,6 +1579,7 @@ def _blocked_status_payload(paths: LocalAppPaths, reason: str) -> dict[str, obje
         capture=_capture_summary(status="blocked", state=state, supervisor=None, reason=reason),
         preconditions=preconditions,
         state=state,
+        mtga_process=mtga_process,
         last_result=_safe_last_result(state.get("last_result")),
         warnings=_warnings_for_status("blocked", state),
         errors=[reason],
@@ -1353,7 +1661,13 @@ def _state_is_stale(value: object) -> bool:
 
 
 def _now_iso() -> str:
-    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
+    return _iso_datetime(datetime.now(UTC))
+
+
+def _iso_datetime(value: datetime) -> str:
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=UTC)
+    return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
 def _safe_iso_or_none(value: object) -> str | None:
@@ -1369,12 +1683,70 @@ def _safe_iso_or_none(value: object) -> str | None:
     return text
 
 
+def _mtga_lifecycle_state(
+    *,
+    status: str,
+    mtga_process_status: str,
+    checked_at: object,
+    reconnect_started_at: object | None = None,
+    reconnect_deadline_at: object | None = None,
+    shutdown_reason: str | None = None,
+    last_detected_at: object | None = None,
+    warnings: list[str] | None = None,
+    errors: list[str] | None = None,
+) -> dict[str, object]:
+    reconnect_deadline = _safe_iso_or_none(reconnect_deadline_at)
+    lifecycle = {
+        "schema_version": MTGA_PROCESS_SCHEMA_VERSION,
+        "status": status,
+        "mtga_process_status": mtga_process_status,
+        "reconnect_window_seconds": MTGA_RECONNECT_WINDOW_SECONDS,
+        "reconnect_started_at": _safe_iso_or_none(reconnect_started_at),
+        "reconnect_deadline_at": reconnect_deadline,
+        "seconds_remaining": _seconds_until(reconnect_deadline) if status == "reconnect_window" else None,
+        "shutdown_reason": shutdown_reason,
+        "last_detected_at": _safe_iso_or_none(last_detected_at),
+        "last_checked_at": _safe_iso_or_none(checked_at),
+        "warnings": warnings or [],
+        "errors": errors or [],
+    }
+    return _safe_mtga_lifecycle_state(lifecycle)
+
+
+def _stopped_mtga_lifecycle_state(state: Mapping[str, object], *, stopped_at: str) -> dict[str, object]:
+    lifecycle = _safe_mtga_lifecycle_state(state.get("mtga_lifecycle"))
+    shutdown_reason = _safe_state_label(lifecycle.get("shutdown_reason")) or "supervisor_stop_requested"
+    warnings = _safe_warning_list(lifecycle.get("warnings"))
+    if shutdown_reason == "mtga_unavailable_timeout" and "capture_shutdown_completed" not in warnings:
+        warnings.append("capture_shutdown_completed")
+    return _mtga_lifecycle_state(
+        status="stopped",
+        mtga_process_status=str(lifecycle.get("mtga_process_status") or "unknown"),
+        checked_at=lifecycle.get("last_checked_at") or stopped_at,
+        reconnect_started_at=lifecycle.get("reconnect_started_at"),
+        reconnect_deadline_at=lifecycle.get("reconnect_deadline_at"),
+        shutdown_reason=shutdown_reason,
+        last_detected_at=lifecycle.get("last_detected_at"),
+        warnings=warnings,
+        errors=_safe_error_list(lifecycle.get("errors")),
+    )
+
+
 def _safe_warning_list(value: object) -> list[str]:
     return _safe_state_label_list(value, redacted_code="unsafe_state_warning_redacted")
 
 
 def _safe_error_list(value: object) -> list[str]:
     return _safe_state_label_list(value, redacted_code="unsafe_state_error_redacted")
+
+
+def _merge_safe_codes(*values: list[str]) -> list[str]:
+    codes: list[str] = []
+    for value in values:
+        for entry in value:
+            if entry not in codes:
+                codes.append(entry)
+    return codes
 
 
 def _safe_state_label_list(value: object, *, redacted_code: str) -> list[str]:
