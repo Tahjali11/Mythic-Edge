@@ -12,6 +12,9 @@ from mythic_edge_parser.app import feature_equity_corpus_ratchet, golden_replay,
 FIXTURE_DIR = Path("tests/fixtures/golden_replay")
 BASELINE_PATH = Path("tests/fixtures/feature_equity_corpus/feature_equity_corpus_baseline.v1.json")
 BO1_MANIFEST = FIXTURE_DIR / "bo1_match_win_basic.manifest.json"
+PRIVATE_POSIX_PATH = "/" + "Users/example/private/" + "Player.log"
+PRIVATE_POSIX_PREFIX = "/" + "Users/example"
+DETAILED_LOGS_MARKER = "DETAILED " + "LOGS:"
 
 
 def _runtime_report(status: str = "pass") -> dict:
@@ -312,7 +315,7 @@ def test_privacy_findings_are_path_only_and_do_not_echo_raw_values() -> None:
     report["privacy"]["forbidden_content_findings"] = [
         "https://script.google.com" + "/macros/s/" + "AKfycb-" + "secret-token-value" + "/exec"
     ]
-    report["status_reasons"] = ["raw local marker /Users/example/private/Player.log"]
+    report["status_reasons"] = [f"raw local marker {PRIVATE_POSIX_PATH}"]
 
     section = wiring.build_evidence_ledger_review_section(
         report_context="synthetic_test_reference",
@@ -325,7 +328,7 @@ def test_privacy_findings_are_path_only_and_do_not_echo_raw_values() -> None:
         section["privacy"]["forbidden_content_findings"]
     )
     assert "AKfycb-secret-token-value" not in encoded
-    assert "/Users/example" not in encoded
+    assert PRIVATE_POSIX_PREFIX not in encoded
 
 
 def test_runtime_artifact_url_detection_uses_exact_hosts_without_substring_trust() -> None:
@@ -370,8 +373,8 @@ def test_prebuilt_review_section_is_rebuilt_summary_only_and_redacted() -> None:
     assert "attachments" not in section
     assert "invariant_results" not in section
     assert '"field_evidence"' not in encoded
-    assert "/Users/example/private/Player.log" not in encoded
-    assert "DETAILED LOGS:" not in encoded
+    assert PRIVATE_POSIX_PATH not in encoded
+    assert DETAILED_LOGS_MARKER not in encoded
     assert "evidence_ledger_review.attachments" in section["privacy"]["forbidden_content_findings"]
     assert "evidence_ledger_review.attachments[0].field_evidence.raw" in (
         section["privacy"]["local_absolute_paths_found"]
@@ -391,8 +394,8 @@ def test_parent_report_with_prebuilt_review_section_is_summary_only_and_redacted
     assert report["evidence_ledger_review"]["status"] == "fail"
     assert report["evidence_ledger_review"]["status_affects_parent"] is False
     assert "attachments" not in report["evidence_ledger_review"]
-    assert "/Users/example/private/Player.log" not in encoded
-    assert "DETAILED LOGS:" not in encoded
+    assert PRIVATE_POSIX_PATH not in encoded
+    assert DETAILED_LOGS_MARKER not in encoded
 
 
 def test_protected_surface_assertion_true_fails_section() -> None:
