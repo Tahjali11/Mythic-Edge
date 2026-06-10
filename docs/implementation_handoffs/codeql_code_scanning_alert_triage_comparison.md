@@ -123,8 +123,8 @@ Implemented the smallest behavior-preserving fixes:
   match-action payload lookup now use the safe generated filename stem.
 - `privacy_url_detection.py`: added exact-host URL-token detection for
   runtime/webhook artifact URLs.
-- `evidence_runtime_status.py` and `evidence_validation_report_wiring.py`:
-  replaced substring runtime URL detection with the exact-host helper.
+- Evidence health-status and validation-report wiring modules now use the
+  exact-host helper instead of substring runtime URL detection.
 - `tests/test_runtime_surfaces.py`: added path-escape regression coverage for
   generated timeline files.
 - `tests/test_gameplay_actions.py`: added path-escape regression coverage for
