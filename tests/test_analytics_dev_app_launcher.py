@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import IO, Mapping, Sequence
@@ -137,10 +138,42 @@ def test_cleanup_only_touches_children_started_by_launcher() -> None:
     started = FakeProcess()
     unrelated = FakeProcess()
 
-    launcher.cleanup_children([launcher.ManagedChild("backend", started)])
+    cleanup_completed = launcher.cleanup_children([launcher.ManagedChild("backend", started)])
 
+    assert cleanup_completed is True
     assert started.terminated is True
     assert unrelated.terminated is False
+
+
+def test_cleanup_uses_windows_process_tree_stop_for_started_child(monkeypatch) -> None:
+    started = FakeProcess(pid=1234)
+    taskkill_calls: list[list[str]] = []
+
+    def fake_taskkill(command: Sequence[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        taskkill_calls.append(list(command))
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(launcher.platform, "system", lambda: "Windows")
+    monkeypatch.setattr(launcher.subprocess, "run", fake_taskkill)
+
+    cleanup_completed = launcher.cleanup_children([launcher.ManagedChild("frontend", started)])
+
+    assert cleanup_completed is True
+    assert taskkill_calls == [["taskkill", "/PID", "1234", "/T", "/F"]]
+    assert started.terminated is True
+
+
+def test_cleanup_reports_incomplete_when_started_child_survives() -> None:
+    started = FakeProcess(stubborn=True)
+
+    cleanup_completed = launcher.cleanup_children(
+        [launcher.ManagedChild("frontend", started)],
+        timeout_seconds=0,
+    )
+
+    assert cleanup_completed is False
+    assert started.terminated is True
+    assert started.killed is True
 
 
 def test_launcher_log_redacts_repo_and_app_data_paths(tmp_path) -> None:
@@ -282,13 +315,17 @@ class ProcessRecorder:
 
 
 class FakeProcess:
-    def __init__(self, *, exited: bool = False) -> None:
+    def __init__(self, *, exited: bool = False, pid: int | None = None, stubborn: bool = False) -> None:
         self.terminated = False
         self.killed = False
         self.waited = False
         self.exited = exited
+        self.pid = pid
+        self.stubborn = stubborn
 
     def poll(self) -> int | None:
+        if self.stubborn:
+            return None
         return 0 if self.exited or self.terminated or self.killed else None
 
     def terminate(self) -> None:
@@ -296,6 +333,8 @@ class FakeProcess:
 
     def wait(self, timeout: float | None = None) -> int:
         self.waited = True
+        if self.stubborn:
+            raise TimeoutError
         self.terminated = True
         return 0
 

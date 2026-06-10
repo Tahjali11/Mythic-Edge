@@ -1,5 +1,5 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   AnalyticsHistoryApiError,
@@ -14,13 +14,22 @@ import {
   ANALYTICS_DASHBOARD_MODULES_OBJECT,
   ANALYTICS_DASHBOARD_MODULES_SCHEMA_VERSION,
   ANALYTICS_HISTORY_SCHEMA_VERSION,
+  ANALYTICS_REFRESH_STATE_OBJECT,
+  ANALYTICS_REFRESH_STATE_SCHEMA_VERSION,
   EARLY_GAME_HISTORY_SCHEMA_VERSION,
   GAME1_POSTBOARD_SPLIT_REVIEW_OBJECT,
   ERROR_REPORT_PREVIEW_SCHEMA,
+  ERROR_REPORT_SUBMISSION_OBJECT,
+  ERROR_REPORT_SUBMISSION_SCHEMA,
   GAME_HISTORY_OBJECT,
   GAMEPLAY_ACTION_REVIEW_OBJECT,
   LEGACY_JSONL_IMPORT_QUALITY_OBJECT,
   LEGACY_JSONL_IMPORT_QUALITY_SCHEMA_VERSION,
+  LIVE_CAPTURE_DIAGNOSTICS_SCHEMA_VERSION,
+  LIVE_CAPTURE_SCHEMA_VERSION,
+  LIVE_CAPTURE_START_RESULT_OBJECT,
+  LIVE_CAPTURE_STATUS_OBJECT,
+  LIVE_CAPTURE_STOP_RESULT_OBJECT,
   LIVE_PLAYER_LOG_STATUS_OBJECT,
   LIVE_STATUS_SCHEMA_VERSION,
   LIVE_WATCHER_DIAGNOSTICS_OBJECT,
@@ -33,6 +42,7 @@ import {
   MATCH_JOURNAL_OBJECT,
   MATCH_JOURNAL_SCHEMA_VERSION,
   MATCH_HISTORY_OBJECT,
+  MTGA_PROCESS_SCHEMA_VERSION,
   MULLIGAN_HISTORY_OBJECT,
   OPPONENT_CARD_OBSERVATION_REVIEW_OBJECT,
   OPENING_HAND_HISTORY_OBJECT,
@@ -42,11 +52,18 @@ import {
   SPLIT_REVIEW_SCHEMA_VERSION,
   type Game1PostboardSplitReviewResponse,
   type AnalyticsDashboardModulesResponse,
+  type AnalyticsRefreshStateResponse,
+  type AutomationReadiness,
   type ErrorReportPreviewRequest,
   type ErrorReportPreviewResponse,
+  type ErrorReportSubmissionResponse,
   type GameHistoryResponse,
   type GameplayActionReviewResponse,
   type LegacyJsonlImportQuality,
+  type LiveCaptureStartResult,
+  type LiveCaptureStatusResponse,
+  type LiveCaptureStopResult,
+  type LiveSqliteCaptureStatusResponse,
   type LivePlayerLogStatusResponse,
   type LiveWatcherDiagnosticsResponse,
   type LiveWatcherProcessStatusResponse,
@@ -55,6 +72,8 @@ import {
   type ManualImportSourceArtifact,
   type MatchJournalResponse,
   type MatchHistoryResponse,
+  type MtgaLifecycle,
+  type MtgaProcessStatus,
   type MulliganHistoryResponse,
   type OpeningHandHistoryResponse,
   type OpponentCardObservationReviewResponse,
@@ -62,8 +81,14 @@ import {
   type SetupStatusResponse
 } from "./types";
 
+beforeEach(() => {
+  window.location.hash = "";
+});
+
 afterEach(() => {
   cleanup();
+  vi.useRealTimers();
+  vi.restoreAllMocks();
   window.localStorage.clear();
   window.sessionStorage.clear();
 });
@@ -71,35 +96,61 @@ afterEach(() => {
 describe("SetupStatusApp", () => {
   const unsafeControlName = /\b(?:reset|delete|wipe|cancel|retry|start|stop|restart|clear|repair|git|sheets|ai)\b/i;
 
+  function setRoute(route: string) {
+    window.location.hash = `#${route}`;
+  }
+
   it("renders safe setup-status panels from a degraded backend payload", async () => {
     render(<SetupStatusApp fetchStatus={() => Promise.resolve(buildPayload())} />);
 
     expect(screen.getByText("Checking local app setup")).toBeInTheDocument();
     expect(await screen.findByRole("heading", { name: "Mythic Edge Cockpit" })).toBeInTheDocument();
     expect(screen.getByText("Competitive review, local analytics, and live readiness at a glance.")).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Cockpit health status" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "App connection" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Player.log monitor" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Live capture" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Analytics database" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Data trust" })).toBeInTheDocument();
+    const dashboardHeader = screen.getByRole("region", { name: "Mythic Edge Cockpit" });
+    expect(within(dashboardHeader).queryByLabelText("status Needs review")).not.toBeInTheDocument();
+    const cockpitHealth = screen.getByRole("region", { name: "Cockpit health status" });
+    expect(within(cockpitHealth).getAllByRole("article")).toHaveLength(3);
+    expect(within(cockpitHealth).getByRole("heading", { name: "App connection" })).toBeInTheDocument();
+    expect(within(cockpitHealth).queryByRole("heading", { name: "Player.log monitor" })).not.toBeInTheDocument();
+    expect(within(cockpitHealth).getByRole("heading", { name: "Live capture" })).toBeInTheDocument();
+    const liveCaptureCard = cockpitCard("Live capture");
+    expect(within(liveCaptureCard).getByLabelText("status Ready to start")).toBeInTheDocument();
+    expect(within(liveCaptureCard).queryByLabelText("status Capturing")).not.toBeInTheDocument();
+    expect(within(liveCaptureCard).getByText("Capture is not running.")).toBeInTheDocument();
+    expect(within(liveCaptureCard).queryByRole("button", { name: "Start capture" })).not.toBeInTheDocument();
+    expect(within(liveCaptureCard).queryByRole("button", { name: "Stop capture" })).not.toBeInTheDocument();
+    expect(within(cockpitHealth).getByRole("heading", { name: "Analytics database" })).toBeInTheDocument();
+    expect(within(cockpitHealth).queryByRole("heading", { name: "Data trust" })).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Decision Support" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Win Rate By Play/Draw" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Game 1 / Postboard" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Mulligan / Opening Hand Outcomes" })).toBeInTheDocument();
     expect(screen.getByText("Custom explorer vocabulary is deferred; Journal labels are Journal annotation only.")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Review Context Only" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Trust and Freshness" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Review Details" })).toBeInTheDocument();
+    const dashboardTrust = screen.getByRole("region", { name: "Trust and Freshness" });
+    expect(dashboardTrust).toBeInTheDocument();
+    expect(within(dashboardTrust).getByText("Compact safe-display signals only. Full details stay in Privacy and technical diagnostics.")).toBeInTheDocument();
+    expect(within(dashboardTrust).getByText("Freshness")).toBeInTheDocument();
+    expect(within(dashboardTrust).getByText("Data Quality")).toBeInTheDocument();
+    expect(within(dashboardTrust).getByText("Privacy")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Go Deeper" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Analytics" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Analytics History" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Manual JSONL Import" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Match Journal Cockpit" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Report an Error" })).not.toBeInTheDocument();
     expect(screen.getByRole("complementary", { name: "Local app sections" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Dashboard" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Review" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Report" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Coach" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Analytics" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Import" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Diagnostics" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Privacy" })).toBeInTheDocument();
+    const primarySections = screen.getByRole("navigation", { name: "Primary sections" });
+    expect(within(primarySections).getByRole("link", { name: "Dashboard" })).toBeInTheDocument();
+    expect(within(primarySections).getByRole("link", { name: "Coach" })).toBeInTheDocument();
+    expect(within(primarySections).getByRole("link", { name: "Analytics" })).toBeInTheDocument();
+    expect(within(primarySections).getByRole("link", { name: "Review" })).toBeInTheDocument();
+    expect(within(primarySections).getByRole("link", { name: "Feedback" })).toBeInTheDocument();
+    expect(within(primarySections).getByRole("link", { name: "Import" })).toBeInTheDocument();
+    expect(within(primarySections).getByRole("link", { name: "Diagnostics" })).toBeInTheDocument();
+    expect(within(primarySections).getByRole("link", { name: "Privacy" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute("aria-current", "page");
+    expect(screen.queryByText("Current")).not.toBeInTheDocument();
     expect(screen.getByText("Settings")).toBeInTheDocument();
     expect(screen.getByText("Not configured")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Setup Status" })).not.toBeInTheDocument();
@@ -110,9 +161,18 @@ describe("SetupStatusApp", () => {
     expect(screen.queryByText("start route")).not.toBeInTheDocument();
     expect(screen.queryByText("stop route")).not.toBeInTheDocument();
     expect(screen.queryByText("ui controls")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Technical Details & Privacy" })).toBeInTheDocument();
+    expect(
+      screen.getByText("Setup grids, raw status labels, freshness, privacy filtering, and live diagnostics are available on demand.")
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Live Capture Control" })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Show technical details" }));
     expect(await screen.findByRole("heading", { name: "Setup Status" })).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { name: "Trust and Freshness" }).length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByRole("heading", { name: "Freshness" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Data Quality" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Privacy" })).toBeInTheDocument();
     expect(screen.getByText("Backend Reachability")).toBeInTheDocument();
     expect(screen.getByText("<app_data>")).toBeInTheDocument();
     expect(screen.getAllByText("<configured_player_log>").length).toBeGreaterThanOrEqual(1);
@@ -125,22 +185,624 @@ describe("SetupStatusApp", () => {
     expect(screen.getByText("not_running")).toBeInTheDocument();
     expect(screen.getByText("<app_data>\\db\\mythic_edge.sqlite3")).toBeInTheDocument();
     expect(screen.getByText("<app_data>\\db\\match_journal.sqlite3")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Import JSONL" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Import" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Import JSONL" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Live Capture Control" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: unsafeControlName })).not.toBeInTheDocument();
   });
 
-  it("prepares and copies a sanitized error report without external submission", async () => {
+  it("falls back to the dashboard for unknown routes without exposing long forms", async () => {
+    setRoute("unknown-section");
+    render(<SetupStatusApp fetchStatus={() => Promise.resolve(buildPayload())} />);
+
+    expect(await screen.findByRole("heading", { name: "Mythic Edge Cockpit" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Dashboard" })).toHaveAttribute("aria-current", "page");
+    expect(screen.queryByRole("heading", { name: "Manual JSONL Import" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Report an Error" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Match Journal Cockpit" })).not.toBeInTheDocument();
+  });
+
+  it("marks the active rail item for routed analytics views", async () => {
+    setRoute("analytics");
+    render(<SetupStatusApp fetchStatus={() => Promise.resolve(buildPayload())} />);
+
+    expect(await screen.findByRole("heading", { name: "Analytics History" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Analytics" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Dashboard" })).not.toHaveAttribute("aria-current");
+    expect(screen.queryByRole("heading", { name: "Manual JSONL Import" })).not.toBeInTheDocument();
+  });
+
+  it("does not turn watcher readiness into active live capture when SQLite writes are disabled", async () => {
+    render(<SetupStatusApp fetchStatus={() => Promise.resolve(buildPayload())} />);
+
+    await screen.findByRole("heading", { name: "Mythic Edge Cockpit" });
+    const liveCaptureCard = cockpitCard("Live capture");
+
+    expect(within(liveCaptureCard).getByLabelText("status Ready to start")).toBeInTheDocument();
+    expect(within(liveCaptureCard).queryByLabelText("status Capturing")).not.toBeInTheDocument();
+    expect(within(liveCaptureCard).getByText("Capture is not running.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Refresh History" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/refresh history (?:starts|starts live|creates|captures)/i)).not.toBeInTheDocument();
+  });
+
+  it("keeps a persistent dashboard live capture control while start and stop reconcile from backend status", async () => {
+    const fetchLiveCapture = vi.fn(async () => buildLiveCaptureStatusPayload());
+    let resolveStart: (value: LiveCaptureStartResult) => void = () => undefined;
+    let resolveStop: (value: LiveCaptureStopResult) => void = () => undefined;
+    const startCapture = vi.fn(
+      () =>
+        new Promise<LiveCaptureStartResult>((resolve) => {
+          resolveStart = resolve;
+        })
+    );
+    const stopCapture = vi.fn(
+      () =>
+        new Promise<LiveCaptureStopResult>((resolve) => {
+          resolveStop = resolve;
+        })
+    );
+    render(
+      <SetupStatusApp
+        fetchLiveCapture={fetchLiveCapture}
+        fetchStatus={() => Promise.resolve(buildPayload())}
+        startCapture={startCapture}
+        stopCapture={stopCapture}
+      />
+    );
+
+    const startButton = await screen.findByRole("button", { name: "Start capture" });
+    const liveCaptureCard = cockpitCard("Live capture");
+    expect(within(liveCaptureCard).getByLabelText("Live capture lifecycle control")).toBeInTheDocument();
+    expect(within(liveCaptureCard).getByLabelText("status Ready to start")).toBeInTheDocument();
+    expect(within(liveCaptureCard).getByRole("button", { name: "Start capture" })).toBe(startButton);
+    expect(within(liveCaptureCard).getByRole("link", { name: "View live capture diagnostics" })).toHaveAttribute(
+      "href",
+      "#diagnostics"
+    );
+    expect(startCapture).not.toHaveBeenCalled();
+    expect(stopCapture).not.toHaveBeenCalled();
+
+    fireEvent.click(startButton);
+
+    await waitFor(() => {
+      expect(startCapture).toHaveBeenCalledTimes(1);
+    });
+    expect(within(liveCaptureCard).getByRole("button", { name: "Starting capture" })).toBeDisabled();
+    fireEvent.click(within(liveCaptureCard).getByRole("button", { name: "Starting capture" }));
+    expect(startCapture).toHaveBeenCalledTimes(1);
+
+    resolveStart(buildLiveCaptureStartResultPayload());
+    expect(await within(liveCaptureCard).findByRole("button", { name: "Stop capture" })).toBeInTheDocument();
+    expect(within(liveCaptureCard).getByLabelText("status Capturing")).toBeInTheDocument();
+    expect(within(liveCaptureCard).getByRole("link", { name: "View live capture diagnostics" })).toHaveAttribute(
+      "href",
+      "#diagnostics"
+    );
+    expect(within(liveCaptureCard).queryByRole("button", { name: "Start capture" })).not.toBeInTheDocument();
+
+    fireEvent.click(within(liveCaptureCard).getByRole("button", { name: "Stop capture" }));
+
+    await waitFor(() => {
+      expect(stopCapture).toHaveBeenCalledTimes(1);
+    });
+    expect(within(liveCaptureCard).getByRole("button", { name: "Stopping capture" })).toBeDisabled();
+    fireEvent.click(within(liveCaptureCard).getByRole("button", { name: "Stopping capture" }));
+    expect(stopCapture).toHaveBeenCalledTimes(1);
+
+    resolveStop(buildLiveCaptureStopResultPayload());
+    expect(await within(liveCaptureCard).findByRole("button", { name: "Start capture" })).toBeInTheDocument();
+    expect(within(liveCaptureCard).getByLabelText("status Stopped")).toBeInTheDocument();
+  });
+
+  it("surfaces the backend-led recorded-match signal in the dashboard live capture tile", async () => {
+    render(
+      <SetupStatusApp
+        fetchLiveCapture={() =>
+          Promise.resolve(
+            buildLiveCaptureStatusPayload({
+              status: "capturing",
+              capture: {
+                running: true,
+                start_allowed: false,
+                stop_allowed: true,
+                parser_runner_started: true,
+                tailing_started: true,
+                sqlite_live_writes_enabled: true,
+                external_transport_allowed: false,
+                raw_player_log_storage_enabled: false,
+                supervisor_kind: "local_app_capture_supervisor",
+                source_kind: "live_parser",
+                reason: null
+              },
+              heartbeat: {
+                schema_version: LIVE_CAPTURE_DIAGNOSTICS_SCHEMA_VERSION,
+                status: "ok",
+                heartbeat_updated_at: "2026-06-08T12:00:00Z",
+                capture_duration_seconds: 120,
+                heartbeat_age_seconds: 1,
+                stale_after_seconds: 30
+              },
+              progress: {
+                schema_version: LIVE_CAPTURE_DIAGNOSTICS_SCHEMA_VERSION,
+                log_poll_count: 12,
+                log_chunks_seen: 3,
+                structured_entry_count: 16,
+                parser_event_count: 8,
+                parser_event_kinds_seen: ["game_state", "match_completed"],
+                match_ids_seen_count: 1,
+                current_match_detected: false,
+                current_match_game_wins: null,
+                current_match_game_losses: null,
+                last_completed_match_result: null,
+                last_completed_match_game_wins: null,
+                last_completed_match_game_losses: null,
+                completed_game_rows_seen: 3,
+                sqlite_write_attempt_count: 1,
+                sqlite_rows_written: 3,
+                last_no_write_reason: "rows_written",
+                last_event_seen_at: "2026-06-08T12:01:00Z",
+                last_sqlite_write_at: "2026-06-08T12:01:02Z"
+              },
+              parser_status_blurb: {
+                code: "most_recent_match_completed",
+                text: "Most recent completed match was recorded.",
+                tone: "ok"
+              }
+            })
+          )
+        }
+        fetchStatus={() => Promise.resolve(buildPayload())}
+      />
+    );
+
+    await screen.findByRole("heading", { name: "Mythic Edge Cockpit" });
+    const liveCaptureCard = cockpitCard("Live capture");
+
+    expect(await within(liveCaptureCard).findByText("Most recent completed match was recorded.")).toBeInTheDocument();
+    expect(within(liveCaptureCard).getByLabelText("status Capturing")).toBeInTheDocument();
+    expect(within(liveCaptureCard).getByRole("button", { name: "Stop capture" })).toBeInTheDocument();
+    expect(within(liveCaptureCard).queryByRole("button", { name: "Start capture" })).not.toBeInTheDocument();
+    expect(within(liveCaptureCard).queryByText(/\b\d+\s*-\s*\d+\b/)).not.toBeInTheDocument();
+    expect(within(liveCaptureCard).queryByText(/current match score/i)).not.toBeInTheDocument();
+  });
+
+  it("does not show dashboard start or stop actions when live capture control is unavailable", async () => {
+    render(
+      <SetupStatusApp
+        fetchLiveCapture={() => Promise.reject(new LiveStatusApiError("malformed_response", "Malformed live capture status"))}
+        fetchStatus={() => Promise.resolve(buildPayload())}
+      />
+    );
+
+    await screen.findByRole("heading", { name: "Mythic Edge Cockpit" });
+    const liveCaptureCard = cockpitCard("Live capture");
+
+    expect(await within(liveCaptureCard).findByRole("link", { name: "View live capture diagnostics" })).toHaveAttribute(
+      "href",
+      "#diagnostics"
+    );
+    expect(within(liveCaptureCard).queryByRole("button", { name: "Start capture" })).not.toBeInTheDocument();
+    expect(within(liveCaptureCard).queryByRole("button", { name: "Stop capture" })).not.toBeInTheDocument();
+  });
+
+  it("fails closed for stale dashboard capture state without implying restart", async () => {
+    render(
+      <SetupStatusApp
+        fetchLiveCapture={() =>
+          Promise.resolve(
+            buildLiveCaptureStatusPayload({
+              status: "stale",
+              capture: {
+                running: false,
+                start_allowed: false,
+                stop_allowed: false,
+                parser_runner_started: false,
+                tailing_started: false,
+                sqlite_live_writes_enabled: false,
+                external_transport_allowed: false,
+                raw_player_log_storage_enabled: false,
+                supervisor_kind: "local_app_capture_supervisor",
+                source_kind: "live_parser",
+                reason: "capture_state_stale"
+              },
+              state: {
+                source: "state_file",
+                exists: true,
+                status: "stale",
+                stale: true,
+                pid_present: true,
+                pid_verified: false,
+                supervisor_token_present: true,
+                display_path: "<app_data>\\jobs\\live_capture_state.json",
+                raw_path_exposed: false,
+                started_at: "2026-06-08T12:00:00Z",
+                updated_at: "2026-06-08T12:00:00Z"
+              },
+              parser_status_blurb: {
+                code: "capture_state_stale",
+                text: "Capture heartbeat stopped. Restart capture.",
+                tone: "warning"
+              }
+            })
+          )
+        }
+        fetchStatus={() => Promise.resolve(buildPayload())}
+      />
+    );
+
+    await screen.findByRole("heading", { name: "Mythic Edge Cockpit" });
+    const liveCaptureCard = cockpitCard("Live capture");
+
+    expect(await within(liveCaptureCard).findByLabelText("status Needs review")).toBeInTheDocument();
+    expect(within(liveCaptureCard).queryByLabelText("status Ready to start")).not.toBeInTheDocument();
+    expect(within(liveCaptureCard).getByText("Capture state is stale; open diagnostics.")).toBeInTheDocument();
+    expect(within(liveCaptureCard).getByRole("button", { name: "Live capture needs review" })).toBeDisabled();
+    expect(within(liveCaptureCard).getByRole("link", { name: "View live capture diagnostics" })).toHaveAttribute(
+      "href",
+      "#diagnostics"
+    );
+    expect(within(liveCaptureCard).queryByRole("button", { name: "Start capture" })).not.toBeInTheDocument();
+    expect(within(liveCaptureCard).queryByRole("button", { name: "Stop capture" })).not.toBeInTheDocument();
+    expect(within(liveCaptureCard).queryByText(/restart capture/i)).not.toBeInTheDocument();
+  });
+
+  it("shows capturing only when strict running, parser, tailing, and SQLite write evidence is present", async () => {
+    render(<SetupStatusApp fetchStatus={() => Promise.resolve(buildPayload(activeLiveCaptureOverrides()))} />);
+
+    await screen.findByRole("heading", { name: "Mythic Edge Cockpit" });
+    const liveCaptureCard = cockpitCard("Live capture");
+
+    expect(within(liveCaptureCard).getByLabelText("status Capturing")).toBeInTheDocument();
+    expect(within(liveCaptureCard).getByText("Capture active.")).toBeInTheDocument();
+    expect(within(liveCaptureCard).queryByLabelText("status Ready to start")).not.toBeInTheDocument();
+  });
+
+  it("honors disabled live SQLite capture over active-looking watcher evidence", async () => {
+    render(
+      <SetupStatusApp
+        fetchStatus={() =>
+          Promise.resolve(
+            buildPayload({
+              ...activeLiveCaptureOverrides(),
+              live_sqlite_capture: buildLiveSqliteCaptureStatusPayload({
+                status: "disabled",
+                mode: "status_only"
+              })
+            })
+          )
+        }
+      />
+    );
+
+    await screen.findByRole("heading", { name: "Mythic Edge Cockpit" });
+    const liveCaptureCard = cockpitCard("Live capture");
+
+    expect(within(liveCaptureCard).getByLabelText("status Ready to start")).toBeInTheDocument();
+    expect(within(liveCaptureCard).queryByLabelText("status Capturing")).not.toBeInTheDocument();
+    expect(within(liveCaptureCard).getByText("Capture is not running.")).toBeInTheDocument();
+  });
+
+  it("fails closed when strict live capture fields are missing or malformed", async () => {
+    render(
+      <SetupStatusApp
+        fetchStatus={() =>
+          Promise.resolve(
+            buildPayload({
+              live_sqlite_capture: undefined,
+              live_watcher_process: undefined,
+              live_watcher: {
+                ...buildLiveWatcherStatusPayload(),
+                watcher: {
+                  ...buildLiveWatcherStatusPayload().watcher,
+                  status: "ready",
+                  mode: "readiness_only",
+                  running: false,
+                  parser_runner_started: false,
+                  tailing_started: false,
+                  sqlite_live_writes_enabled: false
+                }
+              }
+            })
+          )
+        }
+      />
+    );
+
+    await screen.findByRole("heading", { name: "Mythic Edge Cockpit" });
+    const liveCaptureCard = cockpitCard("Live capture");
+
+    expect(within(liveCaptureCard).getByLabelText("status Needs review")).toBeInTheDocument();
+    expect(within(liveCaptureCard).queryByLabelText("status Ready to start")).not.toBeInTheDocument();
+    expect(within(liveCaptureCard).queryByLabelText("status Capturing")).not.toBeInTheDocument();
+  });
+
+  it("fails the dashboard live capture control closed when capturing status contradicts the running flag", async () => {
+    render(
+      <SetupStatusApp
+        fetchLiveCapture={() =>
+          Promise.resolve(
+            buildLiveCaptureStatusPayload({
+              status: "capturing",
+              capture: {
+                running: false,
+                start_allowed: false,
+                stop_allowed: true,
+                parser_runner_started: true,
+                tailing_started: true,
+                sqlite_live_writes_enabled: true,
+                external_transport_allowed: false,
+                raw_player_log_storage_enabled: false,
+                supervisor_kind: "local_app_capture_supervisor",
+                source_kind: "live_parser",
+                reason: null
+              }
+            })
+          )
+        }
+        fetchStatus={() => Promise.resolve(buildPayload())}
+      />
+    );
+
+    await screen.findByRole("heading", { name: "Mythic Edge Cockpit" });
+    const liveCaptureCard = cockpitCard("Live capture");
+
+    expect(await within(liveCaptureCard).findByLabelText("status Needs review")).toBeInTheDocument();
+    expect(within(liveCaptureCard).queryByLabelText("status Capturing")).not.toBeInTheDocument();
+    expect(within(liveCaptureCard).queryByRole("button", { name: "Stop capture" })).not.toBeInTheDocument();
+    expect(within(liveCaptureCard).getByRole("link", { name: "View live capture diagnostics" })).toHaveAttribute(
+      "href",
+      "#diagnostics"
+    );
+  });
+
+  it("starts live capture only through the explicit backend control", async () => {
+    const fetchLiveCapture = vi.fn(async () => buildLiveCaptureStatusPayload());
+    const startCapture = vi.fn(async () =>
+      buildLiveCaptureStartResultPayload({
+        capture_status: buildLiveCaptureStatusPayload({
+          status: "capturing",
+          capture: {
+            running: true,
+            start_allowed: false,
+            stop_allowed: true,
+            parser_runner_started: true,
+            tailing_started: true,
+            sqlite_live_writes_enabled: true,
+            external_transport_allowed: false,
+            raw_player_log_storage_enabled: false,
+            supervisor_kind: "local_app_capture_supervisor",
+            source_kind: "live_parser",
+            reason: null
+          }
+        })
+      })
+    );
+    const stopCapture = vi.fn(async () => buildLiveCaptureStopResultPayload());
+    setRoute("diagnostics");
+    render(
+      <SetupStatusApp
+        fetchLiveCapture={fetchLiveCapture}
+        fetchStatus={() => Promise.resolve(buildPayload())}
+        startCapture={startCapture}
+        stopCapture={stopCapture}
+      />
+    );
+
+    expect(await screen.findByRole("heading", { name: "Live Capture Control" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Start capture" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Stop capture" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /\b(?:reset|delete|wipe|restart|clear|repair)\b/i })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Start capture" }));
+
+    await waitFor(() => {
+      expect(startCapture).toHaveBeenCalledTimes(1);
+    });
+    expect((await screen.findAllByLabelText("status Capturing")).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("Capture is active.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Start capture" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Stop capture" })).toBeInTheDocument();
+    expect(stopCapture).not.toHaveBeenCalled();
+  });
+
+  it("renders the backend-led live capture blurb without inventing score text", async () => {
+    const fetchLiveCapture = vi.fn(async () =>
+      buildLiveCaptureStatusPayload({
+        status: "capturing",
+        capture: {
+          running: true,
+          start_allowed: false,
+          stop_allowed: true,
+          parser_runner_started: true,
+          tailing_started: true,
+          sqlite_live_writes_enabled: true,
+          external_transport_allowed: false,
+          raw_player_log_storage_enabled: false,
+          supervisor_kind: "local_app_capture_supervisor",
+          source_kind: "live_parser",
+          reason: null
+        },
+        heartbeat: {
+          schema_version: LIVE_CAPTURE_DIAGNOSTICS_SCHEMA_VERSION,
+          status: "waiting",
+          heartbeat_updated_at: "2026-06-08T12:00:00Z",
+          capture_duration_seconds: 12,
+          heartbeat_age_seconds: 1,
+          stale_after_seconds: 30
+        },
+        progress: {
+          schema_version: LIVE_CAPTURE_DIAGNOSTICS_SCHEMA_VERSION,
+          log_poll_count: 4,
+          log_chunks_seen: 0,
+          structured_entry_count: 2,
+          parser_event_count: 1,
+          parser_event_kinds_seen: ["game_state"],
+          match_ids_seen_count: 1,
+          current_match_detected: true,
+          current_match_game_wins: null,
+          current_match_game_losses: null,
+          last_completed_match_result: null,
+          last_completed_match_game_wins: null,
+          last_completed_match_game_losses: null,
+          completed_game_rows_seen: 0,
+          sqlite_write_attempt_count: 0,
+          sqlite_rows_written: 0,
+          last_no_write_reason: "no_completed_game_rows",
+          last_event_seen_at: "2026-06-08T12:00:00Z",
+          last_sqlite_write_at: null
+        },
+        parser_status_blurb: {
+          code: "waiting_for_completed_facts",
+          text: "Capturing; waiting for completed match facts.",
+          tone: "waiting"
+        }
+      })
+    );
+    setRoute("diagnostics");
+    render(
+      <SetupStatusApp
+        fetchLiveCapture={fetchLiveCapture}
+        fetchStatus={() => Promise.resolve(buildPayload())}
+        startCapture={() => Promise.resolve(buildLiveCaptureStartResultPayload())}
+        stopCapture={() => Promise.resolve(buildLiveCaptureStopResultPayload())}
+      />
+    );
+
+    expect(await screen.findByRole("heading", { name: "Live Capture Control" })).toBeInTheDocument();
+    expect(await screen.findByText("Capturing; waiting for completed match facts.")).toBeInTheDocument();
+    expect(screen.queryByText(/\b\d+\s*-\s*\d+\b/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/current match score/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Stop capture" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Start capture" })).not.toBeInTheDocument();
+  });
+
+  it("stops only when the backend reports an app-owned running capture", async () => {
+    const fetchLiveCapture = vi.fn(async () =>
+      buildLiveCaptureStatusPayload({
+        status: "capturing",
+        capture: {
+          running: true,
+          start_allowed: false,
+          stop_allowed: true,
+          parser_runner_started: true,
+          tailing_started: true,
+          sqlite_live_writes_enabled: true,
+          external_transport_allowed: false,
+          raw_player_log_storage_enabled: false,
+          supervisor_kind: "local_app_capture_supervisor",
+          source_kind: "live_parser",
+          reason: null
+        }
+      })
+    );
+    const startCapture = vi.fn(async () => buildLiveCaptureStartResultPayload());
+    const stopCapture = vi.fn(async () =>
+      buildLiveCaptureStopResultPayload({
+        capture_status: buildLiveCaptureStatusPayload({
+          status: "stopped",
+          capture: {
+            running: false,
+            start_allowed: true,
+            stop_allowed: false,
+            parser_runner_started: false,
+            tailing_started: false,
+            sqlite_live_writes_enabled: false,
+            external_transport_allowed: false,
+            raw_player_log_storage_enabled: false,
+            supervisor_kind: "local_app_capture_supervisor",
+            source_kind: "live_parser",
+            reason: null
+          }
+        })
+      })
+    );
+    setRoute("diagnostics");
+    render(
+      <SetupStatusApp
+        fetchLiveCapture={fetchLiveCapture}
+        fetchStatus={() => Promise.resolve(buildPayload())}
+        startCapture={startCapture}
+        stopCapture={stopCapture}
+      />
+    );
+
+    expect(await screen.findByRole("button", { name: "Stop capture" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Start capture" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Stop capture" }));
+
+    await waitFor(() => {
+      expect(stopCapture).toHaveBeenCalledTimes(1);
+    });
+    expect((await screen.findAllByLabelText("status Stopped")).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Capture stopped.").length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByRole("button", { name: "Stop capture" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Start capture" })).toBeInTheDocument();
+    expect(startCapture).not.toHaveBeenCalled();
+  });
+
+  it("does not expose start or stop controls when capture ownership is blocked", async () => {
+    render(
+      <SetupStatusApp
+        fetchLiveCapture={() =>
+          Promise.resolve(
+            buildLiveCaptureStatusPayload({
+              status: "blocked",
+              capture: {
+                running: false,
+                start_allowed: false,
+                stop_allowed: false,
+                parser_runner_started: false,
+                tailing_started: false,
+                sqlite_live_writes_enabled: false,
+                external_transport_allowed: false,
+                raw_player_log_storage_enabled: false,
+                supervisor_kind: "local_app_capture_supervisor",
+                source_kind: "live_parser",
+                reason: "supervisor_ownership_unverified"
+              },
+              preconditions: [
+                { key: "player_log_ready", status: "pass", reason: null },
+                { key: "single_instance_guard_available", status: "fail", reason: "supervisor_ownership_unverified" }
+              ]
+            })
+          )
+        }
+        fetchStatus={() => Promise.resolve(buildPayload())}
+      />
+    );
+
+    expect((await screen.findAllByLabelText("status Blocked")).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("Capture blocked.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Start capture" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Stop capture" })).not.toBeInTheDocument();
+    expect(within(cockpitCard("Live capture")).getByRole("link", { name: "View live capture diagnostics" })).toHaveAttribute(
+      "href",
+      "#diagnostics"
+    );
+    expect(screen.queryByRole("button", { name: /\b(?:reset|delete|wipe|restart|clear|repair)\b/i })).not.toBeInTheDocument();
+  });
+
+  it("previews before explicit GitHub submission and keeps copy fallback", async () => {
+    setRoute("feedback");
     const writeText = vi.fn(async () => undefined);
     Object.defineProperty(navigator, "clipboard", {
       configurable: true,
       value: { writeText }
     });
     const previewReport = vi.fn(async (request: ErrorReportPreviewRequest) => buildErrorReportPreviewPayload(request));
-    render(<SetupStatusApp fetchStatus={() => Promise.resolve(buildPayload())} previewReport={previewReport} />);
+    const submitReport = vi.fn(async (request: ErrorReportPreviewRequest) => buildErrorReportSubmissionPayload(request));
+    render(
+      <SetupStatusApp
+        fetchStatus={() => Promise.resolve(buildPayload())}
+        previewReport={previewReport}
+        submitReport={submitReport}
+      />
+    );
 
     expect(await screen.findByRole("heading", { name: "Report an Error" })).toBeInTheDocument();
-    expect(screen.getAllByText("External submission disabled").length).toBeGreaterThanOrEqual(1);
-    expect(screen.queryByRole("button", { name: /submit error report/i })).not.toBeInTheDocument();
+    expect(screen.getByText("No automatic submission")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /submit report to github/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /create github issue/i })).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("Summary"), { target: { value: "Dashboard status did not refresh" } });
@@ -150,7 +812,7 @@ describe("SetupStatusApp", () => {
     fireEvent.change(screen.getByLabelText("Actual behavior"), {
       target: { value: "The dashboard kept old labels after reload." }
     });
-    fireEvent.change(screen.getByLabelText("Reproduction steps"), {
+    fireEvent.change(screen.getByLabelText("Reproduction steps (Optional)"), {
       target: { value: "Open the app.\nReload the dashboard.\nRead the labels." }
     });
 
@@ -161,6 +823,7 @@ describe("SetupStatusApp", () => {
         expect.objectContaining({
           affected_area: "local_app_ui",
           current_frontend_surface: "local_app_cockpit",
+          report_type: "bug",
           severity: "degraded"
         })
       );
@@ -170,27 +833,40 @@ describe("SetupStatusApp", () => {
     expect(screen.getByText("backend_health")).toBeInTheDocument();
     expect(screen.getByText("Excluded private data")).toBeInTheDocument();
     expect(screen.getByText("raw Player.log contents or raw log lines")).toBeInTheDocument();
-    expect(screen.getByDisplayValue(/# \[error-report\] \[local_app_ui\]/)).toBeInTheDocument();
+    expect(screen.getByDisplayValue(/# \[error-report\] \[bug\] \[local_app_ui\]/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Submit report to GitHub" })).toBeInTheDocument();
+    expect(submitReport).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Copy Report" }));
 
     await waitFor(() => {
-      expect(writeText).toHaveBeenCalledWith(expect.stringContaining("# [error-report] [local_app_ui]"));
+      expect(writeText).toHaveBeenCalledWith(expect.stringContaining("# [error-report] [bug] [local_app_ui]"));
     });
     expect(screen.getByText("Copied to clipboard")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /submit error report/i })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Submit report to GitHub" }));
+    await waitFor(() => {
+      expect(submitReport).toHaveBeenCalledWith(expect.objectContaining({ report_type: "bug" }));
+    });
+    expect(await screen.findByRole("heading", { name: "GitHub Issue Created" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "View created issue" })).toHaveAttribute(
+      "href",
+      "https://github.com/Tahjali11/Mythic-Edge/issues/999"
+    );
   });
 
   it("shows blocked sanitized report previews without enabling copy or submission", async () => {
+    setRoute("feedback");
     const previewReport = vi.fn(async () =>
       buildErrorReportPreviewPayload(
         {
           summary: "Blocked report",
+          report_type: "bug",
+          severity: "blocker",
           expected_behavior: "Preview should block unsafe values.",
           actual_behavior: "Unsafe value was entered.",
           reproduction_steps: "Open report form.",
           affected_area: "privacy",
-          severity: "blocker"
         },
         {
           status: "blocked_privacy_guard",
@@ -207,17 +883,18 @@ describe("SetupStatusApp", () => {
     fireEvent.change(screen.getByLabelText("Summary"), { target: { value: "Blocked report" } });
     fireEvent.change(screen.getByLabelText("Expected behavior"), { target: { value: "Preview should block unsafe values." } });
     fireEvent.change(screen.getByLabelText("Actual behavior"), { target: { value: "Unsafe value was entered." } });
-    fireEvent.change(screen.getByLabelText("Reproduction steps"), { target: { value: "Open report form." } });
+    fireEvent.change(screen.getByLabelText("Reproduction steps (Optional)"), { target: { value: "Open report form." } });
 
     fireEvent.click(screen.getByRole("button", { name: "Preview Report" }));
 
     expect(await screen.findByText("privacy_guard_blocked:actual_behavior")).toBeInTheDocument();
     expect(screen.getByText(/privacy guard blocked report generation/i)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Copy Report" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /submit error report/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /submit report to github/i })).not.toBeInTheDocument();
   });
 
   it("renders live watcher diagnostics as a read-only safe summary", async () => {
+    setRoute("diagnostics");
     render(
       <SetupStatusApp
         fetchLiveDiagnostics={() => Promise.resolve(buildLiveWatcherDiagnosticsPayload())}
@@ -226,7 +903,6 @@ describe("SetupStatusApp", () => {
     );
 
     expect(await screen.findByRole("heading", { name: "Mythic Edge Cockpit" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Show technical details" }));
     expect(await screen.findByRole("heading", { name: "Live Diagnostics" })).toBeInTheDocument();
     expect(screen.getByText("Read-only watcher quality summary")).toBeInTheDocument();
     expect(screen.getByText("player_log_stale")).toBeInTheDocument();
@@ -238,6 +914,7 @@ describe("SetupStatusApp", () => {
   });
 
   it("renders live diagnostics API errors without raw backend details", async () => {
+    setRoute("diagnostics");
     render(
       <SetupStatusApp
         fetchLiveDiagnostics={() =>
@@ -250,7 +927,6 @@ describe("SetupStatusApp", () => {
     );
 
     expect(await screen.findByRole("heading", { name: "Mythic Edge Cockpit" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Show technical details" }));
     expect(await screen.findByRole("heading", { name: "Live Diagnostics" })).toBeInTheDocument();
     expect(screen.getByText("Live watcher diagnostics has an unsupported shape.")).toBeInTheDocument();
     expect(screen.queryByText("Traceback")).not.toBeInTheDocument();
@@ -277,6 +953,7 @@ describe("SetupStatusApp", () => {
   });
 
   it("renders read-only match and game history with a refresh control", async () => {
+    setRoute("analytics");
     const fetchMatches = vi.fn(async () => buildMatchHistoryPayload());
     const fetchGames = vi.fn(async () => buildGameHistoryPayload());
     const fetchOpeningHands = vi.fn(async () => buildOpeningHandHistoryPayload());
@@ -309,7 +986,64 @@ describe("SetupStatusApp", () => {
     });
   });
 
+  it("polls sanitized refresh state and reloads existing analytics views after revision changes", async () => {
+    vi.useFakeTimers();
+    const fetchAnalyticsRefreshState = vi
+      .fn()
+      .mockResolvedValueOnce(buildAnalyticsRefreshStatePayload({ analytics_revision: "analytics-refresh-v1:baseline" }))
+      .mockResolvedValueOnce(buildAnalyticsRefreshStatePayload({ analytics_revision: "analytics-refresh-v1:changed" }));
+    const fetchMatches = vi.fn(async () => buildMatchHistoryPayload());
+    const fetchGames = vi.fn(async () => buildGameHistoryPayload());
+    const fetchOpeningHands = vi.fn(async () => buildOpeningHandHistoryPayload());
+    const fetchMulligans = vi.fn(async () => buildMulliganHistoryPayload());
+    const fetchGameplayActions = vi.fn(async () => buildGameplayActionReviewPayload());
+    const fetchOpponentObservations = vi.fn(async () => buildOpponentObservationReviewPayload());
+    const fetchPlayDrawSplits = vi.fn(async () => buildPlayDrawSplitReviewPayload());
+    const fetchGame1PostboardSplits = vi.fn(async () => buildGame1PostboardSplitReviewPayload());
+    const fetchDashboardModules = vi.fn(async () => buildAnalyticsDashboardModulesPayload());
+
+    render(
+      <SetupStatusApp
+        fetchAnalyticsRefreshState={fetchAnalyticsRefreshState}
+        fetchDashboardModules={fetchDashboardModules}
+        fetchGame1PostboardSplits={fetchGame1PostboardSplits}
+        fetchGames={fetchGames}
+        fetchGameplayActions={fetchGameplayActions}
+        fetchMatches={fetchMatches}
+        fetchMulligans={fetchMulligans}
+        fetchOpeningHands={fetchOpeningHands}
+        fetchOpponentObservations={fetchOpponentObservations}
+        fetchPlayDrawSplits={fetchPlayDrawSplits}
+        fetchStatus={() => Promise.resolve(buildPayload())}
+      />
+    );
+
+    await flushAsyncUpdates();
+    expect(screen.getByLabelText("Analytics auto-refresh")).toHaveTextContent("Analytics checked");
+    expect(fetchAnalyticsRefreshState).toHaveBeenCalledTimes(1);
+    expect(fetchMatches).toHaveBeenCalledTimes(1);
+    expect(fetchDashboardModules).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      vi.advanceTimersByTime(25_000);
+    });
+    await flushAsyncUpdates();
+
+    expect(fetchAnalyticsRefreshState).toHaveBeenCalledTimes(2);
+    expect(fetchMatches).toHaveBeenCalledTimes(2);
+    expect(fetchGames).toHaveBeenCalledTimes(2);
+    expect(fetchOpeningHands).toHaveBeenCalledTimes(2);
+    expect(fetchMulligans).toHaveBeenCalledTimes(2);
+    expect(fetchGameplayActions).toHaveBeenCalledTimes(2);
+    expect(fetchOpponentObservations).toHaveBeenCalledTimes(2);
+    expect(fetchPlayDrawSplits).toHaveBeenCalledTimes(2);
+    expect(fetchGame1PostboardSplits).toHaveBeenCalledTimes(2);
+    expect(fetchDashboardModules).toHaveBeenCalledTimes(2);
+    expect(screen.getByLabelText("Analytics auto-refresh")).toHaveTextContent("Analytics updated");
+  });
+
   it("renders Match Journal cockpit context and bundle without pilot-error or destructive controls", async () => {
+    setRoute("review");
     render(
       <SetupStatusApp
         fetchGames={() => Promise.resolve(buildGameHistoryPayload())}
@@ -331,6 +1065,7 @@ describe("SetupStatusApp", () => {
   });
 
   it("submits and reloads a no-context unattached smoke note without parser identity", async () => {
+    setRoute("review");
     const fetchJournal = vi.fn(async () => buildMatchJournalPayload());
     const submitJournalUnattachedNote = vi.fn(async (_request: unknown) =>
       buildMatchJournalPayload({
@@ -422,6 +1157,7 @@ describe("SetupStatusApp", () => {
   });
 
   it("disables Match Journal forms when the backend facade is unavailable", async () => {
+    setRoute("review");
     render(
       <SetupStatusApp
         fetchGames={() => Promise.resolve(buildGameHistoryPayload())}
@@ -442,6 +1178,7 @@ describe("SetupStatusApp", () => {
   });
 
   it("submits allowed Match Journal cockpit updates with parser-owned context only", async () => {
+    setRoute("review");
     const submitJournalNote = vi.fn(async () => buildMatchJournalPayload({ result: { service_result: { action: "note" } } }));
     const submitJournalOpponentLabels = vi.fn(async () =>
       buildMatchJournalPayload({ result: { service_result: { action: "opponent" } } })
@@ -548,6 +1285,7 @@ describe("SetupStatusApp", () => {
   });
 
   it("preserves Match Journal form input when sanitized failed submit envelopes resolve", async () => {
+    setRoute("review");
     const unavailableJournal = () =>
       buildMatchJournalPayload({ status: "unavailable", result: {}, errors: ["service_unavailable"] });
     const submitJournalNote = vi.fn(async () => unavailableJournal());
@@ -626,6 +1364,7 @@ describe("SetupStatusApp", () => {
   });
 
   it("renders Match Journal API errors without raw backend details", async () => {
+    setRoute("review");
     render(
       <SetupStatusApp
         fetchGames={() => Promise.resolve(buildGameHistoryPayload())}
@@ -642,6 +1381,7 @@ describe("SetupStatusApp", () => {
   });
 
   it("renders read-only opening hand and mulligan history with a refresh control", async () => {
+    setRoute("analytics");
     const fetchOpeningHands = vi.fn(async () => buildOpeningHandHistoryPayload());
     const fetchMulligans = vi.fn(async () => buildMulliganHistoryPayload());
     render(
@@ -673,6 +1413,7 @@ describe("SetupStatusApp", () => {
   });
 
   it("renders read-only gameplay action and opponent observation review with a refresh control", async () => {
+    setRoute("analytics");
     const fetchGameplayActions = vi.fn(async () => buildGameplayActionReviewPayload());
     const fetchOpponentObservations = vi.fn(async () => buildOpponentObservationReviewPayload());
     render(
@@ -706,6 +1447,7 @@ describe("SetupStatusApp", () => {
   });
 
   it("renders read-only play-draw and game1-postboard split review with a refresh control", async () => {
+    setRoute("analytics");
     const fetchPlayDrawSplits = vi.fn(async () => buildPlayDrawSplitReviewPayload());
     const fetchGame1PostboardSplits = vi.fn(async () => buildGame1PostboardSplitReviewPayload());
     render(
@@ -815,6 +1557,7 @@ describe("SetupStatusApp", () => {
   });
 
   it("renders empty and degraded history states safely", async () => {
+    setRoute("analytics");
     render(
       <SetupStatusApp
         fetchGames={() => Promise.resolve({ ...buildGameHistoryPayload(), status: "degraded", rows: [] })}
@@ -829,6 +1572,7 @@ describe("SetupStatusApp", () => {
   });
 
   it("renders empty and degraded early-game states safely", async () => {
+    setRoute("analytics");
     render(
       <SetupStatusApp
         fetchGames={() => Promise.resolve(buildGameHistoryPayload())}
@@ -845,6 +1589,7 @@ describe("SetupStatusApp", () => {
   });
 
   it("renders empty and degraded action review states safely", async () => {
+    setRoute("analytics");
     render(
       <SetupStatusApp
         fetchGames={() => Promise.resolve(buildGameHistoryPayload())}
@@ -865,6 +1610,7 @@ describe("SetupStatusApp", () => {
   });
 
   it("renders empty and degraded split review states safely", async () => {
+    setRoute("analytics");
     render(
       <SetupStatusApp
         fetchGame1PostboardSplits={() =>
@@ -887,6 +1633,7 @@ describe("SetupStatusApp", () => {
   });
 
   it("renders malformed history responses without raw backend details", async () => {
+    setRoute("analytics");
     render(
       <SetupStatusApp
         fetchGames={() => Promise.resolve(buildGameHistoryPayload())}
@@ -900,6 +1647,7 @@ describe("SetupStatusApp", () => {
   });
 
   it("renders malformed early-game history responses without raw backend details", async () => {
+    setRoute("analytics");
     render(
       <SetupStatusApp
         fetchGames={() => Promise.resolve(buildGameHistoryPayload())}
@@ -916,6 +1664,7 @@ describe("SetupStatusApp", () => {
   });
 
   it("renders malformed action review responses without raw backend details", async () => {
+    setRoute("analytics");
     render(
       <SetupStatusApp
         fetchGames={() => Promise.resolve(buildGameHistoryPayload())}
@@ -934,6 +1683,7 @@ describe("SetupStatusApp", () => {
   });
 
   it("renders malformed split review responses without raw backend details", async () => {
+    setRoute("analytics");
     render(
       <SetupStatusApp
         fetchGame1PostboardSplits={() => Promise.resolve(buildGame1PostboardSplitReviewPayload())}
@@ -1011,6 +1761,7 @@ describe("SetupStatusApp", () => {
   });
 
   it("submits manual import and renders sanitized job summary without retaining the raw path", async () => {
+    setRoute("import");
     const rawPath = "Z:\\synthetic\\events_v1.jsonl";
     const submitImport = vi.fn(async () => buildManualImportJob());
     render(<SetupStatusApp fetchStatus={() => Promise.resolve(buildPayload())} submitImport={submitImport} />);
@@ -1039,6 +1790,7 @@ describe("SetupStatusApp", () => {
   });
 
   it("submits a batch import and renders sanitized per-file summaries", async () => {
+    setRoute("import");
     const firstRawPath = "Z:\\synthetic\\a_events.jsonl";
     const secondRawPath = "Z:\\synthetic\\b_events.jsonl";
     const submitImport = vi.fn(async () => buildBatchManualImportJob());
@@ -1067,6 +1819,7 @@ describe("SetupStatusApp", () => {
   });
 
   it("uploads browser-selected JSONL files and renders sanitized upload summaries", async () => {
+    setRoute("import");
     const firstFile = new File(['{"kind":"MatchState"}\n'], "a_events.jsonl", { type: "application/jsonl" });
     const secondFile = new File(['{"kind":"GameResult"}\n'], "b_events.jsonl", { type: "application/jsonl" });
     const submitUpload = vi.fn(async () => buildUploadedManualImportJob());
@@ -1093,6 +1846,7 @@ describe("SetupStatusApp", () => {
   });
 
   it("uploads folder-selected JSONL files as a flat filtered batch without displaying folder paths", async () => {
+    setRoute("import");
     const jsonlFile = withRelativePath(
       new File(['{"kind":"MatchState"}\n'], "a_events.JSONL", { type: "application/jsonl" }),
       "private-day-folder/nested/a_events.JSONL"
@@ -1127,6 +1881,7 @@ describe("SetupStatusApp", () => {
   });
 
   it("does not start folder upload when selection contains no JSONL files", async () => {
+    setRoute("import");
     const ignoredFile = withRelativePath(
       new File(["not-jsonl"], "notes.txt", { type: "text/plain" }),
       "private-day-folder/notes.txt"
@@ -1145,6 +1900,7 @@ describe("SetupStatusApp", () => {
   });
 
   it("renders upload API errors safely and clears selected files", async () => {
+    setRoute("import");
     const rawFileName = "secret_token_dump.jsonl";
     const selectedFile = new File(['{"raw":"private"}\n'], rawFileName, { type: "application/jsonl" });
     const submitUpload = vi.fn(async () => {
@@ -1163,6 +1919,7 @@ describe("SetupStatusApp", () => {
   });
 
   it("redacts selected upload filenames with private-marker classes", async () => {
+    setRoute("import");
     const privateNames = [
       "api_key_dump.jsonl",
       "apikey_dump.jsonl",
@@ -1188,6 +1945,7 @@ describe("SetupStatusApp", () => {
   });
 
   it("renders a rejected batch import state without retaining raw paths", async () => {
+    setRoute("import");
     const rawPath = "Z:\\synthetic\\invalid_events.jsonl";
     const submitImport = vi.fn(async () => buildBatchRejectedManualImportJob());
     render(<SetupStatusApp fetchStatus={() => Promise.resolve(buildPayload())} submitImport={submitImport} />);
@@ -1209,6 +1967,7 @@ describe("SetupStatusApp", () => {
   });
 
   it("renders a failed batch import state without raw payload, hash, or path details", async () => {
+    setRoute("import");
     const firstRawPath = "Z:\\synthetic\\a_events.jsonl";
     const secondRawPath = "Z:\\synthetic\\malformed_events.jsonl";
     const privateHash = "batch-private-raw-hash";
@@ -1235,6 +1994,7 @@ describe("SetupStatusApp", () => {
   });
 
   it("renders a degraded batch import state with safe aggregate and per-file details", async () => {
+    setRoute("import");
     const firstRawPath = "Z:\\synthetic\\a_events.jsonl";
     const secondRawPath = "Z:\\synthetic\\degraded_events.jsonl";
     const submitImport = vi.fn(async () => buildBatchDegradedManualImportJob());
@@ -1258,6 +2018,7 @@ describe("SetupStatusApp", () => {
   });
 
   it("keeps manual import submission disabled when both single and batch paths are entered", async () => {
+    setRoute("import");
     const submitImport = vi.fn(async () => buildManualImportJob());
     render(<SetupStatusApp fetchStatus={() => Promise.resolve(buildPayload())} submitImport={submitImport} />);
 
@@ -1269,6 +2030,7 @@ describe("SetupStatusApp", () => {
   });
 
   it("renders manual import API errors safely and clears the submitted path", async () => {
+    setRoute("import");
     const rawPath = "Z:\\synthetic\\events_v1.jsonl";
     const submitImport = vi.fn(async () => {
       throw new ManualImportApiError("malformed_response", "Malformed import response");
@@ -1294,6 +2056,22 @@ function withRelativePath(file: File, relativePath: string): File {
   return file;
 }
 
+function cockpitCard(heading: string): HTMLElement {
+  const card = screen.getByRole("heading", { name: heading }).closest("article");
+  if (card === null) {
+    throw new Error(`Missing cockpit card for ${heading}.`);
+  }
+  return card;
+}
+
+async function flushAsyncUpdates() {
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+}
+
 function buildPayload(overrides: Partial<SetupStatusResponse> = {}): SetupStatusResponse {
   return {
     object: SETUP_STATUS_OBJECT,
@@ -1315,6 +2093,7 @@ function buildPayload(overrides: Partial<SetupStatusResponse> = {}): SetupStatus
     live_player_log: buildLivePlayerLogStatusPayload(),
     live_watcher: buildLiveWatcherStatusPayload(),
     live_watcher_process: buildLiveWatcherProcessStatusPayload(),
+    live_sqlite_capture: buildLiveSqliteCaptureStatusPayload(),
     analytics_database: {
       status: "missing",
       database: { display_path: "<app_data>\\db\\mythic_edge.sqlite3", schema_status: "missing" }
@@ -1346,11 +2125,44 @@ function buildPayload(overrides: Partial<SetupStatusResponse> = {}): SetupStatus
   };
 }
 
+function activeLiveCaptureOverrides(): Partial<SetupStatusResponse> {
+  const activeWatcher = buildLiveWatcherStatusPayload();
+  const activeProcess = buildLiveWatcherProcessStatusPayload();
+  activeProcess.status = "running";
+  activeProcess.process_control = {
+    ...activeProcess.process_control,
+    implementation_status: "running",
+    parser_runner_started: true,
+    tailing_started: true,
+    sqlite_live_writes_enabled: true
+  };
+  activeProcess.watcher = {
+    ...activeProcess.watcher,
+    status: "running",
+    running: true,
+    pid_verified: true
+  };
+  return {
+    live_watcher: activeWatcher,
+    live_watcher_process: activeProcess,
+    live_sqlite_capture: buildLiveSqliteCaptureStatusPayload({
+      status: "running",
+      mode: "live_capture",
+      process_control: {
+        parser_runner_started: true,
+        tailing_started: true,
+        sqlite_live_writes_enabled: true
+      },
+      last_result: { status: "ok" }
+    })
+  };
+}
+
 function buildErrorReportPreviewPayload(
   request: ErrorReportPreviewRequest,
   overrides: Partial<ErrorReportPreviewResponse> = {}
 ): ErrorReportPreviewResponse {
-  const issueTitle = `[error-report] [${request.affected_area}] ${request.summary}`;
+  const issueTitle = `[error-report] [${request.report_type}] [${request.affected_area}] ${request.summary}`;
   return {
     schema: ERROR_REPORT_PREVIEW_SCHEMA,
     status: "preview_ready",
@@ -1378,7 +2190,30 @@ function buildErrorReportPreviewPayload(
     redaction_summary: ["No user-entered private path redactions were needed."],
     warnings: [],
     next_recommended_role: "Codex A or Codex B after reviewing the sanitized report",
-    external_submission_enabled: false,
+    external_submission_enabled: true,
+    ...overrides
+  };
+}
+
+function buildErrorReportSubmissionPayload(
+  request: ErrorReportPreviewRequest,
+  overrides: Partial<ErrorReportSubmissionResponse> = {}
+): ErrorReportSubmissionResponse {
+  const preview = buildErrorReportPreviewPayload(request);
+  return {
+    object: ERROR_REPORT_SUBMISSION_OBJECT,
+    schema_version: ERROR_REPORT_SUBMISSION_SCHEMA,
+    status: "submitted",
+    external_submission_enabled: true,
+    submitted: true,
+    issue_url: "https://github.com/Tahjali11/Mythic-Edge/issues/999",
+    issue_number: 999,
+    issue_title: preview.issue_title,
+    issue_body_markdown: preview.issue_body_markdown,
+    labels: ["bug", "layer:dashboard", "workflow:problem"],
+    fallback_available: true,
+    warnings: [],
+    errors: [],
     ...overrides
   };
 }
@@ -1470,6 +2305,8 @@ function buildLiveWatcherProcessStatusPayload(): LiveWatcherProcessStatusRespons
       single_instance_guard: "not_initialized",
       supervisor_boundary: "local_app_supervisor_deferred"
     },
+    mtga_process: buildMtgaProcessStatus(),
+    automation_readiness: buildAutomationReadiness(),
     player_log: {
       object: LIVE_PLAYER_LOG_STATUS_OBJECT,
       status: "configured_exists",
@@ -1504,6 +2341,249 @@ function buildLiveWatcherProcessStatusPayload(): LiveWatcherProcessStatusRespons
     },
     warnings: [],
     errors: []
+  };
+}
+
+function buildMtgaProcessStatus(): MtgaProcessStatus {
+  return {
+    object: "mythic_edge_local_app_mtga_process_status",
+    schema_version: MTGA_PROCESS_SCHEMA_VERSION,
+    status: "detected",
+    detected: true,
+    platform: "windows",
+    process_name: "MTGA.exe",
+    evidence: "image_name_match",
+    checked_at: "2026-06-10T12:00:00Z",
+    detector: "windows_tasklist_image_name",
+    warnings: [],
+    errors: [],
+    privacy: {
+      pid_exposed: false,
+      command_line_exposed: false,
+      environment_exposed: false,
+      raw_detector_output_exposed: false
+    }
+  };
+}
+
+function buildAutomationReadiness(): AutomationReadiness {
+  return {
+    schema_version: MTGA_PROCESS_SCHEMA_VERSION,
+    status: "blocked",
+    automatic_start_allowed: false,
+    items: [
+      { key: "manual_start_dashboard", status: "pass" },
+      { key: "manual_stop_dashboard", status: "pass" },
+      { key: "starting_cannot_dead_end", status: "pass" },
+      { key: "capturing_persistent_stop_action", status: "pass" },
+      { key: "stale_capture_recovery_actionable", status: "pass" },
+      { key: "analytics_refresh_after_completed_match", status: "pass" },
+      { key: "mtga_process_detected", status: "pass" },
+      { key: "mtga_disappearance_detected", status: "not_proven" },
+      { key: "reconnect_window_verified", status: "not_proven" },
+      { key: "shutdown_returns_ready_to_start", status: "not_proven" },
+      { key: "shutdown_preserves_completed_facts", status: "not_proven" },
+      { key: "shutdown_privacy_boundary_verified", status: "not_proven" },
+      { key: "readiness_recorded_in_contract_or_report", status: "pass" }
+    ]
+  };
+}
+
+function buildMtgaLifecycle(): MtgaLifecycle {
+  return {
+    schema_version: MTGA_PROCESS_SCHEMA_VERSION,
+    status: "ready_to_start",
+    mtga_process_status: "detected",
+    reconnect_window_seconds: 45,
+    reconnect_started_at: null,
+    reconnect_deadline_at: null,
+    seconds_remaining: null,
+    shutdown_reason: null,
+    last_detected_at: "2026-06-10T12:00:00Z",
+    last_checked_at: "2026-06-10T12:00:00Z",
+    automation_start_allowed: false,
+    automation_readiness: buildAutomationReadiness(),
+    warnings: [],
+    errors: []
+  };
+}
+
+function buildLiveCaptureStatusPayload(overrides: Partial<LiveCaptureStatusResponse> = {}): LiveCaptureStatusResponse {
+  return {
+    object: LIVE_CAPTURE_STATUS_OBJECT,
+    schema_version: LIVE_CAPTURE_SCHEMA_VERSION,
+    status: "ready_to_start",
+    mode: "explicit_operator_control",
+    capture: {
+      running: false,
+      start_allowed: true,
+      stop_allowed: false,
+      parser_runner_started: false,
+      tailing_started: false,
+      sqlite_live_writes_enabled: false,
+      external_transport_allowed: false,
+      raw_player_log_storage_enabled: false,
+      supervisor_kind: "local_app_capture_supervisor",
+      source_kind: "live_parser",
+      reason: null
+    },
+    preconditions: [
+      { key: "player_log_ready", status: "pass", reason: null },
+      { key: "app_data_root_available", status: "pass", reason: null },
+      { key: "state_directory_available", status: "pass", reason: null },
+      { key: "single_instance_guard_available", status: "pass", reason: null },
+      { key: "supervisor_target_defined", status: "pass", reason: null },
+      { key: "external_transport_disabled", status: "pass", reason: null },
+      { key: "live_sqlite_ingest_contract_present", status: "pass", reason: null },
+      { key: "analytics_database_available", status: "pass", reason: null },
+      { key: "frontend_controls_authorized", status: "pass", reason: null }
+    ],
+    state: {
+      source: "none",
+      exists: false,
+      status: "not_initialized",
+      stale: false,
+      pid_present: false,
+      pid_verified: false,
+      supervisor_token_present: false,
+      display_path: "<app_data>\\jobs\\live_capture_state.json",
+      raw_path_exposed: false,
+      started_at: null,
+      updated_at: null
+    },
+    last_result: null,
+    heartbeat: {
+      schema_version: LIVE_CAPTURE_DIAGNOSTICS_SCHEMA_VERSION,
+      status: "not_started",
+      heartbeat_updated_at: null,
+      capture_duration_seconds: 0,
+      heartbeat_age_seconds: null,
+      stale_after_seconds: 30
+    },
+    progress: {
+      schema_version: LIVE_CAPTURE_DIAGNOSTICS_SCHEMA_VERSION,
+      log_poll_count: 0,
+      log_chunks_seen: 0,
+      structured_entry_count: 0,
+      parser_event_count: 0,
+      parser_event_kinds_seen: [],
+      match_ids_seen_count: 0,
+      current_match_detected: false,
+      current_match_game_wins: null,
+      current_match_game_losses: null,
+      last_completed_match_result: null,
+      last_completed_match_game_wins: null,
+      last_completed_match_game_losses: null,
+      completed_game_rows_seen: 0,
+      sqlite_write_attempt_count: 0,
+      sqlite_rows_written: 0,
+      last_no_write_reason: "not_started",
+      last_event_seen_at: null,
+      last_sqlite_write_at: null
+    },
+    mtga_lifecycle: buildMtgaLifecycle(),
+    parser_status_blurb: {
+      code: "ready_to_start",
+      text: "Ready to start capture.",
+      tone: "neutral"
+    },
+    warnings: [],
+    errors: [],
+    ...overrides
+  };
+}
+
+function buildLiveCaptureStartResultPayload(
+  overrides: Partial<LiveCaptureStartResult> = {}
+): LiveCaptureStartResult {
+  return {
+    object: LIVE_CAPTURE_START_RESULT_OBJECT,
+    schema_version: LIVE_CAPTURE_SCHEMA_VERSION,
+    status: "capturing",
+    accepted: true,
+    capture_status: buildLiveCaptureStatusPayload({
+      status: "capturing",
+      capture: {
+        running: true,
+        start_allowed: false,
+        stop_allowed: true,
+        parser_runner_started: true,
+        tailing_started: true,
+        sqlite_live_writes_enabled: true,
+        external_transport_allowed: false,
+        raw_player_log_storage_enabled: false,
+        supervisor_kind: "local_app_capture_supervisor",
+        source_kind: "live_parser",
+        reason: null
+      }
+    }),
+    warnings: [],
+    errors: [],
+    ...overrides
+  };
+}
+
+function buildLiveCaptureStopResultPayload(overrides: Partial<LiveCaptureStopResult> = {}): LiveCaptureStopResult {
+  return {
+    object: LIVE_CAPTURE_STOP_RESULT_OBJECT,
+    schema_version: LIVE_CAPTURE_SCHEMA_VERSION,
+    status: "stopped",
+    accepted: true,
+    capture_status: buildLiveCaptureStatusPayload({
+      status: "stopped",
+      capture: {
+        running: false,
+        start_allowed: true,
+        stop_allowed: false,
+        parser_runner_started: false,
+        tailing_started: false,
+        sqlite_live_writes_enabled: false,
+        external_transport_allowed: false,
+        raw_player_log_storage_enabled: false,
+        supervisor_kind: "local_app_capture_supervisor",
+        source_kind: "live_parser",
+        reason: null
+      }
+    }),
+    warnings: [],
+    errors: [],
+    ...overrides
+  };
+}
+
+function buildLiveSqliteCaptureStatusPayload(
+  overrides: Partial<LiveSqliteCaptureStatusResponse> = {}
+): LiveSqliteCaptureStatusResponse {
+  return {
+    object: "mythic_edge_local_app_live_parser_sqlite_capture_status",
+    schema_version: "live_app_parser_owned_fact_capture_sqlite.v1",
+    status: "disabled",
+    mode: "status_only",
+    source_kind: "live_parser",
+    database: {
+      configured: true,
+      display_path: "<app_data>\\db\\mythic_edge.sqlite3"
+    },
+    capabilities: {
+      live_sqlite_capture_contract_present: true,
+      final_match_game_fact_capture_supported: true,
+      provisional_fact_capture_supported: false,
+      gameplay_action_live_capture_supported: false,
+      opponent_observation_live_capture_supported: false,
+      field_evidence_live_capture_supported: false,
+      raw_player_log_storage_supported: false,
+      external_transport_allowed: false,
+      watcher_start_stop_allowed: false
+    },
+    process_control: {
+      parser_runner_started: false,
+      tailing_started: false,
+      sqlite_live_writes_enabled: false
+    },
+    last_result: null,
+    warnings: [],
+    errors: [],
+    ...overrides
   };
 }
 
@@ -2349,6 +3429,30 @@ function emptyDashboardModule(
       analytics_truth_boundary: "Dashboard modules are fixed read-only projections."
     },
     schema_version: ANALYTICS_DASHBOARD_MODULES_SCHEMA_VERSION
+  };
+}
+
+function buildAnalyticsRefreshStatePayload(
+  overrides: Partial<AnalyticsRefreshStateResponse> = {}
+): AnalyticsRefreshStateResponse {
+  return {
+    object: ANALYTICS_REFRESH_STATE_OBJECT,
+    schema_version: ANALYTICS_REFRESH_STATE_SCHEMA_VERSION,
+    status: "ok",
+    analytics_revision: "analytics-refresh-v1:synthetic",
+    latest_completed_match_result_available: true,
+    latest_completed_match_seen_at: "2026-06-08T00:10:00Z",
+    latest_completed_ingest_finished_at: "2026-06-08T00:10:01Z",
+    row_counts: {
+      ingest_runs: 1,
+      matches: 1,
+      games: 3,
+      match_results: 1,
+      game_results: 3
+    },
+    warnings: [],
+    errors: [],
+    ...overrides
   };
 }
 

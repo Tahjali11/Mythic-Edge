@@ -327,6 +327,33 @@ def test_privacy_findings_are_path_only_and_do_not_echo_raw_values() -> None:
     assert "/Users/example" not in encoded
 
 
+def test_runtime_artifact_url_detection_uses_exact_hosts_without_substring_trust() -> None:
+    trusted_report = _runtime_report()
+    trusted_report["status_reasons"] = ["runtime endpoint https://hooks.example.invalid/services/synthetic-token"]
+    trusted_section = wiring.build_evidence_ledger_review_section(
+        report_context="synthetic_test_reference",
+        runtime_field_evidence_report=trusted_report,
+    )
+    trusted_encoded = json.dumps(trusted_section, sort_keys=True)
+
+    assert trusted_section["privacy"]["runtime_artifacts_included"] is True
+    assert "synthetic-token" not in trusted_encoded
+
+    adversarial_report = _runtime_report()
+    adversarial_report["status_reasons"] = ["lookalike https://script.google.com.evil.example/macros/s/token/exec"]
+    adversarial_section = wiring.build_evidence_ledger_review_section(
+        report_context="synthetic_test_reference",
+        runtime_field_evidence_report=adversarial_report,
+    )
+    adversarial_encoded = json.dumps(adversarial_section, sort_keys=True)
+
+    assert "runtime_field_evidence_report.status_reasons[0]" in (
+        adversarial_section["privacy"]["forbidden_content_findings"]
+    )
+    assert adversarial_section["privacy"]["runtime_artifacts_included"] is False
+    assert "evil.example" not in adversarial_encoded
+
+
 def test_prebuilt_review_section_is_rebuilt_summary_only_and_redacted() -> None:
     section = wiring.evidence_review_section_from_inputs(
         _prebuilt_review_section_with_private_details(),

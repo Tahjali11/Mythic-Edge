@@ -4,9 +4,11 @@ import "./App.css";
 import {
   AnalyticsHistoryApiError,
   fetchAnalyticsDashboardModules,
+  fetchAnalyticsRefreshState as fetchAnalyticsRefreshStateApi,
   fetchGame1PostboardSplitReview,
   fetchGameHistory,
   fetchGameplayActionReview,
+  fetchLiveCaptureStatus,
   fetchLiveWatcherDiagnosticsStatus,
   fetchMatchJournal,
   fetchMatchJournalUnattachedNote,
@@ -22,6 +24,9 @@ import {
   ManualImportApiError,
   MatchJournalApiError,
   SetupStatusApiError,
+  startLiveCapture,
+  stopLiveCapture,
+  submitErrorReport,
   submitMatchJournalDisplayCorrection,
   submitMatchJournalExperimentLabel,
   submitMatchJournalNote,
@@ -39,6 +44,8 @@ import {
   type ErrorReportPreviewRequest,
   type ErrorReportPreviewResponse,
   type ErrorReportSeverity,
+  type ErrorReportSubmissionResponse,
+  type ErrorReportType,
   LIVE_PLAYER_LOG_STATUS_OBJECT,
   LIVE_STATUS_SCHEMA_VERSION,
   LIVE_WATCHER_DIAGNOSTICS_OBJECT,
@@ -54,6 +61,7 @@ import {
   type AnalyticsDashboardModule,
   type AnalyticsDashboardModulesResponse,
   type AnalyticsDashboardModuleView,
+  type AnalyticsRefreshStateResponse,
   type Game1PostboardSplitReviewResponse,
   type Game1PostboardSplitRow,
   type GameHistoryResponse,
@@ -61,6 +69,9 @@ import {
   type GameplayActionReviewResponse,
   type GameplayActionReviewRow,
   type LivePlayerLogStatusResponse,
+  type LiveCaptureStartResult,
+  type LiveCaptureStatusResponse,
+  type LiveCaptureStopResult,
   type LiveWatcherDiagnosticsResponse,
   type LiveWatcherProcessStatusResponse,
   type LiveWatcherStatusResponse,
@@ -100,6 +111,12 @@ type LoadState =
   | { state: "ready"; payload: SetupStatusResponse; unsafeCount: number }
   | { state: "error"; code: SetupStatusApiError["code"]; message: string };
 
+type LiveCaptureControlState =
+  | { state: "loading" }
+  | { state: "ready"; payload: LiveCaptureStatusResponse; message?: string }
+  | { state: "submitting"; payload: LiveCaptureStatusResponse | null; action: "start" | "stop" }
+  | { state: "error"; code: LiveStatusApiError["code"]; message: string; payload?: LiveCaptureStatusResponse | null };
+
 type SetupStatusAppProps = {
   fetchStatus?: () => Promise<SetupStatusResponse>;
   fetchMatches?: () => Promise<MatchHistoryResponse>;
@@ -111,7 +128,11 @@ type SetupStatusAppProps = {
   fetchPlayDrawSplits?: () => Promise<PlayDrawSplitReviewResponse>;
   fetchGame1PostboardSplits?: () => Promise<Game1PostboardSplitReviewResponse>;
   fetchDashboardModules?: () => Promise<AnalyticsDashboardModulesResponse>;
+  fetchAnalyticsRefreshState?: () => Promise<AnalyticsRefreshStateResponse>;
   fetchLiveDiagnostics?: () => Promise<LiveWatcherDiagnosticsResponse>;
+  fetchLiveCapture?: () => Promise<LiveCaptureStatusResponse>;
+  startCapture?: () => Promise<LiveCaptureStartResult>;
+  stopCapture?: () => Promise<LiveCaptureStopResult>;
   fetchJournal?: (context: MatchJournalContext) => Promise<MatchJournalResponse>;
   fetchJournalUnattachedNote?: (request: MatchJournalUnattachedNoteReadbackRequest) => Promise<MatchJournalResponse>;
   submitJournalNote?: (request: MatchJournalNoteRequest) => Promise<MatchJournalResponse>;
@@ -123,6 +144,7 @@ type SetupStatusAppProps = {
   submitImport?: (request: ManualImportRequest) => Promise<ManualImportJob>;
   submitUpload?: (request: ManualImportUploadRequest) => Promise<ManualImportJob>;
   previewReport?: (request: ErrorReportPreviewRequest) => Promise<ErrorReportPreviewResponse>;
+  submitReport?: (request: ErrorReportPreviewRequest) => Promise<ErrorReportSubmissionResponse>;
 };
 
 type ImportState =
@@ -138,6 +160,11 @@ type ErrorReportPreviewState =
   | { state: "error"; code: ErrorReportApiError["code"]; message: string };
 
 type ErrorReportCopyState = "idle" | "copied" | "unavailable" | "error";
+type ErrorReportSubmissionState =
+  | { state: "idle" }
+  | { state: "submitting" }
+  | { state: "ready"; payload: ErrorReportSubmissionResponse }
+  | { state: "error"; code: ErrorReportApiError["code"]; message: string };
 
 type HistoryState =
   | { state: "loading" }
@@ -178,6 +205,13 @@ type DashboardModulesState =
   | { state: "loading" }
   | { state: "ready"; payload: AnalyticsDashboardModulesResponse; unsafeCount: number }
   | { state: "error"; code: AnalyticsHistoryApiError["code"]; message: string };
+
+type AnalyticsAutoRefreshState =
+  | { state: "checking"; checkedAt: string | null }
+  | { state: "up_to_date"; checkedAt: string | null }
+  | { state: "updated"; checkedAt: string }
+  | { state: "paused"; checkedAt: string | null }
+  | { state: "degraded"; checkedAt: string | null; message: string };
 
 type LiveDiagnosticsState =
   | { state: "loading" }
@@ -239,11 +273,25 @@ type CockpitInsight = {
   emptyState?: string;
 };
 
+type AppRoute = "dashboard" | "coach" | "analytics" | "review" | "privacy" | "feedback" | "import" | "diagnostics";
+
 const UNATTACHED_SMOKE_NOTE_PREFIX = "MYTHIC_EDGE_SMOKE_TEST_DO_NOT_USE_AS_GAME_REVIEW";
 const UNATTACHED_SMOKE_NOTE_STORAGE_KEY = "mythic_edge.match_journal.unattached_smoke_note_id";
 const DASHBOARD_MODULE_VIEW_PREFERENCES_KEY = "mythic_edge.analytics.dashboard.module_view_preferences.v1";
+const ANALYTICS_AUTO_REFRESH_INTERVAL_MS = 25_000;
 const DASHBOARD_MODULE_IDS = new Set(["play_draw_win_rate", "game1_postboard", "mulligan_opening_hand_outcomes"]);
 const DASHBOARD_MODULE_VIEWS = new Set(["bar", "table"]);
+const APP_ROUTES: AppRoute[] = ["dashboard", "coach", "analytics", "review", "privacy", "feedback", "import", "diagnostics"];
+const RAIL_ITEMS: Array<{ route: AppRoute; label: string }> = [
+  { route: "dashboard", label: "Dashboard" },
+  { route: "coach", label: "Coach" },
+  { route: "analytics", label: "Analytics" },
+  { route: "review", label: "Review" },
+  { route: "feedback", label: "Feedback" },
+  { route: "import", label: "Import" },
+  { route: "diagnostics", label: "Diagnostics" },
+  { route: "privacy", label: "Privacy" }
+];
 const ERROR_REPORT_AFFECTED_AREA_OPTIONS: Array<{ value: ErrorReportAffectedArea; label: string }> = [
   { value: "local_app_ui", label: "Local App UI" },
   { value: "install_launch", label: "Install / Launch" },
@@ -261,6 +309,11 @@ const ERROR_REPORT_SEVERITY_OPTIONS: Array<{ value: ErrorReportSeverity; label: 
   { value: "annoyance", label: "Annoyance" },
   { value: "question", label: "Question" }
 ];
+const ERROR_REPORT_TYPE_OPTIONS: Array<{ value: ErrorReportType; label: string }> = [
+  { value: "bug", label: "Bug" },
+  { value: "feedback", label: "Feedback" },
+  { value: "feature_request", label: "Feature Request" }
+];
 
 export function SetupStatusApp({
   fetchStatus = fetchSetupStatus,
@@ -273,7 +326,11 @@ export function SetupStatusApp({
   fetchPlayDrawSplits = fetchPlayDrawSplitReview,
   fetchGame1PostboardSplits = fetchGame1PostboardSplitReview,
   fetchDashboardModules = fetchAnalyticsDashboardModules,
+  fetchAnalyticsRefreshState = fetchAnalyticsRefreshStateApi,
   fetchLiveDiagnostics = fetchLiveWatcherDiagnosticsStatus,
+  fetchLiveCapture = fetchLiveCaptureStatus,
+  startCapture = () => startLiveCapture(),
+  stopCapture = () => stopLiveCapture(),
   fetchJournal = fetchMatchJournal,
   fetchJournalUnattachedNote = fetchMatchJournalUnattachedNote,
   submitJournalNote = submitMatchJournalNote,
@@ -284,7 +341,8 @@ export function SetupStatusApp({
   submitJournalDisplayCorrection = submitMatchJournalDisplayCorrection,
   submitImport = submitManualJsonlImport,
   submitUpload = submitManualJsonlUpload,
-  previewReport = previewErrorReport
+  previewReport = previewErrorReport,
+  submitReport = submitErrorReport
 }: SetupStatusAppProps) {
   const [loadState, setLoadState] = useState<LoadState>({ state: "loading" });
   const [historyState, setHistoryState] = useState<HistoryState>({ state: "loading" });
@@ -295,12 +353,21 @@ export function SetupStatusApp({
   const [dashboardModuleViews, setDashboardModuleViews] = useState<Record<string, AnalyticsDashboardModuleView>>(
     readDashboardModuleViewPreferences
   );
+  const [analyticsAutoRefreshState, setAnalyticsAutoRefreshState] = useState<AnalyticsAutoRefreshState>({
+    state: "checking",
+    checkedAt: null
+  });
+  const analyticsRefreshRevisionRef = useRef<string | null>(null);
+  const analyticsAutoRefreshInFlightRef = useRef(false);
+  const analyticsViewLoadingRef = useRef(false);
   const [liveDiagnosticsState, setLiveDiagnosticsState] = useState<LiveDiagnosticsState>({ state: "loading" });
+  const [liveCaptureControlState, setLiveCaptureControlState] = useState<LiveCaptureControlState>({ state: "loading" });
   const [journalState, setJournalState] = useState<MatchJournalState>({ state: "loading" });
   const [journalSubmitState, setJournalSubmitState] = useState<MatchJournalSubmitState>({ state: "idle" });
   const [journalSmokeReadbackState, setJournalSmokeReadbackState] = useState<MatchJournalSmokeReadbackState>({
     state: "idle"
   });
+  const [activeRoute, setActiveRoute] = useState<AppRoute>(readAppRouteFromHash);
   const [sourcePath, setSourcePath] = useState("");
   const [sourcePathsText, setSourcePathsText] = useState("");
   const [uploadFiles, setUploadFiles] = useState<File[]>([]);
@@ -311,6 +378,24 @@ export function SetupStatusApp({
   const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
   const uploadFileInputRef = useRef<HTMLInputElement>(null);
   const uploadFolderInputRef = useRef<HTMLInputElement>(null);
+  analyticsViewLoadingRef.current =
+    historyState.state === "loading" ||
+    earlyGameState.state === "loading" ||
+    actionReviewState.state === "loading" ||
+    splitReviewState.state === "loading" ||
+    dashboardModulesState.state === "loading";
+
+  useEffect(() => {
+    function handleHashChange() {
+      setActiveRoute(readAppRouteFromHash());
+    }
+
+    handleHashChange();
+    window.addEventListener("hashchange", handleHashChange);
+    return () => {
+      window.removeEventListener("hashchange", handleHashChange);
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -378,6 +463,37 @@ export function SetupStatusApp({
       active = false;
     };
   }, [fetchLiveDiagnostics]);
+
+  useEffect(() => {
+    let active = true;
+    setLiveCaptureControlState({ state: "loading" });
+
+    fetchLiveCapture()
+      .then((payload) => {
+        if (!active) {
+          return;
+        }
+        setLiveCaptureControlState({ state: "ready", payload });
+      })
+      .catch((error: unknown) => {
+        if (!active) {
+          return;
+        }
+        if (error instanceof LiveStatusApiError) {
+          setLiveCaptureControlState({ state: "error", code: error.code, message: error.message });
+          return;
+        }
+        setLiveCaptureControlState({
+          state: "error",
+          code: "backend_unavailable",
+          message: "Live capture control is unavailable."
+        });
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [fetchLiveCapture]);
 
   useEffect(() => {
     let active = true;
@@ -573,6 +689,267 @@ export function SetupStatusApp({
       active = false;
     };
   }, [fetchDashboardModules]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function refreshHistoryFromAutoRefresh() {
+      setHistoryState({ state: "loading" });
+      try {
+        const [matches, games] = await Promise.all([fetchMatches(), fetchGames()]);
+        if (!active) {
+          return;
+        }
+        setHistoryState({
+          state: "ready",
+          matches,
+          games,
+          unsafeCount: countUnsafeHistoryValues(matches, games)
+        });
+      } catch (error: unknown) {
+        if (!active) {
+          return;
+        }
+        if (error instanceof AnalyticsHistoryApiError) {
+          setHistoryState({ state: "error", code: error.code, message: error.message });
+          return;
+        }
+        setHistoryState({
+          state: "error",
+          code: "backend_unavailable",
+          message: "Analytics history backend is unavailable."
+        });
+      }
+    }
+
+    async function refreshEarlyGameFromAutoRefresh() {
+      setEarlyGameState({ state: "loading" });
+      try {
+        const [openingHands, mulligans] = await Promise.all([fetchOpeningHands(), fetchMulligans()]);
+        if (!active) {
+          return;
+        }
+        setEarlyGameState({
+          state: "ready",
+          openingHands,
+          mulligans,
+          unsafeCount: countUnsafeEarlyGameHistoryValues(openingHands, mulligans)
+        });
+      } catch (error: unknown) {
+        if (!active) {
+          return;
+        }
+        if (error instanceof AnalyticsHistoryApiError) {
+          setEarlyGameState({ state: "error", code: error.code, message: error.message });
+          return;
+        }
+        setEarlyGameState({
+          state: "error",
+          code: "backend_unavailable",
+          message: "Analytics history backend is unavailable."
+        });
+      }
+    }
+
+    async function refreshActionReviewFromAutoRefresh() {
+      setActionReviewState({ state: "loading" });
+      try {
+        const [gameplayActions, opponentObservations] = await Promise.all([
+          fetchGameplayActions(),
+          fetchOpponentObservations()
+        ]);
+        if (!active) {
+          return;
+        }
+        setActionReviewState({
+          state: "ready",
+          gameplayActions,
+          opponentObservations,
+          unsafeCount: countUnsafeActionReviewValues(gameplayActions, opponentObservations)
+        });
+      } catch (error: unknown) {
+        if (!active) {
+          return;
+        }
+        if (error instanceof AnalyticsHistoryApiError) {
+          setActionReviewState({ state: "error", code: error.code, message: error.message });
+          return;
+        }
+        setActionReviewState({
+          state: "error",
+          code: "backend_unavailable",
+          message: "Analytics history backend is unavailable."
+        });
+      }
+    }
+
+    async function refreshSplitReviewFromAutoRefresh() {
+      setSplitReviewState({ state: "loading" });
+      try {
+        const [playDrawSplits, game1PostboardSplits] = await Promise.all([
+          fetchPlayDrawSplits(),
+          fetchGame1PostboardSplits()
+        ]);
+        if (!active) {
+          return;
+        }
+        setSplitReviewState({
+          state: "ready",
+          playDrawSplits,
+          game1PostboardSplits,
+          unsafeCount: countUnsafeSplitReviewValues(playDrawSplits, game1PostboardSplits)
+        });
+      } catch (error: unknown) {
+        if (!active) {
+          return;
+        }
+        if (error instanceof AnalyticsHistoryApiError) {
+          setSplitReviewState({ state: "error", code: error.code, message: error.message });
+          return;
+        }
+        setSplitReviewState({
+          state: "error",
+          code: "backend_unavailable",
+          message: "Analytics history backend is unavailable."
+        });
+      }
+    }
+
+    async function refreshDashboardModulesFromAutoRefresh() {
+      setDashboardModulesState({ state: "loading" });
+      try {
+        const payload = await fetchDashboardModules();
+        if (!active) {
+          return;
+        }
+        setDashboardModulesState({
+          state: "ready",
+          payload,
+          unsafeCount: countUnsafeDashboardModuleValues(payload)
+        });
+      } catch (error: unknown) {
+        if (!active) {
+          return;
+        }
+        if (error instanceof AnalyticsHistoryApiError) {
+          setDashboardModulesState({ state: "error", code: error.code, message: error.message });
+          return;
+        }
+        setDashboardModulesState({
+          state: "error",
+          code: "backend_unavailable",
+          message: "Analytics dashboard modules are unavailable."
+        });
+      }
+    }
+
+    async function refreshAllAnalyticsViews() {
+      await Promise.all([
+        refreshHistoryFromAutoRefresh(),
+        refreshEarlyGameFromAutoRefresh(),
+        refreshActionReviewFromAutoRefresh(),
+        refreshSplitReviewFromAutoRefresh(),
+        refreshDashboardModulesFromAutoRefresh()
+      ]);
+    }
+
+    async function checkAnalyticsRefreshState() {
+      if (!active || analyticsAutoRefreshInFlightRef.current) {
+        return;
+      }
+      if (document.visibilityState === "hidden") {
+        setAnalyticsAutoRefreshState((current) => ({ state: "paused", checkedAt: current.checkedAt }));
+        return;
+      }
+
+      analyticsAutoRefreshInFlightRef.current = true;
+      setAnalyticsAutoRefreshState((current) => ({ state: "checking", checkedAt: current.checkedAt }));
+      try {
+        const payload = await fetchAnalyticsRefreshState();
+        if (!active) {
+          return;
+        }
+
+        const checkedAt = formatAutoRefreshCheckedAt(new Date());
+        const nextRevision = payload.analytics_revision;
+        const previousRevision = analyticsRefreshRevisionRef.current;
+        const safeToRefresh = payload.status === "ok" || payload.status === "empty";
+
+        if (!safeToRefresh) {
+          if (nextRevision !== null) {
+            analyticsRefreshRevisionRef.current = nextRevision;
+          }
+          setAnalyticsAutoRefreshState({
+            state: "degraded",
+            checkedAt,
+            message: "Auto-refresh is degraded; manual refresh remains available."
+          });
+          return;
+        }
+
+        if (nextRevision !== null && previousRevision !== null && nextRevision !== previousRevision) {
+          if (analyticsViewLoadingRef.current) {
+            setAnalyticsAutoRefreshState({ state: "checking", checkedAt });
+            return;
+          }
+          analyticsRefreshRevisionRef.current = nextRevision;
+          await refreshAllAnalyticsViews();
+          if (!active) {
+            return;
+          }
+          setAnalyticsAutoRefreshState({ state: "updated", checkedAt });
+          return;
+        }
+
+        if (nextRevision !== null) {
+          analyticsRefreshRevisionRef.current = nextRevision;
+        }
+        setAnalyticsAutoRefreshState({ state: "up_to_date", checkedAt });
+      } catch {
+        if (!active) {
+          return;
+        }
+        setAnalyticsAutoRefreshState((current) => ({
+          state: "degraded",
+          checkedAt: current.checkedAt,
+          message: "Auto-refresh check is unavailable; manual refresh remains available."
+        }));
+      } finally {
+        analyticsAutoRefreshInFlightRef.current = false;
+      }
+    }
+
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        void checkAnalyticsRefreshState();
+        return;
+      }
+      setAnalyticsAutoRefreshState((current) => ({ state: "paused", checkedAt: current.checkedAt }));
+    }
+
+    void checkAnalyticsRefreshState();
+    const intervalId = window.setInterval(() => {
+      void checkAnalyticsRefreshState();
+    }, ANALYTICS_AUTO_REFRESH_INTERVAL_MS);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [
+    fetchAnalyticsRefreshState,
+    fetchDashboardModules,
+    fetchGame1PostboardSplits,
+    fetchGames,
+    fetchGameplayActions,
+    fetchMatches,
+    fetchMulligans,
+    fetchOpeningHands,
+    fetchOpponentObservations,
+    fetchPlayDrawSplits
+  ]);
 
   useEffect(() => {
     let active = true;
@@ -1015,6 +1392,58 @@ export function SetupStatusApp({
     }
   }
 
+  async function handleStartCapture() {
+    if (liveCaptureControlState.state === "submitting") {
+      return;
+    }
+    const currentPayload = liveCaptureControlPayload(liveCaptureControlState);
+    if (!currentPayload?.capture.start_allowed) {
+      return;
+    }
+    setLiveCaptureControlState({ state: "submitting", action: "start", payload: currentPayload });
+    try {
+      const result = await startCapture();
+      setLiveCaptureControlState({ state: "ready", payload: result.capture_status, message: liveCaptureControlMessage(result.status) });
+    } catch (error: unknown) {
+      if (error instanceof LiveStatusApiError) {
+        setLiveCaptureControlState({ state: "error", code: error.code, message: error.message, payload: currentPayload });
+        return;
+      }
+      setLiveCaptureControlState({
+        state: "error",
+        code: "backend_unavailable",
+        message: "Start capture is unavailable.",
+        payload: currentPayload
+      });
+    }
+  }
+
+  async function handleStopCapture() {
+    if (liveCaptureControlState.state === "submitting") {
+      return;
+    }
+    const currentPayload = liveCaptureControlPayload(liveCaptureControlState);
+    if (!currentPayload?.capture.stop_allowed) {
+      return;
+    }
+    setLiveCaptureControlState({ state: "submitting", action: "stop", payload: currentPayload });
+    try {
+      const result = await stopCapture();
+      setLiveCaptureControlState({ state: "ready", payload: result.capture_status, message: liveCaptureControlMessage(result.status) });
+    } catch (error: unknown) {
+      if (error instanceof LiveStatusApiError) {
+        setLiveCaptureControlState({ state: "error", code: error.code, message: error.message, payload: currentPayload });
+        return;
+      }
+      setLiveCaptureControlState({
+        state: "error",
+        code: "backend_unavailable",
+        message: "Stop capture is unavailable.",
+        payload: currentPayload
+      });
+    }
+  }
+
   if (loadState.state === "loading") {
     return (
       <Shell>
@@ -1038,14 +1467,12 @@ export function SetupStatusApp({
   }
 
   const panels = buildPanels(loadState.payload);
-  const overallTone = loadState.unsafeCount > 0 ? "degraded" : statusTone(loadState.payload.status);
   const journalContextSummary = buildMatchJournalContextSummary(historyState);
   const statusItems = buildCockpitStatusItems(
     loadState.payload,
     loadState.unsafeCount,
     historyState,
-    liveDiagnosticsState,
-    journalState
+    liveCaptureControlState
   );
   const trustSummary = buildTrustSummary(
     loadState.unsafeCount,
@@ -1056,19 +1483,16 @@ export function SetupStatusApp({
     liveDiagnosticsState,
     journalState
   );
+  const technicalDetailsVisible = activeRoute === "diagnostics" || showTechnicalDetails;
 
   return (
-    <Shell>
+    <Shell activeRoute={activeRoute}>
       <section className="summaryBand cockpitHeader" id="dashboard" aria-labelledby="overall-status">
         <div>
           <p className="eyebrow">Mythic Edge Local App</p>
           <h1 id="overall-status">Mythic Edge Cockpit</h1>
           <p className="cockpitLead">Competitive review, local analytics, and live readiness at a glance.</p>
         </div>
-        <StatusPill
-          label={loadState.unsafeCount > 0 ? "Needs review" : cockpitStatusFromRawStatus(loadState.payload.status, "app").label}
-          tone={overallTone}
-        />
       </section>
 
       {loadState.unsafeCount > 0 ? (
@@ -1077,109 +1501,156 @@ export function SetupStatusApp({
         </StatusNotice>
       ) : null}
 
-      <CockpitStatusRail items={statusItems} />
-      <DashboardModulesSection
-        moduleViewPreferences={dashboardModuleViews}
-        onModuleViewChange={handleDashboardModuleViewChange}
-        state={dashboardModulesState}
-      />
-      <CoachBoundaryPanel />
-      <TrustPrivacyLayer items={trustSummary} />
-      <ErrorReportPanel onPreview={previewReport} />
+      {activeRoute === "dashboard" ? (
+        <>
+          <CockpitStatusRail
+            items={statusItems}
+            liveCaptureControlState={liveCaptureControlState}
+            onStartCapture={handleStartCapture}
+            onStopCapture={handleStopCapture}
+          />
+          <AnalyticsAutoRefreshNotice state={analyticsAutoRefreshState} />
+          <DashboardModulesSection
+            moduleViewPreferences={dashboardModuleViews}
+            onModuleViewChange={handleDashboardModuleViewChange}
+            state={dashboardModulesState}
+          />
+          <CoachBoundaryPanel />
+          <DashboardTrustPrivacySignal items={trustSummary} />
+          <DashboardRouteCards />
+        </>
+      ) : null}
 
-      <section className="detailsStack" id="analytics" aria-labelledby="analytics-details-title">
-        <div className="sectionHeading">
-          <p className="eyebrow">Long-form review</p>
-          <h2 id="analytics-details-title">Review Details</h2>
-          <p className="historyStateMessage">Tables stay below the dashboard so the first screen remains scannable.</p>
-        </div>
-        <AnalyticsHistorySection historyState={historyState} onRefresh={refreshHistory} />
-        <SplitReviewSection splitReviewState={splitReviewState} onRefresh={refreshSplitReview} />
-        <EarlyGameHistorySection earlyGameState={earlyGameState} onRefresh={refreshEarlyGameHistory} />
-        <ActionReviewSection actionReviewState={actionReviewState} onRefresh={refreshActionReview} />
-      </section>
-      <MatchJournalCockpit
-        contextSummary={journalContextSummary}
-        journalState={journalState}
-        onDisplayCorrectionSubmit={handleJournalDisplayCorrectionSubmit}
-        onExperimentLabelSubmit={handleJournalExperimentLabelSubmit}
-        onNoteSubmit={handleJournalNoteSubmit}
-        onOpponentLabelsSubmit={handleJournalOpponentLabelsSubmit}
-        onReviewFlagSubmit={handleJournalReviewFlagSubmit}
-        onUnattachedSmokeNoteSubmit={handleUnattachedSmokeNoteSubmit}
-        smokeReadbackState={journalSmokeReadbackState}
-        submitState={journalSubmitState}
-      />
-      <ManualImportPanel
-        importState={importState}
-        onUploadFolderFilesChange={handleUploadFolderFilesChange}
-        onSubmit={handleManualImport}
-        onUploadFilesChange={handleUploadFilesChange}
-        onUploadSubmit={handleBrowserUpload}
-        sourceLabel={sourceLabel}
-        sourcePath={sourcePath}
-        sourcePathsText={sourcePathsText}
-        setSourceLabel={setSourceLabel}
-        setSourcePath={setSourcePath}
-        setSourcePathsText={setSourcePathsText}
-        uploadFileInputRef={uploadFileInputRef}
-        uploadFolderInputRef={assignUploadFolderInputRef}
-        uploadFiles={uploadFiles}
-        uploadIgnoredFileCount={uploadIgnoredFileCount}
-        uploadSelectionMessage={uploadSelectionMessage}
-      />
-
-      <section className="diagnosticsShell" id="diagnostics" aria-labelledby="technical-details-title">
-        <div className="diagnosticsHeader">
-          <div>
-            <p className="eyebrow">Owner and developer view</p>
-            <h2 id="technical-details-title">Technical Details</h2>
+      {activeRoute === "analytics" ? (
+        <section className="detailsStack" id="analytics" aria-labelledby="analytics-details-title">
+          <div className="sectionHeading">
+            <p className="eyebrow">Read-only analytics</p>
+            <h2 id="analytics-details-title">Analytics</h2>
+            <p className="historyStateMessage">Stored SQLite views stay read-only in this frontend route.</p>
           </div>
-          <button
-            aria-expanded={showTechnicalDetails}
-            aria-controls="technical-details-content"
-            onClick={() => setShowTechnicalDetails((value) => !value)}
-            type="button"
-          >
-            {showTechnicalDetails ? "Hide technical details" : "Show technical details"}
-          </button>
-        </div>
-        {showTechnicalDetails ? (
-          <div id="technical-details-content">
-            <section aria-labelledby="setup-status-title">
-              <div className="panelHeader analyticsHistoryHeader">
-                <div>
-                  <h2 id="setup-status-title">Setup Status</h2>
-                  <p className="historyStateMessage">Raw setup values are available for diagnostics.</p>
+          <AnalyticsAutoRefreshNotice state={analyticsAutoRefreshState} />
+          <DashboardModulesSection
+            moduleViewPreferences={dashboardModuleViews}
+            onModuleViewChange={handleDashboardModuleViewChange}
+            state={dashboardModulesState}
+          />
+          <AnalyticsHistorySection historyState={historyState} onRefresh={refreshHistory} />
+          <SplitReviewSection splitReviewState={splitReviewState} onRefresh={refreshSplitReview} />
+          <EarlyGameHistorySection earlyGameState={earlyGameState} onRefresh={refreshEarlyGameHistory} />
+          <ActionReviewSection actionReviewState={actionReviewState} onRefresh={refreshActionReview} />
+        </section>
+      ) : null}
+
+      {activeRoute === "review" ? (
+        <MatchJournalCockpit
+          contextSummary={journalContextSummary}
+          journalState={journalState}
+          onDisplayCorrectionSubmit={handleJournalDisplayCorrectionSubmit}
+          onExperimentLabelSubmit={handleJournalExperimentLabelSubmit}
+          onNoteSubmit={handleJournalNoteSubmit}
+          onOpponentLabelsSubmit={handleJournalOpponentLabelsSubmit}
+          onReviewFlagSubmit={handleJournalReviewFlagSubmit}
+          onUnattachedSmokeNoteSubmit={handleUnattachedSmokeNoteSubmit}
+          smokeReadbackState={journalSmokeReadbackState}
+          submitState={journalSubmitState}
+        />
+      ) : null}
+
+      {activeRoute === "coach" ? <CoachBoundaryPanel /> : null}
+
+      {activeRoute === "feedback" ? <ErrorReportPanel onPreview={previewReport} onSubmitReport={submitReport} /> : null}
+
+      {activeRoute === "import" ? (
+        <ManualImportPanel
+          importState={importState}
+          onUploadFolderFilesChange={handleUploadFolderFilesChange}
+          onSubmit={handleManualImport}
+          onUploadFilesChange={handleUploadFilesChange}
+          onUploadSubmit={handleBrowserUpload}
+          sourceLabel={sourceLabel}
+          sourcePath={sourcePath}
+          sourcePathsText={sourcePathsText}
+          setSourceLabel={setSourceLabel}
+          setSourcePath={setSourcePath}
+          setSourcePathsText={setSourcePathsText}
+          uploadFileInputRef={uploadFileInputRef}
+          uploadFolderInputRef={assignUploadFolderInputRef}
+          uploadFiles={uploadFiles}
+          uploadIgnoredFileCount={uploadIgnoredFileCount}
+          uploadSelectionMessage={uploadSelectionMessage}
+        />
+      ) : null}
+
+      {activeRoute === "privacy" ? (
+        <>
+          <TrustPrivacyLayer items={trustSummary} />
+          <PrivacyDetailsPanel />
+        </>
+      ) : null}
+
+      {activeRoute === "diagnostics" || activeRoute === "dashboard" ? (
+        <section className="diagnosticsShell" id="diagnostics" aria-labelledby="technical-details-title">
+          <div className="diagnosticsHeader">
+            <div>
+              <p className="eyebrow">Owner and developer view</p>
+              <h2 id="technical-details-title">Technical Details & Privacy</h2>
+            </div>
+            {activeRoute === "dashboard" ? (
+              <button
+                aria-expanded={showTechnicalDetails}
+                aria-controls="technical-details-content"
+                onClick={() => setShowTechnicalDetails((value) => !value)}
+                type="button"
+              >
+                {showTechnicalDetails ? "Hide technical details" : "Show technical details"}
+              </button>
+            ) : null}
+          </div>
+          {technicalDetailsVisible ? (
+            <div id="technical-details-content">
+              <section aria-labelledby="setup-status-title">
+                <div className="panelHeader analyticsHistoryHeader">
+                  <div>
+                    <h2 id="setup-status-title">Setup Status</h2>
+                    <p className="historyStateMessage">Raw setup values are available for diagnostics.</p>
+                  </div>
+                  <StatusPill label={loadState.payload.status} tone={statusTone(loadState.payload.status)} />
                 </div>
-                <StatusPill label={loadState.payload.status} tone={statusTone(loadState.payload.status)} />
-              </div>
-              <section className="panelGrid" aria-label="Setup status sections">
-                <StatusPanel
-                  title="Backend Reachability"
-                  status="ok"
-                  details={[{ label: "aggregate endpoint", value: "/api/app/setup-status" }]}
-                />
-                {panels.map((panel) => (
-                  <StatusPanel key={panel.title} {...panel} />
-                ))}
+                <section className="panelGrid" aria-label="Setup status sections">
+                  <StatusPanel
+                    title="Backend Reachability"
+                    status="ok"
+                    details={[{ label: "aggregate endpoint", value: "/api/app/setup-status" }]}
+                  />
+                  {panels.map((panel) => (
+                    <StatusPanel key={panel.title} {...panel} />
+                  ))}
+                </section>
               </section>
-            </section>
-            <LiveDiagnosticsPanel diagnosticsState={liveDiagnosticsState} />
-          </div>
-        ) : (
-          <p className="historyStateMessage">
-            Setup grids, raw status labels, process details, and live diagnostics are available on demand.
-          </p>
-        )}
-      </section>
+              {activeRoute === "diagnostics" ? (
+                <LiveCaptureControlPanel
+                  state={liveCaptureControlState}
+                  onStartCapture={handleStartCapture}
+                  onStopCapture={handleStopCapture}
+                />
+              ) : null}
+              <TrustPrivacyLayer items={trustSummary} />
+              <LiveDiagnosticsPanel diagnosticsState={liveDiagnosticsState} />
+            </div>
+          ) : (
+            <p className="historyStateMessage">
+              Setup grids, raw status labels, freshness, privacy filtering, and live diagnostics are available on demand.
+            </p>
+          )}
+        </section>
+      ) : null}
     </Shell>
   );
 }
 
 export default SetupStatusApp;
 
-function Shell({ children }: { children: ReactNode }) {
+function Shell({ activeRoute = "dashboard", children }: { activeRoute?: AppRoute; children: ReactNode }) {
   return (
     <main className="appShell">
       <aside className="leftRail" aria-label="Local app sections">
@@ -1188,16 +1659,11 @@ function Shell({ children }: { children: ReactNode }) {
           <p className="leftRailTitle">Local App</p>
         </div>
         <nav className="leftRailNav" aria-label="Primary sections">
-          <a href="#dashboard">Dashboard</a>
-          <a href="#decision-support">Review</a>
-          <a href="#report-error">Report</a>
-          <a href="#coach">Coach</a>
-          <a href="#analytics">Analytics</a>
-          <a href="#import">Import</a>
-          <a href="#diagnostics">Diagnostics</a>
+          {RAIL_ITEMS.map((item) => (
+            <RailLink activeRoute={activeRoute} item={item} key={item.route} />
+          ))}
         </nav>
         <div className="leftRailFooter" aria-label="Local app footer">
-          <a href="#privacy">Privacy</a>
           <span className="railMetaLabel">
             Settings
             <span>Not configured</span>
@@ -1207,6 +1673,79 @@ function Shell({ children }: { children: ReactNode }) {
       <div className="content">{children}</div>
     </main>
   );
+}
+
+function RailLink({
+  activeRoute,
+  item
+}: {
+  activeRoute: AppRoute;
+  item: { route: AppRoute; label: string };
+}) {
+  const isActive = activeRoute === item.route;
+  return (
+    <a
+      aria-current={isActive ? "page" : undefined}
+      aria-label={item.label}
+      className={isActive ? "isActive" : undefined}
+      href={`#${item.route}`}
+    >
+      <span>{item.label}</span>
+    </a>
+  );
+}
+
+function readAppRouteFromHash(): AppRoute {
+  const rawRoute = window.location.hash.replace(/^#\/?/, "").trim().toLowerCase();
+  return isAppRoute(rawRoute) ? rawRoute : "dashboard";
+}
+
+function isAppRoute(value: string): value is AppRoute {
+  return APP_ROUTES.includes(value as AppRoute);
+}
+
+function analyticsAutoRefreshNoticeContent(state: AnalyticsAutoRefreshState): {
+  title: string;
+  detail: string;
+  tone: SetupStatusTone;
+} {
+  if (state.state === "updated") {
+    return {
+      title: "Analytics auto-refresh",
+      detail: `Analytics updated ${state.checkedAt}.`,
+      tone: "ok"
+    };
+  }
+  if (state.state === "paused") {
+    return {
+      title: "Analytics auto-refresh",
+      detail: "Auto-refresh is paused while this tab is hidden.",
+      tone: "deferred"
+    };
+  }
+  if (state.state === "degraded") {
+    return {
+      title: "Analytics auto-refresh",
+      detail: state.message,
+      tone: "degraded"
+    };
+  }
+  if (state.state === "checking") {
+    return {
+      title: "Analytics auto-refresh",
+      detail: state.checkedAt === null ? "Checking for safe analytics updates." : "Checking for safe analytics updates.",
+      tone: "unknown"
+    };
+  }
+  return {
+    title: "Analytics auto-refresh",
+    detail: state.checkedAt === null ? "Waiting for analytics refresh state." : `Analytics checked ${state.checkedAt}.`,
+    tone: "ok"
+  };
+}
+
+function formatAutoRefreshCheckedAt(date: Date): string {
+  return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
 
 function StatusNotice({ title, status, children }: { title: string; status: string; children?: ReactNode }) {
@@ -1221,21 +1760,239 @@ function StatusNotice({ title, status, children }: { title: string; status: stri
   );
 }
 
-function CockpitStatusRail({ items }: { items: CockpitStatusItem[] }) {
+function CockpitStatusRail({
+  items,
+  liveCaptureControlState,
+  onStartCapture,
+  onStopCapture
+}: {
+  items: CockpitStatusItem[];
+  liveCaptureControlState: LiveCaptureControlState;
+  onStartCapture: () => void;
+  onStopCapture: () => void;
+}) {
   return (
     <section className="cockpitRail" aria-label="Cockpit health status">
       {items.map((item) => (
         <article className={`cockpitRailItem tone-${item.tone}`} key={item.label}>
-          <span className="railCue" aria-hidden="true">
-            {item.cue}
-          </span>
-          <div>
+          <div className="cockpitTileHeader">
+            <span className="railCue" aria-hidden="true">
+              {item.cue}
+            </span>
             <h2>{item.label}</h2>
-            <p>{item.detail}</p>
           </div>
-          <StatusPill label={item.status} pulse={item.liveActive} tone={item.tone} />
+          <p>{item.detail}</p>
+          <div className="cockpitTileFooter">
+            <StatusPill label={item.status} pulse={item.liveActive} tone={item.tone} />
+            {item.label === "Live capture" ? (
+              <DashboardLiveCaptureControl
+                state={liveCaptureControlState}
+                onStartCapture={onStartCapture}
+                onStopCapture={onStopCapture}
+              />
+            ) : null}
+          </div>
         </article>
       ))}
+    </section>
+  );
+}
+
+function AnalyticsAutoRefreshNotice({ state }: { state: AnalyticsAutoRefreshState }) {
+  const content = analyticsAutoRefreshNoticeContent(state);
+  return (
+    <section className={`autoRefreshNotice tone-${content.tone}`} aria-live="polite" aria-label="Analytics auto-refresh">
+      <span>{content.title}</span>
+      <p>{content.detail}</p>
+    </section>
+  );
+}
+
+function liveCaptureStartAllowed(state: LiveCaptureControlState): boolean {
+  const payload = liveCaptureControlPayload(state);
+  return state.state !== "submitting" && Boolean(payload?.capture.start_allowed);
+}
+
+type DashboardLiveCaptureAction =
+  | { kind: "start"; label: "Start capture"; disabled: false }
+  | { kind: "stop"; label: "Stop capture"; disabled: false }
+  | { kind: "pending"; label: "Starting capture" | "Stopping capture"; disabled: true }
+  | { kind: "blocked"; label: string; ariaLabel: string; disabled: true };
+
+function DashboardLiveCaptureControl({
+  state,
+  onStartCapture,
+  onStopCapture
+}: {
+  state: LiveCaptureControlState;
+  onStartCapture: () => void;
+  onStopCapture: () => void;
+}) {
+  const action = dashboardLiveCaptureAction(state);
+  return (
+    <div className="dashboardCaptureControl" aria-label="Live capture lifecycle control">
+      <div className="dashboardCaptureActionSlot">
+        {action.kind === "start" ? (
+          <button className="captureLifecycleButton" onClick={onStartCapture} type="button">
+            {action.label}
+          </button>
+        ) : null}
+        {action.kind === "stop" ? (
+          <button className="captureLifecycleButton isStopping" onClick={onStopCapture} type="button">
+            {action.label}
+          </button>
+        ) : null}
+        {action.kind === "pending" ? (
+          <button aria-label={action.label} className="captureLifecycleButton isPending" disabled type="button">
+            {action.label === "Starting capture" ? "Starting" : "Stopping"}
+          </button>
+        ) : null}
+        {action.kind === "blocked" ? (
+          <button aria-label={action.ariaLabel} className="captureLifecycleButton isPending" disabled type="button">
+            {action.label}
+          </button>
+        ) : null}
+      </div>
+      <a
+        className="captureDiagnosticsLink"
+        href="#diagnostics"
+        aria-label="View live capture diagnostics"
+        title="View live capture diagnostics"
+      >
+        <span aria-hidden="true">i</span>
+      </a>
+    </div>
+  );
+}
+
+function dashboardLiveCaptureAction(state: LiveCaptureControlState): DashboardLiveCaptureAction {
+  if (state.state === "submitting") {
+    return {
+      kind: "pending",
+      label: state.action === "start" ? "Starting capture" : "Stopping capture",
+      disabled: true
+    };
+  }
+  if (state.state === "loading") {
+    return { kind: "blocked", label: "Checking", ariaLabel: "Checking live capture status", disabled: true };
+  }
+
+  const payload = liveCaptureControlPayload(state);
+  if (payload === null || state.state === "error") {
+    return { kind: "blocked", label: "Unavailable", ariaLabel: "Live capture unavailable", disabled: true };
+  }
+  if (liveCaptureDashboardBlocked(payload)) {
+    return dashboardLiveCaptureBlockedAction(payload);
+  }
+  if (payload.status === "capturing" && payload.capture.running && payload.capture.stop_allowed) {
+    return { kind: "stop", label: "Stop capture", disabled: false };
+  }
+  if ((payload.status === "ready_to_start" || payload.status === "stopped") && !payload.capture.running && payload.capture.start_allowed) {
+    return { kind: "start", label: "Start capture", disabled: false };
+  }
+  if (payload.status === "starting") {
+    return { kind: "pending", label: "Starting capture", disabled: true };
+  }
+  if (payload.status === "stopping") {
+    return { kind: "pending", label: "Stopping capture", disabled: true };
+  }
+  return dashboardLiveCaptureBlockedAction(payload);
+}
+
+function dashboardLiveCaptureBlockedAction(payload: LiveCaptureStatusResponse): DashboardLiveCaptureAction {
+  if (payload.status === "unavailable") {
+    return { kind: "blocked", label: "Unavailable", ariaLabel: "Live capture unavailable", disabled: true };
+  }
+  if (payload.status === "starting") {
+    return { kind: "pending", label: "Starting capture", disabled: true };
+  }
+  if (payload.status === "stopping") {
+    return { kind: "pending", label: "Stopping capture", disabled: true };
+  }
+  return { kind: "blocked", label: "Needs review", ariaLabel: "Live capture needs review", disabled: true };
+}
+
+function liveCaptureDashboardBlocked(payload: LiveCaptureStatusResponse): boolean {
+  if (payload.status === "capturing" && !payload.capture.running) {
+    return true;
+  }
+  if ((payload.status === "ready_to_start" || payload.status === "stopped") && payload.capture.running) {
+    return true;
+  }
+  if (payload.state.stale) {
+    return true;
+  }
+  return ["blocked", "failed", "crashed", "stale", "degraded", "unknown", "unavailable"].includes(payload.status);
+}
+
+function liveCaptureDashboardStatus(payload: LiveCaptureStatusResponse): {
+  label: string;
+  tone: SetupStatusTone;
+  liveActive: boolean;
+} {
+  if (!liveCaptureDashboardBlocked(payload)) {
+    return {
+      label: liveCaptureStatusLabel(payload.status),
+      tone: liveCaptureTone(payload.status),
+      liveActive: payload.status === "capturing" && payload.capture.running
+    };
+  }
+  if (payload.status === "blocked") {
+    return { label: "Blocked", tone: "error", liveActive: false };
+  }
+  if (payload.status === "failed" || payload.status === "crashed") {
+    return { label: "Failed", tone: "error", liveActive: false };
+  }
+  if (payload.status === "unavailable") {
+    return { label: "Unavailable", tone: "unavailable", liveActive: false };
+  }
+  return { label: "Needs review", tone: "unknown", liveActive: false };
+}
+
+function LiveCaptureControlPanel({
+  state,
+  onStartCapture,
+  onStopCapture
+}: {
+  state: LiveCaptureControlState;
+  onStartCapture: () => void;
+  onStopCapture: () => void;
+}) {
+  const payload = liveCaptureControlPayload(state);
+  const statusLabel = payload ? liveCaptureStatusLabel(payload.status) : state.state === "loading" ? "Checking" : "Unavailable";
+  const tone = payload ? liveCaptureTone(payload.status) : state.state === "error" ? "error" : "unknown";
+  const startAllowed = liveCaptureStartAllowed(state);
+  const stopAllowed = state.state !== "submitting" && Boolean(payload?.capture.stop_allowed);
+  const message =
+    state.state === "error"
+      ? state.message
+      : state.state === "submitting"
+        ? state.action === "start"
+          ? "Starting capture from the local app."
+          : "Stopping the app-owned capture supervisor."
+        : state.state === "ready" && state.message
+          ? state.message
+          : liveCaptureBlurbText(payload) ?? liveCaptureControlDetail(payload);
+  return (
+    <section className="captureControlPanel" aria-labelledby="live-capture-control-title">
+      <div>
+        <p className="eyebrow">Explicit local control</p>
+        <h2 id="live-capture-control-title">Live Capture Control</h2>
+        <p>{message}</p>
+      </div>
+      <div className="captureControlActions">
+        <StatusPill label={statusLabel} pulse={payload?.status === "capturing"} tone={tone} />
+        {startAllowed ? (
+          <button onClick={onStartCapture} type="button">
+            Start capture
+          </button>
+        ) : null}
+        {stopAllowed ? (
+          <button onClick={onStopCapture} type="button">
+            Stop capture
+          </button>
+        ) : null}
+      </div>
     </section>
   );
 }
@@ -1638,36 +2395,150 @@ function TrustPrivacyLayer({ items }: { items: CockpitInsight[] }) {
   );
 }
 
+function DashboardTrustPrivacySignal({ items }: { items: CockpitInsight[] }) {
+  return (
+    <section className="dashboardTrustSignal" aria-labelledby="dashboard-trust-title">
+      <div>
+        <p className="eyebrow">Trust and privacy</p>
+        <h2 id="dashboard-trust-title">Trust and Freshness</h2>
+        <p>Compact safe-display signals only. Full details stay in Privacy and technical diagnostics.</p>
+      </div>
+      <div className="dashboardTrustSignalGrid" aria-label="Compact trust and privacy statuses">
+        {items.map((item) => (
+          <div className="dashboardTrustSignalItem" key={item.title}>
+            <span>{item.title}</span>
+            <StatusPill label={item.status} tone={item.tone} />
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function DashboardRouteCards() {
+  const cards: Array<{ route: AppRoute; title: string; detail: string }> = [
+    {
+      route: "analytics",
+      title: "Analytics",
+      detail: "Open deeper read-only match, game, split, mulligan, and observation views."
+    },
+    {
+      route: "review",
+      title: "Review",
+      detail: "Open Match Journal context and human annotation tools without changing parser truth."
+    },
+    {
+      route: "feedback",
+      title: "Feedback",
+      detail: "Prepare a sanitized copy-first report. External issue submission remains deferred."
+    },
+    {
+      route: "import",
+      title: "Import",
+      detail: "Open manual JSONL import workflows without putting file forms on the dashboard."
+    },
+    {
+      route: "diagnostics",
+      title: "Diagnostics",
+      detail: "Inspect technical setup and live diagnostics only when you need the owner view."
+    }
+  ];
+  return (
+    <section className="routeCardSection" aria-labelledby="route-card-title">
+      <div className="sectionHeading">
+        <p className="eyebrow">Modes</p>
+        <h2 id="route-card-title">Go Deeper</h2>
+      </div>
+      <div className="routeCardGrid">
+        {cards.map((card) => (
+          <a className="routeCard" href={`#${card.route}`} key={card.route}>
+            <span>{card.title}</span>
+            <p>{card.detail}</p>
+          </a>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function PrivacyDetailsPanel() {
+  return (
+    <section className="privacyDetails" aria-labelledby="privacy-details-title">
+      <div className="sectionHeading">
+        <p className="eyebrow">Privacy details</p>
+        <h2 id="privacy-details-title">Local-Only Boundaries</h2>
+      </div>
+      <div className="trustGrid">
+        <article className="trustItem">
+          <h3>Raw logs stay out of the UI</h3>
+          <p>Player.log content, raw JSONL payloads, private paths, hashes, and local artifact contents are not displayed.</p>
+        </article>
+        <article className="trustItem">
+          <h3>Generated data stays local</h3>
+          <p>SQLite files and runtime app data are local support artifacts, not parser truth and not committed frontend state.</p>
+        </article>
+        <article className="trustItem">
+          <h3>External systems are deferred</h3>
+          <p>GitHub submission, Sheets transport, OpenAI runtime calls, and AI coaching stay inactive unless separately contracted.</p>
+        </article>
+      </div>
+    </section>
+  );
+}
+
 function ErrorReportPanel({
-  onPreview
+  onPreview,
+  onSubmitReport
 }: {
   onPreview: (request: ErrorReportPreviewRequest) => Promise<ErrorReportPreviewResponse>;
+  onSubmitReport: (request: ErrorReportPreviewRequest) => Promise<ErrorReportSubmissionResponse>;
 }) {
   const [summary, setSummary] = useState("");
   const [expectedBehavior, setExpectedBehavior] = useState("");
   const [actualBehavior, setActualBehavior] = useState("");
   const [reproductionSteps, setReproductionSteps] = useState("");
+  const [feedback, setFeedback] = useState("");
+  const [featureGoal, setFeatureGoal] = useState("");
+  const [featureLocation, setFeatureLocation] = useState("");
+  const [featureSuccess, setFeatureSuccess] = useState("");
+  const [reportType, setReportType] = useState<ErrorReportType>("bug");
   const [affectedArea, setAffectedArea] = useState<ErrorReportAffectedArea>("local_app_ui");
   const [severity, setSeverity] = useState<ErrorReportSeverity>("degraded");
   const [previewState, setPreviewState] = useState<ErrorReportPreviewState>({ state: "idle" });
   const [copyState, setCopyState] = useState<ErrorReportCopyState>("idle");
+  const [submissionState, setSubmissionState] = useState<ErrorReportSubmissionState>({ state: "idle" });
+
+  function buildReportRequest(): ErrorReportPreviewRequest {
+    const request: ErrorReportPreviewRequest = {
+      summary,
+      report_type: reportType,
+      affected_area: affectedArea,
+      severity,
+      current_frontend_surface: "local_app_cockpit",
+      include_diagnostics: ["safe_status_labels"]
+    };
+    if (reportType === "feedback") {
+      request.feedback = feedback;
+    } else if (reportType === "feature_request") {
+      request.feature_goal = featureGoal;
+      request.feature_location = featureLocation;
+      request.feature_success = featureSuccess;
+    } else {
+      request.expected_behavior = expectedBehavior;
+      request.actual_behavior = actualBehavior;
+      request.reproduction_steps = reproductionSteps;
+    }
+    return request;
+  }
 
   async function handlePreview(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setPreviewState({ state: "previewing" });
     setCopyState("idle");
+    setSubmissionState({ state: "idle" });
 
     try {
-      const payload = await onPreview({
-        summary,
-        expected_behavior: expectedBehavior,
-        actual_behavior: actualBehavior,
-        reproduction_steps: reproductionSteps,
-        affected_area: affectedArea,
-        severity,
-        current_frontend_surface: "local_app_cockpit",
-        include_diagnostics: ["safe_status_labels"]
-      });
+      const payload = await onPreview(buildReportRequest());
       setPreviewState({ state: "ready", payload });
     } catch (error) {
       if (error instanceof ErrorReportApiError) {
@@ -1678,6 +2549,27 @@ function ErrorReportPanel({
         state: "error",
         code: "backend_unavailable",
         message: "Error report preview is unavailable."
+      });
+    }
+  }
+
+  async function handleSubmitReport() {
+    if (previewState.state !== "ready" || previewState.payload.status !== "preview_ready") {
+      return;
+    }
+    setSubmissionState({ state: "submitting" });
+    try {
+      const payload = await onSubmitReport(buildReportRequest());
+      setSubmissionState({ state: "ready", payload });
+    } catch (error) {
+      if (error instanceof ErrorReportApiError) {
+        setSubmissionState({ state: "error", code: error.code, message: error.message });
+        return;
+      }
+      setSubmissionState({
+        state: "error",
+        code: "backend_unavailable",
+        message: "Error report submission is unavailable."
       });
     }
   }
@@ -1701,6 +2593,10 @@ function ErrorReportPanel({
 
   const previewPayload = previewState.state === "ready" ? previewState.payload : null;
   const canCopy = previewPayload?.status === "preview_ready" && Boolean(previewPayload.issue_body_markdown);
+  const canSubmit =
+    previewPayload?.status === "preview_ready" &&
+    previewPayload.external_submission_enabled &&
+    submissionState.state !== "submitting";
 
   return (
     <section className="reportPanel" id="report-error" aria-labelledby="report-error-title">
@@ -1709,10 +2605,10 @@ function ErrorReportPanel({
           <p className="eyebrow">Codex triage prep</p>
           <h2 id="report-error-title">Report an Error</h2>
         </div>
-        <StatusPill label="Copy only" tone="deferred" />
+        <StatusPill label="Preview first" tone="deferred" />
       </div>
       <p className="historyStateMessage">
-        Prepare a sanitized Markdown report for later triage. This first slice does not submit to external services.
+        Preview a sanitized report first, then submit it to GitHub only with an explicit click.
       </p>
 
       <form className="reportForm" onSubmit={handlePreview}>
@@ -1740,6 +2636,16 @@ function ErrorReportPanel({
           </select>
         </label>
         <label className="formField">
+          <span>What are you reporting?</span>
+          <select onChange={(event) => setReportType(event.target.value as ErrorReportType)} value={reportType}>
+            {ERROR_REPORT_TYPE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="formField">
           <span>Severity</span>
           <select onChange={(event) => setSeverity(event.target.value as ErrorReportSeverity)} value={severity}>
             {ERROR_REPORT_SEVERITY_OPTIONS.map((option) => (
@@ -1749,41 +2655,94 @@ function ErrorReportPanel({
             ))}
           </select>
         </label>
-        <label className="formField wide">
-          <span>Expected behavior</span>
-          <textarea
-            onChange={(event) => setExpectedBehavior(event.target.value)}
-            placeholder="What should have happened?"
-            required
-            rows={3}
-            value={expectedBehavior}
-          />
-        </label>
-        <label className="formField wide">
-          <span>Actual behavior</span>
-          <textarea
-            onChange={(event) => setActualBehavior(event.target.value)}
-            placeholder="What did you see instead?"
-            required
-            rows={3}
-            value={actualBehavior}
-          />
-        </label>
-        <label className="formField wide">
-          <span>Reproduction steps</span>
-          <textarea
-            onChange={(event) => setReproductionSteps(event.target.value)}
-            placeholder="One step per line is fine."
-            required
-            rows={4}
-            value={reproductionSteps}
-          />
-        </label>
+        {reportType === "bug" ? (
+          <>
+            <label className="formField wide">
+              <span>Expected behavior</span>
+              <textarea
+                onChange={(event) => setExpectedBehavior(event.target.value)}
+                placeholder="What should have happened?"
+                required
+                rows={3}
+                value={expectedBehavior}
+              />
+            </label>
+            <label className="formField wide">
+              <span>Actual behavior</span>
+              <textarea
+                onChange={(event) => setActualBehavior(event.target.value)}
+                placeholder="What did you see instead?"
+                required
+                rows={3}
+                value={actualBehavior}
+              />
+            </label>
+            <label className="formField wide">
+              <span>Reproduction steps (Optional)</span>
+              <textarea
+                onChange={(event) => setReproductionSteps(event.target.value)}
+                placeholder="One step per line is fine."
+                rows={4}
+                value={reproductionSteps}
+              />
+            </label>
+          </>
+        ) : null}
+        {reportType === "feedback" ? (
+          <label className="formField wide">
+            <span>Feedback</span>
+            <textarea
+              maxLength={1200}
+              onChange={(event) => setFeedback(event.target.value)}
+              placeholder="What do you want us to know?"
+              required
+              rows={5}
+              value={feedback}
+            />
+          </label>
+        ) : null}
+        {reportType === "feature_request" ? (
+          <>
+            <label className="formField wide">
+              <span>What should Mythic Edge help you do?</span>
+              <textarea
+                maxLength={280}
+                onChange={(event) => setFeatureGoal(event.target.value)}
+                placeholder="Example: compare play/draw win rate over time."
+                required
+                rows={2}
+                value={featureGoal}
+              />
+            </label>
+            <label className="formField wide">
+              <span>Where would you expect to use it?</span>
+              <textarea
+                maxLength={280}
+                onChange={(event) => setFeatureLocation(event.target.value)}
+                placeholder="Example: Decision Support dashboard."
+                required
+                rows={2}
+                value={featureLocation}
+              />
+            </label>
+            <label className="formField wide">
+              <span>What would make the first version useful?</span>
+              <textarea
+                maxLength={420}
+                onChange={(event) => setFeatureSuccess(event.target.value)}
+                placeholder="Describe the smallest helpful version."
+                required
+                rows={3}
+                value={featureSuccess}
+              />
+            </label>
+          </>
+        ) : null}
         <div className="reportActions">
           <button disabled={previewState.state === "previewing"} type="submit">
             {previewState.state === "previewing" ? "Preparing Preview" : "Preview Report"}
           </button>
-          <span className="reportBoundary">External submission disabled</span>
+          <span className="reportBoundary">No automatic submission</span>
         </div>
       </form>
 
@@ -1822,16 +2781,70 @@ function ErrorReportPanel({
                     Copy Report
                   </button>
                 ) : null}
+                {canSubmit ? (
+                  <button onClick={handleSubmitReport} type="button">
+                    Submit report to GitHub
+                  </button>
+                ) : null}
                 <span className="reportBoundary">{copyStatusText(copyState)}</span>
               </div>
+              {previewPayload.status === "preview_ready" && previewPayload.external_submission_enabled ? (
+                <p className="historyStateMessage">
+                  Submitting creates a GitHub Issue in Tahjali11/Mythic-Edge. No files or screenshots are attached.
+                </p>
+              ) : null}
             </>
           ) : (
             <p className="moduleEmptyState">
               The privacy guard blocked report generation. Remove endpoint-like or secret-like values and preview again.
             </p>
           )}
+          <ErrorReportSubmissionNotice state={submissionState} />
         </section>
       ) : null}
+    </section>
+  );
+}
+
+function ErrorReportSubmissionNotice({ state }: { state: ErrorReportSubmissionState }) {
+  if (state.state === "idle") {
+    return null;
+  }
+  if (state.state === "submitting") {
+    return <p className="jobMessage">Submitting sanitized report to GitHub</p>;
+  }
+  if (state.state === "error") {
+    return (
+      <StatusNotice title="Submission unavailable" status={errorTone(state.code)}>
+        <span>{state.message}</span>
+      </StatusNotice>
+    );
+  }
+  const payload = state.payload;
+  if (payload.submitted && payload.issue_url) {
+    return (
+      <section className="jobResult tone-ok" aria-label="Error report submission result">
+        <div className="panelHeader">
+          <h2>GitHub Issue Created</h2>
+          <StatusPill label="submitted" tone="ok" />
+        </div>
+        <p>
+          <a href={payload.issue_url} rel="noreferrer" target="_blank">
+            View created issue
+          </a>
+        </p>
+        <SummaryRow label="labels" value={formatLabels(payload.labels)} />
+      </section>
+    );
+  }
+  return (
+    <section className={`jobResult tone-${reportSubmissionTone(payload.status)}`} aria-label="Error report submission result">
+      <div className="panelHeader">
+        <h2>GitHub Submission Not Created</h2>
+        <StatusPill label={reportSubmissionStatusLabel(payload.status)} tone={reportSubmissionTone(payload.status)} />
+      </div>
+      <p>Copy Report remains available as the safe fallback.</p>
+      {payload.errors.length > 0 ? <CategoryList title="Submission errors" items={payload.errors} /> : null}
     </section>
   );
 }
@@ -3508,23 +4521,11 @@ function buildCockpitStatusItems(
   payload: SetupStatusResponse,
   unsafeCount: number,
   historyState: HistoryState,
-  liveDiagnosticsState: LiveDiagnosticsState,
-  journalState: MatchJournalState
+  liveCaptureControlState: LiveCaptureControlState
 ): CockpitStatusItem[] {
   const app = unsafeCount > 0 ? { label: "Needs review", tone: "degraded" as const } : cockpitStatusFromRawStatus(payload.status, "app");
-  const playerLogStatus = isLivePlayerLogStatusResponse(payload.live_player_log)
-    ? payload.live_player_log.player_log.status
-    : statusFromSection(payload.player_log);
-  const playerLog = cockpitStatusFromRawStatus(playerLogStatus, "player_log");
-  const liveCaptureStatus = isLiveWatcherStatusResponse(payload.live_watcher)
-    ? payload.live_watcher.watcher.running
-      ? "capturing"
-      : payload.live_watcher.watcher.status
-    : "not_checked";
-  const liveCapture = cockpitStatusFromRawStatus(liveCaptureStatus, "live_capture");
+  const liveCapture = liveCaptureStatusFromControlOrSetup(liveCaptureControlState, payload);
   const analytics = cockpitStatusFromRawStatus(analyticsHistoryStatus(historyState), "analytics");
-  const diagnostics = cockpitStatusFromRawStatus(liveDiagnosticsStatus(liveDiagnosticsState), "trust");
-  const journal = cockpitStatusFromRawStatus(matchJournalStatus(journalState), "journal");
 
   return [
     {
@@ -3532,41 +4533,333 @@ function buildCockpitStatusItems(
       label: "App connection",
       status: app.label,
       tone: app.tone,
-      detail: "Local backend response is available through the existing setup endpoint."
-    },
-    {
-      cue: "LOG",
-      label: "Player.log monitor",
-      status: playerLog.label,
-      tone: playerLog.tone,
-      detail: playerLog.label === "Ready" ? "Arena log source is configured." : "Check setup details before trusting live capture."
+      detail: app.label === "Ready" ? "Backend reachable." : "Backend response needs review."
     },
     {
       cue: "LIVE",
       label: "Live capture",
       status: liveCapture.label,
       tone: liveCapture.tone,
-      liveActive: liveCapture.label === "Capturing",
-      detail:
-        liveCapture.label === "Capturing"
-          ? "Live capture is active."
-          : "Live mode may be waiting, limited, or blocked; inspect details if needed."
+      liveActive: liveCapture.liveActive,
+      detail: compactLiveCaptureDetail(liveCapture.label, liveCapture.detail)
     },
     {
       cue: "DATA",
       label: "Analytics database",
       status: analytics.label,
       tone: analytics.tone,
-      detail: analytics.label === "Ready" ? "Local match and game history is available." : "Analytics may be empty or limited."
-    },
-    {
-      cue: "QA",
-      label: "Data trust",
-      status: diagnostics.label === "Ready" ? journal.label : diagnostics.label,
-      tone: diagnostics.tone === "ok" ? journal.tone : diagnostics.tone,
-      detail: "Diagnostics and Match Journal context remain available without exposing private values."
+      detail: analytics.label === "Ready" ? "History available." : "No history yet."
     }
   ];
+}
+
+const LIVE_CAPTURE_RECORDED_MATCH_DETAIL = "Most recent completed match was recorded.";
+
+function compactLiveCaptureDetail(label: string, detail?: string): string {
+  const safeDetail = detail?.trim();
+  if (safeDetail === LIVE_CAPTURE_RECORDED_MATCH_DETAIL) {
+    return safeDetail;
+  }
+  if (label === "Capturing") {
+    return "Capture active.";
+  }
+  if (label === "Ready to start" || label === "Stopped") {
+    return "Capture is not running.";
+  }
+  if (label === "Blocked") {
+    return "Capture blocked.";
+  }
+  if (label === "Setup needed") {
+    return "Setup needed.";
+  }
+  if (label === "Needs review" && detail) {
+    return detail;
+  }
+  if (label === "Unavailable") {
+    return "Status unavailable.";
+  }
+  return `${label}.`;
+}
+
+function liveCaptureStatusFromSetupPayload(payload: SetupStatusResponse): {
+  label: string;
+  tone: SetupStatusTone;
+  liveActive: boolean;
+  detail: string;
+} {
+  const liveSqliteCapture = isRecord(payload.live_sqlite_capture) ? payload.live_sqlite_capture : null;
+  const liveCaptureProcessControl = isRecord(liveSqliteCapture?.process_control)
+    ? liveSqliteCapture.process_control
+    : null;
+  const watcherProcessControl = isLiveWatcherProcessStatusResponse(payload.live_watcher_process)
+    ? payload.live_watcher_process.process_control
+    : null;
+  const watcher = isLiveWatcherStatusResponse(payload.live_watcher) ? payload.live_watcher.watcher : null;
+  const liveCaptureStatus = typeof liveSqliteCapture?.status === "string" ? liveSqliteCapture.status : "unknown";
+  const liveCaptureMode = typeof liveSqliteCapture?.mode === "string" ? liveSqliteCapture.mode : "unknown";
+  const watcherStatus = typeof watcher?.status === "string" ? watcher.status : "unknown";
+  const watcherMode = typeof watcher?.mode === "string" ? watcher.mode : "unknown";
+  const processMode = typeof watcherProcessControl?.mode === "string" ? watcherProcessControl.mode : "unknown";
+  const sqliteWritesEnabled = booleanField(liveCaptureProcessControl, "sqlite_live_writes_enabled");
+  const parserRunnerStarted =
+    booleanField(liveCaptureProcessControl, "parser_runner_started") ||
+    booleanField(watcherProcessControl, "parser_runner_started") ||
+    booleanField(watcher, "parser_runner_started");
+  const tailingStarted =
+    booleanField(liveCaptureProcessControl, "tailing_started") ||
+    booleanField(watcherProcessControl, "tailing_started") ||
+    booleanField(watcher, "tailing_started");
+  const watcherRunning =
+    booleanField(watcher, "running") ||
+    (isLiveWatcherProcessStatusResponse(payload.live_watcher_process) && payload.live_watcher_process.watcher.running);
+  const processWritesEnabled =
+    sqliteWritesEnabled ||
+    booleanField(watcherProcessControl, "sqlite_live_writes_enabled") ||
+    booleanField(watcher, "sqlite_live_writes_enabled");
+
+  if (liveSqliteCapture === null) {
+    return {
+      label: "Needs review",
+      tone: "unknown",
+      liveActive: false,
+      detail: "Live capture status is missing; inspect setup and live diagnostics before testing a new game."
+    };
+  }
+  if (
+    ["blocked", "failed", "error", "unreadable", "crashed", "rejected"].includes(liveCaptureStatus) ||
+    watcherStatus.startsWith("blocked_")
+  ) {
+    return {
+      label: "Blocked",
+      tone: "error",
+      liveActive: false,
+      detail: "Live capture is blocked; inspect setup and live diagnostics."
+    };
+  }
+  if (["unavailable"].includes(liveCaptureStatus)) {
+    return {
+      label: "Unavailable",
+      tone: "unavailable",
+      liveActive: false,
+      detail: "Live capture status is unavailable; inspect setup and live diagnostics."
+    };
+  }
+  if (
+    liveCaptureStatus === "disabled" ||
+    liveCaptureMode === "status_only" ||
+    sqliteWritesEnabled === false
+  ) {
+    return {
+      label: "Ready to start",
+      tone: "deferred",
+      liveActive: false,
+      detail: "Player.log is configured, but live capture is not running. New games will not be added to SQLite until capture is started."
+    };
+  }
+  const activeCapture = watcherRunning && parserRunnerStarted && tailingStarted && processWritesEnabled;
+
+  if (activeCapture) {
+    return {
+      label: "Capturing",
+      tone: "ok",
+      liveActive: true,
+      detail: "Parser, Player.log tailing, and SQLite writes are active. New completed games should be added to analytics."
+    };
+  }
+  if (processMode === "safeguards_only" || processWritesEnabled === false) {
+    return {
+      label: "Ready to start",
+      tone: "deferred",
+      liveActive: false,
+      detail: "Player.log is configured, but live capture is not running. New games will not be added to SQLite until capture is started."
+    };
+  }
+  if (watcherStatus === "ready" || watcherMode === "readiness_only") {
+    return {
+      label: "Ready to start",
+      tone: "deferred",
+      liveActive: false,
+      detail: "Player.log is configured, but live capture is not running. New games will not be added to SQLite until capture is started."
+    };
+  }
+  if (["missing", "not_configured", "not_initialized"].includes(liveCaptureStatus) || watcherStatus === "not_configured") {
+    return {
+      label: "Setup needed",
+      tone: "missing",
+      liveActive: false,
+      detail: "Live capture needs setup before analytics can collect new rows."
+    };
+  }
+  if (["stopped", "not_started", "not_running", "not_capturing"].includes(liveCaptureStatus)) {
+    return {
+      label: "Ready to start",
+      tone: "deferred",
+      liveActive: false,
+      detail: "Live capture is stopped. Start capture before testing a new game if you want it added to analytics."
+    };
+  }
+  return {
+    label: "Needs review",
+    tone: "unknown",
+    liveActive: false,
+    detail: "Live capture status is incomplete or conflicting; inspect setup and live diagnostics."
+  };
+}
+
+function liveCaptureStatusFromControlOrSetup(
+  state: LiveCaptureControlState,
+  payload: SetupStatusResponse
+): {
+  label: string;
+  tone: SetupStatusTone;
+  liveActive: boolean;
+  detail: string;
+} {
+  const controlPayload = liveCaptureControlPayload(state);
+  if (controlPayload === null) {
+    return liveCaptureStatusFromSetupPayload(payload);
+  }
+  const dashboardStatus = liveCaptureDashboardStatus(controlPayload);
+  return {
+    label: dashboardStatus.label,
+    tone: dashboardStatus.tone,
+    liveActive: dashboardStatus.liveActive,
+    detail: liveCaptureDashboardDetail(controlPayload)
+  };
+}
+
+function liveCaptureDashboardDetail(payload: LiveCaptureStatusResponse): string {
+  if (payload.status === "stale" || payload.state.stale || payload.capture.reason === "capture_state_stale") {
+    return "Capture state is stale; open diagnostics.";
+  }
+  if (liveCaptureDashboardBlocked(payload)) {
+    return liveCaptureControlDetail(payload);
+  }
+  return liveCaptureBlurbText(payload) ?? liveCaptureControlDetail(payload);
+}
+
+function liveCaptureControlPayload(state: LiveCaptureControlState): LiveCaptureStatusResponse | null {
+  if (state.state === "ready" || state.state === "submitting") {
+    return state.payload;
+  }
+  if (state.state === "error") {
+    return state.payload ?? null;
+  }
+  return null;
+}
+
+function liveCaptureStatusLabel(status: string): string {
+  if (status === "ready_to_start") {
+    return "Ready to start";
+  }
+  if (status === "capturing") {
+    return "Capturing";
+  }
+  if (status === "starting") {
+    return "Starting";
+  }
+  if (status === "stopping") {
+    return "Stopping";
+  }
+  if (status === "stopped") {
+    return "Stopped";
+  }
+  if (status === "blocked") {
+    return "Blocked";
+  }
+  if (status === "failed" || status === "crashed") {
+    return "Failed";
+  }
+  if (status === "stale") {
+    return "Needs review";
+  }
+  if (status === "degraded") {
+    return "Limited data";
+  }
+  if (status === "unavailable") {
+    return "Unavailable";
+  }
+  return "Needs review";
+}
+
+function liveCaptureTone(status: string): SetupStatusTone {
+  if (status === "capturing") {
+    return "ok";
+  }
+  if (status === "ready_to_start" || status === "starting" || status === "stopping" || status === "stopped") {
+    return "deferred";
+  }
+  if (status === "blocked" || status === "failed" || status === "crashed") {
+    return "error";
+  }
+  if (status === "stale" || status === "degraded") {
+    return "degraded";
+  }
+  if (status === "unavailable") {
+    return "unavailable";
+  }
+  return "unknown";
+}
+
+function liveCaptureControlDetail(payload: LiveCaptureStatusResponse | null): string {
+  if (payload === null) {
+    return "Live capture control status is loading.";
+  }
+  if (payload.status === "capturing") {
+    return "Parser, Player.log tailing, and SQLite writes are active for the app-owned supervisor.";
+  }
+  if (payload.status === "ready_to_start") {
+    return "Player.log is configured, but live capture is not running. Start capture to add completed games to SQLite.";
+  }
+  if (payload.status === "starting") {
+    return "Capture start was accepted; waiting for the app-owned supervisor to report active tailing.";
+  }
+  if (payload.status === "stopped") {
+    return "Live capture is stopped. Start capture before testing a new game if you want it added to analytics.";
+  }
+  if (payload.status === "stopping") {
+    return "The app-owned capture supervisor is stopping.";
+  }
+  if (payload.status === "blocked") {
+    return "Live capture is blocked by a safe precondition; inspect diagnostics before starting.";
+  }
+  if (payload.status === "stale") {
+    return "Capture state is stale or ownership is ambiguous; review before starting or stopping.";
+  }
+  if (payload.status === "failed" || payload.status === "crashed") {
+    return "Live capture failed without exposing private log content.";
+  }
+  return "Live capture status is incomplete or unavailable; inspect setup and diagnostics.";
+}
+
+function liveCaptureBlurbText(payload: LiveCaptureStatusResponse | null): string | null {
+  const text = payload?.parser_status_blurb?.text?.trim();
+  return text || null;
+}
+
+function liveCaptureControlMessage(status: string): string {
+  if (status === "capturing") {
+    return "Capture is active.";
+  }
+  if (status === "starting") {
+    return "Capture start accepted.";
+  }
+  if (status === "already_running") {
+    return "Capture was already running; no duplicate supervisor was started.";
+  }
+  if (status === "stopped") {
+    return "Capture stopped.";
+  }
+  if (status === "not_running") {
+    return "Capture was not running.";
+  }
+  if (status === "blocked") {
+    return "Capture request was blocked by a safe precondition.";
+  }
+  if (status === "failed") {
+    return "Capture request failed without exposing private log content.";
+  }
+  return "Capture status updated.";
 }
 
 function buildCockpitInsights(
@@ -3873,6 +5166,13 @@ function nestedValue(root: SectionStatus, path: string[]): unknown {
     current = current[key];
   }
   return current ?? "unknown";
+}
+
+function booleanField(root: unknown, key: string): boolean | null {
+  if (!isRecord(root) || typeof root[key] !== "boolean") {
+    return null;
+  }
+  return root[key];
 }
 
 function migrationCount(section: SectionStatus): string {
@@ -4550,6 +5850,44 @@ function reportPreviewTone(status: ErrorReportPreviewResponse["status"]): SetupS
   return "degraded";
 }
 
+function reportSubmissionStatusLabel(status: ErrorReportSubmissionResponse["status"]): string {
+  if (status === "submitted") {
+    return "submitted";
+  }
+  if (status === "blocked_missing_gh") {
+    return "GitHub CLI missing";
+  }
+  if (status === "blocked_gh_unauthenticated") {
+    return "GitHub auth unavailable";
+  }
+  if (status === "blocked_wrong_repo") {
+    return "GitHub repo unavailable";
+  }
+  if (status === "blocked_label_unavailable") {
+    return "Label unavailable";
+  }
+  if (status === "blocked_privacy_guard") {
+    return "Privacy blocked";
+  }
+  if (status === "invalid_request") {
+    return "Invalid request";
+  }
+  return "Submission failed";
+}
+
+function reportSubmissionTone(status: ErrorReportSubmissionResponse["status"]): SetupStatusTone {
+  if (status === "submitted") {
+    return "ok";
+  }
+  if (status === "blocked_privacy_guard" || status === "blocked_wrong_repo") {
+    return "error";
+  }
+  if (status === "blocked_missing_gh" || status === "blocked_gh_unauthenticated" || status === "blocked_label_unavailable") {
+    return "deferred";
+  }
+  return "degraded";
+}
+
 function copyStatusText(status: ErrorReportCopyState): string {
   if (status === "copied") {
     return "Copied to clipboard";
@@ -4560,7 +5898,7 @@ function copyStatusText(status: ErrorReportCopyState): string {
   if (status === "error") {
     return "Copy failed; select the Markdown text manually";
   }
-  return "No external submission";
+  return "Copy fallback available";
 }
 
 function errorTitle(code: SetupStatusApiError["code"]): string {

@@ -4,6 +4,7 @@ import json
 from datetime import UTC, datetime
 from typing import Any
 
+from .mtga_process_lifecycle import build_automation_readiness, build_mtga_process_status
 from .paths import LocalAppPaths, display_app_path
 from .setup_status import LIVE_PLAYER_LOG_STATUS_OBJECT, build_live_player_log_status, build_live_watcher_status
 
@@ -29,11 +30,22 @@ _PROCESS_CONTROL_FALSE_FLAGS = (
 def build_live_watcher_process_status(paths: LocalAppPaths) -> dict[str, object]:
     player_log_status = build_live_player_log_status(paths)
     watcher_status = build_live_watcher_status(paths)
+    mtga_process = build_mtga_process_status()
     state = _read_watcher_state(paths)
     preconditions = _build_preconditions(paths, watcher_status)
     status, reason = _process_status(state, preconditions)
-    warnings = _merge_codes(player_log_status.get("warnings"), watcher_status.get("warnings"), state["warnings"])
-    errors = _merge_codes(player_log_status.get("errors"), watcher_status.get("errors"), state["errors"])
+    warnings = _merge_codes(
+        player_log_status.get("warnings"),
+        watcher_status.get("warnings"),
+        mtga_process.get("warnings"),
+        state["warnings"],
+    )
+    errors = _merge_codes(
+        player_log_status.get("errors"),
+        watcher_status.get("errors"),
+        mtga_process.get("errors"),
+        state["errors"],
+    )
     if reason and status in {"blocked", "unknown"} and reason not in errors:
         errors.append(reason)
 
@@ -54,6 +66,8 @@ def build_live_watcher_process_status(paths: LocalAppPaths) -> dict[str, object]
             "single_instance_guard": _single_instance_guard_status(state),
             "supervisor_boundary": "local_app_supervisor_deferred",
         },
+        "mtga_process": mtga_process,
+        "automation_readiness": build_automation_readiness(mtga_process),
         "player_log": _sanitized_player_log_summary(player_log_status),
         "preconditions": preconditions,
         "state": {

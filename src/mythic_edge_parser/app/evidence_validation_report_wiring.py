@@ -8,6 +8,8 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+from .privacy_url_detection import contains_runtime_artifact_url
+
 EVIDENCE_LEDGER_REVIEW_OBJECT = "mythic_edge_player_log_evidence_ledger_validation_review"
 EVIDENCE_LEDGER_REVIEW_SCHEMA_VERSION = "player_log_evidence_ledger_validation_review.v1"
 EVIDENCE_LEDGER_REVIEW_STATUSES = (
@@ -617,7 +619,7 @@ def _collect_privacy_findings(payload: Any, path: str, findings: dict[str, Any])
         findings["forbidden_content_findings"].append(path)
         if "[UnityCrossThreadLogger]" in payload or "[Client GRE]" in payload or "DETAILED LOGS:" in payload:
             findings["raw_private_logs_included"] = True
-        if "script.google.com" in payload or "hooks." in payload:
+        if contains_runtime_artifact_url(payload):
             findings["runtime_artifacts_included"] = True
     if ABSOLUTE_PATH_RE.search(payload):
         findings["local_absolute_paths_found"].append(path)

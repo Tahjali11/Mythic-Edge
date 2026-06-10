@@ -1,5 +1,6 @@
 import json
 from datetime import UTC, datetime
+from pathlib import Path
 
 from mythic_edge_parser.app import gameplay_actions, grp_id_catalog, state
 from mythic_edge_parser.events import EventMetadata, GameStateEvent
@@ -36,6 +37,49 @@ def test_reset_gameplay_actions_state_clears_shared_runtime_state() -> None:
     assert gameplay_actions._DIRTY_MATCH_IDS == set()
     assert gameplay_actions._JSON_DICT_CACHE == {}
     assert gameplay_actions._ACTIVE_DECK_INDEX is None
+
+
+def _patch_gameplay_paths(tmp_path: Path, monkeypatch) -> Path:
+    status_root = tmp_path / "status"
+    oracle_root = tmp_path / "oracle"
+    status_root.mkdir(parents=True, exist_ok=True)
+    oracle_root.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(gameplay_actions, "STATUS_ACTIONS_ROOT", status_root / "actions")
+    monkeypatch.setattr(gameplay_actions, "ACTIVE_MATCH_ACTIONS_PATH", status_root / "active_match_actions_latest.json")
+    monkeypatch.setattr(
+        gameplay_actions, "ACTIVE_MATCH_ACTION_LOG_PATH", status_root / "active_match_action_log_latest.md"
+    )
+    monkeypatch.setattr(gameplay_actions, "GRP_ID_CATALOG_PATH", oracle_root / "mtga-grp-id-catalog-latest.json")
+    monkeypatch.setattr(gameplay_actions, "update_runtime_status", lambda **_: None)
+    monkeypatch.setattr(grp_id_catalog, "GRP_ID_CATALOG_PATH", oracle_root / "mtga-grp-id-catalog-latest.json")
+    return status_root
+
+
+def test_match_action_filename_uses_safe_stem_without_changing_payload_match_id(tmp_path, monkeypatch) -> None:
+    _reset_gameplay_state()
+    status_root = _patch_gameplay_paths(tmp_path, monkeypatch)
+    raw_match_id = r"..\outside/match:evil"
+    gameplay_actions._MATCH_ACTIONS[raw_match_id] = []
+
+    gameplay_actions._write_match_actions(raw_match_id)
+
+    action_root = status_root / "actions"
+    action_files = list(action_root.glob("*.json"))
+    markdown_files = list(action_root.glob("*.md"))
+    assert len(action_files) == 1
+    assert len(markdown_files) == 1
+    assert action_files[0].parent == action_root
+    assert markdown_files[0].parent == action_root
+    for path in (*action_files, *markdown_files):
+        assert ".." not in path.name
+        assert ":" not in path.name
+        assert "/" not in path.name
+        assert "\\" not in path.name
+    assert not (tmp_path / "outside").exists()
+
+    payload = json.loads(action_files[0].read_text(encoding="utf-8"))
+    assert payload["match_id"] == raw_match_id
+    assert gameplay_actions.load_active_match_actions_payload(raw_match_id)["match_id"] == raw_match_id
 
 
 def test_gameplay_actions_emit_turn_land_and_spell_events(tmp_path, monkeypatch) -> None:

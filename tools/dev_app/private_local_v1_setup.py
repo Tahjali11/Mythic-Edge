@@ -21,6 +21,8 @@ from mythic_edge_parser.app.analytics_migration_loader import (
     apply_analytics_migrations,
     iter_analytics_migrations,
 )
+from mythic_edge_parser.local_app.config import write_local_app_config
+from mythic_edge_parser.local_app.paths import build_local_app_paths
 
 try:
     from tools.dev_app import dev_app_launcher as launcher
@@ -31,14 +33,23 @@ SCHEMA_VERSION = "private_local_v1_clean_checkout_install_launch.v1"
 INSTALL_MANIFEST_OBJECT = "mythic_edge_private_local_v1_install_manifest"
 SETUP_REPORT_OBJECT = "mythic_edge_private_local_v1_setup_report"
 PROOF_REPORT_OBJECT = "mythic_edge_private_local_v1_setup_proof_report"
+WIZARD_REPORT_OBJECT = "mythic_edge_private_local_v1_setup_wizard_report"
 DEFAULT_INSTALL_DIR_NAME = "MythicEdge"
 APP_DIR_NAME = "app"
 DATA_DIR_NAME = "data"
 ANALYTICS_DATABASE_NAME = "mythic_edge.sqlite3"
+DEFAULT_WINDOWS_PLAYER_LOG_RELATIVE_PATH = (
+    "AppData",
+    "LocalLow",
+    "Wizards Of The Coast",
+    "MTGA",
+    "Player.log",
+)
 DEFAULT_REPO_URL = "https://github.com/Tahjali11/Mythic-Edge.git"
 DEFAULT_RELEASE_REF = "codex/analytics-foundation"
 RELEASE_PROFILE = "private_local_v1"
 PACKAGE_MODE = "managed_full_checkout"
+PLAYER_LOG_RECENT_ACTIVITY_SECONDS = 24 * 60 * 60
 REQUIRED_DATA_SUBDIRS = (
     "config",
     "db",
@@ -94,6 +105,10 @@ class PrivateLocalV1Config:
     release_ref: str = DEFAULT_RELEASE_REF
     initialize_sqlite: bool = False
     managed_app_checkout: bool = False
+    player_log_path: Path | None = None
+    player_log_source: str = "manual_selection"
+    player_log_display_path: str = "<selected_player_log>"
+    setup_warnings: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -112,6 +127,24 @@ class PrivateLocalV1ProofConfig:
 
 
 @dataclass(frozen=True, slots=True)
+class PrivateLocalV1WizardConfig:
+    install_root: Path
+    source_checkout: Path
+    release_ref: str = DEFAULT_RELEASE_REF
+
+
+@dataclass(frozen=True, slots=True)
+class WizardPlayerLogSelection:
+    status: str
+    path: Path | None
+    source: str
+    display_path: str
+    metadata: dict[str, object]
+    warnings: tuple[str, ...] = ()
+    errors: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
 class CommandOutcome:
     status: str
     returncode: int
@@ -120,6 +153,8 @@ class CommandOutcome:
 
 CommandRunner = Callable[[Sequence[str], Path], CommandOutcome]
 HttpVerifier = Callable[[str], dict[str, object]]
+PromptReader = Callable[[str], str]
+PromptWriter = Callable[[str], None]
 
 
 def default_install_root(env: Mapping[str, str] = os.environ) -> Path | None:
@@ -127,6 +162,33 @@ def default_install_root(env: Mapping[str, str] = os.environ) -> Path | None:
     if not local_app_data:
         return None
     return Path(local_app_data) / DEFAULT_INSTALL_DIR_NAME
+
+
+def default_windows_player_log_candidate(env: Mapping[str, str] = os.environ) -> Path | None:
+    user_profile = env.get("USERPROFILE")
+    if not user_profile:
+        return None
+    return Path(user_profile).joinpath(*DEFAULT_WINDOWS_PLAYER_LOG_RELATIVE_PATH)
+
+
+def detect_default_windows_player_log_candidate(env: Mapping[str, str] = os.environ) -> dict[str, object]:
+    candidate = default_windows_player_log_candidate(env)
+    if candidate is None:
+        return _selected_player_log_status(
+            status="missing",
+            source="detected_default",
+            display_path="<detected_mtga_player_log>",
+            exists=False,
+            path_kind="unknown",
+            metadata_access="not_checked",
+            errors=["userprofile_unavailable"],
+            activity_hint="unknown",
+        )
+    return _player_log_configuration_status(
+        candidate,
+        source="detected_default",
+        display_path="<detected_mtga_player_log>",
+    )
 
 
 def build_private_local_v1_paths(install_root: Path) -> PrivateLocalV1Paths:
@@ -160,7 +222,7 @@ def build_private_local_v1_paths(install_root: Path) -> PrivateLocalV1Paths:
 def run_private_local_v1_setup(config: PrivateLocalV1Config) -> dict[str, object]:
     paths = build_private_local_v1_paths(config.install_root)
     started_at = datetime.now(UTC)
-    warnings: list[str] = []
+    warnings: list[str] = list(config.setup_warnings)
     errors: list[str] = []
 
     source_status = _source_checkout_status(config.source_checkout)
@@ -175,12 +237,20 @@ def run_private_local_v1_setup(config: PrivateLocalV1Config) -> dict[str, object
     if config.mode == "install" and existing_install_handling["status"] == "blocked":
         errors.append("existing_install_detected")
 
+    player_log_configuration = _player_log_configuration_status(
+        config.player_log_path,
+        source=config.player_log_source,
+        display_path=config.player_log_display_path,
+    )
+    errors.extend(_player_log_configuration_errors(player_log_configuration))
+
     migration_inventory = _migration_inventory()
     if migration_inventory["status"] != "ok":
         errors.append("migration_inventory_unavailable")
 
     folder_creation = _folder_status(paths)
     sqlite_initialization = _sqlite_status_not_run(paths)
+    config_write = _config_write_not_run(config)
     if config.mode == "install" and not errors:
         folder_creation = create_v1_folder_tree(paths)
         if config.initialize_sqlite:
@@ -188,6 +258,10 @@ def run_private_local_v1_setup(config: PrivateLocalV1Config) -> dict[str, object
         else:
             sqlite_initialization = _sqlite_status_not_run(paths)
             warnings.append("sqlite_initialization_not_requested")
+        if config.player_log_path is not None:
+            config_write = _write_private_local_v1_config(paths, config.player_log_path)
+            if config_write["status"] != "ok":
+                errors.extend(str(error) for error in config_write["errors"])
 
     dependency_install = {
         "status": "not_run",
@@ -208,6 +282,8 @@ def run_private_local_v1_setup(config: PrivateLocalV1Config) -> dict[str, object
         app_data_policy=app_data_policy,
         migration_inventory=migration_inventory,
         sqlite_initialization=sqlite_initialization,
+        player_log_configuration=player_log_configuration,
+        config_write=config_write,
         dependency_install=dependency_install,
         privacy=privacy,
         warnings=warnings,
@@ -221,6 +297,8 @@ def run_private_local_v1_setup(config: PrivateLocalV1Config) -> dict[str, object
         folder_creation=folder_creation,
         migration_inventory=migration_inventory,
         sqlite_initialization=sqlite_initialization,
+        player_log_configuration=player_log_configuration,
+        config_write=config_write,
         dependency_install=dependency_install,
         launch_status=launch_status,
         existing_install_handling=existing_install_handling,
@@ -241,11 +319,70 @@ def run_private_local_v1_setup(config: PrivateLocalV1Config) -> dict[str, object
         **_package_readiness_metadata(config.release_ref),
         "install_root": "<install_root>",
         "data_root": "<install_root>\\data",
+        "player_log_configuration": player_log_configuration,
+        "config_write": config_write,
         "manifest": manifest,
         "report": report,
         "warnings": warnings,
         "errors": errors,
     }
+
+
+def run_private_local_v1_setup_wizard(
+    config: PrivateLocalV1WizardConfig,
+    *,
+    prompt_reader: PromptReader = input,
+    output_writer: PromptWriter = print,
+    env: Mapping[str, str] | None = None,
+) -> dict[str, object]:
+    wizard_env = os.environ if env is None else env
+    output_writer("Mythic Edge private-local-v1 setup wizard")
+    output_writer("Metadata-only Player.log validation; live capture will not start.")
+
+    install_root = _wizard_install_root(config.install_root, prompt_reader)
+    if install_root is None:
+        return _wizard_blocked_result(config=config, reason="wizard_cancelled")
+
+    player_log_selection = _wizard_player_log_selection(prompt_reader, output_writer, wizard_env)
+    if player_log_selection.status == "cancelled":
+        return _wizard_blocked_result(
+            config=config,
+            reason="wizard_cancelled",
+            player_log_selection=player_log_selection,
+        )
+
+    output_writer("Ready to create local folders, initialize SQLite, and write approved config after confirmation.")
+    if not _is_yes(prompt_reader("Proceed with setup now? [y/N]: ")):
+        return _wizard_blocked_result(
+            config=config,
+            reason="wizard_cancelled",
+            player_log_selection=player_log_selection,
+        )
+
+    setup_warnings = ("player_log_not_configured",) if player_log_selection.path is None else ()
+    setup_result = run_private_local_v1_setup(
+        PrivateLocalV1Config(
+            install_root=install_root,
+            source_checkout=config.source_checkout,
+            mode="install",
+            release_ref=config.release_ref,
+            initialize_sqlite=True,
+            player_log_path=player_log_selection.path,
+            player_log_source=player_log_selection.source,
+            player_log_display_path=player_log_selection.display_path,
+            setup_warnings=setup_warnings,
+        )
+    )
+    status = _wizard_result_status(setup_result, player_log_selection)
+    return _wizard_result(
+        config=config,
+        status=status,
+        install_root=install_root,
+        player_log_selection=player_log_selection,
+        setup_result=setup_result,
+        warnings=setup_warnings,
+        errors=tuple(str(error) for error in setup_result.get("errors", [])),
+    )
 
 
 def run_private_local_v1_proof(
@@ -335,6 +472,7 @@ def run_private_local_v1_proof(
                 mode="install",
                 release_ref=config.release_ref,
                 initialize_sqlite=config.initialize_sqlite,
+                player_log_path=None,
                 managed_app_checkout=not config.existing_checkout,
             )
         )
@@ -448,8 +586,12 @@ def run_private_local_v1_proof(
                     warnings.append("browser_open_failed")
 
     if children and config.stop_after_verify:
-        launcher.cleanup_children(children)
-        launch_status["process_cleanup"] = "stopped_proof_started_processes"
+        cleanup_completed = launcher.cleanup_children(children)
+        if cleanup_completed:
+            launch_status["process_cleanup"] = "stopped_proof_started_processes"
+        else:
+            launch_status["process_cleanup"] = "cleanup_incomplete"
+            errors.append("process_cleanup_incomplete")
     elif children and config.leave_running:
         launch_status["process_cleanup"] = "left_running_by_request"
 
@@ -548,6 +690,366 @@ def initialize_analytics_sqlite(paths: PrivateLocalV1Paths) -> dict[str, object]
     }
 
 
+def _wizard_install_root(default_root: Path, prompt_reader: PromptReader) -> Path | None:
+    answer = _normalized_answer(prompt_reader(f"Use install root {default_root}? [Y/n]: "))
+    if _is_cancel(answer):
+        return None
+    if answer in {"n", "no"}:
+        alternate = prompt_reader("Enter alternate install root or cancel: ").strip()
+        if not alternate or _is_cancel(_normalized_answer(alternate)):
+            return None
+        return _prompt_path(alternate)
+    return default_root
+
+
+def _wizard_player_log_selection(
+    prompt_reader: PromptReader,
+    output_writer: PromptWriter,
+    env: Mapping[str, str],
+) -> WizardPlayerLogSelection:
+    default_candidate_path = default_windows_player_log_candidate(env)
+    default_metadata = detect_default_windows_player_log_candidate(env)
+
+    if default_metadata["status"] == "accepted":
+        answer = _normalized_answer(prompt_reader("Use detected MTGA Player.log? [Y/n/manual/skip/cancel]: "))
+        if answer in {"", "y", "yes"} and default_candidate_path is not None:
+            return WizardPlayerLogSelection(
+                status="accepted",
+                path=default_candidate_path,
+                source="detected_default",
+                display_path="<detected_mtga_player_log>",
+                metadata=default_metadata,
+            )
+        if _is_cancel(answer):
+            return _cancelled_player_log_selection()
+        if _is_skip(answer):
+            return _skipped_player_log_selection()
+        output_writer("Detected Player.log was not selected; manual selection is available.")
+    else:
+        output_writer("Default Windows MTGA Player.log was not detected.")
+
+    answer = prompt_reader("Enter Player.log path, type skip, or type cancel: ").strip()
+    while True:
+        normalized = _normalized_answer(answer)
+        if _is_cancel(normalized):
+            return _cancelled_player_log_selection()
+        if _is_skip(normalized):
+            return _skipped_player_log_selection()
+        if not answer:
+            answer = prompt_reader("Enter Player.log path, type skip, or type cancel: ").strip()
+            continue
+
+        manual_path = _prompt_path(answer)
+        metadata = _player_log_configuration_status(
+            manual_path,
+            source="manual_selection",
+            display_path="<selected_player_log>",
+        )
+        if metadata["status"] == "accepted":
+            return WizardPlayerLogSelection(
+                status="accepted",
+                path=manual_path,
+                source="manual_selection",
+                display_path="<selected_player_log>",
+                metadata=metadata,
+            )
+        output_writer("Selected Player.log could not be accepted from metadata; choose another path, skip, or cancel.")
+        answer = prompt_reader("Enter another Player.log path, type skip, or type cancel: ").strip()
+
+
+def _wizard_result_status(setup_result: Mapping[str, object], selection: WizardPlayerLogSelection) -> str:
+    if setup_result["status"] == "blocked":
+        return "blocked"
+    if selection.path is None or setup_result["status"] == "degraded":
+        return "degraded"
+    return "healthy"
+
+
+def _wizard_result(
+    *,
+    config: PrivateLocalV1WizardConfig,
+    status: str,
+    install_root: Path,
+    player_log_selection: WizardPlayerLogSelection,
+    setup_result: Mapping[str, object] | None,
+    warnings: tuple[str, ...] = (),
+    errors: tuple[str, ...] = (),
+) -> dict[str, object]:
+    return {
+        "object": WIZARD_REPORT_OBJECT,
+        "schema_version": SCHEMA_VERSION,
+        "status": status,
+        "mode": "wizard",
+        **_package_readiness_metadata(config.release_ref),
+        "install_root": "<install_root>",
+        "data_root": "<install_root>\\data",
+        "player_log_selection": _wizard_player_log_selection_payload(player_log_selection),
+        "setup_result": setup_result,
+        "warnings": list(warnings),
+        "errors": list(errors),
+    }
+
+
+def _wizard_blocked_result(
+    *,
+    config: PrivateLocalV1WizardConfig,
+    reason: str,
+    player_log_selection: WizardPlayerLogSelection | None = None,
+) -> dict[str, object]:
+    return _wizard_result(
+        config=config,
+        status="blocked",
+        install_root=config.install_root,
+        player_log_selection=player_log_selection or _skipped_player_log_selection(),
+        setup_result=None,
+        errors=(reason,),
+    )
+
+
+def _wizard_player_log_selection_payload(selection: WizardPlayerLogSelection) -> dict[str, object]:
+    return {
+        "status": selection.status,
+        "source": selection.source,
+        "display_path": selection.display_path,
+        "path_kind": selection.metadata.get("path_kind", "not_checked"),
+        "metadata_access": selection.metadata.get("metadata_access", "not_checked"),
+        "exists": selection.metadata.get("exists", False),
+        "contents_read": False,
+        "tailing_started": False,
+        "size_bytes": selection.metadata.get("size_bytes"),
+        "last_modified_at": selection.metadata.get("last_modified_at"),
+        "last_modified_age_seconds": selection.metadata.get("last_modified_age_seconds"),
+        "activity_hint": selection.metadata.get("activity_hint", "unknown"),
+        "warnings": list(
+            selection.warnings
+            or tuple(str(warning) for warning in selection.metadata.get("warnings", []))
+        ),
+        "errors": list(selection.errors or tuple(str(error) for error in selection.metadata.get("errors", []))),
+    }
+
+
+def _cancelled_player_log_selection() -> WizardPlayerLogSelection:
+    return WizardPlayerLogSelection(
+        status="cancelled",
+        path=None,
+        source="not_provided",
+        display_path="<player_log_not_configured>",
+        metadata=_not_configured_player_log_status(),
+        errors=("wizard_cancelled",),
+    )
+
+
+def _skipped_player_log_selection() -> WizardPlayerLogSelection:
+    return WizardPlayerLogSelection(
+        status="skipped",
+        path=None,
+        source="not_provided",
+        display_path="<player_log_not_configured>",
+        metadata=_not_configured_player_log_status(),
+        warnings=("player_log_not_configured",),
+    )
+
+
+def _not_configured_player_log_status() -> dict[str, object]:
+    return _player_log_configuration_status(None)
+
+
+def _normalized_answer(value: str) -> str:
+    return value.strip().lower()
+
+
+def _is_yes(value: str) -> bool:
+    return _normalized_answer(value) in {"y", "yes"}
+
+
+def _is_cancel(value: str) -> bool:
+    return value in {"c", "cancel", "q", "quit", "exit"}
+
+
+def _is_skip(value: str) -> bool:
+    return value in {"s", "skip", "none", "not now"}
+
+
+def _prompt_path(value: str) -> Path:
+    return Path(value.strip().strip('"'))
+
+
+def _stderr_prompt_reader(prompt: str) -> str:
+    print(prompt, end="", file=sys.stderr)
+    return sys.stdin.readline().rstrip("\n")
+
+
+def _stderr_output_writer(message: str) -> None:
+    print(message, file=sys.stderr)
+
+
+def _player_log_configuration_status(
+    player_log_path: Path | None,
+    *,
+    source: str = "manual_selection",
+    display_path: str = "<selected_player_log>",
+) -> dict[str, object]:
+    if player_log_path is None:
+        return {
+            "status": "not_configured",
+            "source": "not_provided",
+            "display_path": "<player_log_not_configured>",
+            "exists": False,
+            "path_kind": "not_checked",
+            "metadata_access": "not_checked",
+            "contents_read": False,
+            "tailing_started": False,
+            "size_bytes": None,
+            "last_modified_at": None,
+            "last_modified_age_seconds": None,
+            "activity_hint": "unknown",
+            "warnings": [],
+            "errors": [],
+        }
+
+    try:
+        path_stat = player_log_path.stat()
+    except FileNotFoundError:
+        return _selected_player_log_status(
+            status="missing",
+            source=source,
+            display_path=display_path,
+            exists=False,
+            path_kind="missing",
+            metadata_access="accessible",
+            errors=["player_log_missing"],
+            activity_hint="unknown",
+        )
+    except PermissionError:
+        return _selected_player_log_status(
+            status="unreadable",
+            source=source,
+            display_path=display_path,
+            exists=False,
+            path_kind="unknown",
+            metadata_access="denied",
+            warnings=["player_log_unreadable"],
+            errors=["player_log_metadata_denied"],
+            activity_hint="unknown",
+        )
+    except OSError:
+        return _selected_player_log_status(
+            status="unreadable",
+            source=source,
+            display_path=display_path,
+            exists=False,
+            path_kind="unknown",
+            metadata_access="unavailable",
+            warnings=["player_log_unreadable"],
+            errors=["player_log_metadata_unavailable"],
+            activity_hint="unknown",
+        )
+
+    path_kind = "file" if player_log_path.is_file() else "directory" if player_log_path.is_dir() else "unknown"
+    last_modified = datetime.fromtimestamp(path_stat.st_mtime, tz=UTC)
+    age_seconds = max(0.0, (datetime.now(UTC) - last_modified).total_seconds())
+    warnings = [] if path_kind == "file" else ["player_log_not_file"]
+    errors = [] if path_kind == "file" else ["player_log_not_file"]
+    return _selected_player_log_status(
+        status="accepted" if path_kind == "file" else "not_file",
+        source=source,
+        display_path=display_path,
+        exists=True,
+        path_kind=path_kind,
+        metadata_access="accessible",
+        size_bytes=max(0, int(path_stat.st_size)),
+        last_modified_at=last_modified.isoformat().replace("+00:00", "Z"),
+        last_modified_age_seconds=age_seconds,
+        activity_hint=_player_log_activity_hint(age_seconds) if path_kind == "file" else "unknown",
+        warnings=warnings,
+        errors=errors,
+    )
+
+
+def _selected_player_log_status(
+    *,
+    status: str,
+    source: str = "manual_selection",
+    display_path: str = "<selected_player_log>",
+    exists: bool,
+    path_kind: str,
+    metadata_access: str,
+    size_bytes: int | None = None,
+    last_modified_at: str | None = None,
+    last_modified_age_seconds: float | None = None,
+    activity_hint: str = "unknown",
+    warnings: list[str] | None = None,
+    errors: list[str] | None = None,
+) -> dict[str, object]:
+    return {
+        "status": status,
+        "source": source,
+        "display_path": display_path,
+        "exists": exists,
+        "path_kind": path_kind,
+        "metadata_access": metadata_access,
+        "contents_read": False,
+        "tailing_started": False,
+        "size_bytes": size_bytes,
+        "last_modified_at": last_modified_at,
+        "last_modified_age_seconds": last_modified_age_seconds,
+        "activity_hint": activity_hint,
+        "warnings": warnings or [],
+        "errors": errors or [],
+    }
+
+
+def _player_log_activity_hint(age_seconds: float) -> str:
+    return "recent" if age_seconds <= PLAYER_LOG_RECENT_ACTIVITY_SECONDS else "stale"
+
+
+def _player_log_configuration_errors(player_log_configuration: Mapping[str, object]) -> list[str]:
+    if player_log_configuration["status"] in {"not_configured", "accepted"}:
+        return []
+    errors = player_log_configuration.get("errors", [])
+    return [str(error) for error in errors] if isinstance(errors, list) else ["player_log_configuration_failed"]
+
+
+def _config_write_not_run(config: PrivateLocalV1Config) -> dict[str, object]:
+    if config.player_log_path is None:
+        reason = "player_log_path_not_provided"
+    elif config.mode == "check":
+        reason = "check_mode_non_mutating"
+    else:
+        reason = "blocked_before_config_write"
+    return {
+        "status": "not_run",
+        "reason": reason,
+        "config_file": "<install_root>\\data\\config\\app_config.json",
+        "written_fields": [],
+        "encoding": "utf-8",
+        "utf8_bom_written": False,
+        "raw_values_included": False,
+        "errors": [],
+    }
+
+
+def _write_private_local_v1_config(paths: PrivateLocalV1Paths, player_log_path: Path) -> dict[str, object]:
+    local_paths = build_local_app_paths(paths.data_root)
+    write_result = write_local_app_config(
+        local_paths,
+        {
+            "analytics_database_path": str(paths.analytics_database),
+            "player_log_path": str(player_log_path),
+        },
+    )
+    return {
+        "status": "ok" if write_result.status == "written" else write_result.status,
+        "reason": None if write_result.status == "written" else "config_write_failed",
+        "config_file": "<install_root>\\data\\config\\app_config.json",
+        "written_fields": list(write_result.written_fields),
+        "encoding": "utf-8",
+        "utf8_bom_written": False,
+        "raw_values_included": False,
+        "errors": list(write_result.errors),
+    }
+
+
 def run_command(command: Sequence[str], cwd: Path) -> CommandOutcome:
     try:
         completed = subprocess.run(  # noqa: S603 - command vectors are contract-owned setup steps.
@@ -598,6 +1100,8 @@ def _existing_install_handling_status(paths: PrivateLocalV1Paths, *, config: Pri
 
 def _existing_install_indicators(paths: PrivateLocalV1Paths, *, config: PrivateLocalV1Config) -> list[str]:
     indicators: list[str] = []
+    if (paths.config_dir / "app_config.json").exists():
+        indicators.append("app_config")
     if paths.install_manifest.exists():
         indicators.append("install_manifest")
     if paths.setup_report.exists():
@@ -623,6 +1127,7 @@ def _has_existing_generated_data(paths: PrivateLocalV1Paths) -> bool:
     if not paths.data_root.exists():
         return False
     expected_artifact_paths = {
+        (paths.config_dir / "app_config.json").resolve(),
         paths.install_manifest.resolve(),
         paths.setup_report.resolve(),
         paths.analytics_database.resolve(),
@@ -656,6 +1161,8 @@ def _build_install_manifest(
     app_data_policy: dict[str, object],
     migration_inventory: dict[str, object],
     sqlite_initialization: dict[str, object],
+    player_log_configuration: dict[str, object],
+    config_write: dict[str, object],
     dependency_install: dict[str, object],
     privacy: dict[str, bool],
     warnings: list[str],
@@ -678,6 +1185,8 @@ def _build_install_manifest(
         "git": _git_status(config.source_checkout),
         "migrations": migration_inventory,
         "sqlite_initialization": sqlite_initialization,
+        "player_log_configuration": player_log_configuration,
+        "config_write": config_write,
         "ai_review": {
             "status": "reserved_only",
             "folders": [
@@ -703,6 +1212,8 @@ def _build_setup_report(
     folder_creation: dict[str, object],
     migration_inventory: dict[str, object],
     sqlite_initialization: dict[str, object],
+    player_log_configuration: dict[str, object],
+    config_write: dict[str, object],
     dependency_install: dict[str, object],
     launch_status: dict[str, str],
     existing_install_handling: dict[str, object],
@@ -725,6 +1236,8 @@ def _build_setup_report(
         "git_checkout": source_status,
         "existing_install_handling": existing_install_handling,
         "sqlite_initialization": sqlite_initialization,
+        "player_log_configuration": player_log_configuration,
+        "config_write": config_write,
         "migration_status": migration_inventory,
         **launch_status,
         "git_artifact_safety": {
@@ -1001,10 +1514,16 @@ def _parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     mode.add_argument("--check", action="store_true", help="Report readiness without creating folders or databases.")
     mode.add_argument("--install", action="store_true", help="Create v1 folders and generated setup artifacts.")
     mode.add_argument("--proof", action="store_true", help="Run the private-local-v1 setup proof orchestration.")
+    mode.add_argument(
+        "--wizard",
+        action="store_true",
+        help="Run the interactive private-local-v1 install wizard; implies install mode and SQLite initialization.",
+    )
     parser.add_argument("--existing-checkout", action="store_true", help="Use the current checkout as source input.")
     parser.add_argument("--source-checkout", type=Path, default=Path.cwd())
     parser.add_argument("--install-root", type=Path)
     parser.add_argument("--initialize-sqlite", action="store_true")
+    parser.add_argument("--player-log-path", type=Path)
     parser.add_argument("--repo-url", default=DEFAULT_REPO_URL)
     parser.add_argument("--release-ref", default=DEFAULT_RELEASE_REF)
     parser.add_argument("--no-open", action="store_true")
@@ -1043,6 +1562,23 @@ def main(argv: Sequence[str] | None = None) -> int:
         else:
             print(f"private-local-v1 setup proof {result['status']}")
         return 0 if result["status"] in {"passed", "degraded"} else 1
+    if args.wizard:
+        prompt_reader = _stderr_prompt_reader if args.json_report else input
+        output_writer = _stderr_output_writer if args.json_report else print
+        result = run_private_local_v1_setup_wizard(
+            PrivateLocalV1WizardConfig(
+                install_root=install_root,
+                source_checkout=args.source_checkout,
+                release_ref=args.release_ref,
+            ),
+            prompt_reader=prompt_reader,
+            output_writer=output_writer,
+        )
+        if args.json_report:
+            print(json.dumps(result, indent=2, sort_keys=True))
+        else:
+            print(f"private-local-v1 setup wizard {result['status']}")
+        return 0 if result["status"] in {"healthy", "degraded"} else 1
 
     mode = "install" if args.install else "check"
     config = PrivateLocalV1Config(
@@ -1051,6 +1587,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         mode=mode,
         release_ref=args.release_ref,
         initialize_sqlite=args.initialize_sqlite,
+        player_log_path=args.player_log_path,
     )
     result = run_private_local_v1_setup(config)
     if args.json_report:
