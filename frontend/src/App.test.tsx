@@ -42,6 +42,7 @@ import {
   MATCH_JOURNAL_OBJECT,
   MATCH_JOURNAL_SCHEMA_VERSION,
   MATCH_HISTORY_OBJECT,
+  MTGA_PROCESS_SCHEMA_VERSION,
   MULLIGAN_HISTORY_OBJECT,
   OPPONENT_CARD_OBSERVATION_REVIEW_OBJECT,
   OPENING_HAND_HISTORY_OBJECT,
@@ -52,6 +53,7 @@ import {
   type Game1PostboardSplitReviewResponse,
   type AnalyticsDashboardModulesResponse,
   type AnalyticsRefreshStateResponse,
+  type AutomationReadiness,
   type ErrorReportPreviewRequest,
   type ErrorReportPreviewResponse,
   type ErrorReportSubmissionResponse,
@@ -70,6 +72,8 @@ import {
   type ManualImportSourceArtifact,
   type MatchJournalResponse,
   type MatchHistoryResponse,
+  type MtgaLifecycle,
+  type MtgaProcessStatus,
   type MulliganHistoryResponse,
   type OpeningHandHistoryResponse,
   type OpponentCardObservationReviewResponse,
@@ -2301,6 +2305,8 @@ function buildLiveWatcherProcessStatusPayload(): LiveWatcherProcessStatusRespons
       single_instance_guard: "not_initialized",
       supervisor_boundary: "local_app_supervisor_deferred"
     },
+    mtga_process: buildMtgaProcessStatus(),
+    automation_readiness: buildAutomationReadiness(),
     player_log: {
       object: LIVE_PLAYER_LOG_STATUS_OBJECT,
       status: "configured_exists",
@@ -2333,6 +2339,70 @@ function buildLiveWatcherProcessStatusPayload(): LiveWatcherProcessStatusRespons
       display_path: "<app_data>\\jobs\\live_watcher_state.json",
       raw_path_exposed: false
     },
+    warnings: [],
+    errors: []
+  };
+}
+
+function buildMtgaProcessStatus(): MtgaProcessStatus {
+  return {
+    object: "mythic_edge_local_app_mtga_process_status",
+    schema_version: MTGA_PROCESS_SCHEMA_VERSION,
+    status: "detected",
+    detected: true,
+    platform: "windows",
+    process_name: "MTGA.exe",
+    evidence: "image_name_match",
+    checked_at: "2026-06-10T12:00:00Z",
+    detector: "windows_tasklist_image_name",
+    warnings: [],
+    errors: [],
+    privacy: {
+      pid_exposed: false,
+      command_line_exposed: false,
+      environment_exposed: false,
+      raw_detector_output_exposed: false
+    }
+  };
+}
+
+function buildAutomationReadiness(): AutomationReadiness {
+  return {
+    schema_version: MTGA_PROCESS_SCHEMA_VERSION,
+    status: "blocked",
+    automatic_start_allowed: false,
+    items: [
+      { key: "manual_start_dashboard", status: "pass" },
+      { key: "manual_stop_dashboard", status: "pass" },
+      { key: "starting_cannot_dead_end", status: "pass" },
+      { key: "capturing_persistent_stop_action", status: "pass" },
+      { key: "stale_capture_recovery_actionable", status: "pass" },
+      { key: "analytics_refresh_after_completed_match", status: "pass" },
+      { key: "mtga_process_detected", status: "pass" },
+      { key: "mtga_disappearance_detected", status: "not_proven" },
+      { key: "reconnect_window_verified", status: "not_proven" },
+      { key: "shutdown_returns_ready_to_start", status: "not_proven" },
+      { key: "shutdown_preserves_completed_facts", status: "not_proven" },
+      { key: "shutdown_privacy_boundary_verified", status: "not_proven" },
+      { key: "readiness_recorded_in_contract_or_report", status: "pass" }
+    ]
+  };
+}
+
+function buildMtgaLifecycle(): MtgaLifecycle {
+  return {
+    schema_version: MTGA_PROCESS_SCHEMA_VERSION,
+    status: "ready_to_start",
+    mtga_process_status: "detected",
+    reconnect_window_seconds: 45,
+    reconnect_started_at: null,
+    reconnect_deadline_at: null,
+    seconds_remaining: null,
+    shutdown_reason: null,
+    last_detected_at: "2026-06-10T12:00:00Z",
+    last_checked_at: "2026-06-10T12:00:00Z",
+    automation_start_allowed: false,
+    automation_readiness: buildAutomationReadiness(),
     warnings: [],
     errors: []
   };
@@ -2411,6 +2481,7 @@ function buildLiveCaptureStatusPayload(overrides: Partial<LiveCaptureStatusRespo
       last_event_seen_at: null,
       last_sqlite_write_at: null
     },
+    mtga_lifecycle: buildMtgaLifecycle(),
     parser_status_blurb: {
       code: "ready_to_start",
       text: "Ready to start capture.",

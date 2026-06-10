@@ -31,6 +31,7 @@ import {
   MATCH_JOURNAL_OBJECT,
   MATCH_JOURNAL_SCHEMA_VERSION,
   MATCH_HISTORY_OBJECT,
+  MTGA_PROCESS_SCHEMA_VERSION,
   MULLIGAN_HISTORY_OBJECT,
   OPPONENT_CARD_OBSERVATION_REVIEW_OBJECT,
   OPENING_HAND_HISTORY_OBJECT,
@@ -212,6 +213,83 @@ const LIVE_WATCHER_PROCESS_PRECONDITION_KEYS = [
 const SAFE_LIVE_CAPTURE_LABEL_PATTERN = /^[a-z][a-z0-9_]{0,79}$/;
 const SAFE_LIVE_CAPTURE_BLURB_TEXT_PATTERN = /^[A-Za-z0-9][A-Za-z0-9 .,;:!?'"()_-]{0,159}$/;
 const ISO_TIMESTAMP_PREFIX_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/;
+const MTGA_PROCESS_STATUS_VALUES = new Set([
+  "detected",
+  "not_detected",
+  "unsupported_platform",
+  "detector_unavailable",
+  "unknown"
+]);
+const MTGA_PROCESS_PLATFORM_VALUES = new Set(["windows", "non_windows", "unknown"]);
+const MTGA_PROCESS_EVIDENCE_VALUES = new Set([
+  "image_name_match",
+  "image_name_absent",
+  "not_checked",
+  "detector_error",
+  "unsupported_platform"
+]);
+const MTGA_PROCESS_DETECTOR_VALUES = new Set(["windows_tasklist_image_name", "not_checked"]);
+const MTGA_PROCESS_CODE_VALUES = new Set([
+  "mtga_not_detected",
+  "mtga_detector_unavailable",
+  "mtga_process_detection_unsupported"
+]);
+const MTGA_LIFECYCLE_STATUS_VALUES = new Set([
+  "ready_to_start",
+  "starting",
+  "capturing",
+  "mtga_unavailable",
+  "reconnect_window",
+  "shutting_down",
+  "stopped",
+  "blocked",
+  "failed",
+  "unknown"
+]);
+const MTGA_SHUTDOWN_REASON_VALUES = new Set([
+  "mtga_unavailable_timeout",
+  "operator_stop_requested",
+  "supervisor_stop_requested",
+  "supervisor_error",
+  "unknown"
+]);
+const MTGA_LIFECYCLE_CODE_VALUES = new Set([
+  "mtga_not_detected",
+  "mtga_reconnect_window_active",
+  "mtga_reconnected",
+  "mtga_unavailable_timeout",
+  "mtga_detector_unavailable",
+  "mtga_process_detection_unsupported",
+  "capture_shutdown_started",
+  "capture_shutdown_completed",
+  "capture_shutdown_failed",
+  "unsafe_state_warning_redacted",
+  "unsafe_state_error_redacted"
+]);
+const AUTOMATION_READINESS_STATUS_VALUES = new Set(["blocked"]);
+const AUTOMATION_READINESS_ITEM_STATUS_VALUES = new Set([
+  "pass",
+  "fail",
+  "blocked",
+  "not_proven",
+  "deferred",
+  "not_applicable"
+]);
+const AUTOMATION_READINESS_ITEM_KEYS = [
+  "manual_start_dashboard",
+  "manual_stop_dashboard",
+  "starting_cannot_dead_end",
+  "capturing_persistent_stop_action",
+  "stale_capture_recovery_actionable",
+  "analytics_refresh_after_completed_match",
+  "mtga_process_detected",
+  "mtga_disappearance_detected",
+  "reconnect_window_verified",
+  "shutdown_returns_ready_to_start",
+  "shutdown_preserves_completed_facts",
+  "shutdown_privacy_boundary_verified",
+  "readiness_recorded_in_contract_or_report"
+] as const;
 
 export class SetupStatusApiError extends Error {
   code: SetupStatusErrorCode;
@@ -939,6 +1017,8 @@ function validateLiveWatcherProcessStatusResponse(payload: unknown): LiveWatcher
     typeof payload.status !== "string" ||
     !isLiveWatcherProcessControl(payload.process_control) ||
     !isLiveWatcherProcessSummary(payload.watcher) ||
+    !isMtgaProcessStatus(payload.mtga_process) ||
+    !isAutomationReadiness(payload.automation_readiness) ||
     !isRecord(payload.player_log) ||
     !isPreconditions(payload.preconditions) ||
     !isLiveWatcherProcessState(payload.state) ||
@@ -1000,6 +1080,7 @@ function validateLiveCaptureStatusResponse(payload: unknown): LiveCaptureStatusR
     !isLiveCaptureState(payload.state) ||
     !isLiveCaptureHeartbeat(payload.heartbeat) ||
     !isLiveCaptureProgress(payload.progress) ||
+    !isMtgaLifecycle(payload.mtga_lifecycle) ||
     !isLiveCaptureParserStatusBlurb(payload.parser_status_blurb) ||
     !isStringArray(payload.warnings) ||
     !isStringArray(payload.errors)
@@ -2058,6 +2139,18 @@ function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((entry) => typeof entry === "string");
 }
 
+function isKnownString(value: unknown, allowedValues: ReadonlySet<string>): value is string {
+  return typeof value === "string" && allowedValues.has(value);
+}
+
+function isKnownStringOrNull(value: unknown, allowedValues: ReadonlySet<string>): value is string | null {
+  return value === null || isKnownString(value, allowedValues);
+}
+
+function isKnownStringArray(value: unknown, allowedValues: ReadonlySet<string>): value is string[] {
+  return Array.isArray(value) && value.every((entry) => isKnownString(entry, allowedValues));
+}
+
 function isLiveCaptureHeartbeat(value: unknown): boolean {
   return (
     isRecord(value) &&
@@ -2215,6 +2308,55 @@ function isLiveWatcherProcessState(value: unknown): boolean {
   );
 }
 
+function isMtgaProcessStatus(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    value.object === "mythic_edge_local_app_mtga_process_status" &&
+    value.schema_version === MTGA_PROCESS_SCHEMA_VERSION &&
+    isKnownString(value.status, MTGA_PROCESS_STATUS_VALUES) &&
+    typeof value.detected === "boolean" &&
+    isKnownString(value.platform, MTGA_PROCESS_PLATFORM_VALUES) &&
+    value.process_name === "MTGA.exe" &&
+    isKnownString(value.evidence, MTGA_PROCESS_EVIDENCE_VALUES) &&
+    typeof value.checked_at === "string" &&
+    isIsoTimestampOrNull(value.checked_at) &&
+    isKnownString(value.detector, MTGA_PROCESS_DETECTOR_VALUES) &&
+    isKnownStringArray(value.warnings, MTGA_PROCESS_CODE_VALUES) &&
+    isKnownStringArray(value.errors, MTGA_PROCESS_CODE_VALUES) &&
+    isRecord(value.privacy) &&
+    value.privacy.pid_exposed === false &&
+    value.privacy.command_line_exposed === false &&
+    value.privacy.environment_exposed === false &&
+    value.privacy.raw_detector_output_exposed === false &&
+    !("pid" in value) &&
+    !("command_line" in value) &&
+    !("environment" in value) &&
+    !("raw_output" in value) &&
+    !("raw_stdout" in value) &&
+    !("raw_stderr" in value)
+  );
+}
+
+function isAutomationReadiness(value: unknown): boolean {
+  if (!isRecord(value) || !Array.isArray(value.items)) {
+    return false;
+  }
+  const keys = value.items.map((entry) => (isRecord(entry) ? entry.key : null));
+  return (
+    value.schema_version === MTGA_PROCESS_SCHEMA_VERSION &&
+    isKnownString(value.status, AUTOMATION_READINESS_STATUS_VALUES) &&
+    value.automatic_start_allowed === false &&
+    keys.length === AUTOMATION_READINESS_ITEM_KEYS.length &&
+    AUTOMATION_READINESS_ITEM_KEYS.every((key, index) => keys[index] === key) &&
+    value.items.every(
+      (entry) =>
+        isRecord(entry) &&
+        typeof entry.key === "string" &&
+        isKnownString(entry.status, AUTOMATION_READINESS_ITEM_STATUS_VALUES)
+    )
+  );
+}
+
 function isLiveCaptureSummary(value: unknown): boolean {
   return (
     isRecord(value) &&
@@ -2259,6 +2401,26 @@ function isLiveCaptureState(value: unknown): boolean {
     value.raw_path_exposed === false &&
     (!("started_at" in value) || isIsoTimestampOrNull(value.started_at)) &&
     (!("updated_at" in value) || isIsoTimestampOrNull(value.updated_at))
+  );
+}
+
+function isMtgaLifecycle(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    value.schema_version === MTGA_PROCESS_SCHEMA_VERSION &&
+    isKnownString(value.status, MTGA_LIFECYCLE_STATUS_VALUES) &&
+    isKnownString(value.mtga_process_status, MTGA_PROCESS_STATUS_VALUES) &&
+    typeof value.reconnect_window_seconds === "number" &&
+    isIsoTimestampOrNull(value.reconnect_started_at) &&
+    isIsoTimestampOrNull(value.reconnect_deadline_at) &&
+    isNumberOrNull(value.seconds_remaining) &&
+    isKnownStringOrNull(value.shutdown_reason, MTGA_SHUTDOWN_REASON_VALUES) &&
+    isIsoTimestampOrNull(value.last_detected_at) &&
+    isIsoTimestampOrNull(value.last_checked_at) &&
+    value.automation_start_allowed === false &&
+    isAutomationReadiness(value.automation_readiness) &&
+    isKnownStringArray(value.warnings, MTGA_LIFECYCLE_CODE_VALUES) &&
+    isKnownStringArray(value.errors, MTGA_LIFECYCLE_CODE_VALUES)
   );
 }
 

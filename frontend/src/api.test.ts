@@ -66,6 +66,7 @@ import {
   MATCH_JOURNAL_OBJECT,
   MATCH_JOURNAL_SCHEMA_VERSION,
   MATCH_HISTORY_OBJECT,
+  MTGA_PROCESS_SCHEMA_VERSION,
   MULLIGAN_HISTORY_OBJECT,
   OPPONENT_CARD_OBSERVATION_REVIEW_OBJECT,
   OPENING_HAND_HISTORY_OBJECT,
@@ -76,6 +77,7 @@ import {
   type Game1PostboardSplitReviewResponse,
   type AnalyticsDashboardModulesResponse,
   type AnalyticsRefreshStateResponse,
+  type AutomationReadiness,
   type ErrorReportPreviewResponse,
   type ErrorReportSubmissionResponse,
   type GameHistoryResponse,
@@ -91,6 +93,7 @@ import {
   type MulliganHistoryResponse,
   type OpeningHandHistoryResponse,
   type MatchHistoryResponse,
+  type MtgaProcessStatus,
   type OpponentCardObservationReviewResponse,
   type PlayDrawSplitReviewResponse,
   type SetupStatusResponse
@@ -306,6 +309,19 @@ describe("api helpers", () => {
       code: "malformed_response"
     });
 
+    const unsafeMtgaProcessFetch = vi.fn(async () =>
+      jsonResponse({
+        ...buildLiveWatcherProcessStatusPayload(),
+        mtga_process: {
+          ...buildMtgaProcessStatus(),
+          raw_stdout: "MTGA.exe 123 Console"
+        }
+      })
+    ) as unknown as typeof fetch;
+    await expect(fetchLiveWatcherProcessStatus(unsafeMtgaProcessFetch)).rejects.toMatchObject({
+      code: "malformed_response"
+    });
+
     const unsafeDiagnosticsFetch = vi.fn(async () =>
       jsonResponse({
         ...buildLiveWatcherDiagnosticsPayload(),
@@ -371,6 +387,122 @@ describe("api helpers", () => {
     await expect(fetchLiveCaptureStatus(unsafeProgressFetch)).rejects.toMatchObject({
       code: "malformed_response"
     });
+
+    const unsafeLifecycleFetch = vi.fn(async () =>
+      jsonResponse({
+        ...buildLiveCaptureStatusPayload(),
+        mtga_lifecycle: {
+          ...buildLiveCaptureStatusPayload().mtga_lifecycle,
+          automation_start_allowed: true
+        }
+      })
+    ) as unknown as typeof fetch;
+    await expect(fetchLiveCaptureStatus(unsafeLifecycleFetch)).rejects.toMatchObject({
+      code: "malformed_response"
+    });
+  });
+
+  it("rejects non-contract MTGA process labels safely", async () => {
+    const processCases: Array<[string, Partial<MtgaProcessStatus>]> = [
+      ["status", { status: "operator_custom_status" }],
+      ["platform", { platform: "operator_workstation" }],
+      ["evidence", { evidence: "raw_tasklist_output" }],
+      ["detector", { detector: "custom_detector" }],
+      ["warnings", { warnings: [String.raw`C:\operator\AppData\Local\MTGA\Player.log`] }],
+      ["errors", { errors: ["operator_secret_error"] }]
+    ];
+
+    for (const [field, override] of processCases) {
+      const fetchImpl = vi.fn(async () =>
+        jsonResponse({
+          ...buildLiveWatcherProcessStatusPayload(),
+          mtga_process: {
+            ...buildMtgaProcessStatus(),
+            ...override
+          }
+        })
+      ) as unknown as typeof fetch;
+
+      await expect(fetchLiveWatcherProcessStatus(fetchImpl), field).rejects.toMatchObject({
+        code: "malformed_response"
+      });
+    }
+  });
+
+  it("rejects non-contract automation readiness labels and incomplete checklists", async () => {
+    const readiness = buildAutomationReadiness();
+    const readinessCases: Array<[string, AutomationReadiness]> = [
+      ["status", { ...readiness, status: "ready" }],
+      [
+        "item key",
+        {
+          ...readiness,
+          items: readiness.items.map((entry, index) =>
+            index === 0 ? { ...entry, key: String.raw`C:\operator\AppData\Local\MTGA` } : entry
+          )
+        }
+      ],
+      [
+        "item status",
+        {
+          ...readiness,
+          items: readiness.items.map((entry, index) =>
+            index === 0 ? { ...entry, status: "custom_status" } : entry
+          )
+        }
+      ],
+      ["missing checklist item", { ...readiness, items: readiness.items.slice(0, -1) }]
+    ];
+
+    for (const [field, automation_readiness] of readinessCases) {
+      const fetchImpl = vi.fn(async () =>
+        jsonResponse({
+          ...buildLiveWatcherProcessStatusPayload(),
+          automation_readiness
+        })
+      ) as unknown as typeof fetch;
+
+      await expect(fetchLiveWatcherProcessStatus(fetchImpl), field).rejects.toMatchObject({
+        code: "malformed_response"
+      });
+    }
+  });
+
+  it("rejects non-contract MTGA lifecycle labels safely", async () => {
+    const lifecycleCases: Array<[string, Partial<LiveCaptureStatusResponse["mtga_lifecycle"]>]> = [
+      ["status", { status: "operator_custom_status" }],
+      ["mtga_process_status", { mtga_process_status: "maybe_running" }],
+      ["shutdown_reason", { shutdown_reason: "operator_custom_shutdown" }],
+      ["warnings", { warnings: [String.raw`C:\operator\AppData\Local\MTGA\Player.log`] }],
+      ["errors", { errors: ["operator_secret_error"] }],
+      [
+        "automation_readiness",
+        {
+          automation_readiness: {
+            ...buildAutomationReadiness(),
+            items: buildAutomationReadiness().items.map((entry, index) =>
+              index === 0 ? { ...entry, status: "custom_status" } : entry
+            )
+          }
+        }
+      ]
+    ];
+
+    for (const [field, override] of lifecycleCases) {
+      const fetchImpl = vi.fn(async () =>
+        jsonResponse({
+          ...buildLiveCaptureStatusPayload(),
+          mtga_lifecycle: {
+            ...buildLiveCaptureStatusPayload().mtga_lifecycle,
+            ...override
+          }
+        })
+      ) as unknown as typeof fetch;
+
+      await expect(fetchLiveCaptureStatus(fetchImpl), field).rejects.toMatchObject({
+        code: "malformed_response"
+      });
+    }
   });
 
   it("classifies missing required schema fields as malformed responses", async () => {
@@ -1094,6 +1226,8 @@ function buildLiveWatcherProcessStatusPayload(): LiveWatcherProcessStatusRespons
       single_instance_guard: "not_initialized",
       supervisor_boundary: "local_app_supervisor_deferred"
     },
+    mtga_process: buildMtgaProcessStatus(),
+    automation_readiness: buildAutomationReadiness(),
     player_log: {
       object: LIVE_PLAYER_LOG_STATUS_OBJECT,
       status: "configured_exists",
@@ -1128,6 +1262,51 @@ function buildLiveWatcherProcessStatusPayload(): LiveWatcherProcessStatusRespons
     },
     warnings: [],
     errors: []
+  };
+}
+
+function buildMtgaProcessStatus(): MtgaProcessStatus {
+  return {
+    object: "mythic_edge_local_app_mtga_process_status" as const,
+    schema_version: MTGA_PROCESS_SCHEMA_VERSION,
+    status: "detected",
+    detected: true,
+    platform: "windows",
+    process_name: "MTGA.exe" as const,
+    evidence: "image_name_match",
+    checked_at: "2026-06-10T12:00:00Z",
+    detector: "windows_tasklist_image_name",
+    warnings: [],
+    errors: [],
+    privacy: {
+      pid_exposed: false,
+      command_line_exposed: false,
+      environment_exposed: false,
+      raw_detector_output_exposed: false
+    }
+  };
+}
+
+function buildAutomationReadiness(): AutomationReadiness {
+  return {
+    schema_version: MTGA_PROCESS_SCHEMA_VERSION,
+    status: "blocked",
+    automatic_start_allowed: false as const,
+    items: [
+      { key: "manual_start_dashboard", status: "pass" },
+      { key: "manual_stop_dashboard", status: "pass" },
+      { key: "starting_cannot_dead_end", status: "pass" },
+      { key: "capturing_persistent_stop_action", status: "pass" },
+      { key: "stale_capture_recovery_actionable", status: "pass" },
+      { key: "analytics_refresh_after_completed_match", status: "pass" },
+      { key: "mtga_process_detected", status: "pass" },
+      { key: "mtga_disappearance_detected", status: "not_proven" },
+      { key: "reconnect_window_verified", status: "not_proven" },
+      { key: "shutdown_returns_ready_to_start", status: "not_proven" },
+      { key: "shutdown_preserves_completed_facts", status: "not_proven" },
+      { key: "shutdown_privacy_boundary_verified", status: "not_proven" },
+      { key: "readiness_recorded_in_contract_or_report", status: "pass" }
+    ]
   };
 }
 
@@ -1203,6 +1382,22 @@ function buildLiveCaptureStatusPayload(overrides: Partial<LiveCaptureStatusRespo
       last_no_write_reason: "not_started",
       last_event_seen_at: null,
       last_sqlite_write_at: null
+    },
+    mtga_lifecycle: {
+      schema_version: MTGA_PROCESS_SCHEMA_VERSION,
+      status: "ready_to_start",
+      mtga_process_status: "detected",
+      reconnect_window_seconds: 45,
+      reconnect_started_at: null,
+      reconnect_deadline_at: null,
+      seconds_remaining: null,
+      shutdown_reason: null,
+      last_detected_at: "2026-06-10T12:00:00Z",
+      last_checked_at: "2026-06-10T12:00:00Z",
+      automation_start_allowed: false,
+      automation_readiness: buildAutomationReadiness(),
+      warnings: [],
+      errors: []
     },
     parser_status_blurb: {
       code: "ready_to_start",

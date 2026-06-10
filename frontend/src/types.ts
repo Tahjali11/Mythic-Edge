@@ -5,6 +5,7 @@ export const LIVE_PLAYER_LOG_STATUS_OBJECT = "mythic_edge_local_app_live_player_
 export const LIVE_WATCHER_STATUS_OBJECT = "mythic_edge_local_app_live_watcher_status";
 export const LIVE_WATCHER_PROCESS_SCHEMA_VERSION = "live_app_player_log_watcher_process_control_safeguards.v1";
 export const LIVE_WATCHER_PROCESS_OBJECT = "mythic_edge_local_app_live_watcher_process_status";
+export const MTGA_PROCESS_SCHEMA_VERSION = "live_app_mtga_process_detection_shutdown_readiness_gate.v1";
 export const LIVE_WATCHER_DIAGNOSTICS_SCHEMA_VERSION = "live_app_watcher_diagnostics.v1";
 export const LIVE_WATCHER_DIAGNOSTICS_OBJECT = "mythic_edge_local_app_live_watcher_diagnostics";
 export const LIVE_CAPTURE_SCHEMA_VERSION = "live_app_explicit_start_capture_control.v1";
@@ -148,12 +149,44 @@ export type LiveWatcherProcessPrecondition = {
   reason: string | null;
 };
 
+export type MtgaProcessStatus = {
+  object: "mythic_edge_local_app_mtga_process_status";
+  schema_version: typeof MTGA_PROCESS_SCHEMA_VERSION;
+  status: string;
+  detected: boolean;
+  platform: string;
+  process_name: "MTGA.exe";
+  evidence: string;
+  checked_at: string;
+  detector: string;
+  warnings: string[];
+  errors: string[];
+  privacy: {
+    pid_exposed: false;
+    command_line_exposed: false;
+    environment_exposed: false;
+    raw_detector_output_exposed: false;
+  };
+};
+
+export type AutomationReadiness = {
+  schema_version: typeof MTGA_PROCESS_SCHEMA_VERSION;
+  status: string;
+  automatic_start_allowed: false;
+  items: Array<{
+    key: string;
+    status: string;
+  }>;
+};
+
 export type LiveWatcherProcessStatusResponse = {
   object: typeof LIVE_WATCHER_PROCESS_OBJECT;
   schema_version: typeof LIVE_WATCHER_PROCESS_SCHEMA_VERSION;
   status: string;
   process_control: LiveWatcherProcessControl;
   watcher: LiveWatcherProcessSummary;
+  mtga_process: MtgaProcessStatus;
+  automation_readiness: AutomationReadiness;
   player_log: SectionStatus;
   preconditions: LiveWatcherProcessPrecondition[];
   state: LiveWatcherProcessState;
@@ -280,6 +313,23 @@ export type LiveCaptureParserStatusBlurb = {
   tone: string;
 };
 
+export type MtgaLifecycle = {
+  schema_version: typeof MTGA_PROCESS_SCHEMA_VERSION;
+  status: string;
+  mtga_process_status: string;
+  reconnect_window_seconds: number;
+  reconnect_started_at: string | null;
+  reconnect_deadline_at: string | null;
+  seconds_remaining: number | null;
+  shutdown_reason: string | null;
+  last_detected_at: string | null;
+  last_checked_at: string | null;
+  automation_start_allowed: false;
+  automation_readiness: AutomationReadiness;
+  warnings: string[];
+  errors: string[];
+};
+
 export type LiveCaptureStatusResponse = {
   object: typeof LIVE_CAPTURE_STATUS_OBJECT;
   schema_version: typeof LIVE_CAPTURE_SCHEMA_VERSION;
@@ -315,6 +365,7 @@ export type LiveCaptureStatusResponse = {
   last_result: unknown;
   heartbeat: LiveCaptureHeartbeat;
   progress: LiveCaptureProgress;
+  mtga_lifecycle: MtgaLifecycle;
   parser_status_blurb: LiveCaptureParserStatusBlurb;
   warnings: string[];
   errors: string[];
