@@ -104,6 +104,21 @@ operator artifacts.
 The repo keeps a blank `.env.example` template. Real `.env*` files are local
 only.
 
+## License And Open-Core Boundary
+
+Mythic Edge's committed public/local source is licensed under the Apache
+License 2.0. See [LICENSE](LICENSE) for the license text and
+[LICENSE_POLICY.md](LICENSE_POLICY.md) for the project-specific open-core
+boundary.
+
+The local parser, local analytics, local app, setup tooling, tests, and docs
+are the local open core. Generated/private/local artifacts are not source and
+must not be committed.
+
+Future hosted services may be separate from the local open core. This license
+section is not legal advice, public release readiness, production readiness, or
+a hosted-service promise.
+
 ## Development
 
 Contributor and Codex workflow instructions live in:
