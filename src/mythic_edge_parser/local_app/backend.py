@@ -20,8 +20,9 @@ from .analytics_history import (
     build_opponent_card_observation_review,
     build_play_draw_split_review,
 )
+from .analytics_refresh_state import build_analytics_refresh_state
 from .config import load_local_app_config_status
-from .error_reports import build_error_report_preview
+from .error_reports import GitHubIssueSubmitter, build_error_report_preview, build_error_report_submission
 from .import_jobs import (
     BrowserJsonlUploadFile,
     get_import_job,
@@ -29,6 +30,7 @@ from .import_jobs import (
     run_browser_jsonl_upload_import,
     run_manual_jsonl_import,
 )
+from .live_capture_control import build_live_capture_status, start_live_capture, stop_live_capture
 from .live_watcher_diagnostics import build_live_watcher_diagnostics_status
 from .live_watcher_process import build_live_watcher_process_status
 from .match_journal_cockpit import (
@@ -55,6 +57,7 @@ LOOPBACK_HOSTS = {"127.0.0.1", "localhost"}
 HISTORY_QUERY_PARAM_INVALID = "analytics_history_query_parameter_invalid"
 HISTORY_QUERY_PARAM_NOT_ALLOWED = "analytics_history_query_parameter_not_allowed"
 DASHBOARD_QUERY_PARAM_NOT_ALLOWED = "analytics_dashboard_query_parameter_not_allowed"
+REFRESH_STATE_QUERY_PARAM_NOT_ALLOWED = "analytics_refresh_state_query_parameter_not_allowed"
 
 
 def create_app(
@@ -63,6 +66,7 @@ def create_app(
     frontend_origins: Sequence[str] | None = None,
     env: Mapping[str, str] = os.environ,
     match_journal_service_factory: JournalServiceFactory | None = None,
+    error_report_submitter: GitHubIssueSubmitter | None = None,
 ) -> FastAPI:
     local_app_paths = build_local_app_paths(app_data_root, env=env)
     resolved_app_data_root = local_app_paths.app_data_root
@@ -124,6 +128,18 @@ def create_app(
     def live_ingest_status() -> dict[str, object]:
         return build_live_sqlite_capture_status(local_app_paths)
 
+    @app.get("/api/live/capture/status")
+    def live_capture_status() -> dict[str, object]:
+        return build_live_capture_status(local_app_paths)
+
+    @app.post("/api/live/capture/start")
+    def live_capture_start() -> dict[str, object]:
+        return start_live_capture(local_app_paths)
+
+    @app.post("/api/live/capture/stop")
+    def live_capture_stop() -> dict[str, object]:
+        return stop_live_capture(local_app_paths)
+
     @app.get("/api/analytics/matches")
     def analytics_match_history(request: Request) -> dict[str, object]:
         limit, offset = _history_pagination(request)
@@ -169,6 +185,11 @@ def create_app(
         _reject_dashboard_query_params(request)
         return build_analytics_dashboard_modules(local_app_paths)
 
+    @app.get("/api/analytics/refresh-state")
+    def analytics_refresh_state(request: Request) -> dict[str, object]:
+        _reject_refresh_state_query_params(request)
+        return build_analytics_refresh_state(local_app_paths)
+
     @app.get("/api/runtime/status")
     def runtime_state() -> dict[str, object]:
         return build_runtime_state()
@@ -176,6 +197,10 @@ def create_app(
     @app.post("/api/feedback/error-report/preview")
     def error_report_preview(request: object = Body(...)) -> dict[str, object]:
         return build_error_report_preview(request, local_app_paths)
+
+    @app.post("/api/feedback/error-report/submit")
+    def error_report_submit(request: object = Body(...)) -> dict[str, object]:
+        return build_error_report_submission(request, local_app_paths, submitter=error_report_submitter)
 
     @app.get("/api/journal")
     async def match_journal(request: Request) -> object:
@@ -280,6 +305,11 @@ def _reject_unknown_history_query_params(request: Request) -> None:
 def _reject_dashboard_query_params(request: Request) -> None:
     if request.query_params:
         raise HTTPException(status_code=422, detail={"error": DASHBOARD_QUERY_PARAM_NOT_ALLOWED})
+
+
+def _reject_refresh_state_query_params(request: Request) -> None:
+    if request.query_params:
+        raise HTTPException(status_code=422, detail={"error": REFRESH_STATE_QUERY_PARAM_NOT_ALLOWED})
 
 
 def _history_pagination(request: Request) -> tuple[int, int]:

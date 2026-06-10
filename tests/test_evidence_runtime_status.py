@@ -288,6 +288,31 @@ def test_privacy_findings_are_path_only_and_do_not_echo_raw_values() -> None:
     assert "Player.log" not in encoded
 
 
+def test_runtime_artifact_url_detection_uses_exact_hosts_without_substring_trust() -> None:
+    trusted_report = _runtime_report()
+    trusted_report["status_reasons"] = ["runtime endpoint https://script.google.com/macros/s/synthetic-token/exec"]
+    trusted_health = evidence_runtime_status.build_evidence_ledger_health_status(
+        runtime_field_evidence_report=trusted_report,
+    )
+    trusted_encoded = json.dumps(trusted_health, sort_keys=True)
+
+    assert trusted_health["privacy"]["runtime_artifacts_included"] is True
+    assert "synthetic-token" not in trusted_encoded
+
+    adversarial_report = _runtime_report()
+    adversarial_report["status_reasons"] = ["lookalike https://script.google.com.evil.example/macros/s/token/exec"]
+    adversarial_health = evidence_runtime_status.build_evidence_ledger_health_status(
+        runtime_field_evidence_report=adversarial_report,
+    )
+    adversarial_encoded = json.dumps(adversarial_health, sort_keys=True)
+
+    assert "runtime_field_evidence_report.status_reasons[0]" in (
+        adversarial_health["privacy"]["forbidden_content_findings"]
+    )
+    assert adversarial_health["privacy"]["runtime_artifacts_included"] is False
+    assert "evil.example" not in adversarial_encoded
+
+
 def test_complete_local_paths_are_redacted_from_copied_status_strings() -> None:
     posix_path = "/Users/example/private/Player.log"
     windows_path = r"C:\Users\Jane Doe\AppData\Local\Player.log"

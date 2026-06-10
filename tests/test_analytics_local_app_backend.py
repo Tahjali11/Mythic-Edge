@@ -3,8 +3,11 @@ from __future__ import annotations
 import inspect
 import json
 import os
+import subprocess
 import time
+from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 from mythic_edge_parser.local_app import live_watcher_diagnostics
@@ -26,6 +29,41 @@ def _client(app_data_root) -> TestClient:
     return TestClient(create_app(app_data_root=app_data_root))
 
 
+class _FakeErrorReportSubmitter:
+    def __init__(
+        self,
+        *,
+        labels: set[str] | None = None,
+        issue_url: str = "https://github.com/Tahjali11/Mythic-Edge/issues/999",
+        raise_status: str | None = None,
+        create_raise_status: str | None = None,
+    ) -> None:
+        self.labels = labels or {"bug", "enhancement", "question", "workflow:problem", "layer:dashboard"}
+        self.issue_url = issue_url
+        self.raise_status = raise_status
+        self.create_raise_status = create_raise_status
+        self.created: list[dict[str, object]] = []
+
+    def available_labels(self) -> set[str]:
+        if self.raise_status:
+            from mythic_edge_parser.local_app.error_reports import GitHubSubmitterError
+
+            raise GitHubSubmitterError(self.raise_status)
+        return set(self.labels)
+
+    def create_issue(self, *, title: str, body: str, labels: list[str]) -> tuple[str | None, int | None]:
+        if self.create_raise_status:
+            from mythic_edge_parser.local_app.error_reports import GitHubSubmitterError
+
+            raise GitHubSubmitterError(self.create_raise_status)
+        self.created.append({"title": title, "body": body, "labels": labels})
+        return self.issue_url, 999
+
+
+def _client_with_error_report_submitter(app_data_root, submitter: _FakeErrorReportSubmitter) -> TestClient:
+    return TestClient(create_app(app_data_root=app_data_root, error_report_submitter=submitter))
+
+
 def _preconditions_by_key(payload: dict[str, object]) -> dict[str, dict[str, object]]:
     preconditions = payload["preconditions"]
     assert isinstance(preconditions, list)
@@ -38,6 +76,7 @@ def _preconditions_by_key(payload: dict[str, object]) -> dict[str, dict[str, obj
 def _valid_error_report_request(**overrides: object) -> dict[str, object]:
     request = {
         "summary": "Dashboard status did not refresh",
+        "report_type": "bug",
         "expected_behavior": "The local app should show the latest safe status labels.",
         "actual_behavior": "The dashboard kept the previous labels after I refreshed the page.",
         "reproduction_steps": "1. Open the local app.\n2. Refresh the dashboard.\n3. Compare the status labels.",
@@ -94,8 +133,10 @@ def test_read_only_endpoint_inventory_and_no_wildcard_cors(tmp_path) -> None:
         "/api/analytics/play-draw-splits",
         "/api/analytics/game1-postboard-splits",
         "/api/analytics/dashboard/modules",
+        "/api/analytics/refresh-state",
         "/api/runtime/status",
         "/api/feedback/error-report/preview",
+        "/api/feedback/error-report/submit",
         "/api/imports/jsonl",
         "/api/imports/jsonl/upload",
         "/api/imports/jobs/{job_id}",
@@ -322,8 +363,8 @@ def test_error_report_preview_returns_sanitized_markdown_without_writes(tmp_path
     assert response.status_code == 200
     assert payload["schema"] == "quality_app_submit_error_report_codex_triage.v1"
     assert payload["status"] == "preview_ready"
-    assert payload["issue_title"].startswith("[error-report] [local_app_ui]")
-    assert payload["external_submission_enabled"] is False
+    assert payload["issue_title"].startswith("[error-report] [bug] [local_app_ui]")
+    assert payload["external_submission_enabled"] is True
     assert "backend_health" in payload["included_diagnostic_categories"]
     assert "privacy_boundary" in payload["included_diagnostic_categories"]
     assert "raw Player.log contents or raw log lines" in payload["excluded_private_data"]
@@ -373,18 +414,296 @@ def test_error_report_preview_blocks_endpoint_like_user_text_without_echoing_val
     assert endpoint_value not in encoded
 
 
-def test_error_report_preview_rejects_invalid_request_and_has_no_submit_route(tmp_path) -> None:
+def test_error_report_preview_rejects_invalid_request(tmp_path) -> None:
     client = _client(tmp_path / "app-data")
 
     invalid_response = client.post(
         "/api/feedback/error-report/preview",
         json=_valid_error_report_request(affected_area="workbook", summary=""),
     )
-    submit_response = client.post("/api/feedback/error-report/submit", json=_valid_error_report_request())
 
     assert invalid_response.status_code == 200
     assert invalid_response.json()["status"] == "invalid_request"
-    assert submit_response.status_code == 404
+
+
+def test_error_report_submit_rebuilds_preview_and_uses_mocked_github_cli_boundary(tmp_path) -> None:
+    submitter = _FakeErrorReportSubmitter()
+    client = _client_with_error_report_submitter(tmp_path / "app-data", submitter)
+
+    response = client.post("/api/feedback/error-report/submit", json=_valid_error_report_request())
+    payload = response.json()
+    encoded = json.dumps(payload, sort_keys=True)
+
+    assert response.status_code == 200
+    assert payload["object"] == "mythic_edge_local_app_error_report_submission"
+    assert payload["schema_version"] == "quality_app_error_report_github_submission.v1"
+    assert payload["status"] == "submitted"
+    assert payload["submitted"] is True
+    assert payload["issue_url"] == "https://github.com/Tahjali11/Mythic-Edge/issues/999"
+    assert payload["issue_number"] == 999
+    assert payload["fallback_available"] is True
+    assert payload["labels"] == ["bug", "layer:dashboard", "workflow:problem"]
+    assert submitter.created == [
+        {
+            "title": payload["issue_title"],
+            "body": payload["issue_body_markdown"],
+            "labels": ["bug", "layer:dashboard", "workflow:problem"],
+        }
+    ]
+    assert "secret-like-value" not in encoded
+    assert str(tmp_path) not in encoded
+
+
+def test_error_report_submit_blocks_privacy_guard_without_calling_github(tmp_path) -> None:
+    submitter = _FakeErrorReportSubmitter()
+    client = _client_with_error_report_submitter(tmp_path / "app-data", submitter)
+    endpoint_value = "https://" + "example.invalid/hook"
+
+    response = client.post(
+        "/api/feedback/error-report/submit",
+        json=_valid_error_report_request(actual_behavior=f"The report form displayed endpoint {endpoint_value}."),
+    )
+    payload = response.json()
+    encoded = json.dumps(payload, sort_keys=True)
+
+    assert response.status_code == 200
+    assert payload["status"] == "blocked_privacy_guard"
+    assert payload["submitted"] is False
+    assert payload["fallback_available"] is False
+    assert submitter.created == []
+    assert endpoint_value not in encoded
+
+
+def test_error_report_submit_degrades_to_fallback_labels_for_feedback_and_features(tmp_path) -> None:
+    submitter = _FakeErrorReportSubmitter()
+    client = _client_with_error_report_submitter(tmp_path / "app-data", submitter)
+
+    feedback = client.post(
+        "/api/feedback/error-report/submit",
+        json={
+            "summary": "Status copy is confusing",
+            "report_type": "feedback",
+            "feedback": "The live capture status should explain ready versus active.",
+            "affected_area": "local_app_ui",
+            "severity": "question",
+            "current_frontend_surface": "feedback",
+        },
+    ).json()
+    feature = client.post(
+        "/api/feedback/error-report/submit",
+        json={
+            "summary": "Add a report queue",
+            "report_type": "feature_request",
+            "feature_goal": "Track submitted local-app reports.",
+            "feature_location": "Feedback route.",
+            "feature_success": "Show the last submitted issue URL for the current session.",
+            "affected_area": "local_app_ui",
+            "severity": "question",
+            "current_frontend_surface": "feedback",
+        },
+    ).json()
+
+    assert feedback["status"] == "submitted"
+    assert feedback["labels"] == ["layer:dashboard", "question", "workflow:problem"]
+    assert feature["status"] == "submitted"
+    assert feature["labels"] == ["enhancement", "layer:dashboard", "workflow:problem"]
+
+
+def test_error_report_submit_returns_safe_fallback_for_github_tool_failures(tmp_path) -> None:
+    missing_gh_client = _client_with_error_report_submitter(
+        tmp_path / "app-data",
+        _FakeErrorReportSubmitter(raise_status="blocked_missing_gh"),
+    )
+    unauthenticated_client = _client_with_error_report_submitter(
+        tmp_path / "app-data-unauthenticated",
+        _FakeErrorReportSubmitter(raise_status="blocked_gh_unauthenticated"),
+    )
+    wrong_repo_client = _client_with_error_report_submitter(
+        tmp_path / "app-data-wrong-repo",
+        _FakeErrorReportSubmitter(issue_url="https://github.com/Other/Repo/issues/999"),
+    )
+    failed_client = _client_with_error_report_submitter(
+        tmp_path / "app-data-failed",
+        _FakeErrorReportSubmitter(create_raise_status="submission_failed"),
+    )
+    missing_label_client = _client_with_error_report_submitter(
+        tmp_path / "app-data-labels",
+        _FakeErrorReportSubmitter(labels={"bug"}),
+    )
+
+    missing_gh = missing_gh_client.post("/api/feedback/error-report/submit", json=_valid_error_report_request()).json()
+    unauthenticated = unauthenticated_client.post(
+        "/api/feedback/error-report/submit",
+        json=_valid_error_report_request(),
+    ).json()
+    wrong_repo = wrong_repo_client.post("/api/feedback/error-report/submit", json=_valid_error_report_request()).json()
+    failed = failed_client.post("/api/feedback/error-report/submit", json=_valid_error_report_request()).json()
+    missing_labels = missing_label_client.post(
+        "/api/feedback/error-report/submit",
+        json=_valid_error_report_request(),
+    ).json()
+
+    assert missing_gh["status"] == "blocked_missing_gh"
+    assert missing_gh["submitted"] is False
+    assert missing_gh["fallback_available"] is True
+    assert missing_gh["issue_body_markdown"].startswith("# [error-report]")
+    assert unauthenticated["status"] == "blocked_gh_unauthenticated"
+    assert unauthenticated["submitted"] is False
+    assert unauthenticated["fallback_available"] is True
+    assert wrong_repo["status"] == "blocked_wrong_repo"
+    assert wrong_repo["issue_url"] is None
+    assert wrong_repo["errors"] == ["unexpected_issue_url"]
+    assert failed["status"] == "submission_failed"
+    assert failed["errors"] == ["submission_failed"]
+    assert missing_labels["status"] == "blocked_label_unavailable"
+    assert missing_labels["submitted"] is False
+    assert missing_labels["fallback_available"] is True
+
+
+def test_real_gh_cli_submitter_checks_auth_and_labels_with_argument_lists(monkeypatch) -> None:
+    from mythic_edge_parser.local_app import error_reports
+
+    gh_path = "C:\\Tools\\gh.exe"
+    commands: list[list[str]] = []
+
+    def fake_which(name: str) -> str | None:
+        return gh_path if name == "gh" else None
+
+    def fake_run(command: list[str], *, capture_output: bool, shell: bool, text: bool, timeout: int):
+        commands.append(command)
+        assert capture_output is True
+        assert shell is False
+        assert text is True
+        assert timeout == 3
+        if command[1:4] == ["auth", "status", "--hostname"]:
+            return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+        if command[1:3] == ["label", "list"]:
+            stdout = "bug\tBug\nworkflow:problem\tProblem\nlayer:dashboard\tDashboard\n"
+            return subprocess.CompletedProcess(command, 0, stdout=stdout, stderr="")
+        raise AssertionError(f"Unexpected gh command: {command!r}")
+
+    monkeypatch.setattr(error_reports.shutil, "which", fake_which)
+    monkeypatch.setattr(error_reports.subprocess, "run", fake_run)
+
+    labels = error_reports.GhCliIssueSubmitter(timeout_seconds=3).available_labels()
+
+    assert labels == {"bug", "workflow:problem", "layer:dashboard"}
+    assert commands == [
+        [gh_path, "auth", "status", "--hostname", "github.com"],
+        [gh_path, "label", "list", "--repo", "Tahjali11/Mythic-Edge", "--limit", "100"],
+    ]
+
+
+def test_real_gh_cli_submitter_creates_issue_with_argument_list_and_temp_body_cleanup(monkeypatch) -> None:
+    from mythic_edge_parser.local_app import error_reports
+
+    gh_path = "C:\\Tools\\gh.exe"
+    body = "# Synthetic sanitized report\n\nNo private artifacts."
+    captured_body_path: Path | None = None
+    captured_command: list[str] | None = None
+
+    def fake_which(name: str) -> str | None:
+        return gh_path if name == "gh" else None
+
+    def fake_run(command: list[str], *, capture_output: bool, shell: bool, text: bool, timeout: int):
+        nonlocal captured_body_path, captured_command
+        assert capture_output is True
+        assert shell is False
+        assert text is True
+        assert timeout == 3
+        captured_command = command
+        body_path = Path(command[command.index("--body-file") + 1])
+        captured_body_path = body_path
+        assert body_path.name == "issue-body.md"
+        assert body_path.exists()
+        assert body_path.read_text(encoding="utf-8") == body
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout="https://github.com/Tahjali11/Mythic-Edge/issues/1000\n",
+            stderr="raw tool output must not be returned",
+        )
+
+    monkeypatch.setattr(error_reports.shutil, "which", fake_which)
+    monkeypatch.setattr(error_reports.subprocess, "run", fake_run)
+
+    issue_url, issue_number = error_reports.GhCliIssueSubmitter(timeout_seconds=3).create_issue(
+        title="[error-report] Synthetic",
+        body=body,
+        labels=["bug", "layer:dashboard", "workflow:problem"],
+    )
+
+    assert issue_url == "https://github.com/Tahjali11/Mythic-Edge/issues/1000"
+    assert issue_number == 1000
+    assert captured_command == [
+        gh_path,
+        "issue",
+        "create",
+        "--repo",
+        "Tahjali11/Mythic-Edge",
+        "--title",
+        "[error-report] Synthetic",
+        "--body-file",
+        str(captured_body_path),
+        "--label",
+        "bug",
+        "--label",
+        "layer:dashboard",
+        "--label",
+        "workflow:problem",
+    ]
+    assert captured_body_path is not None
+    assert not captured_body_path.exists()
+
+
+def test_real_gh_cli_submitter_maps_tool_failures_and_cleans_temp_body(monkeypatch) -> None:
+    from mythic_edge_parser.local_app import error_reports
+
+    gh_path = "C:\\Tools\\gh.exe"
+    captured_failure_body_path: Path | None = None
+
+    monkeypatch.setattr(error_reports.shutil, "which", lambda name: None)
+    with pytest.raises(error_reports.GitHubSubmitterError) as missing_gh:
+        error_reports.GhCliIssueSubmitter(timeout_seconds=3).available_labels()
+    assert missing_gh.value.status == "blocked_missing_gh"
+
+    monkeypatch.setattr(error_reports.shutil, "which", lambda name: gh_path if name == "gh" else None)
+
+    def fake_unauthenticated_run(command: list[str], **_kwargs: object):
+        return subprocess.CompletedProcess(command, 1, stdout="", stderr="do not echo auth output")
+
+    monkeypatch.setattr(error_reports.subprocess, "run", fake_unauthenticated_run)
+    with pytest.raises(error_reports.GitHubSubmitterError) as unauthenticated:
+        error_reports.GhCliIssueSubmitter(timeout_seconds=3).available_labels()
+    assert unauthenticated.value.status == "blocked_gh_unauthenticated"
+
+    def fake_wrong_repo_run(command: list[str], **_kwargs: object):
+        if command[1:3] == ["auth", "status"]:
+            return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+        return subprocess.CompletedProcess(command, 1, stdout="", stderr="do not echo repo output")
+
+    monkeypatch.setattr(error_reports.subprocess, "run", fake_wrong_repo_run)
+    with pytest.raises(error_reports.GitHubSubmitterError) as wrong_repo:
+        error_reports.GhCliIssueSubmitter(timeout_seconds=3).available_labels()
+    assert wrong_repo.value.status == "blocked_wrong_repo"
+
+    def fake_submission_failed_run(command: list[str], **_kwargs: object):
+        nonlocal captured_failure_body_path
+        body_path = Path(command[command.index("--body-file") + 1])
+        captured_failure_body_path = body_path
+        assert body_path.exists()
+        return subprocess.CompletedProcess(command, 1, stdout="", stderr="do not echo failure output")
+
+    monkeypatch.setattr(error_reports.subprocess, "run", fake_submission_failed_run)
+    with pytest.raises(error_reports.GitHubSubmitterError) as submission_failed:
+        error_reports.GhCliIssueSubmitter(timeout_seconds=3).create_issue(
+            title="[error-report] Synthetic failure",
+            body="Sanitized fallback body",
+            labels=["bug"],
+        )
+    assert submission_failed.value.status == "submission_failed"
+    assert captured_failure_body_path is not None
+    assert not captured_failure_body_path.exists()
 
 
 def test_live_status_routes_report_symbolic_metadata_and_readiness_only(tmp_path) -> None:

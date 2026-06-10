@@ -7,6 +7,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from . import diagnostics
+from .privacy_url_detection import contains_runtime_artifact_url
 
 EVIDENCE_LEDGER_HEALTH_OBJECT = "mythic_edge_player_log_evidence_ledger_runtime_health"
 EVIDENCE_LEDGER_HEALTH_SCHEMA_VERSION = "player_log_evidence_ledger_runtime_health.v1"
@@ -537,7 +538,7 @@ def _collect_privacy_findings(payload: Any, path: str, findings: dict[str, Any])
         findings["forbidden_content_findings"].append(path)
         if "[UnityCrossThreadLogger]" in payload or "[Client GRE]" in payload or "DETAILED LOGS:" in payload:
             findings["raw_private_logs_included"] = True
-        if "script.google.com" in payload or "hooks." in payload:
+        if contains_runtime_artifact_url(payload):
             findings["runtime_artifacts_included"] = True
         if re.search(r"(?i)\b(api[_-]?key|secret|token)\s*[:=]", payload):
             findings["secrets_or_credentials_included"] = True

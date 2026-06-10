@@ -3,14 +3,23 @@ import {
   ANALYTICS_DASHBOARD_MODULES_OBJECT,
   ANALYTICS_DASHBOARD_MODULES_SCHEMA_VERSION,
   ANALYTICS_HISTORY_SCHEMA_VERSION,
+  ANALYTICS_REFRESH_STATE_OBJECT,
+  ANALYTICS_REFRESH_STATE_SCHEMA_VERSION,
   EARLY_GAME_HISTORY_SCHEMA_VERSION,
   ERROR_REPORT_PREVIEW_SCHEMA,
+  ERROR_REPORT_SUBMISSION_OBJECT,
+  ERROR_REPORT_SUBMISSION_SCHEMA,
   GAME_HISTORY_OBJECT,
   GAME1_POSTBOARD_SPLIT_REVIEW_OBJECT,
   GAMEPLAY_ACTION_REVIEW_OBJECT,
   LEGACY_JSONL_IMPORT_QUALITY_OBJECT,
   LEGACY_JSONL_IMPORT_QUALITY_SCHEMA_VERSION,
   LIVE_PLAYER_LOG_STATUS_OBJECT,
+  LIVE_CAPTURE_SCHEMA_VERSION,
+  LIVE_CAPTURE_DIAGNOSTICS_SCHEMA_VERSION,
+  LIVE_CAPTURE_START_RESULT_OBJECT,
+  LIVE_CAPTURE_STATUS_OBJECT,
+  LIVE_CAPTURE_STOP_RESULT_OBJECT,
   LIVE_STATUS_SCHEMA_VERSION,
   LIVE_WATCHER_DIAGNOSTICS_OBJECT,
   LIVE_WATCHER_DIAGNOSTICS_SCHEMA_VERSION,
@@ -32,13 +41,18 @@ import {
   type AnalyticsHistoryErrorCode,
   type AnalyticsHistoryStatus,
   type AnalyticsDashboardModulesResponse,
+  type AnalyticsRefreshStateResponse,
   type ErrorReportApiErrorCode,
   type ErrorReportPreviewRequest,
   type ErrorReportPreviewResponse,
+  type ErrorReportSubmissionResponse,
   type Game1PostboardSplitReviewResponse,
   type GameHistoryResponse,
   type GameplayActionReviewResponse,
   type LivePlayerLogStatusResponse,
+  type LiveCaptureStartResult,
+  type LiveCaptureStatusResponse,
+  type LiveCaptureStopResult,
   type LiveStatusErrorCode,
   type LiveWatcherDiagnosticsResponse,
   type LiveWatcherProcessStatusResponse,
@@ -71,6 +85,9 @@ const LIVE_PLAYER_LOG_STATUS_PATH = "/api/live/player-log/status";
 const LIVE_WATCHER_STATUS_PATH = "/api/live/watcher/status";
 const LIVE_WATCHER_PROCESS_STATUS_PATH = "/api/live/watcher/process";
 const LIVE_WATCHER_DIAGNOSTICS_STATUS_PATH = "/api/live/watcher/diagnostics";
+const LIVE_CAPTURE_STATUS_PATH = "/api/live/capture/status";
+const LIVE_CAPTURE_START_PATH = "/api/live/capture/start";
+const LIVE_CAPTURE_STOP_PATH = "/api/live/capture/stop";
 const MATCH_HISTORY_PATH = "/api/analytics/matches";
 const GAME_HISTORY_PATH = "/api/analytics/games";
 const OPENING_HAND_HISTORY_PATH = "/api/analytics/opening-hands";
@@ -80,6 +97,7 @@ const OPPONENT_CARD_OBSERVATION_REVIEW_PATH = "/api/analytics/opponent-card-obse
 const PLAY_DRAW_SPLIT_REVIEW_PATH = "/api/analytics/play-draw-splits";
 const GAME1_POSTBOARD_SPLIT_REVIEW_PATH = "/api/analytics/game1-postboard-splits";
 const ANALYTICS_DASHBOARD_MODULES_PATH = "/api/analytics/dashboard/modules";
+const ANALYTICS_REFRESH_STATE_PATH = "/api/analytics/refresh-state";
 const MANUAL_IMPORT_PATH = "/api/imports/jsonl";
 const MANUAL_IMPORT_UPLOAD_PATH = "/api/imports/jsonl/upload";
 const MANUAL_IMPORT_JOB_PATH = "/api/imports/jobs";
@@ -90,6 +108,7 @@ const MATCH_JOURNAL_REVIEW_FLAGS_PATH = "/api/journal/review-flags";
 const MATCH_JOURNAL_EXPERIMENT_LABEL_PATH = "/api/journal/experiment-label";
 const MATCH_JOURNAL_DISPLAY_CORRECTIONS_PATH = "/api/journal/display-corrections";
 const ERROR_REPORT_PREVIEW_PATH = "/api/feedback/error-report/preview";
+const ERROR_REPORT_SUBMIT_PATH = "/api/feedback/error-report/submit";
 const REQUIRED_SETUP_STATUS_FIELDS = [
   "object",
   "schema_version",
@@ -140,6 +159,18 @@ const REQUIRED_ANALYTICS_DASHBOARD_MODULES_FIELDS = [
   "warnings",
   "errors"
 ] as const;
+const REQUIRED_ANALYTICS_REFRESH_STATE_FIELDS = [
+  "object",
+  "schema_version",
+  "status",
+  "analytics_revision",
+  "latest_completed_match_result_available",
+  "latest_completed_match_seen_at",
+  "latest_completed_ingest_finished_at",
+  "row_counts",
+  "warnings",
+  "errors"
+] as const;
 const REQUIRED_MATCH_JOURNAL_FIELDS = ["object", "schema_version", "status", "result", "warnings", "errors"] as const;
 const REQUIRED_ERROR_REPORT_PREVIEW_FIELDS = [
   "schema",
@@ -153,6 +184,21 @@ const REQUIRED_ERROR_REPORT_PREVIEW_FIELDS = [
   "next_recommended_role",
   "external_submission_enabled"
 ] as const;
+const REQUIRED_ERROR_REPORT_SUBMISSION_FIELDS = [
+  "object",
+  "schema_version",
+  "status",
+  "external_submission_enabled",
+  "submitted",
+  "issue_url",
+  "issue_number",
+  "issue_title",
+  "issue_body_markdown",
+  "labels",
+  "fallback_available",
+  "warnings",
+  "errors"
+] as const;
 const LIVE_WATCHER_PROCESS_PRECONDITION_KEYS = [
   "player_log_ready",
   "app_data_root_available",
@@ -163,6 +209,9 @@ const LIVE_WATCHER_PROCESS_PRECONDITION_KEYS = [
   "live_sqlite_ingest_contract_present",
   "frontend_controls_authorized"
 ] as const;
+const SAFE_LIVE_CAPTURE_LABEL_PATTERN = /^[a-z][a-z0-9_]{0,79}$/;
+const SAFE_LIVE_CAPTURE_BLURB_TEXT_PATTERN = /^[A-Za-z0-9][A-Za-z0-9 .,;:!?'"()_-]{0,159}$/;
+const ISO_TIMESTAMP_PREFIX_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/;
 
 export class SetupStatusApiError extends Error {
   code: SetupStatusErrorCode;
@@ -303,6 +352,36 @@ export async function previewErrorReport(
   return validateErrorReportPreviewResponse(payload);
 }
 
+export async function submitErrorReport(
+  request: ErrorReportPreviewRequest,
+  fetchImpl: typeof fetch = fetch
+): Promise<ErrorReportSubmissionResponse> {
+  const baseUrl = getErrorReportApiBaseUrl();
+  let response: Response;
+  try {
+    response = await fetchImpl(`${baseUrl}${ERROR_REPORT_SUBMIT_PATH}`, {
+      method: "POST",
+      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      body: JSON.stringify(request)
+    });
+  } catch {
+    throw new ErrorReportApiError("backend_unavailable", "Error report submission is unavailable.");
+  }
+
+  if (!response.ok) {
+    throw new ErrorReportApiError("backend_unavailable", "Error report submission is unavailable.");
+  }
+
+  let payload: unknown;
+  try {
+    payload = await response.json();
+  } catch {
+    throw new ErrorReportApiError("malformed_response", "Error report submission returned malformed JSON.");
+  }
+
+  return validateErrorReportSubmissionResponse(payload);
+}
+
 export async function fetchLivePlayerLogStatus(fetchImpl: typeof fetch = fetch): Promise<LivePlayerLogStatusResponse> {
   const payload = await fetchLiveStatusPayload(LIVE_PLAYER_LOG_STATUS_PATH, "Live Player.log status", fetchImpl);
   return validateLivePlayerLogStatusResponse(payload);
@@ -333,6 +412,21 @@ export async function fetchLiveWatcherDiagnosticsStatus(
     fetchImpl
   );
   return validateLiveWatcherDiagnosticsResponse(payload);
+}
+
+export async function fetchLiveCaptureStatus(fetchImpl: typeof fetch = fetch): Promise<LiveCaptureStatusResponse> {
+  const payload = await fetchLiveStatusPayload(LIVE_CAPTURE_STATUS_PATH, "Live capture status", fetchImpl);
+  return validateLiveCaptureStatusResponse(payload);
+}
+
+export async function startLiveCapture(fetchImpl: typeof fetch = fetch): Promise<LiveCaptureStartResult> {
+  const payload = await postLiveCaptureControl(LIVE_CAPTURE_START_PATH, "Start capture", fetchImpl);
+  return validateLiveCaptureStartResult(payload);
+}
+
+export async function stopLiveCapture(fetchImpl: typeof fetch = fetch): Promise<LiveCaptureStopResult> {
+  const payload = await postLiveCaptureControl(LIVE_CAPTURE_STOP_PATH, "Stop capture", fetchImpl);
+  return validateLiveCaptureStopResult(payload);
 }
 
 export async function fetchMatchHistory(fetchImpl: typeof fetch = fetch): Promise<MatchHistoryResponse> {
@@ -438,6 +532,31 @@ export async function fetchAnalyticsDashboardModules(
   }
 
   return validateAnalyticsDashboardModulesResponse(payload);
+}
+
+export async function fetchAnalyticsRefreshState(fetchImpl: typeof fetch = fetch): Promise<AnalyticsRefreshStateResponse> {
+  const baseUrl = getAnalyticsHistoryApiBaseUrl();
+  let response: Response;
+  try {
+    response = await fetchImpl(`${baseUrl}${ANALYTICS_REFRESH_STATE_PATH}`, {
+      headers: { Accept: "application/json" }
+    });
+  } catch {
+    throw new AnalyticsHistoryApiError("backend_unavailable", "Analytics refresh state is unavailable.");
+  }
+
+  if (!response.ok) {
+    throw new AnalyticsHistoryApiError("backend_unavailable", "Analytics refresh state is unavailable.");
+  }
+
+  let payload: unknown;
+  try {
+    payload = await response.json();
+  } catch {
+    throw new AnalyticsHistoryApiError("malformed_response", "Analytics refresh state returned malformed JSON.");
+  }
+
+  return validateAnalyticsRefreshStateResponse(payload);
 }
 
 export async function submitManualJsonlImport(
@@ -687,6 +806,33 @@ async function fetchLiveStatusPayload(
   }
 }
 
+async function postLiveCaptureControl(
+  path: string,
+  label: string,
+  fetchImpl: typeof fetch,
+): Promise<unknown> {
+  const baseUrl = getApiBaseUrl();
+  let response: Response;
+  try {
+    response = await fetchImpl(`${baseUrl}${path}`, {
+      method: "POST",
+      headers: { Accept: "application/json" }
+    });
+  } catch {
+    throw new LiveStatusApiError("backend_unavailable", `${label} is unavailable.`);
+  }
+
+  if (!response.ok) {
+    throw new LiveStatusApiError("backend_unavailable", `${label} is unavailable.`);
+  }
+
+  try {
+    return await response.json();
+  } catch {
+    throw new LiveStatusApiError("malformed_response", `${label} returned malformed JSON.`);
+  }
+}
+
 function validateSetupStatusResponse(payload: unknown): SetupStatusResponse {
   if (!isRecord(payload)) {
     throw new SetupStatusApiError("malformed_response", "Backend setup status must be a JSON object.");
@@ -831,6 +977,72 @@ function validateLiveWatcherDiagnosticsResponse(payload: unknown): LiveWatcherDi
     throw new LiveStatusApiError("malformed_response", "Live watcher diagnostics has an unsupported shape.");
   }
   return payload as LiveWatcherDiagnosticsResponse;
+}
+
+function validateLiveCaptureStatusResponse(payload: unknown): LiveCaptureStatusResponse {
+  if (!isRecord(payload)) {
+    throw new LiveStatusApiError("malformed_response", "Live capture status must be a JSON object.");
+  }
+  if (payload.schema_version !== LIVE_CAPTURE_SCHEMA_VERSION) {
+    throw new LiveStatusApiError(
+      "incompatible_response",
+      `Expected live capture schema ${LIVE_CAPTURE_SCHEMA_VERSION}.`
+    );
+  }
+  if (payload.object !== LIVE_CAPTURE_STATUS_OBJECT) {
+    throw new LiveStatusApiError("malformed_response", "Live capture status object is unsupported.");
+  }
+  if (
+    typeof payload.status !== "string" ||
+    payload.mode !== "explicit_operator_control" ||
+    !isLiveCaptureSummary(payload.capture) ||
+    !isLiveCapturePreconditions(payload.preconditions) ||
+    !isLiveCaptureState(payload.state) ||
+    !isLiveCaptureHeartbeat(payload.heartbeat) ||
+    !isLiveCaptureProgress(payload.progress) ||
+    !isLiveCaptureParserStatusBlurb(payload.parser_status_blurb) ||
+    !isStringArray(payload.warnings) ||
+    !isStringArray(payload.errors)
+  ) {
+    throw new LiveStatusApiError("malformed_response", "Live capture status has an unsupported shape.");
+  }
+  return payload as LiveCaptureStatusResponse;
+}
+
+function validateLiveCaptureStartResult(payload: unknown): LiveCaptureStartResult {
+  if (!isRecord(payload)) {
+    throw new LiveStatusApiError("malformed_response", "Start capture result must be a JSON object.");
+  }
+  if (
+    payload.object !== LIVE_CAPTURE_START_RESULT_OBJECT ||
+    payload.schema_version !== LIVE_CAPTURE_SCHEMA_VERSION ||
+    typeof payload.status !== "string" ||
+    typeof payload.accepted !== "boolean" ||
+    !isStringArray(payload.warnings) ||
+    !isStringArray(payload.errors)
+  ) {
+    throw new LiveStatusApiError("malformed_response", "Start capture result has an unsupported shape.");
+  }
+  const captureStatus = validateLiveCaptureStatusResponse(payload.capture_status);
+  return { ...(payload as Omit<LiveCaptureStartResult, "capture_status">), capture_status: captureStatus };
+}
+
+function validateLiveCaptureStopResult(payload: unknown): LiveCaptureStopResult {
+  if (!isRecord(payload)) {
+    throw new LiveStatusApiError("malformed_response", "Stop capture result must be a JSON object.");
+  }
+  if (
+    payload.object !== LIVE_CAPTURE_STOP_RESULT_OBJECT ||
+    payload.schema_version !== LIVE_CAPTURE_SCHEMA_VERSION ||
+    typeof payload.status !== "string" ||
+    typeof payload.accepted !== "boolean" ||
+    !isStringArray(payload.warnings) ||
+    !isStringArray(payload.errors)
+  ) {
+    throw new LiveStatusApiError("malformed_response", "Stop capture result has an unsupported shape.");
+  }
+  const captureStatus = validateLiveCaptureStatusResponse(payload.capture_status);
+  return { ...(payload as Omit<LiveCaptureStopResult, "capture_status">), capture_status: captureStatus };
 }
 
 async function fetchAnalyticsHistory(
@@ -1167,6 +1379,44 @@ function validateAnalyticsDashboardModulesResponse(payload: unknown): AnalyticsD
   return payload as AnalyticsDashboardModulesResponse;
 }
 
+function validateAnalyticsRefreshStateResponse(payload: unknown): AnalyticsRefreshStateResponse {
+  if (!isRecord(payload)) {
+    throw new AnalyticsHistoryApiError("malformed_response", "Analytics refresh state must be a JSON object.");
+  }
+
+  for (const field of REQUIRED_ANALYTICS_REFRESH_STATE_FIELDS) {
+    if (!(field in payload)) {
+      throw new AnalyticsHistoryApiError("malformed_response", "Analytics refresh state is missing required fields.");
+    }
+  }
+
+  if (payload.schema_version !== ANALYTICS_REFRESH_STATE_SCHEMA_VERSION) {
+    throw new AnalyticsHistoryApiError(
+      "incompatible_response",
+      `Expected analytics refresh state schema ${ANALYTICS_REFRESH_STATE_SCHEMA_VERSION}.`
+    );
+  }
+
+  if (payload.object !== ANALYTICS_REFRESH_STATE_OBJECT) {
+    throw new AnalyticsHistoryApiError("malformed_response", "Analytics refresh state object is unsupported.");
+  }
+
+  if (
+    !isAnalyticsHistoryStatus(payload.status) ||
+    !isStringOrNull(payload.analytics_revision) ||
+    typeof payload.latest_completed_match_result_available !== "boolean" ||
+    !isIsoTimestampOrNull(payload.latest_completed_match_seen_at) ||
+    !isIsoTimestampOrNull(payload.latest_completed_ingest_finished_at) ||
+    !isAnalyticsRefreshStateRowCounts(payload.row_counts) ||
+    !isStringArray(payload.warnings) ||
+    !isStringArray(payload.errors)
+  ) {
+    throw new AnalyticsHistoryApiError("malformed_response", "Analytics refresh state has an unsupported shape.");
+  }
+
+  return payload as AnalyticsRefreshStateResponse;
+}
+
 function isAnalyticsHistoryStatus(value: unknown): value is AnalyticsHistoryStatus {
   return (
     value === "ok" ||
@@ -1176,6 +1426,21 @@ function isAnalyticsHistoryStatus(value: unknown): value is AnalyticsHistoryStat
     value === "degraded" ||
     value === "error"
   );
+}
+
+function isAnalyticsRefreshStateRowCounts(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    isSafeIntegerCount(value.ingest_runs) &&
+    isSafeIntegerCount(value.matches) &&
+    isSafeIntegerCount(value.games) &&
+    isSafeIntegerCount(value.match_results) &&
+    isSafeIntegerCount(value.game_results)
+  );
+}
+
+function isSafeIntegerCount(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0;
 }
 
 function validateMatchHistoryRows(rows: unknown): void {
@@ -1517,7 +1782,7 @@ function validateErrorReportPreviewResponse(payload: unknown): ErrorReportPrevie
     !isStringArray(payload.redaction_summary) ||
     !isStringArray(payload.warnings) ||
     typeof payload.next_recommended_role !== "string" ||
-    payload.external_submission_enabled !== false
+    typeof payload.external_submission_enabled !== "boolean"
   ) {
     throw new ErrorReportApiError("malformed_response", "Error report preview has an unsupported shape.");
   }
@@ -1527,6 +1792,60 @@ function validateErrorReportPreviewResponse(payload: unknown): ErrorReportPrevie
 
 function isErrorReportPreviewStatus(value: unknown): boolean {
   return value === "preview_ready" || value === "invalid_request" || value === "blocked_privacy_guard";
+}
+
+function validateErrorReportSubmissionResponse(payload: unknown): ErrorReportSubmissionResponse {
+  if (!isRecord(payload)) {
+    throw new ErrorReportApiError("malformed_response", "Error report submission must be a JSON object.");
+  }
+
+  for (const field of REQUIRED_ERROR_REPORT_SUBMISSION_FIELDS) {
+    if (!(field in payload)) {
+      throw new ErrorReportApiError("malformed_response", "Error report submission is missing required fields.");
+    }
+  }
+
+  if (payload.object !== ERROR_REPORT_SUBMISSION_OBJECT || payload.schema_version !== ERROR_REPORT_SUBMISSION_SCHEMA) {
+    throw new ErrorReportApiError(
+      "incompatible_response",
+      `Expected error report submission schema ${ERROR_REPORT_SUBMISSION_SCHEMA}.`
+    );
+  }
+
+  if (!isErrorReportSubmissionStatus(payload.status)) {
+    throw new ErrorReportApiError("malformed_response", "Error report submission status is unsupported.");
+  }
+
+  if (
+    typeof payload.external_submission_enabled !== "boolean" ||
+    typeof payload.submitted !== "boolean" ||
+    !isStringOrNull(payload.issue_url) ||
+    !isNumberOrNull(payload.issue_number) ||
+    typeof payload.issue_title !== "string" ||
+    typeof payload.issue_body_markdown !== "string" ||
+    !isStringArray(payload.labels) ||
+    typeof payload.fallback_available !== "boolean" ||
+    !isStringArray(payload.warnings) ||
+    !isStringArray(payload.errors)
+  ) {
+    throw new ErrorReportApiError("malformed_response", "Error report submission has an unsupported shape.");
+  }
+
+  return payload as ErrorReportSubmissionResponse;
+}
+
+function isErrorReportSubmissionStatus(value: unknown): boolean {
+  return (
+    value === "submitted" ||
+    value === "preview_required" ||
+    value === "blocked_privacy_guard" ||
+    value === "blocked_missing_gh" ||
+    value === "blocked_gh_unauthenticated" ||
+    value === "blocked_wrong_repo" ||
+    value === "blocked_label_unavailable" ||
+    value === "submission_failed" ||
+    value === "invalid_request"
+  );
 }
 
 function validateMatchJournalResponse(payload: unknown): MatchJournalResponse {
@@ -1703,8 +2022,32 @@ function isStringOrNull(value: unknown): value is string | null {
   return typeof value === "string" || value === null;
 }
 
+function isIsoTimestampOrNull(value: unknown): value is string | null {
+  if (value === null) {
+    return true;
+  }
+  if (typeof value !== "string") {
+    return false;
+  }
+  const text = value.trim();
+  return (
+    text === value &&
+    ISO_TIMESTAMP_PREFIX_PATTERN.test(text) &&
+    !hasUnsafeLocalMarker(text) &&
+    !Number.isNaN(Date.parse(text))
+  );
+}
+
 function isNumberOrNull(value: unknown): value is number | null {
   return typeof value === "number" || value === null;
+}
+
+function isNonNegativeNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+
+function isOptionalNonNegativeNumber(value: unknown): value is number | null {
+  return value === null || isNonNegativeNumber(value);
 }
 
 function isBooleanOrNull(value: unknown): value is boolean | null {
@@ -1713,6 +2056,85 @@ function isBooleanOrNull(value: unknown): value is boolean | null {
 
 function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((entry) => typeof entry === "string");
+}
+
+function isLiveCaptureHeartbeat(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    value.schema_version === LIVE_CAPTURE_DIAGNOSTICS_SCHEMA_VERSION &&
+    isSafeLiveCaptureLabel(value.status) &&
+    isIsoTimestampOrNull(value.heartbeat_updated_at) &&
+    isNonNegativeNumber(value.capture_duration_seconds) &&
+    isNumberOrNull(value.heartbeat_age_seconds) &&
+    (value.heartbeat_age_seconds === null || isNonNegativeNumber(value.heartbeat_age_seconds)) &&
+    isNonNegativeNumber(value.stale_after_seconds)
+  );
+}
+
+function isLiveCaptureProgress(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    value.schema_version === LIVE_CAPTURE_DIAGNOSTICS_SCHEMA_VERSION &&
+    isNonNegativeNumber(value.log_poll_count) &&
+    isNonNegativeNumber(value.log_chunks_seen) &&
+    isNonNegativeNumber(value.structured_entry_count) &&
+    isNonNegativeNumber(value.parser_event_count) &&
+    Array.isArray(value.parser_event_kinds_seen) &&
+    value.parser_event_kinds_seen.every(isSafeLiveCaptureLabel) &&
+    isNonNegativeNumber(value.match_ids_seen_count) &&
+    typeof value.current_match_detected === "boolean" &&
+    isOptionalNonNegativeNumber(value.current_match_game_wins) &&
+    isOptionalNonNegativeNumber(value.current_match_game_losses) &&
+    (value.last_completed_match_result === null || isSafeLiveCaptureLabel(value.last_completed_match_result)) &&
+    isOptionalNonNegativeNumber(value.last_completed_match_game_wins) &&
+    isOptionalNonNegativeNumber(value.last_completed_match_game_losses) &&
+    isNonNegativeNumber(value.completed_game_rows_seen) &&
+    isNonNegativeNumber(value.sqlite_write_attempt_count) &&
+    isNonNegativeNumber(value.sqlite_rows_written) &&
+    isSafeLiveCaptureLabel(value.last_no_write_reason) &&
+    isIsoTimestampOrNull(value.last_event_seen_at) &&
+    isIsoTimestampOrNull(value.last_sqlite_write_at)
+  );
+}
+
+function isLiveCaptureParserStatusBlurb(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    isSafeLiveCaptureLabel(value.code) &&
+    isSafeLiveCaptureBlurbText(value.text) &&
+    isSafeLiveCaptureLabel(value.tone)
+  );
+}
+
+function isSafeLiveCaptureLabel(value: unknown): value is string {
+  return typeof value === "string" && SAFE_LIVE_CAPTURE_LABEL_PATTERN.test(value);
+}
+
+function isSafeLiveCaptureBlurbText(value: unknown): value is string {
+  if (typeof value !== "string") {
+    return false;
+  }
+  const text = value.trim();
+  return (
+    text === value &&
+    SAFE_LIVE_CAPTURE_BLURB_TEXT_PATTERN.test(text) &&
+    !hasUnsafeLocalMarker(text)
+  );
+}
+
+function hasUnsafeLocalMarker(value: string): boolean {
+  const lowerValue = value.toLowerCase();
+  return (
+    lowerValue.includes("://") ||
+    lowerValue.includes("webhook") ||
+    lowerValue.includes("token") ||
+    lowerValue.includes("secret") ||
+    lowerValue.includes("api_key") ||
+    lowerValue.includes("password") ||
+    /[A-Za-z]:[\\/]/.test(value) ||
+    value.includes("\\") ||
+    value.includes("/")
+  );
 }
 
 function isLivePlayerLogSummary(value: unknown): boolean {
@@ -1759,9 +2181,9 @@ function isLiveWatcherProcessControl(value: unknown): boolean {
     value.stop_route_enabled === false &&
     value.ui_controls_allowed === false &&
     value.automatic_start_enabled === false &&
-    value.parser_runner_started === false &&
-    value.tailing_started === false &&
-    value.sqlite_live_writes_enabled === false &&
+    typeof value.parser_runner_started === "boolean" &&
+    typeof value.tailing_started === "boolean" &&
+    typeof value.sqlite_live_writes_enabled === "boolean" &&
     value.external_transport_allowed === false &&
     isStringOrNull(value.reason)
   );
@@ -1771,8 +2193,8 @@ function isLiveWatcherProcessSummary(value: unknown): boolean {
   return (
     isRecord(value) &&
     typeof value.status === "string" &&
-    value.running === false &&
-    value.pid_verified === false &&
+    typeof value.running === "boolean" &&
+    typeof value.pid_verified === "boolean" &&
     typeof value.single_instance_guard === "string" &&
     typeof value.supervisor_boundary === "string"
   );
@@ -1790,6 +2212,53 @@ function isLiveWatcherProcessState(value: unknown): boolean {
     typeof value.supervisor_token_present === "boolean" &&
     isStringOrNull(value.display_path) &&
     value.raw_path_exposed === false
+  );
+}
+
+function isLiveCaptureSummary(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.running === "boolean" &&
+    typeof value.start_allowed === "boolean" &&
+    typeof value.stop_allowed === "boolean" &&
+    typeof value.parser_runner_started === "boolean" &&
+    typeof value.tailing_started === "boolean" &&
+    typeof value.sqlite_live_writes_enabled === "boolean" &&
+    value.external_transport_allowed === false &&
+    value.raw_player_log_storage_enabled === false &&
+    typeof value.supervisor_kind === "string" &&
+    typeof value.source_kind === "string" &&
+    isStringOrNull(value.reason)
+  );
+}
+
+function isLiveCapturePreconditions(value: unknown): boolean {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (entry) =>
+        isRecord(entry) &&
+        typeof entry.key === "string" &&
+        typeof entry.status === "string" &&
+        isStringOrNull(entry.reason)
+    )
+  );
+}
+
+function isLiveCaptureState(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.source === "string" &&
+    typeof value.exists === "boolean" &&
+    typeof value.status === "string" &&
+    typeof value.stale === "boolean" &&
+    typeof value.pid_present === "boolean" &&
+    value.pid_verified === false &&
+    typeof value.supervisor_token_present === "boolean" &&
+    isStringOrNull(value.display_path) &&
+    value.raw_path_exposed === false &&
+    (!("started_at" in value) || isIsoTimestampOrNull(value.started_at)) &&
+    (!("updated_at" in value) || isIsoTimestampOrNull(value.updated_at))
   );
 }
 
