@@ -5,8 +5,14 @@ export const LIVE_PLAYER_LOG_STATUS_OBJECT = "mythic_edge_local_app_live_player_
 export const LIVE_WATCHER_STATUS_OBJECT = "mythic_edge_local_app_live_watcher_status";
 export const LIVE_WATCHER_PROCESS_SCHEMA_VERSION = "live_app_player_log_watcher_process_control_safeguards.v1";
 export const LIVE_WATCHER_PROCESS_OBJECT = "mythic_edge_local_app_live_watcher_process_status";
+export const MTGA_PROCESS_SCHEMA_VERSION = "live_app_mtga_process_detection_shutdown_readiness_gate.v1";
 export const LIVE_WATCHER_DIAGNOSTICS_SCHEMA_VERSION = "live_app_watcher_diagnostics.v1";
 export const LIVE_WATCHER_DIAGNOSTICS_OBJECT = "mythic_edge_local_app_live_watcher_diagnostics";
+export const LIVE_CAPTURE_SCHEMA_VERSION = "live_app_explicit_start_capture_control.v1";
+export const LIVE_CAPTURE_DIAGNOSTICS_SCHEMA_VERSION = "live_app_capture_heartbeat_no_row_diagnostics.v1";
+export const LIVE_CAPTURE_STATUS_OBJECT = "mythic_edge_local_app_live_capture_status";
+export const LIVE_CAPTURE_START_RESULT_OBJECT = "mythic_edge_local_app_live_capture_start_result";
+export const LIVE_CAPTURE_STOP_RESULT_OBJECT = "mythic_edge_local_app_live_capture_stop_result";
 export const MANUAL_IMPORT_JOB_OBJECT = "mythic_edge_local_app_manual_jsonl_import_job";
 export const MANUAL_IMPORT_JOB_SCHEMA_VERSION = "analytics_manual_jsonl_import_ui_job_status.v1";
 export const LEGACY_JSONL_IMPORT_QUALITY_OBJECT = "mythic_edge_legacy_jsonl_import_quality";
@@ -25,9 +31,13 @@ export const PLAY_DRAW_SPLIT_REVIEW_OBJECT = "mythic_edge_local_app_play_draw_sp
 export const GAME1_POSTBOARD_SPLIT_REVIEW_OBJECT = "mythic_edge_local_app_game1_postboard_split_review";
 export const ANALYTICS_DASHBOARD_MODULES_SCHEMA_VERSION = "analytics_dynamic_decision_support_dashboard.v1";
 export const ANALYTICS_DASHBOARD_MODULES_OBJECT = "mythic_edge_local_app_analytics_dashboard_modules";
+export const ANALYTICS_REFRESH_STATE_SCHEMA_VERSION = "analytics_auto_refresh_after_match_completion.v1";
+export const ANALYTICS_REFRESH_STATE_OBJECT = "mythic_edge_local_app_analytics_refresh_state";
 export const MATCH_JOURNAL_OBJECT = "mythic_edge_local_app_match_journal";
 export const MATCH_JOURNAL_SCHEMA_VERSION = "match_journal_cockpit_ui.v1";
 export const ERROR_REPORT_PREVIEW_SCHEMA = "quality_app_submit_error_report_codex_triage.v1";
+export const ERROR_REPORT_SUBMISSION_OBJECT = "mythic_edge_local_app_error_report_submission";
+export const ERROR_REPORT_SUBMISSION_SCHEMA = "quality_app_error_report_github_submission.v1";
 
 export type SetupStatusTone =
   | "ok"
@@ -106,17 +116,17 @@ export type LiveWatcherProcessControl = {
   stop_route_enabled: false;
   ui_controls_allowed: false;
   automatic_start_enabled: false;
-  parser_runner_started: false;
-  tailing_started: false;
-  sqlite_live_writes_enabled: false;
+  parser_runner_started: boolean;
+  tailing_started: boolean;
+  sqlite_live_writes_enabled: boolean;
   external_transport_allowed: false;
   reason: string | null;
 };
 
 export type LiveWatcherProcessSummary = {
   status: string;
-  running: false;
-  pid_verified: false;
+  running: boolean;
+  pid_verified: boolean;
   single_instance_guard: string;
   supervisor_boundary: string;
 };
@@ -139,12 +149,44 @@ export type LiveWatcherProcessPrecondition = {
   reason: string | null;
 };
 
+export type MtgaProcessStatus = {
+  object: "mythic_edge_local_app_mtga_process_status";
+  schema_version: typeof MTGA_PROCESS_SCHEMA_VERSION;
+  status: string;
+  detected: boolean;
+  platform: string;
+  process_name: "MTGA.exe";
+  evidence: string;
+  checked_at: string;
+  detector: string;
+  warnings: string[];
+  errors: string[];
+  privacy: {
+    pid_exposed: false;
+    command_line_exposed: false;
+    environment_exposed: false;
+    raw_detector_output_exposed: false;
+  };
+};
+
+export type AutomationReadiness = {
+  schema_version: typeof MTGA_PROCESS_SCHEMA_VERSION;
+  status: string;
+  automatic_start_allowed: false;
+  items: Array<{
+    key: string;
+    status: string;
+  }>;
+};
+
 export type LiveWatcherProcessStatusResponse = {
   object: typeof LIVE_WATCHER_PROCESS_OBJECT;
   schema_version: typeof LIVE_WATCHER_PROCESS_SCHEMA_VERSION;
   status: string;
   process_control: LiveWatcherProcessControl;
   watcher: LiveWatcherProcessSummary;
+  mtga_process: MtgaProcessStatus;
+  automation_readiness: AutomationReadiness;
   player_log: SectionStatus;
   preconditions: LiveWatcherProcessPrecondition[];
   state: LiveWatcherProcessState;
@@ -212,6 +254,144 @@ export type LiveWatcherDiagnosticsResponse = {
   [key: string]: unknown;
 };
 
+export type LiveSqliteCaptureStatusResponse = {
+  object: "mythic_edge_local_app_live_parser_sqlite_capture_status";
+  schema_version: "live_app_parser_owned_fact_capture_sqlite.v1";
+  status: string;
+  mode: "status_only" | string;
+  source_kind: string;
+  database: {
+    configured: boolean;
+    display_path: string;
+  };
+  capabilities: Record<string, boolean>;
+  process_control: {
+    parser_runner_started: boolean;
+    tailing_started: boolean;
+    sqlite_live_writes_enabled: boolean;
+  };
+  last_result: unknown;
+  warnings: string[];
+  errors: string[];
+  [key: string]: unknown;
+};
+
+export type LiveCaptureHeartbeat = {
+  schema_version: typeof LIVE_CAPTURE_DIAGNOSTICS_SCHEMA_VERSION;
+  status: string;
+  heartbeat_updated_at: string | null;
+  capture_duration_seconds: number;
+  heartbeat_age_seconds: number | null;
+  stale_after_seconds: number;
+};
+
+export type LiveCaptureProgress = {
+  schema_version: typeof LIVE_CAPTURE_DIAGNOSTICS_SCHEMA_VERSION;
+  log_poll_count: number;
+  log_chunks_seen: number;
+  structured_entry_count: number;
+  parser_event_count: number;
+  parser_event_kinds_seen: string[];
+  match_ids_seen_count: number;
+  current_match_detected: boolean;
+  current_match_game_wins: number | null;
+  current_match_game_losses: number | null;
+  last_completed_match_result: string | null;
+  last_completed_match_game_wins: number | null;
+  last_completed_match_game_losses: number | null;
+  completed_game_rows_seen: number;
+  sqlite_write_attempt_count: number;
+  sqlite_rows_written: number;
+  last_no_write_reason: string;
+  last_event_seen_at: string | null;
+  last_sqlite_write_at: string | null;
+};
+
+export type LiveCaptureParserStatusBlurb = {
+  code: string;
+  text: string;
+  tone: string;
+};
+
+export type MtgaLifecycle = {
+  schema_version: typeof MTGA_PROCESS_SCHEMA_VERSION;
+  status: string;
+  mtga_process_status: string;
+  reconnect_window_seconds: number;
+  reconnect_started_at: string | null;
+  reconnect_deadline_at: string | null;
+  seconds_remaining: number | null;
+  shutdown_reason: string | null;
+  last_detected_at: string | null;
+  last_checked_at: string | null;
+  automation_start_allowed: false;
+  automation_readiness: AutomationReadiness;
+  warnings: string[];
+  errors: string[];
+};
+
+export type LiveCaptureStatusResponse = {
+  object: typeof LIVE_CAPTURE_STATUS_OBJECT;
+  schema_version: typeof LIVE_CAPTURE_SCHEMA_VERSION;
+  status: string;
+  mode: "explicit_operator_control";
+  capture: {
+    running: boolean;
+    start_allowed: boolean;
+    stop_allowed: boolean;
+    parser_runner_started: boolean;
+    tailing_started: boolean;
+    sqlite_live_writes_enabled: boolean;
+    external_transport_allowed: false;
+    raw_player_log_storage_enabled: false;
+    supervisor_kind: string;
+    source_kind: "live_parser" | string;
+    reason: string | null;
+  };
+  preconditions: LiveWatcherProcessPrecondition[];
+  state: {
+    source: string;
+    exists: boolean;
+    status: string;
+    stale: boolean;
+    pid_present: boolean;
+    pid_verified: false;
+    supervisor_token_present: boolean;
+    display_path: string | null;
+    raw_path_exposed: false;
+    started_at?: string | null;
+    updated_at?: string | null;
+  };
+  last_result: unknown;
+  heartbeat: LiveCaptureHeartbeat;
+  progress: LiveCaptureProgress;
+  mtga_lifecycle: MtgaLifecycle;
+  parser_status_blurb: LiveCaptureParserStatusBlurb;
+  warnings: string[];
+  errors: string[];
+  [key: string]: unknown;
+};
+
+export type LiveCaptureStartResult = {
+  object: typeof LIVE_CAPTURE_START_RESULT_OBJECT;
+  schema_version: typeof LIVE_CAPTURE_SCHEMA_VERSION;
+  status: "starting" | "capturing" | "already_running" | "blocked" | "failed" | string;
+  accepted: boolean;
+  capture_status: LiveCaptureStatusResponse;
+  warnings: string[];
+  errors: string[];
+};
+
+export type LiveCaptureStopResult = {
+  object: typeof LIVE_CAPTURE_STOP_RESULT_OBJECT;
+  schema_version: typeof LIVE_CAPTURE_SCHEMA_VERSION;
+  status: "stopping" | "stopped" | "not_running" | "blocked" | "failed" | string;
+  accepted: boolean;
+  capture_status: LiveCaptureStatusResponse;
+  warnings: string[];
+  errors: string[];
+};
+
 export type SetupStatusResponse = {
   object: typeof SETUP_STATUS_OBJECT;
   schema_version: typeof SETUP_STATUS_SCHEMA_VERSION;
@@ -222,6 +402,7 @@ export type SetupStatusResponse = {
   live_player_log?: LivePlayerLogStatusResponse;
   live_watcher?: LiveWatcherStatusResponse;
   live_watcher_process?: LiveWatcherProcessStatusResponse;
+  live_sqlite_capture?: LiveSqliteCaptureStatusResponse;
   analytics_database: SectionStatus;
   match_journal: SectionStatus;
   migrations: SectionStatus;
@@ -406,12 +587,18 @@ export type ErrorReportAffectedArea =
   | "unknown";
 
 export type ErrorReportSeverity = "blocker" | "degraded" | "annoyance" | "question";
+export type ErrorReportType = "bug" | "feedback" | "feature_request";
 
 export type ErrorReportPreviewRequest = {
   summary: string;
-  expected_behavior: string;
-  actual_behavior: string;
-  reproduction_steps: string;
+  report_type: ErrorReportType;
+  expected_behavior?: string;
+  actual_behavior?: string;
+  reproduction_steps?: string;
+  feedback?: string;
+  feature_goal?: string;
+  feature_location?: string;
+  feature_success?: string;
   affected_area: ErrorReportAffectedArea;
   severity: ErrorReportSeverity;
   current_frontend_surface?: string;
@@ -429,7 +616,32 @@ export type ErrorReportPreviewResponse = {
   redaction_summary: string[];
   warnings: string[];
   next_recommended_role: string;
-  external_submission_enabled: false;
+  external_submission_enabled: boolean;
+};
+
+export type ErrorReportSubmissionResponse = {
+  object: typeof ERROR_REPORT_SUBMISSION_OBJECT;
+  schema_version: typeof ERROR_REPORT_SUBMISSION_SCHEMA;
+  status:
+    | "submitted"
+    | "preview_required"
+    | "blocked_privacy_guard"
+    | "blocked_missing_gh"
+    | "blocked_gh_unauthenticated"
+    | "blocked_wrong_repo"
+    | "blocked_label_unavailable"
+    | "submission_failed"
+    | "invalid_request";
+  external_submission_enabled: boolean;
+  submitted: boolean;
+  issue_url: string | null;
+  issue_number: number | null;
+  issue_title: string;
+  issue_body_markdown: string;
+  labels: string[];
+  fallback_available: boolean;
+  warnings: string[];
+  errors: string[];
 };
 
 export type MatchJournalStatus = "ok" | "degraded" | "empty" | "missing" | "unavailable" | "error";
@@ -628,6 +840,29 @@ export type GameHistoryResponse = {
   pagination: AnalyticsHistoryPagination;
   summary: AnalyticsHistorySummary;
   rows: GameHistoryRow[];
+  warnings: string[];
+  errors: string[];
+};
+
+export type AnalyticsRefreshStateStatus = "ok" | "empty" | "missing" | "unavailable" | "degraded" | "error";
+
+export type AnalyticsRefreshStateRowCounts = {
+  ingest_runs: number;
+  matches: number;
+  games: number;
+  match_results: number;
+  game_results: number;
+};
+
+export type AnalyticsRefreshStateResponse = {
+  object: typeof ANALYTICS_REFRESH_STATE_OBJECT;
+  schema_version: typeof ANALYTICS_REFRESH_STATE_SCHEMA_VERSION;
+  status: AnalyticsRefreshStateStatus;
+  analytics_revision: string | null;
+  latest_completed_match_result_available: boolean;
+  latest_completed_match_seen_at: string | null;
+  latest_completed_ingest_finished_at: string | null;
+  row_counts: AnalyticsRefreshStateRowCounts;
   warnings: string[];
   errors: string[];
 };

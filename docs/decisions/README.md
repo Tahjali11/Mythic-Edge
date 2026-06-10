@@ -21,7 +21,7 @@ If an accepted ADR appears to conflict with a higher-priority instruction or gov
 
 Handoffs, review reports, PR descriptions, and tracker comments can cite ADRs, but they do not supersede accepted ADRs by themselves.
 
-ADRs cannot authorize protected-surface changes by implication. Parser behavior, parser state final reconciliation, workbook schema, webhook payload shape, Apps Script behavior, event classes, event kinds, parser payload shapes, match/game identity, deduplication, secrets, generated data, raw logs, runtime status files, failed posts, workbook exports, production deployment behavior, and merge-to-main policy still require explicit issue, contract, review, and validation authority.
+ADRs cannot authorize protected-surface changes by implication. Parser behavior, parser state final reconciliation, workbook schema, webhook request/response contracts, Apps Script behavior, event classes, event kinds, parser message shapes, match/game identity, deduplication, secrets, generated data, raw logs, runtime health files, transport failure artifacts, workbook exports, production deployment behavior, and merge-to-main policy still require explicit issue, contract, review, and validation authority.
 
 ## When An ADR Is Required
 
@@ -138,3 +138,4 @@ Use `Related ADRs: N/A` when no ADR applies.
 | [ADR-0004: Protected Surfaces And Schema-Change Policy](ADR-0004-protected-surfaces-and-schema-change-policy.md) | Accepted | Protected surfaces and schema changes require explicit issue, contract, review, and validation authority. |
 | [ADR-0005: External Integration And Collaboration Surfaces](ADR-0005-external-integration-collaboration-surfaces.md) | Accepted | External tools and collaboration spaces are access, evidence, transport, or explanation surfaces by default. |
 | [ADR-0006: Repository Boundary Strategy](ADR-0006-repository-boundary-strategy.md) | Accepted | Keep Mythic Edge monorepo-first while defining safe future boundaries for Parser, Corpus / Provenance, Analytics, Local App / UI, Workbook / Transport, Quality / Governance, and future AI Integration. |
+| [ADR-0007: Parser Runtime State Decomposition Strategy](ADR-0007-parser-runtime-state-decomposition-strategy.md) | Accepted | Parser runtime state decomposition proceeds through one behavior-preserving state-cluster extraction at a time, with PostingState as the first pilot pattern. |

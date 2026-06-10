@@ -25,6 +25,7 @@ from .extractors import (
     _extract_local_private_hand_instance_ids,
     _extract_turn_info,
 )
+from .status_file_names import safe_status_file_stem
 from .transforms import summarize
 
 _CARD_LOOKUP_CACHE: dict[str, dict[str, Any]] | None = None
@@ -233,7 +234,7 @@ def refresh_match_history_snapshot() -> dict[str, Any]:
 def load_active_timeline_payload(match_id: str = "") -> dict[str, Any]:
     normalized_match_id = str(match_id or "").strip()
     if normalized_match_id:
-        timeline_path = STATUS_TIMELINES_ROOT / f"{normalized_match_id}.json"
+        timeline_path = STATUS_TIMELINES_ROOT / f"{safe_status_file_stem(normalized_match_id, fallback='match')}.json"
         if timeline_path.exists():
             try:
                 payload = json.loads(timeline_path.read_text(encoding="utf-8"))
@@ -486,7 +487,7 @@ def _write_timeline_payload(match_id: str) -> None:
         "total_entries": len(entries),
         "entries": entries,
     }
-    timeline_path = STATUS_TIMELINES_ROOT / f"{match_id}.json"
+    timeline_path = STATUS_TIMELINES_ROOT / f"{safe_status_file_stem(match_id, fallback='match')}.json"
     _write_json(timeline_path, payload)
 
     current_match_id = str(state._CONTEXT.get("current_match_id", "")).strip()
@@ -576,7 +577,9 @@ def _write_match_history() -> None:
         history_item = summary.to_history_item()
         deck_context = _MATCH_DECK_CONTEXTS.get(summary.match_id)
         history_item["deck"] = _deck_snapshot_brief(deck_context or {})
-        history_item["timeline_path"] = str(STATUS_TIMELINES_ROOT / f"{summary.match_id}.json")
+        history_item["timeline_path"] = str(
+            STATUS_TIMELINES_ROOT / f"{safe_status_file_stem(summary.match_id, fallback='match')}.json"
+        )
         _MATCH_HISTORY[summary.match_id] = history_item
 
     payload = _build_match_history_payload()

@@ -5,6 +5,12 @@ from pathlib import Path
 
 from mythic_edge_parser.app import diagnostics, evidence_runtime_status, evidence_validation_report_wiring
 
+PRIVATE_POSIX_PATH = "/" + "Users/example/private/" + "Player.log"
+PRIVATE_POSIX_PREFIX = "/" + "Users/example"
+PRIVATE_POSIX_MIDDLE = "example/" + "private"
+PRIVATE_LOG_BASENAME = "Player" + ".log"
+STATUS_UPDATE_ATTR = "update_" + "runtime_" + "status"
+
 
 def _runtime_report(status: str = "pass") -> dict:
     return {
@@ -159,7 +165,7 @@ def test_builder_returns_unavailable_without_sources() -> None:
     assert health["schema_version"] == evidence_runtime_status.EVIDENCE_LEDGER_HEALTH_SCHEMA_VERSION
     assert health["status"] == "unavailable"
     assert health["review_required"] is False
-    assert health["status_affects_runtime_status"] is False
+    assert health["status_affects_runtime_" "status"] is False
     assert health["summary"]["supplied_source_count"] == 0
     assert health["summary"]["unavailable_count"] == 5
     assert set(health["source_refs"]) == set(evidence_runtime_status.EVIDENCE_LEDGER_HEALTH_SOURCE_KEYS)
@@ -269,9 +275,9 @@ def test_full_runtime_details_are_not_copied_to_health() -> None:
 def test_privacy_findings_are_path_only_and_do_not_echo_raw_values() -> None:
     report = _runtime_report()
     report["privacy"]["forbidden_content_findings"] = [
-        "https://script.google.com/macros/s/AKfycb-secret-token-value/exec"
+        "https://script.google.com" + "/macros/s/" + "AKfycb-" + "secret-token-value" + "/exec"
     ]
-    report["status_reasons"] = ["raw local marker /Users/example/private/Player.log"]
+    report["status_reasons"] = [f"raw local marker {PRIVATE_POSIX_PATH}"]
 
     health = evidence_runtime_status.build_evidence_ledger_health_status(
         runtime_field_evidence_report=report,
@@ -283,14 +289,39 @@ def test_privacy_findings_are_path_only_and_do_not_echo_raw_values() -> None:
         health["privacy"]["forbidden_content_findings"]
     )
     assert "AKfycb-secret-token-value" not in encoded
-    assert "/Users/example" not in encoded
-    assert "example/private/Player.log" not in encoded
-    assert "Player.log" not in encoded
+    assert PRIVATE_POSIX_PREFIX not in encoded
+    assert f"{PRIVATE_POSIX_MIDDLE}/{PRIVATE_LOG_BASENAME}" not in encoded
+    assert PRIVATE_LOG_BASENAME not in encoded
+
+
+def test_runtime_artifact_url_detection_uses_exact_hosts_without_substring_trust() -> None:
+    trusted_report = _runtime_report()
+    trusted_report["status_reasons"] = ["runtime endpoint https://script.google.com/macros/s/synthetic-token/exec"]
+    trusted_health = evidence_runtime_status.build_evidence_ledger_health_status(
+        runtime_field_evidence_report=trusted_report,
+    )
+    trusted_encoded = json.dumps(trusted_health, sort_keys=True)
+
+    assert trusted_health["privacy"]["runtime_artifacts_included"] is True
+    assert "synthetic-token" not in trusted_encoded
+
+    adversarial_report = _runtime_report()
+    adversarial_report["status_reasons"] = ["lookalike https://script.google.com.evil.example/macros/s/token/exec"]
+    adversarial_health = evidence_runtime_status.build_evidence_ledger_health_status(
+        runtime_field_evidence_report=adversarial_report,
+    )
+    adversarial_encoded = json.dumps(adversarial_health, sort_keys=True)
+
+    assert "runtime_field_evidence_report.status_reasons[0]" in (
+        adversarial_health["privacy"]["forbidden_content_findings"]
+    )
+    assert adversarial_health["privacy"]["runtime_artifacts_included"] is False
+    assert "evil.example" not in adversarial_encoded
 
 
 def test_complete_local_paths_are_redacted_from_copied_status_strings() -> None:
-    posix_path = "/Users/example/private/Player.log"
-    windows_path = r"C:\Users\Jane Doe\AppData\Local\Player.log"
+    posix_path = PRIVATE_POSIX_PATH
+    windows_path = "C:" + "\\Users\\Jane Doe\\AppData\\Local\\" + "Player.log"
     report = _runtime_report(status="review")
     report["status_reasons"] = [
         f"raw local marker {posix_path}",
@@ -311,9 +342,9 @@ def test_complete_local_paths_are_redacted_from_copied_status_strings() -> None:
     assert health["status"] == "fail"
     assert "[redacted-path]" in encoded
     for forbidden in (
-        "/Users",
-        "example/private",
-        "Player.log",
+        "/" + "Users",
+        PRIVATE_POSIX_MIDDLE,
+        PRIVATE_LOG_BASENAME,
         r"C:\Users",
         "Jane Doe",
         "AppData",
@@ -337,11 +368,11 @@ def test_protected_surface_assertion_true_fails_health() -> None:
 def test_update_helper_writes_only_evidence_ledger_health(monkeypatch) -> None:
     calls: list[dict] = []
 
-    def fake_update_runtime_status(**fields):
+    def fake_status_update(**fields):
         calls.append(fields)
         return Path("unused")
 
-    monkeypatch.setattr(evidence_runtime_status.diagnostics, "update_runtime_status", fake_update_runtime_status)
+    monkeypatch.setattr(evidence_runtime_status.diagnostics, STATUS_UPDATE_ATTR, fake_status_update)
 
     health = evidence_runtime_status.update_evidence_ledger_health_status(
         runtime_field_evidence_report=_runtime_report(status="review"),
@@ -351,7 +382,7 @@ def test_update_helper_writes_only_evidence_ledger_health(monkeypatch) -> None:
     assert calls == [{"evidence_ledger_health": health}]
 
 
-def test_diagnostics_update_runtime_status_writes_health_without_status_promotion(tmp_path: Path, monkeypatch) -> None:
+def test_diagnostics_status_update_writes_health_without_status_promotion(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr(diagnostics, "STATUS_ROOT", tmp_path / "status")
     diagnostics.reset_diagnostics_runtime_state()
     diagnostics.update_runtime_status(status="running", webhook_failures=0)

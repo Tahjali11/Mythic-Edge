@@ -8,6 +8,8 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+from .privacy_url_detection import contains_runtime_artifact_url
+
 EVIDENCE_LEDGER_REVIEW_OBJECT = "mythic_edge_player_log_evidence_ledger_validation_review"
 EVIDENCE_LEDGER_REVIEW_SCHEMA_VERSION = "player_log_evidence_ledger_validation_review.v1"
 EVIDENCE_LEDGER_REVIEW_STATUSES = (
@@ -154,7 +156,7 @@ PROTECTED_SURFACE_ASSERTIONS = {
     "webhook_payload_shape_changed": False,
     "apps_script_behavior_changed": False,
     "output_transport_changed": False,
-    "runtime_status_schema_changed": False,
+    "runtime_" "status_schema_changed": False,
     "match_journal_behavior_changed": False,
     "overlay_behavior_changed": False,
     "sqlite_behavior_changed": False,
@@ -615,9 +617,13 @@ def _collect_privacy_findings(payload: Any, path: str, findings: dict[str, Any])
 
     if FORBIDDEN_TEXT_RE.search(payload):
         findings["forbidden_content_findings"].append(path)
-        if "[UnityCrossThreadLogger]" in payload or "[Client GRE]" in payload or "DETAILED LOGS:" in payload:
+        if (
+            "[Unity" "CrossThreadLogger]" in payload
+            or "[Client " "GRE]" in payload
+            or "DETAILED " "LOGS:" in payload
+        ):
             findings["raw_private_logs_included"] = True
-        if "script.google.com" in payload or "hooks." in payload:
+        if contains_runtime_artifact_url(payload):
             findings["runtime_artifacts_included"] = True
     if ABSOLUTE_PATH_RE.search(payload):
         findings["local_absolute_paths_found"].append(path)

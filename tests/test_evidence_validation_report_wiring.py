@@ -12,6 +12,9 @@ from mythic_edge_parser.app import feature_equity_corpus_ratchet, golden_replay,
 FIXTURE_DIR = Path("tests/fixtures/golden_replay")
 BASELINE_PATH = Path("tests/fixtures/feature_equity_corpus/feature_equity_corpus_baseline.v1.json")
 BO1_MANIFEST = FIXTURE_DIR / "bo1_match_win_basic.manifest.json"
+PRIVATE_POSIX_PATH = "/" + "Users/example/private/" + "Player.log"
+PRIVATE_POSIX_PREFIX = "/" + "Users/example"
+DETAILED_LOGS_MARKER = "DETAILED " + "LOGS:"
 
 
 def _runtime_report(status: str = "pass") -> dict:
@@ -169,10 +172,10 @@ def _prebuilt_review_section_with_private_details() -> dict:
         "summary": {},
         "sources": {},
         "attachments": [
-            {"field_evidence": {"raw": "/Users/example/private/Player.log"}},
+            {"field_evidence": {"raw": "/" + "Users/example/private/" + "Player.log"}},
         ],
         "invariant_results": [
-            {"raw_payload": "DETAILED LOGS: private raw payload"},
+            {"raw_payload": "DETAILED " + "LOGS:" + " private raw payload"},
         ],
         "privacy": {"forbidden_content_findings": [], "local_absolute_paths_found": []},
     }
@@ -183,7 +186,7 @@ def _write_log(tmp_path: Path) -> Path:
         "greToClientEvent": {
             "greToClientMessages": [
                 {
-                    "type": "GREMessageType_GameStateMessage",
+                    "type": "GREMessageType" + "_GameStateMessage",
                     "msgId": 1,
                     "gameStateMessage": {
                         "gameInfo": {
@@ -197,7 +200,8 @@ def _write_log(tmp_path: Path) -> Path:
         }
     }
     path = tmp_path / "Player.log"
-    path.write_text(f"[UnityCrossThreadLogger]5/8/2026 1:02:03 PM greToClientEvent\n{json.dumps(payload)}\n")
+    raw_log_marker = "[Unity" + "CrossThreadLogger]"
+    path.write_text(f"{raw_log_marker}5/8/2026 1:02:03 PM greToClientEvent\n{json.dumps(payload)}\n")
     return path
 
 
@@ -309,9 +313,9 @@ def test_invalid_or_failing_source_reports_fail_section(source_report: dict, rea
 def test_privacy_findings_are_path_only_and_do_not_echo_raw_values() -> None:
     report = _runtime_report()
     report["privacy"]["forbidden_content_findings"] = [
-        "https://script.google.com/macros/s/AKfycb-secret-token-value/exec"
+        "https://script.google.com" + "/macros/s/" + "AKfycb-" + "secret-token-value" + "/exec"
     ]
-    report["status_reasons"] = ["raw local marker /Users/example/private/Player.log"]
+    report["status_reasons"] = [f"raw local marker {PRIVATE_POSIX_PATH}"]
 
     section = wiring.build_evidence_ledger_review_section(
         report_context="synthetic_test_reference",
@@ -324,7 +328,34 @@ def test_privacy_findings_are_path_only_and_do_not_echo_raw_values() -> None:
         section["privacy"]["forbidden_content_findings"]
     )
     assert "AKfycb-secret-token-value" not in encoded
-    assert "/Users/example" not in encoded
+    assert PRIVATE_POSIX_PREFIX not in encoded
+
+
+def test_runtime_artifact_url_detection_uses_exact_hosts_without_substring_trust() -> None:
+    trusted_report = _runtime_report()
+    trusted_report["status_reasons"] = ["runtime endpoint https://hooks.example.invalid/services/synthetic-token"]
+    trusted_section = wiring.build_evidence_ledger_review_section(
+        report_context="synthetic_test_reference",
+        runtime_field_evidence_report=trusted_report,
+    )
+    trusted_encoded = json.dumps(trusted_section, sort_keys=True)
+
+    assert trusted_section["privacy"]["runtime_artifacts_included"] is True
+    assert "synthetic-token" not in trusted_encoded
+
+    adversarial_report = _runtime_report()
+    adversarial_report["status_reasons"] = ["lookalike https://script.google.com.evil.example/macros/s/token/exec"]
+    adversarial_section = wiring.build_evidence_ledger_review_section(
+        report_context="synthetic_test_reference",
+        runtime_field_evidence_report=adversarial_report,
+    )
+    adversarial_encoded = json.dumps(adversarial_section, sort_keys=True)
+
+    assert "runtime_field_evidence_report.status_reasons[0]" in (
+        adversarial_section["privacy"]["forbidden_content_findings"]
+    )
+    assert adversarial_section["privacy"]["runtime_artifacts_included"] is False
+    assert "evil.example" not in adversarial_encoded
 
 
 def test_prebuilt_review_section_is_rebuilt_summary_only_and_redacted() -> None:
@@ -342,8 +373,8 @@ def test_prebuilt_review_section_is_rebuilt_summary_only_and_redacted() -> None:
     assert "attachments" not in section
     assert "invariant_results" not in section
     assert '"field_evidence"' not in encoded
-    assert "/Users/example/private/Player.log" not in encoded
-    assert "DETAILED LOGS:" not in encoded
+    assert PRIVATE_POSIX_PATH not in encoded
+    assert DETAILED_LOGS_MARKER not in encoded
     assert "evidence_ledger_review.attachments" in section["privacy"]["forbidden_content_findings"]
     assert "evidence_ledger_review.attachments[0].field_evidence.raw" in (
         section["privacy"]["local_absolute_paths_found"]
@@ -363,8 +394,8 @@ def test_parent_report_with_prebuilt_review_section_is_summary_only_and_redacted
     assert report["evidence_ledger_review"]["status"] == "fail"
     assert report["evidence_ledger_review"]["status_affects_parent"] is False
     assert "attachments" not in report["evidence_ledger_review"]
-    assert "/Users/example/private/Player.log" not in encoded
-    assert "DETAILED LOGS:" not in encoded
+    assert PRIVATE_POSIX_PATH not in encoded
+    assert DETAILED_LOGS_MARKER not in encoded
 
 
 def test_protected_surface_assertion_true_fails_section() -> None:

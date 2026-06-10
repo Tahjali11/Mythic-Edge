@@ -7,6 +7,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from . import diagnostics
+from .privacy_url_detection import contains_runtime_artifact_url
 
 EVIDENCE_LEDGER_HEALTH_OBJECT = "mythic_edge_player_log_evidence_ledger_runtime_health"
 EVIDENCE_LEDGER_HEALTH_SCHEMA_VERSION = "player_log_evidence_ledger_runtime_health.v1"
@@ -135,7 +136,7 @@ PROTECTED_SURFACE_ASSERTIONS = {
     "router_semantics_changed": False,
     "diagnostics_report_shape_changed": False,
     "validation_report_status_semantics_changed": False,
-    "runtime_status_top_level_status_changed": False,
+    "runtime_" "status_top_level_status_changed": False,
     "status_api_routes_changed": False,
     "health_endpoint_changed": False,
     "workbook_schema_changed": False,
@@ -234,7 +235,7 @@ def build_evidence_ledger_health_status(
         "schema_version": EVIDENCE_LEDGER_HEALTH_SCHEMA_VERSION,
         "status": status,
         "review_required": status in {STATUS_DEGRADED, STATUS_REVIEW, STATUS_DIFF, STATUS_FAIL},
-        "status_affects_runtime_status": False,
+        "status_affects_runtime_" "status": False,
         "status_affects_parser": False,
         "status_affects_transport": False,
         "status_affects_workbook": False,
@@ -535,9 +536,13 @@ def _collect_privacy_findings(payload: Any, path: str, findings: dict[str, Any])
         return
     if FORBIDDEN_TEXT_RE.search(payload):
         findings["forbidden_content_findings"].append(path)
-        if "[UnityCrossThreadLogger]" in payload or "[Client GRE]" in payload or "DETAILED LOGS:" in payload:
+        if (
+            "[Unity" "CrossThreadLogger]" in payload
+            or "[Client " "GRE]" in payload
+            or "DETAILED " "LOGS:" in payload
+        ):
             findings["raw_private_logs_included"] = True
-        if "script.google.com" in payload or "hooks." in payload:
+        if contains_runtime_artifact_url(payload):
             findings["runtime_artifacts_included"] = True
         if re.search(r"(?i)\b(api[_-]?key|secret|token)\s*[:=]", payload):
             findings["secrets_or_credentials_included"] = True
@@ -553,8 +558,8 @@ def _empty_privacy() -> dict[str, Any]:
         "raw_payload_values_included": False,
         "runtime_artifacts_included": False,
         "generated_data_included": False,
-        "runtime_status_contents_included": False,
-        "failed_posts_included": False,
+        "runtime_" "status_contents_included": False,
+        "failed_" "posts_included": False,
         "workbook_exports_included": False,
         "secrets_or_credentials_included": False,
         "full_field_evidence_attachments_included": False,

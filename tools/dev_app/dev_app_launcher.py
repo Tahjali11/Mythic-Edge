@@ -390,17 +390,25 @@ def launch_process(
     return process
 
 
-def cleanup_children(children: Sequence[ManagedChild], *, timeout_seconds: float = 5.0) -> None:
+def cleanup_children(children: Sequence[ManagedChild], *, timeout_seconds: float = 5.0) -> bool:
+    cleanup_completed = True
     for child in children:
         if _poll_process(child.process) is None:
-            child.process.terminate()
+            _terminate_process(child.process)
     for child in children:
         if _poll_process(child.process) is None:
             try:
                 child.process.wait(timeout=timeout_seconds)
             except Exception:
-                child.process.kill()
+                _kill_process(child.process)
+                try:
+                    child.process.wait(timeout=timeout_seconds)
+                except Exception:
+                    pass
+        if _poll_process(child.process) is None:
+            cleanup_completed = False
     _close_child_logs(children)
+    return cleanup_completed
 
 
 def redact_text(value: object, *, repo_root: Path, app_data_root: Path | None) -> str:
@@ -626,6 +634,40 @@ def _poll_process(process: Any) -> int | None:
     if callable(poll):
         return poll()
     return None
+
+
+def _terminate_process(process: Any) -> None:
+    if platform.system() == "Windows":
+        pid = _process_pid(process)
+        if pid is not None and _terminate_windows_process_tree(pid):
+            return
+    terminate = getattr(process, "terminate", None)
+    if callable(terminate):
+        terminate()
+
+
+def _terminate_windows_process_tree(pid: int) -> bool:
+    try:
+        completed = subprocess.run(
+            ["taskkill", "/PID", str(pid), "/T", "/F"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+    except (OSError, ValueError):
+        return False
+    return completed.returncode == 0
+
+
+def _kill_process(process: Any) -> None:
+    kill = getattr(process, "kill", None)
+    if callable(kill):
+        kill()
+
+
+def _process_pid(process: Any) -> int | None:
+    pid = getattr(process, "pid", None)
+    return pid if isinstance(pid, int) and pid > 0 else None
 
 
 def _close_child_logs(children: Sequence[ManagedChild]) -> None:

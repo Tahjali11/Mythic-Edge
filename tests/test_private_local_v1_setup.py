@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import io
 import json
 import sqlite3
-from collections.abc import Mapping, Sequence
+import sys
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import IO
@@ -109,6 +111,186 @@ def test_install_mode_creates_reserved_tree_manifest_report_and_empty_migrated_d
     assert str(install_root) not in json.dumps(report, sort_keys=True)
 
 
+def test_install_mode_writes_user_confirmed_player_log_config_without_leaking_paths(tmp_path: Path) -> None:
+    source_checkout = _make_source_checkout(tmp_path)
+    install_root = tmp_path / "private-local-v1"
+    player_log_path = tmp_path / "Arena" / "Player.log"
+    player_log_path.parent.mkdir()
+    player_log_path.write_text("private log body must not be read", encoding="utf-8")
+
+    result = setup.run_private_local_v1_setup(
+        setup.PrivateLocalV1Config(
+            install_root=install_root,
+            source_checkout=source_checkout,
+            mode="install",
+            initialize_sqlite=True,
+            player_log_path=player_log_path,
+        )
+    )
+
+    paths = setup.build_private_local_v1_paths(install_root)
+    config_file = paths.config_dir / "app_config.json"
+    manifest = json.loads(paths.install_manifest.read_text(encoding="utf-8"))
+    report = json.loads(paths.setup_report.read_text(encoding="utf-8"))
+    config_payload = json.loads(config_file.read_text(encoding="utf-8"))
+    encoded_result = json.dumps(result, sort_keys=True)
+    encoded_manifest = json.dumps(manifest, sort_keys=True)
+    encoded_report = json.dumps(report, sort_keys=True)
+
+    assert result["status"] == "passed"
+    assert config_file.read_bytes()[:3] != b"\xef\xbb\xbf"
+    assert config_payload == {
+        "analytics_database_path": str(paths.analytics_database),
+        "player_log_path": str(player_log_path),
+    }
+    assert result["player_log_configuration"]["status"] == "accepted"
+    assert result["player_log_configuration"]["display_path"] == "<selected_player_log>"
+    assert result["player_log_configuration"]["contents_read"] is False
+    assert result["player_log_configuration"]["tailing_started"] is False
+    assert result["config_write"]["status"] == "ok"
+    assert result["config_write"]["written_fields"] == ["player_log_path", "analytics_database_path"]
+    assert manifest["player_log_configuration"]["status"] == "accepted"
+    assert manifest["config_write"]["status"] == "ok"
+    assert report["player_log_configuration"]["display_path"] == "<selected_player_log>"
+    assert report["config_write"]["raw_values_included"] is False
+    assert str(player_log_path) not in encoded_result
+    assert str(player_log_path) not in encoded_manifest
+    assert str(player_log_path) not in encoded_report
+    assert str(paths.analytics_database) not in encoded_result
+    assert "private log body" not in encoded_result
+
+
+def test_check_mode_validates_player_log_metadata_without_writing_config(tmp_path: Path) -> None:
+    source_checkout = _make_source_checkout(tmp_path)
+    install_root = tmp_path / "private-local-v1"
+    player_log_path = tmp_path / "Player.log"
+    player_log_path.write_text("private log body must not be read", encoding="utf-8")
+
+    result = setup.run_private_local_v1_setup(
+        setup.PrivateLocalV1Config(
+            install_root=install_root,
+            source_checkout=source_checkout,
+            mode="check",
+            player_log_path=player_log_path,
+        )
+    )
+
+    paths = setup.build_private_local_v1_paths(install_root)
+    encoded = json.dumps(result, sort_keys=True)
+
+    assert result["status"] == "passed"
+    assert result["player_log_configuration"]["status"] == "accepted"
+    assert result["config_write"]["status"] == "not_run"
+    assert result["config_write"]["reason"] == "check_mode_non_mutating"
+    assert not paths.config_dir.exists()
+    assert str(player_log_path) not in encoded
+    assert "private log body" not in encoded
+
+
+def test_install_mode_blocks_missing_player_log_without_writing_config(tmp_path: Path) -> None:
+    source_checkout = _make_source_checkout(tmp_path)
+    install_root = tmp_path / "private-local-v1"
+    player_log_path = tmp_path / "missing" / "Player.log"
+
+    result = setup.run_private_local_v1_setup(
+        setup.PrivateLocalV1Config(
+            install_root=install_root,
+            source_checkout=source_checkout,
+            mode="install",
+            initialize_sqlite=True,
+            player_log_path=player_log_path,
+        )
+    )
+
+    paths = setup.build_private_local_v1_paths(install_root)
+    encoded = json.dumps(result, sort_keys=True)
+
+    assert result["status"] == "blocked"
+    assert result["errors"] == ["player_log_missing"]
+    assert result["player_log_configuration"]["status"] == "missing"
+    assert result["config_write"]["status"] == "not_run"
+    assert result["config_write"]["reason"] == "blocked_before_config_write"
+    assert not (paths.config_dir / "app_config.json").exists()
+    assert not paths.analytics_database.exists()
+    assert str(player_log_path) not in encoded
+
+
+def test_install_mode_blocks_player_log_directory_without_writing_config(tmp_path: Path) -> None:
+    source_checkout = _make_source_checkout(tmp_path)
+    install_root = tmp_path / "private-local-v1"
+    player_log_path = tmp_path / "Player.log"
+    player_log_path.mkdir()
+
+    result = setup.run_private_local_v1_setup(
+        setup.PrivateLocalV1Config(
+            install_root=install_root,
+            source_checkout=source_checkout,
+            mode="install",
+            initialize_sqlite=True,
+            player_log_path=player_log_path,
+        )
+    )
+
+    paths = setup.build_private_local_v1_paths(install_root)
+    encoded = json.dumps(result, sort_keys=True)
+
+    assert result["status"] == "blocked"
+    assert result["errors"] == ["player_log_not_file"]
+    assert result["player_log_configuration"]["status"] == "not_file"
+    assert result["player_log_configuration"]["path_kind"] == "directory"
+    assert result["player_log_configuration"]["display_path"] == "<selected_player_log>"
+    assert result["player_log_configuration"]["contents_read"] is False
+    assert result["player_log_configuration"]["tailing_started"] is False
+    assert result["config_write"]["status"] == "not_run"
+    assert result["config_write"]["reason"] == "blocked_before_config_write"
+    assert not (paths.config_dir / "app_config.json").exists()
+    assert not paths.analytics_database.exists()
+    assert str(player_log_path) not in encoded
+
+
+def test_install_mode_blocks_unreadable_player_log_metadata_without_writing_config(tmp_path: Path, monkeypatch) -> None:
+    source_checkout = _make_source_checkout(tmp_path)
+    install_root = tmp_path / "private-local-v1"
+    player_log_path = tmp_path / "Player.log"
+    player_log_path.write_text("private log body must not be read", encoding="utf-8")
+    original_stat = type(player_log_path).stat
+
+    def stat_with_denial(self: Path, *args: object, **kwargs: object) -> object:
+        if self == player_log_path:
+            raise PermissionError("metadata denied")
+        return original_stat(self, *args, **kwargs)
+
+    monkeypatch.setattr(type(player_log_path), "stat", stat_with_denial)
+
+    result = setup.run_private_local_v1_setup(
+        setup.PrivateLocalV1Config(
+            install_root=install_root,
+            source_checkout=source_checkout,
+            mode="install",
+            initialize_sqlite=True,
+            player_log_path=player_log_path,
+        )
+    )
+
+    paths = setup.build_private_local_v1_paths(install_root)
+    encoded = json.dumps(result, sort_keys=True)
+
+    assert result["status"] == "blocked"
+    assert result["errors"] == ["player_log_metadata_denied"]
+    assert result["player_log_configuration"]["status"] == "unreadable"
+    assert result["player_log_configuration"]["metadata_access"] == "denied"
+    assert result["player_log_configuration"]["warnings"] == ["player_log_unreadable"]
+    assert result["player_log_configuration"]["display_path"] == "<selected_player_log>"
+    assert result["player_log_configuration"]["contents_read"] is False
+    assert result["player_log_configuration"]["tailing_started"] is False
+    assert result["config_write"]["status"] == "not_run"
+    assert result["config_write"]["reason"] == "blocked_before_config_write"
+    assert not (paths.config_dir / "app_config.json").exists()
+    assert not paths.analytics_database.exists()
+    assert str(player_log_path) not in encoded
+    assert "private log body" not in encoded
+
+
 def test_check_mode_records_configured_release_ref_in_metadata(tmp_path: Path) -> None:
     source_checkout = _make_source_checkout(tmp_path)
     install_root = tmp_path / "install"
@@ -152,6 +334,262 @@ def test_check_mode_cli_records_configured_release_ref_in_json_report(capsys, tm
     assert not install_root.exists()
 
 
+def test_wizard_detects_default_windows_player_log_metadata_without_reading_contents(tmp_path: Path) -> None:
+    user_profile = tmp_path / "profile"
+    default_log = user_profile.joinpath(*setup.DEFAULT_WINDOWS_PLAYER_LOG_RELATIVE_PATH)
+    default_log.parent.mkdir(parents=True)
+    default_log.write_text("private default body must not be read", encoding="utf-8")
+
+    status = setup.detect_default_windows_player_log_candidate({"USERPROFILE": str(user_profile)})
+    encoded = json.dumps(status, sort_keys=True)
+
+    assert status["status"] == "accepted"
+    assert status["source"] == "detected_default"
+    assert status["display_path"] == "<detected_mtga_player_log>"
+    assert status["path_kind"] == "file"
+    assert status["metadata_access"] == "accessible"
+    assert status["contents_read"] is False
+    assert status["tailing_started"] is False
+    assert status["activity_hint"] in {"recent", "stale"}
+    assert str(default_log) not in encoded
+    assert "private default body" not in encoded
+
+
+def test_wizard_accepts_detected_default_after_confirmation_without_leaking_paths(tmp_path: Path) -> None:
+    source_checkout = _make_source_checkout(tmp_path)
+    install_root = tmp_path / "private-local-v1"
+    user_profile = tmp_path / "profile"
+    default_log = user_profile.joinpath(*setup.DEFAULT_WINDOWS_PLAYER_LOG_RELATIVE_PATH)
+    default_log.parent.mkdir(parents=True)
+    default_log.write_text("private default body must not be read", encoding="utf-8")
+
+    result = setup.run_private_local_v1_setup_wizard(
+        setup.PrivateLocalV1WizardConfig(
+            install_root=install_root,
+            source_checkout=source_checkout,
+        ),
+        prompt_reader=_prompt_answers(["", "", "y"]),
+        output_writer=lambda _message: None,
+        env={"USERPROFILE": str(user_profile)},
+    )
+
+    paths = setup.build_private_local_v1_paths(install_root)
+    manifest = json.loads(paths.install_manifest.read_text(encoding="utf-8"))
+    report = json.loads(paths.setup_report.read_text(encoding="utf-8"))
+    config_payload = json.loads((paths.config_dir / "app_config.json").read_text(encoding="utf-8"))
+    encoded = json.dumps(result, sort_keys=True)
+
+    assert result["status"] == "healthy"
+    assert result["player_log_selection"]["source"] == "detected_default"
+    assert result["player_log_selection"]["display_path"] == "<detected_mtga_player_log>"
+    assert manifest["player_log_configuration"]["source"] == "detected_default"
+    assert manifest["player_log_configuration"]["display_path"] == "<detected_mtga_player_log>"
+    assert report["player_log_configuration"]["contents_read"] is False
+    assert config_payload["player_log_path"] == str(default_log)
+    assert config_payload["analytics_database_path"] == str(paths.analytics_database)
+    assert str(default_log) not in encoded
+    assert str(paths.analytics_database) not in encoded
+    assert "private default body" not in encoded
+
+
+def test_wizard_accepts_manual_player_log_after_default_missing(tmp_path: Path) -> None:
+    source_checkout = _make_source_checkout(tmp_path)
+    install_root = tmp_path / "private-local-v1"
+    user_profile = tmp_path / "profile"
+    manual_log = tmp_path / "manual" / "Player.log"
+    manual_log.parent.mkdir()
+    manual_log.write_text("private manual body must not be read", encoding="utf-8")
+
+    result = setup.run_private_local_v1_setup_wizard(
+        setup.PrivateLocalV1WizardConfig(
+            install_root=install_root,
+            source_checkout=source_checkout,
+        ),
+        prompt_reader=_prompt_answers(["", str(manual_log), "y"]),
+        output_writer=lambda _message: None,
+        env={"USERPROFILE": str(user_profile)},
+    )
+
+    paths = setup.build_private_local_v1_paths(install_root)
+    manifest = json.loads(paths.install_manifest.read_text(encoding="utf-8"))
+    encoded = json.dumps(result, sort_keys=True)
+
+    assert result["status"] == "healthy"
+    assert result["player_log_selection"]["source"] == "manual_selection"
+    assert result["player_log_selection"]["display_path"] == "<selected_player_log>"
+    assert manifest["player_log_configuration"]["source"] == "manual_selection"
+    assert manifest["player_log_configuration"]["display_path"] == "<selected_player_log>"
+    assert json.loads((paths.config_dir / "app_config.json").read_text(encoding="utf-8"))["player_log_path"] == str(
+        manual_log
+    )
+    assert str(manual_log) not in encoded
+    assert "private manual body" not in encoded
+
+
+def test_wizard_skip_player_log_completes_degraded_without_config_write(tmp_path: Path) -> None:
+    source_checkout = _make_source_checkout(tmp_path)
+    install_root = tmp_path / "private-local-v1"
+    user_profile = tmp_path / "profile"
+
+    result = setup.run_private_local_v1_setup_wizard(
+        setup.PrivateLocalV1WizardConfig(
+            install_root=install_root,
+            source_checkout=source_checkout,
+        ),
+        prompt_reader=_prompt_answers(["", "skip", "y"]),
+        output_writer=lambda _message: None,
+        env={"USERPROFILE": str(user_profile)},
+    )
+
+    paths = setup.build_private_local_v1_paths(install_root)
+    report = json.loads(paths.setup_report.read_text(encoding="utf-8"))
+
+    assert result["status"] == "degraded"
+    assert result["player_log_selection"]["status"] == "skipped"
+    assert result["player_log_selection"]["display_path"] == "<player_log_not_configured>"
+    assert "player_log_not_configured" in result["warnings"]
+    assert report["status"] == "degraded"
+    assert report["config_write"]["status"] == "not_run"
+    assert report["config_write"]["reason"] == "player_log_path_not_provided"
+    assert not (paths.config_dir / "app_config.json").exists()
+    assert paths.analytics_database.is_file()
+
+
+def test_wizard_cli_json_report_keeps_stdout_parseable(capsys, monkeypatch, tmp_path: Path) -> None:
+    source_checkout = _make_source_checkout(tmp_path)
+    install_root = tmp_path / "private-local-v1"
+    user_profile = tmp_path / "profile"
+    monkeypatch.setenv("USERPROFILE", str(user_profile))
+    monkeypatch.setattr(sys, "stdin", io.StringIO("\nskip\ny\n"))
+
+    exit_code = setup.main(
+        [
+            "--wizard",
+            "--install-root",
+            str(install_root),
+            "--source-checkout",
+            str(source_checkout),
+            "--json-report",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+
+    assert exit_code == 0
+    assert payload["status"] == "degraded"
+    assert payload["mode"] == "wizard"
+    assert payload["player_log_selection"]["display_path"] == "<player_log_not_configured>"
+    assert "Mythic Edge private-local-v1 setup wizard" in captured.err
+    assert str(install_root) not in captured.out
+
+
+def test_wizard_missing_manual_path_can_cancel_without_writing(tmp_path: Path) -> None:
+    source_checkout = _make_source_checkout(tmp_path)
+    install_root = tmp_path / "private-local-v1"
+    user_profile = tmp_path / "profile"
+    missing_log = tmp_path / "missing" / "Player.log"
+
+    result = setup.run_private_local_v1_setup_wizard(
+        setup.PrivateLocalV1WizardConfig(
+            install_root=install_root,
+            source_checkout=source_checkout,
+        ),
+        prompt_reader=_prompt_answers(["", str(missing_log), "cancel"]),
+        output_writer=lambda _message: None,
+        env={"USERPROFILE": str(user_profile)},
+    )
+
+    assert result["status"] == "blocked"
+    assert result["errors"] == ["wizard_cancelled"]
+    assert result["setup_result"] is None
+    assert not install_root.exists()
+    assert str(missing_log) not in json.dumps(result, sort_keys=True)
+
+
+def test_wizard_manual_player_log_directory_can_cancel_without_writing(tmp_path: Path) -> None:
+    source_checkout = _make_source_checkout(tmp_path)
+    install_root = tmp_path / "private-local-v1"
+    user_profile = tmp_path / "profile"
+    player_log_path = tmp_path / "Player.log"
+    player_log_path.mkdir()
+    messages: list[str] = []
+
+    result = setup.run_private_local_v1_setup_wizard(
+        setup.PrivateLocalV1WizardConfig(
+            install_root=install_root,
+            source_checkout=source_checkout,
+        ),
+        prompt_reader=_prompt_answers(["", str(player_log_path), "cancel"]),
+        output_writer=messages.append,
+        env={"USERPROFILE": str(user_profile)},
+    )
+
+    encoded = json.dumps(result, sort_keys=True)
+    rendered_messages = "\n".join(messages)
+
+    assert result["status"] == "blocked"
+    assert result["errors"] == ["wizard_cancelled"]
+    assert result["setup_result"] is None
+    assert result["player_log_selection"]["status"] == "cancelled"
+    assert "Selected Player.log could not be accepted from metadata" in rendered_messages
+    assert not install_root.exists()
+    assert str(player_log_path) not in encoded
+    assert str(player_log_path) not in rendered_messages
+
+
+def test_wizard_manual_player_log_metadata_denied_can_cancel_without_writing(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    source_checkout = _make_source_checkout(tmp_path)
+    install_root = tmp_path / "private-local-v1"
+    user_profile = tmp_path / "profile"
+    player_log_path = tmp_path / "Player.log"
+    player_log_path.write_text("private log body must not be read", encoding="utf-8")
+    original_stat = type(player_log_path).stat
+    messages: list[str] = []
+
+    def stat_with_denial(self: Path, *args: object, **kwargs: object) -> object:
+        if self == player_log_path:
+            raise PermissionError("metadata denied")
+        return original_stat(self, *args, **kwargs)
+
+    monkeypatch.setattr(type(player_log_path), "stat", stat_with_denial)
+
+    result = setup.run_private_local_v1_setup_wizard(
+        setup.PrivateLocalV1WizardConfig(
+            install_root=install_root,
+            source_checkout=source_checkout,
+        ),
+        prompt_reader=_prompt_answers(["", str(player_log_path), "cancel"]),
+        output_writer=messages.append,
+        env={"USERPROFILE": str(user_profile)},
+    )
+
+    encoded = json.dumps(result, sort_keys=True)
+    rendered_messages = "\n".join(messages)
+
+    assert result["status"] == "blocked"
+    assert result["errors"] == ["wizard_cancelled"]
+    assert result["setup_result"] is None
+    assert result["player_log_selection"]["status"] == "cancelled"
+    assert "Selected Player.log could not be accepted from metadata" in rendered_messages
+    assert not install_root.exists()
+    assert str(player_log_path) not in encoded
+    assert str(player_log_path) not in rendered_messages
+    assert "private log body" not in encoded
+
+
+def test_parse_args_and_powershell_wrapper_expose_wizard_mode() -> None:
+    args = setup._parse_args(["--wizard"])
+    wrapper = Path("tools/dev_app/setup_private_local_v1.ps1").read_text(encoding="utf-8")
+
+    assert args.wizard is True
+    assert "[switch]$Wizard" in wrapper
+    assert '$argsList += "--wizard"' in wrapper
+
+
 def test_install_mode_blocks_existing_manifest_and_report_without_overwriting_metadata(tmp_path: Path) -> None:
     source_checkout = _make_source_checkout(tmp_path)
     install_root = tmp_path / "private-local-v1"
@@ -184,6 +622,34 @@ def test_install_mode_blocks_existing_manifest_and_report_without_overwriting_me
         "setup_report",
     }
     assert str(install_root) not in json.dumps(result, sort_keys=True)
+
+
+def test_install_mode_blocks_existing_app_config_without_overwriting_it(tmp_path: Path) -> None:
+    source_checkout = _make_source_checkout(tmp_path)
+    install_root = tmp_path / "private-local-v1"
+    paths = setup.build_private_local_v1_paths(install_root)
+    paths.config_dir.mkdir(parents=True)
+    prior_config = '{"sentinel":"keep-config"}\n'
+    paths.config_dir.joinpath("app_config.json").write_text(prior_config, encoding="utf-8")
+    player_log_path = tmp_path / "Player.log"
+    player_log_path.write_text("private log body must not be read", encoding="utf-8")
+
+    result = setup.run_private_local_v1_setup(
+        setup.PrivateLocalV1Config(
+            install_root=install_root,
+            source_checkout=source_checkout,
+            mode="install",
+            initialize_sqlite=True,
+            player_log_path=player_log_path,
+        )
+    )
+
+    assert result["status"] == "blocked"
+    assert result["errors"] == ["existing_install_detected"]
+    assert paths.config_dir.joinpath("app_config.json").read_text(encoding="utf-8") == prior_config
+    assert result["report"]["existing_install_handling"]["status"] == "blocked"
+    assert result["report"]["existing_install_handling"]["detected"] == ["app_config"]
+    assert str(player_log_path) not in json.dumps(result, sort_keys=True)
 
 
 def test_install_mode_blocks_existing_database_without_migrating_or_writing_metadata(tmp_path: Path) -> None:
@@ -272,6 +738,42 @@ def test_proof_mode_orchestrates_existing_checkout_without_real_side_effects(tmp
     assert str(source_checkout) not in json.dumps(proof_report, sort_keys=True)
 
 
+def test_proof_mode_reports_incomplete_cleanup_when_started_process_survives(tmp_path: Path) -> None:
+    source_checkout = _make_source_checkout(tmp_path)
+    install_root = tmp_path / "private-local-v1"
+    commands = ProofCommandRecorder()
+    processes = ProofProcessRecorder(stubborn_names={"frontend"})
+
+    result = setup.run_private_local_v1_proof(
+        setup.PrivateLocalV1ProofConfig(
+            install_root=install_root,
+            source_checkout=source_checkout,
+            existing_checkout=True,
+            no_open=True,
+            stop_after_verify=True,
+        ),
+        command_runner=commands.run,
+        http_verifier=_passing_http_verifier,
+        tool_resolver=_tool_resolver,
+        module_finder=_module_finder,
+        port_checker=lambda _host, _port: True,
+        process_launcher=processes.launch,
+        browser_opener=lambda _url: False,
+        platform_name="Windows",
+        settle_seconds=0,
+    )
+
+    paths = setup.build_private_local_v1_paths(install_root)
+    proof_report = json.loads((paths.diagnostics_dir / "setup_proof_report.json").read_text(encoding="utf-8"))
+
+    assert result["status"] == "failed"
+    assert result["launch"]["process_cleanup"] == "cleanup_incomplete"
+    assert "process_cleanup_incomplete" in result["errors"]
+    assert proof_report["launch"]["process_cleanup"] == "cleanup_incomplete"
+    assert processes.by_name["backend"].terminated is True
+    assert processes.by_name["frontend"].killed is True
+
+
 def test_proof_mode_can_clone_into_v1_app_root_with_fake_repo(tmp_path: Path) -> None:
     seed_checkout = _make_source_checkout(tmp_path)
     install_root = tmp_path / "private-local-v1"
@@ -325,6 +827,7 @@ def test_powershell_wrapper_routes_to_private_local_v1_helper_without_destructiv
     assert "-Proof" in wrapper
     assert "--repo-url" in wrapper
     assert "--release-ref" in wrapper
+    assert "--player-log-path" in wrapper
     assert "--no-open" in wrapper
     assert "--stop-after-verify" in wrapper
     assert "git clone" not in wrapper_lower
@@ -407,9 +910,11 @@ class ProofProcessCall:
 
 
 class ProofProcessRecorder:
-    def __init__(self) -> None:
+    def __init__(self, *, stubborn_names: set[str] | None = None) -> None:
         self.calls: list[ProofProcessCall] = []
         self.processes: list[ProofProcess] = []
+        self.by_name: dict[str, ProofProcess] = {}
+        self.stubborn_names = stubborn_names or set()
 
     def launch(
         self,
@@ -420,24 +925,30 @@ class ProofProcessRecorder:
     ) -> "ProofProcess":
         name = "backend" if "uvicorn" in command else "frontend"
         log_handle.write(f"{name} started\n".encode())
-        process = ProofProcess()
+        process = ProofProcess(stubborn=name in self.stubborn_names)
         self.calls.append(ProofProcessCall(name, list(command), cwd, dict(env)))
         self.processes.append(process)
+        self.by_name[name] = process
         return process
 
 
 class ProofProcess:
-    def __init__(self) -> None:
+    def __init__(self, *, stubborn: bool = False) -> None:
         self.terminated = False
         self.killed = False
+        self.stubborn = stubborn
 
     def poll(self) -> int | None:
+        if self.stubborn:
+            return None
         return 0 if self.terminated or self.killed else None
 
     def terminate(self) -> None:
         self.terminated = True
 
     def wait(self, timeout: float | None = None) -> int:
+        if self.stubborn:
+            raise TimeoutError
         self.terminated = True
         return 0
 
@@ -496,3 +1007,12 @@ def _copy_fake_checkout(source: Path, destination: Path) -> None:
         target_path.parent.mkdir(parents=True, exist_ok=True)
         target_path.write_text(source_path.read_text(encoding="utf-8"), encoding="utf-8")
     (destination / ".git").mkdir(exist_ok=True)
+
+
+def _prompt_answers(answers: Sequence[str]) -> Callable[[str], str]:
+    iterator = iter(answers)
+
+    def read_prompt(_prompt: str) -> str:
+        return next(iterator)
+
+    return read_prompt

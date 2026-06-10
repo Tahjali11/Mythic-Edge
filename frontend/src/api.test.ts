@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   fetchAnalyticsDashboardModules,
+  fetchAnalyticsRefreshState,
   fetchGameplayActionReview,
   AnalyticsHistoryApiError,
   fetchGame1PostboardSplitReview,
@@ -9,6 +10,7 @@ import {
   fetchLiveWatcherDiagnosticsStatus,
   fetchLiveWatcherProcessStatus,
   fetchLiveWatcherStatus,
+  fetchLiveCaptureStatus,
   fetchManualImportJob,
   fetchGameHistory,
   fetchMatchHistory,
@@ -22,7 +24,9 @@ import {
   LiveStatusApiError,
   MatchJournalApiError,
   ManualImportApiError,
+  previewErrorReport,
   SetupStatusApiError,
+  submitErrorReport,
   submitMatchJournalDisplayCorrection,
   submitMatchJournalExperimentLabel,
   submitMatchJournalNote,
@@ -36,13 +40,21 @@ import {
   ANALYTICS_DASHBOARD_MODULES_OBJECT,
   ANALYTICS_DASHBOARD_MODULES_SCHEMA_VERSION,
   ANALYTICS_HISTORY_SCHEMA_VERSION,
+  ANALYTICS_REFRESH_STATE_OBJECT,
+  ANALYTICS_REFRESH_STATE_SCHEMA_VERSION,
   EARLY_GAME_HISTORY_SCHEMA_VERSION,
+  ERROR_REPORT_PREVIEW_SCHEMA,
+  ERROR_REPORT_SUBMISSION_OBJECT,
+  ERROR_REPORT_SUBMISSION_SCHEMA,
   GAME_HISTORY_OBJECT,
   GAME1_POSTBOARD_SPLIT_REVIEW_OBJECT,
   GAMEPLAY_ACTION_REVIEW_OBJECT,
   LEGACY_JSONL_IMPORT_QUALITY_OBJECT,
   LEGACY_JSONL_IMPORT_QUALITY_SCHEMA_VERSION,
   LIVE_PLAYER_LOG_STATUS_OBJECT,
+  LIVE_CAPTURE_SCHEMA_VERSION,
+  LIVE_CAPTURE_DIAGNOSTICS_SCHEMA_VERSION,
+  LIVE_CAPTURE_STATUS_OBJECT,
   LIVE_STATUS_SCHEMA_VERSION,
   LIVE_WATCHER_DIAGNOSTICS_OBJECT,
   LIVE_WATCHER_DIAGNOSTICS_SCHEMA_VERSION,
@@ -54,6 +66,7 @@ import {
   MATCH_JOURNAL_OBJECT,
   MATCH_JOURNAL_SCHEMA_VERSION,
   MATCH_HISTORY_OBJECT,
+  MTGA_PROCESS_SCHEMA_VERSION,
   MULLIGAN_HISTORY_OBJECT,
   OPPONENT_CARD_OBSERVATION_REVIEW_OBJECT,
   OPENING_HAND_HISTORY_OBJECT,
@@ -63,10 +76,15 @@ import {
   SPLIT_REVIEW_SCHEMA_VERSION,
   type Game1PostboardSplitReviewResponse,
   type AnalyticsDashboardModulesResponse,
+  type AnalyticsRefreshStateResponse,
+  type AutomationReadiness,
+  type ErrorReportPreviewResponse,
+  type ErrorReportSubmissionResponse,
   type GameHistoryResponse,
   type GameplayActionReviewResponse,
   type LegacyJsonlImportQuality,
   type LivePlayerLogStatusResponse,
+  type LiveCaptureStatusResponse,
   type LiveWatcherDiagnosticsResponse,
   type LiveWatcherProcessStatusResponse,
   type LiveWatcherStatusResponse,
@@ -75,6 +93,7 @@ import {
   type MulliganHistoryResponse,
   type OpeningHandHistoryResponse,
   type MatchHistoryResponse,
+  type MtgaProcessStatus,
   type OpponentCardObservationReviewResponse,
   type PlayDrawSplitReviewResponse,
   type SetupStatusResponse
@@ -98,6 +117,102 @@ describe("api helpers", () => {
     await expect(fetchSetupStatus(fetchImpl)).resolves.toEqual(payload);
     expect(fetchImpl).toHaveBeenCalledWith("/api/app/setup-status", {
       headers: { Accept: "application/json" }
+    });
+  });
+
+  it("fetches and validates live capture heartbeat and progress diagnostics", async () => {
+    const payload = buildLiveCaptureStatusPayload({
+      status: "capturing",
+      heartbeat: {
+        schema_version: LIVE_CAPTURE_DIAGNOSTICS_SCHEMA_VERSION,
+        status: "progress",
+        heartbeat_updated_at: "2026-06-08T12:00:00Z",
+        capture_duration_seconds: 15,
+        heartbeat_age_seconds: 1,
+        stale_after_seconds: 30
+      },
+      progress: {
+        schema_version: LIVE_CAPTURE_DIAGNOSTICS_SCHEMA_VERSION,
+        log_poll_count: 5,
+        log_chunks_seen: 0,
+        structured_entry_count: 2,
+        parser_event_count: 2,
+        parser_event_kinds_seen: ["game_state"],
+        match_ids_seen_count: 1,
+        current_match_detected: true,
+        current_match_game_wins: null,
+        current_match_game_losses: null,
+        last_completed_match_result: null,
+        last_completed_match_game_wins: null,
+        last_completed_match_game_losses: null,
+        completed_game_rows_seen: 0,
+        sqlite_write_attempt_count: 0,
+        sqlite_rows_written: 0,
+        last_no_write_reason: "no_completed_game_rows",
+        last_event_seen_at: "2026-06-08T12:00:00Z",
+        last_sqlite_write_at: null
+      },
+      parser_status_blurb: {
+        code: "waiting_for_completed_facts",
+        text: "Capturing; waiting for completed match facts.",
+        tone: "waiting"
+      }
+    });
+    const fetchImpl = vi.fn(async () => jsonResponse(payload)) as unknown as typeof fetch;
+
+    await expect(fetchLiveCaptureStatus(fetchImpl)).resolves.toEqual(payload);
+    expect(fetchImpl).toHaveBeenCalledWith("/api/live/capture/status", {
+      headers: { Accept: "application/json" }
+    });
+  });
+
+  it("submits sanitized error reports through the local backend route", async () => {
+    const payload = buildErrorReportSubmissionPayload();
+    const fetchImpl = vi.fn(async () => jsonResponse(payload)) as unknown as typeof fetch;
+
+    await expect(
+      submitErrorReport(
+        {
+          summary: "Dashboard status did not refresh",
+          report_type: "bug",
+          expected_behavior: "The dashboard should show current safe labels.",
+          actual_behavior: "The dashboard kept old labels after reload.",
+          reproduction_steps: "Open the app.",
+          affected_area: "local_app_ui",
+          severity: "degraded"
+        },
+        fetchImpl
+      )
+    ).resolves.toEqual(payload);
+    expect(fetchImpl).toHaveBeenCalledWith("/api/feedback/error-report/submit", {
+      method: "POST",
+      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      body: expect.stringContaining('"report_type":"bug"')
+    });
+  });
+
+  it("accepts ready error-report previews when external submission is enabled", async () => {
+    const payload = buildErrorReportPreviewPayload({ external_submission_enabled: true });
+    const fetchImpl = vi.fn(async () => jsonResponse(payload)) as unknown as typeof fetch;
+
+    await expect(
+      previewErrorReport(
+        {
+          summary: "Dashboard status did not refresh",
+          report_type: "bug",
+          expected_behavior: "The dashboard should show current safe labels.",
+          actual_behavior: "The dashboard kept old labels after reload.",
+          reproduction_steps: "Open the app.",
+          affected_area: "local_app_ui",
+          severity: "degraded"
+        },
+        fetchImpl
+      )
+    ).resolves.toEqual(payload);
+    expect(fetchImpl).toHaveBeenCalledWith("/api/feedback/error-report/preview", {
+      method: "POST",
+      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      body: expect.stringContaining('"report_type":"bug"')
     });
   });
 
@@ -194,6 +309,19 @@ describe("api helpers", () => {
       code: "malformed_response"
     });
 
+    const unsafeMtgaProcessFetch = vi.fn(async () =>
+      jsonResponse({
+        ...buildLiveWatcherProcessStatusPayload(),
+        mtga_process: {
+          ...buildMtgaProcessStatus(),
+          raw_stdout: "MTGA.exe 123 Console"
+        }
+      })
+    ) as unknown as typeof fetch;
+    await expect(fetchLiveWatcherProcessStatus(unsafeMtgaProcessFetch)).rejects.toMatchObject({
+      code: "malformed_response"
+    });
+
     const unsafeDiagnosticsFetch = vi.fn(async () =>
       jsonResponse({
         ...buildLiveWatcherDiagnosticsPayload(),
@@ -213,6 +341,168 @@ describe("api helpers", () => {
     await expect(fetchLiveWatcherDiagnosticsStatus(wrongDiagnosticsSchemaFetch)).rejects.toMatchObject({
       code: "incompatible_response"
     });
+
+    const unsafeBlurbText = String.raw`C:\operator\AppData\Local\MythicEdge\Player.log`;
+    const unsafeLiveCaptureBlurbFetch = vi.fn(async () =>
+      jsonResponse({
+        ...buildLiveCaptureStatusPayload(),
+        parser_status_blurb: {
+          code: "waiting_for_events",
+          text: unsafeBlurbText,
+          tone: "waiting"
+        }
+      })
+    ) as unknown as typeof fetch;
+    await expect(fetchLiveCaptureStatus(unsafeLiveCaptureBlurbFetch)).rejects.toMatchObject({
+      code: "malformed_response"
+    });
+    try {
+      await fetchLiveCaptureStatus(unsafeLiveCaptureBlurbFetch);
+    } catch (error) {
+      expect(String(error)).not.toContain(unsafeBlurbText);
+    }
+
+    const unsafeHeartbeatFetch = vi.fn(async () =>
+      jsonResponse({
+        ...buildLiveCaptureStatusPayload(),
+        heartbeat: {
+          ...buildLiveCaptureStatusPayload().heartbeat,
+          heartbeat_updated_at: unsafeBlurbText
+        }
+      })
+    ) as unknown as typeof fetch;
+    await expect(fetchLiveCaptureStatus(unsafeHeartbeatFetch)).rejects.toMatchObject({
+      code: "malformed_response"
+    });
+
+    const unsafeProgressFetch = vi.fn(async () =>
+      jsonResponse({
+        ...buildLiveCaptureStatusPayload(),
+        progress: {
+          ...buildLiveCaptureStatusPayload().progress,
+          parser_event_kinds_seen: ["game_state", unsafeBlurbText]
+        }
+      })
+    ) as unknown as typeof fetch;
+    await expect(fetchLiveCaptureStatus(unsafeProgressFetch)).rejects.toMatchObject({
+      code: "malformed_response"
+    });
+
+    const unsafeLifecycleFetch = vi.fn(async () =>
+      jsonResponse({
+        ...buildLiveCaptureStatusPayload(),
+        mtga_lifecycle: {
+          ...buildLiveCaptureStatusPayload().mtga_lifecycle,
+          automation_start_allowed: true
+        }
+      })
+    ) as unknown as typeof fetch;
+    await expect(fetchLiveCaptureStatus(unsafeLifecycleFetch)).rejects.toMatchObject({
+      code: "malformed_response"
+    });
+  });
+
+  it("rejects non-contract MTGA process labels safely", async () => {
+    const processCases: Array<[string, Partial<MtgaProcessStatus>]> = [
+      ["status", { status: "operator_custom_status" }],
+      ["platform", { platform: "operator_workstation" }],
+      ["evidence", { evidence: "raw_tasklist_output" }],
+      ["detector", { detector: "custom_detector" }],
+      ["warnings", { warnings: [String.raw`C:\operator\AppData\Local\MTGA\Player.log`] }],
+      ["errors", { errors: ["operator_secret_error"] }]
+    ];
+
+    for (const [field, override] of processCases) {
+      const fetchImpl = vi.fn(async () =>
+        jsonResponse({
+          ...buildLiveWatcherProcessStatusPayload(),
+          mtga_process: {
+            ...buildMtgaProcessStatus(),
+            ...override
+          }
+        })
+      ) as unknown as typeof fetch;
+
+      await expect(fetchLiveWatcherProcessStatus(fetchImpl), field).rejects.toMatchObject({
+        code: "malformed_response"
+      });
+    }
+  });
+
+  it("rejects non-contract automation readiness labels and incomplete checklists", async () => {
+    const readiness = buildAutomationReadiness();
+    const readinessCases: Array<[string, AutomationReadiness]> = [
+      ["status", { ...readiness, status: "ready" }],
+      [
+        "item key",
+        {
+          ...readiness,
+          items: readiness.items.map((entry, index) =>
+            index === 0 ? { ...entry, key: String.raw`C:\operator\AppData\Local\MTGA` } : entry
+          )
+        }
+      ],
+      [
+        "item status",
+        {
+          ...readiness,
+          items: readiness.items.map((entry, index) =>
+            index === 0 ? { ...entry, status: "custom_status" } : entry
+          )
+        }
+      ],
+      ["missing checklist item", { ...readiness, items: readiness.items.slice(0, -1) }]
+    ];
+
+    for (const [field, automation_readiness] of readinessCases) {
+      const fetchImpl = vi.fn(async () =>
+        jsonResponse({
+          ...buildLiveWatcherProcessStatusPayload(),
+          automation_readiness
+        })
+      ) as unknown as typeof fetch;
+
+      await expect(fetchLiveWatcherProcessStatus(fetchImpl), field).rejects.toMatchObject({
+        code: "malformed_response"
+      });
+    }
+  });
+
+  it("rejects non-contract MTGA lifecycle labels safely", async () => {
+    const lifecycleCases: Array<[string, Partial<LiveCaptureStatusResponse["mtga_lifecycle"]>]> = [
+      ["status", { status: "operator_custom_status" }],
+      ["mtga_process_status", { mtga_process_status: "maybe_running" }],
+      ["shutdown_reason", { shutdown_reason: "operator_custom_shutdown" }],
+      ["warnings", { warnings: [String.raw`C:\operator\AppData\Local\MTGA\Player.log`] }],
+      ["errors", { errors: ["operator_secret_error"] }],
+      [
+        "automation_readiness",
+        {
+          automation_readiness: {
+            ...buildAutomationReadiness(),
+            items: buildAutomationReadiness().items.map((entry, index) =>
+              index === 0 ? { ...entry, status: "custom_status" } : entry
+            )
+          }
+        }
+      ]
+    ];
+
+    for (const [field, override] of lifecycleCases) {
+      const fetchImpl = vi.fn(async () =>
+        jsonResponse({
+          ...buildLiveCaptureStatusPayload(),
+          mtga_lifecycle: {
+            ...buildLiveCaptureStatusPayload().mtga_lifecycle,
+            ...override
+          }
+        })
+      ) as unknown as typeof fetch;
+
+      await expect(fetchLiveCaptureStatus(fetchImpl), field).rejects.toMatchObject({
+        code: "malformed_response"
+      });
+    }
   });
 
   it("classifies missing required schema fields as malformed responses", async () => {
@@ -618,6 +908,52 @@ describe("api helpers", () => {
     });
   });
 
+  it("fetches and validates analytics refresh-state responses", async () => {
+    const payload = buildAnalyticsRefreshStatePayload();
+    const fetchImpl = vi.fn(async () => jsonResponse(payload)) as unknown as typeof fetch;
+
+    await expect(fetchAnalyticsRefreshState(fetchImpl)).resolves.toEqual(payload);
+    expect(fetchImpl).toHaveBeenCalledWith("/api/analytics/refresh-state", {
+      headers: { Accept: "application/json" }
+    });
+  });
+
+  it("rejects malformed analytics refresh-state responses safely", async () => {
+    const wrongSchemaFetch = vi.fn(async () =>
+      jsonResponse({ ...buildAnalyticsRefreshStatePayload(), schema_version: ANALYTICS_DASHBOARD_MODULES_SCHEMA_VERSION })
+    ) as unknown as typeof fetch;
+    await expect(fetchAnalyticsRefreshState(wrongSchemaFetch)).rejects.toMatchObject({
+      code: "incompatible_response"
+    });
+
+    const wrongObjectFetch = vi.fn(async () =>
+      jsonResponse({ ...buildAnalyticsRefreshStatePayload(), object: ANALYTICS_DASHBOARD_MODULES_OBJECT })
+    ) as unknown as typeof fetch;
+    await expect(fetchAnalyticsRefreshState(wrongObjectFetch)).rejects.toMatchObject({
+      code: "malformed_response"
+    });
+
+    const malformedCountsFetch = vi.fn(async () =>
+      jsonResponse({
+        ...buildAnalyticsRefreshStatePayload(),
+        row_counts: { ...buildAnalyticsRefreshStatePayload().row_counts, match_results: -1 }
+      })
+    ) as unknown as typeof fetch;
+    await expect(fetchAnalyticsRefreshState(malformedCountsFetch)).rejects.toMatchObject({
+      code: "malformed_response"
+    });
+
+    const unsafeTimestampFetch = vi.fn(async () =>
+      jsonResponse({
+        ...buildAnalyticsRefreshStatePayload(),
+        latest_completed_match_seen_at: String.raw`C:\operator\AppData\Local\MythicEdge\Player.log`
+      })
+    ) as unknown as typeof fetch;
+    await expect(fetchAnalyticsRefreshState(unsafeTimestampFetch)).rejects.toMatchObject({
+      code: "malformed_response"
+    });
+  });
+
   it("submits manual JSONL import requests without exposing raw payloads in errors", async () => {
     const payload = buildManualImportJob();
     const fetchImpl = vi.fn(async () => jsonResponse(payload)) as unknown as typeof fetch;
@@ -767,6 +1103,42 @@ function buildSetupStatusPayload(): SetupStatusResponse {
   };
 }
 
+function buildErrorReportPreviewPayload(
+  overrides: Partial<ErrorReportPreviewResponse> = {}
+): ErrorReportPreviewResponse {
+  return {
+    schema: ERROR_REPORT_PREVIEW_SCHEMA,
+    status: "preview_ready",
+    issue_title: "[error-report] [bug] [local_app_ui] Dashboard status did not refresh",
+    issue_body_markdown: "# [error-report] [bug] [local_app_ui] Dashboard status did not refresh",
+    included_diagnostic_categories: ["backend_health", "privacy_boundary"],
+    excluded_private_data: ["raw Player.log contents or raw log lines"],
+    redaction_summary: ["No user-entered private path redactions were needed."],
+    warnings: [],
+    next_recommended_role: "Codex A or Codex B after reviewing the sanitized report",
+    external_submission_enabled: false,
+    ...overrides
+  };
+}
+
+function buildErrorReportSubmissionPayload(): ErrorReportSubmissionResponse {
+  return {
+    object: ERROR_REPORT_SUBMISSION_OBJECT,
+    schema_version: ERROR_REPORT_SUBMISSION_SCHEMA,
+    status: "submitted",
+    external_submission_enabled: true,
+    submitted: true,
+    issue_url: "https://github.com/Tahjali11/Mythic-Edge/issues/999",
+    issue_number: 999,
+    issue_title: "[error-report] [bug] [local_app_ui] Dashboard status did not refresh",
+    issue_body_markdown: "# [error-report] [bug] [local_app_ui] Dashboard status did not refresh",
+    labels: ["bug", "layer:dashboard", "workflow:problem"],
+    fallback_available: true,
+    warnings: [],
+    errors: []
+  };
+}
+
 function buildLivePlayerLogStatusPayload(): LivePlayerLogStatusResponse {
   return {
     object: LIVE_PLAYER_LOG_STATUS_OBJECT,
@@ -854,6 +1226,8 @@ function buildLiveWatcherProcessStatusPayload(): LiveWatcherProcessStatusRespons
       single_instance_guard: "not_initialized",
       supervisor_boundary: "local_app_supervisor_deferred"
     },
+    mtga_process: buildMtgaProcessStatus(),
+    automation_readiness: buildAutomationReadiness(),
     player_log: {
       object: LIVE_PLAYER_LOG_STATUS_OBJECT,
       status: "configured_exists",
@@ -888,6 +1262,151 @@ function buildLiveWatcherProcessStatusPayload(): LiveWatcherProcessStatusRespons
     },
     warnings: [],
     errors: []
+  };
+}
+
+function buildMtgaProcessStatus(): MtgaProcessStatus {
+  return {
+    object: "mythic_edge_local_app_mtga_process_status" as const,
+    schema_version: MTGA_PROCESS_SCHEMA_VERSION,
+    status: "detected",
+    detected: true,
+    platform: "windows",
+    process_name: "MTGA.exe" as const,
+    evidence: "image_name_match",
+    checked_at: "2026-06-10T12:00:00Z",
+    detector: "windows_tasklist_image_name",
+    warnings: [],
+    errors: [],
+    privacy: {
+      pid_exposed: false,
+      command_line_exposed: false,
+      environment_exposed: false,
+      raw_detector_output_exposed: false
+    }
+  };
+}
+
+function buildAutomationReadiness(): AutomationReadiness {
+  return {
+    schema_version: MTGA_PROCESS_SCHEMA_VERSION,
+    status: "blocked",
+    automatic_start_allowed: false as const,
+    items: [
+      { key: "manual_start_dashboard", status: "pass" },
+      { key: "manual_stop_dashboard", status: "pass" },
+      { key: "starting_cannot_dead_end", status: "pass" },
+      { key: "capturing_persistent_stop_action", status: "pass" },
+      { key: "stale_capture_recovery_actionable", status: "pass" },
+      { key: "analytics_refresh_after_completed_match", status: "pass" },
+      { key: "mtga_process_detected", status: "pass" },
+      { key: "mtga_disappearance_detected", status: "not_proven" },
+      { key: "reconnect_window_verified", status: "not_proven" },
+      { key: "shutdown_returns_ready_to_start", status: "not_proven" },
+      { key: "shutdown_preserves_completed_facts", status: "not_proven" },
+      { key: "shutdown_privacy_boundary_verified", status: "not_proven" },
+      { key: "readiness_recorded_in_contract_or_report", status: "pass" }
+    ]
+  };
+}
+
+function buildLiveCaptureStatusPayload(overrides: Partial<LiveCaptureStatusResponse> = {}): LiveCaptureStatusResponse {
+  return {
+    object: LIVE_CAPTURE_STATUS_OBJECT,
+    schema_version: LIVE_CAPTURE_SCHEMA_VERSION,
+    status: "ready_to_start",
+    mode: "explicit_operator_control",
+    capture: {
+      running: false,
+      start_allowed: true,
+      stop_allowed: false,
+      parser_runner_started: false,
+      tailing_started: false,
+      sqlite_live_writes_enabled: false,
+      external_transport_allowed: false,
+      raw_player_log_storage_enabled: false,
+      supervisor_kind: "local_app_capture_supervisor",
+      source_kind: "live_parser",
+      reason: null
+    },
+    preconditions: [
+      { key: "player_log_ready", status: "pass", reason: null },
+      { key: "app_data_root_available", status: "pass", reason: null },
+      { key: "state_directory_available", status: "pass", reason: null },
+      { key: "single_instance_guard_available", status: "pass", reason: null },
+      { key: "supervisor_target_defined", status: "pass", reason: null },
+      { key: "external_transport_disabled", status: "pass", reason: null },
+      { key: "live_sqlite_ingest_contract_present", status: "pass", reason: null },
+      { key: "analytics_database_available", status: "pass", reason: null },
+      { key: "frontend_controls_authorized", status: "pass", reason: null }
+    ],
+    state: {
+      source: "none",
+      exists: false,
+      status: "not_initialized",
+      stale: false,
+      pid_present: false,
+      pid_verified: false,
+      supervisor_token_present: false,
+      display_path: "<app_data>\\jobs\\live_capture_state.json",
+      raw_path_exposed: false,
+      started_at: null,
+      updated_at: null
+    },
+    last_result: null,
+    heartbeat: {
+      schema_version: LIVE_CAPTURE_DIAGNOSTICS_SCHEMA_VERSION,
+      status: "not_started",
+      heartbeat_updated_at: null,
+      capture_duration_seconds: 0,
+      heartbeat_age_seconds: null,
+      stale_after_seconds: 30
+    },
+    progress: {
+      schema_version: LIVE_CAPTURE_DIAGNOSTICS_SCHEMA_VERSION,
+      log_poll_count: 0,
+      log_chunks_seen: 0,
+      structured_entry_count: 0,
+      parser_event_count: 0,
+      parser_event_kinds_seen: [],
+      match_ids_seen_count: 0,
+      current_match_detected: false,
+      current_match_game_wins: null,
+      current_match_game_losses: null,
+      last_completed_match_result: null,
+      last_completed_match_game_wins: null,
+      last_completed_match_game_losses: null,
+      completed_game_rows_seen: 0,
+      sqlite_write_attempt_count: 0,
+      sqlite_rows_written: 0,
+      last_no_write_reason: "not_started",
+      last_event_seen_at: null,
+      last_sqlite_write_at: null
+    },
+    mtga_lifecycle: {
+      schema_version: MTGA_PROCESS_SCHEMA_VERSION,
+      status: "ready_to_start",
+      mtga_process_status: "detected",
+      reconnect_window_seconds: 45,
+      reconnect_started_at: null,
+      reconnect_deadline_at: null,
+      seconds_remaining: null,
+      shutdown_reason: null,
+      last_detected_at: "2026-06-10T12:00:00Z",
+      last_checked_at: "2026-06-10T12:00:00Z",
+      automation_start_allowed: false,
+      automation_readiness: buildAutomationReadiness(),
+      warnings: [],
+      errors: []
+    },
+    parser_status_blurb: {
+      code: "ready_to_start",
+      text: "Ready to start capture.",
+      tone: "neutral"
+    },
+    warnings: [],
+    errors: [],
+    ...overrides
   };
 }
 
@@ -1743,6 +2262,27 @@ function buildAnalyticsDashboardModulesPayload(): AnalyticsDashboardModulesRespo
       metrics: ["games_played", "wins", "losses", "win_rate"],
       warnings: ["custom_explorer_builder_deferred"],
       errors: []
+    },
+    warnings: [],
+    errors: []
+  };
+}
+
+function buildAnalyticsRefreshStatePayload(): AnalyticsRefreshStateResponse {
+  return {
+    object: ANALYTICS_REFRESH_STATE_OBJECT,
+    schema_version: ANALYTICS_REFRESH_STATE_SCHEMA_VERSION,
+    status: "ok",
+    analytics_revision: "analytics-refresh-v1:synthetic",
+    latest_completed_match_result_available: true,
+    latest_completed_match_seen_at: "2026-06-08T00:10:00Z",
+    latest_completed_ingest_finished_at: "2026-06-08T00:10:01Z",
+    row_counts: {
+      ingest_runs: 1,
+      matches: 1,
+      games: 3,
+      match_results: 1,
+      game_results: 3
     },
     warnings: [],
     errors: []
