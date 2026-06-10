@@ -72,7 +72,7 @@ def build_live_watcher_diagnostics_status(paths: LocalAppPaths) -> dict[str, obj
             "watcher_process_status": _source_summary(
                 watcher_process_status,
                 evidence_availability="metadata_only",
-                limitations=["pid_not_verified", "process_not_inspected"],
+                limitations=["pid_not_exposed", "process_image_name_only", "raw_detector_output_excluded"],
             ),
             "live_ingest_status": _source_summary(
                 live_ingest_status,
@@ -97,8 +97,16 @@ def build_live_watcher_diagnostics_status(paths: LocalAppPaths) -> dict[str, obj
         },
         "privacy": privacy,
         "capabilities": capabilities,
-        "warnings": _collect_codes(player_log_status.get("warnings"), watcher_status.get("warnings")),
-        "errors": _collect_codes(player_log_status.get("errors"), watcher_status.get("errors")),
+        "warnings": _collect_codes(
+            player_log_status.get("warnings"),
+            watcher_status.get("warnings"),
+            watcher_process_status.get("warnings"),
+        ),
+        "errors": _collect_codes(
+            player_log_status.get("errors"),
+            watcher_status.get("errors"),
+            watcher_process_status.get("errors"),
+        ),
     }
 
 
@@ -251,6 +259,46 @@ def _extend_watcher_process_diagnostics(
             message=_message_for_label(label),
             review_required=severity != "info",
         )
+
+    mtga_process = watcher_process_status.get("mtga_process")
+    mtga_status = str(mtga_process.get("status", "unknown")) if isinstance(mtga_process, Mapping) else "unknown"
+    mtga_label_by_status = {
+        "detected": "mtga_process_detected",
+        "not_detected": "mtga_process_not_detected",
+        "unsupported_platform": "mtga_process_detection_unsupported",
+        "detector_unavailable": "mtga_detector_unavailable",
+    }
+    mtga_label = mtga_label_by_status.get(mtga_status, "mtga_process_unknown")
+    mtga_severity = "info" if mtga_label == "mtga_process_detected" else "degraded"
+    if mtga_label == "mtga_detector_unavailable":
+        mtga_severity = "warning"
+    _add_diagnostic(
+        diagnostics,
+        category="mtga_process",
+        key=mtga_label,
+        severity=mtga_severity,
+        status=mtga_status,
+        evidence_availability="metadata_only" if mtga_status != "unsupported_platform" else "not_checked",
+        source="watcher_process_status",
+        message=_message_for_label(mtga_label),
+        review_required=mtga_severity != "info",
+    )
+
+    automation_readiness = watcher_process_status.get("automation_readiness")
+    readiness_status = (
+        str(automation_readiness.get("status", "blocked")) if isinstance(automation_readiness, Mapping) else "blocked"
+    )
+    _add_diagnostic(
+        diagnostics,
+        category="automation_readiness",
+        key="automatic_start_blocked",
+        severity="info",
+        status=readiness_status,
+        evidence_availability="metadata_only",
+        source="watcher_process_status",
+        message=_message_for_label("automatic_start_blocked"),
+        review_required=False,
+    )
 
 
 def _extend_live_capture_diagnostics(
@@ -521,6 +569,12 @@ def _message_for_label(label: str) -> str:
         "supervisor_target_deferred": "Supervisor target ownership is deferred.",
         "frontend_controls_not_authorized": "Frontend process controls are not authorized.",
         "watcher_process_control_deferred": "Watcher process control remains deferred.",
+        "mtga_process_detected": "MTGA process metadata indicates MTGA.exe is running.",
+        "mtga_process_not_detected": "MTGA process metadata does not currently detect MTGA.exe.",
+        "mtga_process_detection_unsupported": "MTGA process detection is supported only on Windows in this slice.",
+        "mtga_detector_unavailable": "MTGA process detection is unavailable; no raw detector output was included.",
+        "mtga_process_unknown": "MTGA process metadata is unavailable.",
+        "automatic_start_blocked": "Automatic capture startup remains blocked pending a future contract.",
         "provisional_fact_capture_unsupported": "Provisional live fact capture is unsupported in this slice.",
         "gameplay_action_live_capture_deferred": "Gameplay-action live capture is deferred.",
         "opponent_observation_live_capture_deferred": "Opponent-observation live capture is deferred.",
