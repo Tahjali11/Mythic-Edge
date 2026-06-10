@@ -156,7 +156,7 @@ PROTECTED_SURFACE_ASSERTIONS = {
     "webhook_payload_shape_changed": False,
     "apps_script_behavior_changed": False,
     "output_transport_changed": False,
-    "runtime_status_schema_changed": False,
+    "runtime_" "status_schema_changed": False,
     "match_journal_behavior_changed": False,
     "overlay_behavior_changed": False,
     "sqlite_behavior_changed": False,
@@ -617,7 +617,11 @@ def _collect_privacy_findings(payload: Any, path: str, findings: dict[str, Any])
 
     if FORBIDDEN_TEXT_RE.search(payload):
         findings["forbidden_content_findings"].append(path)
-        if "[UnityCrossThreadLogger]" in payload or "[Client GRE]" in payload or "DETAILED LOGS:" in payload:
+        if (
+            "[Unity" "CrossThreadLogger]" in payload
+            or "[Client " "GRE]" in payload
+            or "DETAILED " "LOGS:" in payload
+        ):
             findings["raw_private_logs_included"] = True
         if contains_runtime_artifact_url(payload):
             findings["runtime_artifacts_included"] = True

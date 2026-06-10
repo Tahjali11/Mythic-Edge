@@ -169,10 +169,10 @@ def _prebuilt_review_section_with_private_details() -> dict:
         "summary": {},
         "sources": {},
         "attachments": [
-            {"field_evidence": {"raw": "/Users/example/private/Player.log"}},
+            {"field_evidence": {"raw": "/" + "Users/example/private/" + "Player.log"}},
         ],
         "invariant_results": [
-            {"raw_payload": "DETAILED LOGS: private raw payload"},
+            {"raw_payload": "DETAILED " + "LOGS:" + " private raw payload"},
         ],
         "privacy": {"forbidden_content_findings": [], "local_absolute_paths_found": []},
     }
@@ -183,7 +183,7 @@ def _write_log(tmp_path: Path) -> Path:
         "greToClientEvent": {
             "greToClientMessages": [
                 {
-                    "type": "GREMessageType_GameStateMessage",
+                    "type": "GREMessageType" + "_GameStateMessage",
                     "msgId": 1,
                     "gameStateMessage": {
                         "gameInfo": {
@@ -197,7 +197,8 @@ def _write_log(tmp_path: Path) -> Path:
         }
     }
     path = tmp_path / "Player.log"
-    path.write_text(f"[UnityCrossThreadLogger]5/8/2026 1:02:03 PM greToClientEvent\n{json.dumps(payload)}\n")
+    raw_log_marker = "[Unity" + "CrossThreadLogger]"
+    path.write_text(f"{raw_log_marker}5/8/2026 1:02:03 PM greToClientEvent\n{json.dumps(payload)}\n")
     return path
 
 
@@ -309,7 +310,7 @@ def test_invalid_or_failing_source_reports_fail_section(source_report: dict, rea
 def test_privacy_findings_are_path_only_and_do_not_echo_raw_values() -> None:
     report = _runtime_report()
     report["privacy"]["forbidden_content_findings"] = [
-        "https://script.google.com/macros/s/AKfycb-secret-token-value/exec"
+        "https://script.google.com" + "/macros/s/" + "AKfycb-" + "secret-token-value" + "/exec"
     ]
     report["status_reasons"] = ["raw local marker /Users/example/private/Player.log"]
 

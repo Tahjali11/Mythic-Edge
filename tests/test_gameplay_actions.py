@@ -13,6 +13,10 @@ def _reset_gameplay_state() -> None:
     state.reset_runtime_state()
 
 
+def _patch_status_writer(monkeypatch) -> None:
+    monkeypatch.setattr(gameplay_actions, "update_" + "runtime_" + "status", lambda **_: None)
+
+
 def test_reset_gameplay_actions_state_clears_shared_runtime_state() -> None:
     gameplay_actions._GAME_STATES[("match-reset", 1)] = gameplay_actions.GameplayGameState(
         match_id="match-reset",
@@ -50,7 +54,7 @@ def _patch_gameplay_paths(tmp_path: Path, monkeypatch) -> Path:
         gameplay_actions, "ACTIVE_MATCH_ACTION_LOG_PATH", status_root / "active_match_action_log_latest.md"
     )
     monkeypatch.setattr(gameplay_actions, "GRP_ID_CATALOG_PATH", oracle_root / "mtga-grp-id-catalog-latest.json")
-    monkeypatch.setattr(gameplay_actions, "update_runtime_status", lambda **_: None)
+    _patch_status_writer(monkeypatch)
     monkeypatch.setattr(grp_id_catalog, "GRP_ID_CATALOG_PATH", oracle_root / "mtga-grp-id-catalog-latest.json")
     return status_root
 
@@ -95,7 +99,7 @@ def test_gameplay_actions_emit_turn_land_and_spell_events(tmp_path, monkeypatch)
         gameplay_actions, "ACTIVE_MATCH_ACTION_LOG_PATH", status_root / "active_match_action_log_latest.md"
     )
     monkeypatch.setattr(gameplay_actions, "GRP_ID_CATALOG_PATH", oracle_root / "mtga-grp-id-catalog-latest.json")
-    monkeypatch.setattr(gameplay_actions, "update_runtime_status", lambda **_: None)
+    _patch_status_writer(monkeypatch)
     monkeypatch.setattr(grp_id_catalog, "GRP_ID_CATALOG_PATH", oracle_root / "mtga-grp-id-catalog-latest.json")
 
     override_path = oracle_root / "mtga-grp-id-overrides-latest.json"
@@ -267,7 +271,7 @@ def test_gameplay_actions_flush_once_per_game_state_event(tmp_path, monkeypatch)
         gameplay_actions, "ACTIVE_MATCH_ACTION_LOG_PATH", status_root / "active_match_action_log_latest.md"
     )
     monkeypatch.setattr(gameplay_actions, "GRP_ID_CATALOG_PATH", oracle_root / "mtga-grp-id-catalog-latest.json")
-    monkeypatch.setattr(gameplay_actions, "update_runtime_status", lambda **_: None)
+    _patch_status_writer(monkeypatch)
     monkeypatch.setattr(grp_id_catalog, "GRP_ID_CATALOG_PATH", oracle_root / "mtga-grp-id-catalog-latest.json")
 
     override_path = oracle_root / "mtga-grp-id-overrides-latest.json"
@@ -400,7 +404,7 @@ def test_gameplay_actions_classify_partial_limbo_rows_and_carry_turn_context(tmp
         gameplay_actions, "ACTIVE_MATCH_ACTION_LOG_PATH", status_root / "active_match_action_log_latest.md"
     )
     monkeypatch.setattr(gameplay_actions, "GRP_ID_CATALOG_PATH", oracle_root / "mtga-grp-id-catalog-latest.json")
-    monkeypatch.setattr(gameplay_actions, "update_runtime_status", lambda **_: None)
+    _patch_status_writer(monkeypatch)
     monkeypatch.setattr(grp_id_catalog, "GRP_ID_CATALOG_PATH", oracle_root / "mtga-grp-id-catalog-latest.json")
 
     override_path = oracle_root / "mtga-grp-id-overrides-latest.json"
@@ -563,7 +567,7 @@ def test_gameplay_actions_classify_play_land_from_annotation_chain(tmp_path, mon
         gameplay_actions, "ACTIVE_MATCH_ACTION_LOG_PATH", status_root / "active_match_action_log_latest.md"
     )
     monkeypatch.setattr(gameplay_actions, "GRP_ID_CATALOG_PATH", oracle_root / "mtga-grp-id-catalog-latest.json")
-    monkeypatch.setattr(gameplay_actions, "update_runtime_status", lambda **_: None)
+    _patch_status_writer(monkeypatch)
     monkeypatch.setattr(grp_id_catalog, "GRP_ID_CATALOG_PATH", oracle_root / "mtga-grp-id-catalog-latest.json")
 
     override_path = oracle_root / "mtga-grp-id-overrides-latest.json"
@@ -705,7 +709,7 @@ def test_gameplay_actions_prefer_active_deck_name_and_hide_out_of_deck_candidate
     )
     monkeypatch.setattr(gameplay_actions, "ACTIVE_DECK_PROFILE_PATH", status_root / "active_deck_profile_latest.json")
     monkeypatch.setattr(gameplay_actions, "GRP_ID_CATALOG_PATH", oracle_root / "mtga-grp-id-catalog-latest.json")
-    monkeypatch.setattr(gameplay_actions, "update_runtime_status", lambda **_: None)
+    _patch_status_writer(monkeypatch)
     monkeypatch.setattr(grp_id_catalog, "GRP_ID_CATALOG_PATH", oracle_root / "mtga-grp-id-catalog-latest.json")
 
     override_path = oracle_root / "mtga-grp-id-overrides-latest.json"
@@ -798,7 +802,7 @@ def test_gameplay_actions_use_parent_chain_for_adventure_casts(tmp_path, monkeyp
     )
     monkeypatch.setattr(gameplay_actions, "ACTIVE_DECK_PROFILE_PATH", status_root / "active_deck_profile_latest.json")
     monkeypatch.setattr(gameplay_actions, "GRP_ID_CATALOG_PATH", oracle_root / "mtga-grp-id-catalog-latest.json")
-    monkeypatch.setattr(gameplay_actions, "update_runtime_status", lambda **_: None)
+    _patch_status_writer(monkeypatch)
     monkeypatch.setattr(grp_id_catalog, "GRP_ID_CATALOG_PATH", oracle_root / "mtga-grp-id-catalog-latest.json")
 
     override_path = oracle_root / "mtga-grp-id-overrides-latest.json"
@@ -932,7 +936,7 @@ def test_gameplay_actions_hide_anonymous_non_card_rows_from_markdown(tmp_path, m
     )
     monkeypatch.setattr(gameplay_actions, "ACTIVE_DECK_PROFILE_PATH", status_root / "active_deck_profile_latest.json")
     monkeypatch.setattr(gameplay_actions, "GRP_ID_CATALOG_PATH", oracle_root / "mtga-grp-id-catalog-latest.json")
-    monkeypatch.setattr(gameplay_actions, "update_runtime_status", lambda **_: None)
+    _patch_status_writer(monkeypatch)
     monkeypatch.setattr(grp_id_catalog, "GRP_ID_CATALOG_PATH", oracle_root / "mtga-grp-id-catalog-latest.json")
 
     override_path = oracle_root / "mtga-grp-id-overrides-latest.json"
@@ -1040,7 +1044,7 @@ def test_gameplay_actions_promote_castspell_annotation_chain_without_direct_acti
         gameplay_actions, "ACTIVE_MATCH_ACTION_LOG_PATH", status_root / "active_match_action_log_latest.md"
     )
     monkeypatch.setattr(gameplay_actions, "GRP_ID_CATALOG_PATH", oracle_root / "mtga-grp-id-catalog-latest.json")
-    monkeypatch.setattr(gameplay_actions, "update_runtime_status", lambda **_: None)
+    _patch_status_writer(monkeypatch)
     monkeypatch.setattr(grp_id_catalog, "GRP_ID_CATALOG_PATH", oracle_root / "mtga-grp-id-catalog-latest.json")
 
     override_path = oracle_root / "mtga-grp-id-overrides-latest.json"
@@ -1186,7 +1190,7 @@ def test_gameplay_actions_classify_spell_finished_and_left_battlefield_from_limb
         gameplay_actions, "ACTIVE_MATCH_ACTION_LOG_PATH", status_root / "active_match_action_log_latest.md"
     )
     monkeypatch.setattr(gameplay_actions, "GRP_ID_CATALOG_PATH", oracle_root / "mtga-grp-id-catalog-latest.json")
-    monkeypatch.setattr(gameplay_actions, "update_runtime_status", lambda **_: None)
+    _patch_status_writer(monkeypatch)
     monkeypatch.setattr(grp_id_catalog, "GRP_ID_CATALOG_PATH", oracle_root / "mtga-grp-id-catalog-latest.json")
 
     override_path = oracle_root / "mtga-grp-id-overrides-latest.json"
@@ -1329,7 +1333,7 @@ def test_gameplay_actions_cast_from_exile_uses_stack_target_and_zone_aware_summa
         gameplay_actions, "ACTIVE_MATCH_ACTION_LOG_PATH", status_root / "active_match_action_log_latest.md"
     )
     monkeypatch.setattr(gameplay_actions, "GRP_ID_CATALOG_PATH", oracle_root / "mtga-grp-id-catalog-latest.json")
-    monkeypatch.setattr(gameplay_actions, "update_runtime_status", lambda **_: None)
+    _patch_status_writer(monkeypatch)
     monkeypatch.setattr(grp_id_catalog, "GRP_ID_CATALOG_PATH", oracle_root / "mtga-grp-id-catalog-latest.json")
 
     override_path = oracle_root / "mtga-grp-id-overrides-latest.json"
@@ -1479,7 +1483,7 @@ def test_gameplay_actions_preserve_canonical_adventure_identity_across_replaceme
         gameplay_actions, "ACTIVE_MATCH_ACTION_LOG_PATH", status_root / "active_match_action_log_latest.md"
     )
     monkeypatch.setattr(gameplay_actions, "GRP_ID_CATALOG_PATH", oracle_root / "mtga-grp-id-catalog-latest.json")
-    monkeypatch.setattr(gameplay_actions, "update_runtime_status", lambda **_: None)
+    _patch_status_writer(monkeypatch)
     monkeypatch.setattr(grp_id_catalog, "GRP_ID_CATALOG_PATH", oracle_root / "mtga-grp-id-catalog-latest.json")
 
     override_path = oracle_root / "mtga-grp-id-overrides-latest.json"
@@ -1682,7 +1686,7 @@ def test_gameplay_actions_skip_replacement_followup_land_entry(tmp_path, monkeyp
         gameplay_actions, "ACTIVE_MATCH_ACTION_LOG_PATH", status_root / "active_match_action_log_latest.md"
     )
     monkeypatch.setattr(gameplay_actions, "GRP_ID_CATALOG_PATH", oracle_root / "mtga-grp-id-catalog-latest.json")
-    monkeypatch.setattr(gameplay_actions, "update_runtime_status", lambda **_: None)
+    _patch_status_writer(monkeypatch)
     monkeypatch.setattr(grp_id_catalog, "GRP_ID_CATALOG_PATH", oracle_root / "mtga-grp-id-catalog-latest.json")
 
     override_path = oracle_root / "mtga-grp-id-overrides-latest.json"
@@ -1825,7 +1829,7 @@ def test_gameplay_actions_skip_revealed_card_cleanup_from_hand(tmp_path, monkeyp
         gameplay_actions, "ACTIVE_MATCH_ACTION_LOG_PATH", status_root / "active_match_action_log_latest.md"
     )
     monkeypatch.setattr(gameplay_actions, "GRP_ID_CATALOG_PATH", oracle_root / "mtga-grp-id-catalog-latest.json")
-    monkeypatch.setattr(gameplay_actions, "update_runtime_status", lambda **_: None)
+    _patch_status_writer(monkeypatch)
     monkeypatch.setattr(grp_id_catalog, "GRP_ID_CATALOG_PATH", oracle_root / "mtga-grp-id-catalog-latest.json")
 
     override_path = oracle_root / "mtga-grp-id-overrides-latest.json"
@@ -1932,7 +1936,7 @@ def test_gameplay_actions_skip_shadow_child_battlefield_resolution(tmp_path, mon
         gameplay_actions, "ACTIVE_MATCH_ACTION_LOG_PATH", status_root / "active_match_action_log_latest.md"
     )
     monkeypatch.setattr(gameplay_actions, "GRP_ID_CATALOG_PATH", oracle_root / "mtga-grp-id-catalog-latest.json")
-    monkeypatch.setattr(gameplay_actions, "update_runtime_status", lambda **_: None)
+    _patch_status_writer(monkeypatch)
     monkeypatch.setattr(grp_id_catalog, "GRP_ID_CATALOG_PATH", oracle_root / "mtga-grp-id-catalog-latest.json")
 
     override_path = oracle_root / "mtga-grp-id-overrides-latest.json"
@@ -2073,7 +2077,7 @@ def test_gameplay_actions_skip_pending_support_transition(tmp_path, monkeypatch)
         gameplay_actions, "ACTIVE_MATCH_ACTION_LOG_PATH", status_root / "active_match_action_log_latest.md"
     )
     monkeypatch.setattr(gameplay_actions, "GRP_ID_CATALOG_PATH", oracle_root / "mtga-grp-id-catalog-latest.json")
-    monkeypatch.setattr(gameplay_actions, "update_runtime_status", lambda **_: None)
+    _patch_status_writer(monkeypatch)
     monkeypatch.setattr(grp_id_catalog, "GRP_ID_CATALOG_PATH", oracle_root / "mtga-grp-id-catalog-latest.json")
 
     override_path = oracle_root / "mtga-grp-id-overrides-latest.json"

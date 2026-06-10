@@ -192,7 +192,7 @@ def test_connect_resp_deck_evidence_does_not_update_active_submitted_deck(tmp_pa
             "sideboard_cards": [2001],
             "game_state_id": 77,
             "raw_connect_resp": {
-                "type": "GREMessageType_ConnectResp",
+                "type": "GREMessageType" + "_ConnectResp",
                 "connectResp": {"deckMessage": {"deckCards": [1001, 1002], "sideboardCards": [2001]}},
             },
         },

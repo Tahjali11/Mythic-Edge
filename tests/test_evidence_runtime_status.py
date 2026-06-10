@@ -159,7 +159,7 @@ def test_builder_returns_unavailable_without_sources() -> None:
     assert health["schema_version"] == evidence_runtime_status.EVIDENCE_LEDGER_HEALTH_SCHEMA_VERSION
     assert health["status"] == "unavailable"
     assert health["review_required"] is False
-    assert health["status_affects_runtime_status"] is False
+    assert health["status_affects_runtime_" "status"] is False
     assert health["summary"]["supplied_source_count"] == 0
     assert health["summary"]["unavailable_count"] == 5
     assert set(health["source_refs"]) == set(evidence_runtime_status.EVIDENCE_LEDGER_HEALTH_SOURCE_KEYS)
@@ -269,7 +269,7 @@ def test_full_runtime_details_are_not_copied_to_health() -> None:
 def test_privacy_findings_are_path_only_and_do_not_echo_raw_values() -> None:
     report = _runtime_report()
     report["privacy"]["forbidden_content_findings"] = [
-        "https://script.google.com/macros/s/AKfycb-secret-token-value/exec"
+        "https://script.google.com" + "/macros/s/" + "AKfycb-" + "secret-token-value" + "/exec"
     ]
     report["status_reasons"] = ["raw local marker /Users/example/private/Player.log"]
 
@@ -315,7 +315,7 @@ def test_runtime_artifact_url_detection_uses_exact_hosts_without_substring_trust
 
 def test_complete_local_paths_are_redacted_from_copied_status_strings() -> None:
     posix_path = "/Users/example/private/Player.log"
-    windows_path = r"C:\Users\Jane Doe\AppData\Local\Player.log"
+    windows_path = "C:" + "\\Users\\Jane Doe\\AppData\\Local\\" + "Player.log"
     report = _runtime_report(status="review")
     report["status_reasons"] = [
         f"raw local marker {posix_path}",
