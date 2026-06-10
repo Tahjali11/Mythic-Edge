@@ -35,6 +35,7 @@ from .grp_id_catalog import (
     observe_gameplay_objects,
     resolve_grp_id_entry,
 )
+from .status_file_names import safe_status_file_stem
 
 
 @dataclass(slots=True)
@@ -117,7 +118,7 @@ def observe_event(event: Any) -> None:
 def load_active_match_actions_payload(match_id: str = "") -> dict[str, Any]:
     normalized_match_id = str(match_id or "").strip()
     if normalized_match_id:
-        payload_path = STATUS_ACTIONS_ROOT / f"{normalized_match_id}.json"
+        payload_path = STATUS_ACTIONS_ROOT / f"{safe_status_file_stem(normalized_match_id, fallback='match')}.json"
         if payload_path.exists():
             payload = _load_json_dict(payload_path)
             if isinstance(payload, dict):
@@ -881,8 +882,9 @@ def _write_match_actions(match_id: str) -> None:
         "entries": rendered_entries,
     }
     STATUS_ACTIONS_ROOT.mkdir(parents=True, exist_ok=True)
-    json_path = STATUS_ACTIONS_ROOT / f"{match_id}.json"
-    markdown_path = STATUS_ACTIONS_ROOT / f"{match_id}.md"
+    file_stem = safe_status_file_stem(match_id, fallback="match")
+    json_path = STATUS_ACTIONS_ROOT / f"{file_stem}.json"
+    markdown_path = STATUS_ACTIONS_ROOT / f"{file_stem}.md"
     json_text = json.dumps(payload, indent=2, ensure_ascii=False)
     markdown_text = _render_markdown(payload)
     json_path.write_text(json_text, encoding="utf-8")

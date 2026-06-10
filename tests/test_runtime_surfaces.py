@@ -42,6 +42,29 @@ def _patch_surface_paths(tmp_path: Path, monkeypatch) -> Path:
     return status_root
 
 
+def test_match_timeline_filename_uses_safe_stem_without_changing_payload_match_id(tmp_path, monkeypatch) -> None:
+    _reset_runtime_surface_state()
+    status_root = _patch_surface_paths(tmp_path, monkeypatch)
+    raw_match_id = r"..\outside/match:evil"
+    runtime_surfaces._MATCH_TIMELINES[raw_match_id] = [{"kind": "synthetic"}]
+
+    runtime_surfaces._write_timeline_payload(raw_match_id)
+
+    timeline_root = status_root / "timelines"
+    timeline_files = list(timeline_root.glob("*.json"))
+    assert len(timeline_files) == 1
+    assert timeline_files[0].parent == timeline_root
+    assert ".." not in timeline_files[0].name
+    assert ":" not in timeline_files[0].name
+    assert "/" not in timeline_files[0].name
+    assert "\\" not in timeline_files[0].name
+    assert not (tmp_path / "outside").exists()
+
+    payload = json.loads(timeline_files[0].read_text(encoding="utf-8"))
+    assert payload["match_id"] == raw_match_id
+    assert runtime_surfaces.load_active_timeline_payload(raw_match_id)["match_id"] == raw_match_id
+
+
 def test_observe_event_builds_deck_profile_collection_report_and_timeline(tmp_path, monkeypatch) -> None:
     _reset_runtime_surface_state()
     status_root = _patch_surface_paths(tmp_path, monkeypatch)
