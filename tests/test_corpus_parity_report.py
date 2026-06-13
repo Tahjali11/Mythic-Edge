@@ -53,6 +53,19 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
     assert sealed_entry["parser_claim_families"] == ["sealed_event_identity", "event_lifecycle"]
     assert sealed_entry["coverage_basis"] == ["fixture_metadata_only", "parser_behavior_verified"]
     assert "sealed deckbuild and sealed matches remain missing" in sealed_entry["review_notes"][0]
+    sealed_match = _manifest_entry(manifest, "sealed_match_synthetic_v1")
+    assert sealed_match["coverage_status"] == "covered_synthetic"
+    assert sealed_match["scenario_families"] == ["core_gameplay.sealed_matches"]
+    assert sealed_match["parser_event_families"] == ["MatchState", "GameState", "GameResult"]
+    assert sealed_match["parser_claim_families"] == [
+        "sealed_event_identity",
+        "sealed_match_state",
+        "sealed_game_state",
+        "sealed_game_result",
+        "match_summary",
+    ]
+    assert sealed_match["coverage_basis"] == ["fixture_metadata_only", "parser_behavior_verified"]
+    assert "sealed deckbuild remains missing" in sealed_match["review_notes"][0]
     assert _session_entry(session_ledger, "gsm_truncation_marker_synthetic_v1")["parser_coverage"] == {
         "event_families": {"Truncation": 1},
         "unknown_entries": 0,
@@ -73,6 +86,22 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
         "external_logs_included": False,
         "decklists_included": False,
     }
+    sealed_match_session = _session_entry(session_ledger, "sealed_match_synthetic_v1")
+    assert sealed_match_session["format_family"] == "limited_sealed"
+    assert sealed_match_session["match_shape"] == "sealed_match_single_game"
+    assert sealed_match_session["parser_coverage"] == {
+        "event_families": {"MatchState": 1, "GameState": 1, "GameResult": 1},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+    }
+    assert sealed_match_session["game_rows"] == {"count": 1, "result_shape": "single_game_result"}
+    assert sealed_match_session["report_only_redactions"] == {
+        "raw_log_lines_included": False,
+        "private_paths_included": False,
+        "raw_payloads_included": False,
+        "external_logs_included": False,
+        "decklists_included": False,
+    }
 
 
 def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None:
@@ -86,10 +115,10 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     assert report["summary"] == {
         "total_scenario_families": len(corpus.SCENARIO_FAMILIES),
         "covered_committed": 6,
-        "covered_synthetic": 3,
+        "covered_synthetic": 4,
         "covered_report_only": 0,
         "partial": 3,
-        "missing": len(corpus.SCENARIO_FAMILIES) - 18,
+        "missing": len(corpus.SCENARIO_FAMILIES) - 19,
         "deferred": 0,
         "blocked_private_evidence": 0,
         "blocked_external_boundary": 6,
@@ -139,11 +168,14 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     }
     assert _matrix_row(report, "core_gameplay.sealed_matches") == {
         "scenario_family": "core_gameplay.sealed_matches",
-        "coverage_status": "missing",
-        "coverage_basis": ["external_reference_only"],
-        "mythic_edge_entries": [],
+        "coverage_status": "covered_synthetic",
+        "coverage_basis": ["fixture_metadata_only", "parser_behavior_verified"],
+        "mythic_edge_entries": ["sealed_match_synthetic_v1"],
         "external_reference_status": "reference_category_not_checked",
-        "notes": [],
+        "notes": [
+            "Synthetic sealed match coverage proves sealed context plus parser-owned match/game result summary "
+            "metadata only; sealed deckbuild remains missing."
+        ],
     }
     assert _matrix_row(report, "connection.reconnect")["coverage_status"] == "blocked_external_boundary"
     assert report["privacy"] == {

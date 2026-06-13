@@ -236,6 +236,50 @@
       ]
     },
     {
+      "entry_id": "sealed_match_synthetic_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/359",
+      "authorized_by_contract": "docs/contracts/parser_corpus_sealed_match_coverage.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "event_identity_test": "tests/test_event_identity.py",
+        "match_state_test": "tests/test_match_state_parser.py",
+        "game_state_test": "tests/test_gre_game_state_parser.py",
+        "game_result_test": "tests/test_gre_game_result_parser.py",
+        "state_summary_test": "tests/test_state.py"
+      },
+      "scenario_families": [
+        "core_gameplay.sealed_matches"
+      ],
+      "parser_event_families": [
+        "MatchState",
+        "GameState",
+        "GameResult"
+      ],
+      "parser_claim_families": [
+        "sealed_event_identity",
+        "sealed_match_state",
+        "sealed_game_state",
+        "sealed_game_result",
+        "match_summary"
+      ],
+      "coverage_status": "covered_synthetic",
+      "coverage_basis": [
+        "fixture_metadata_only",
+        "parser_behavior_verified"
+      ],
+      "known_gaps": [
+        "Synthetic sealed match metadata does not prove sealed deckbuilding, sealed pool contents, submitted-deck contents, decklists, archetypes, gameplay advice, analytics truth, AI truth, or coaching truth."
+      ],
+      "review_notes": [
+        "Synthetic sealed match coverage proves sealed context plus parser-owned match/game result summary metadata only; sealed deckbuild remains missing."
+      ]
+    },
+    {
       "entry_id": "parser_corpus_session_ledger_v1",
       "entry_type": "session_ledger_entry",
       "source_kind": "committed_count_only_report",
