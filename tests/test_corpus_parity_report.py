@@ -79,6 +79,19 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
     assert sealed_deckbuild["coverage_basis"] == ["fixture_metadata_only", "parser_behavior_verified"]
     assert "submitted card lists" in sealed_deckbuild["review_notes"][0]
     assert "sealed pool contents" in sealed_deckbuild["review_notes"][0]
+    connection_error = _manifest_entry(manifest, "connection_error_payload_synthetic_v1")
+    assert connection_error["coverage_status"] == "covered_synthetic"
+    assert connection_error["scenario_families"] == ["connection.connection_error_payload"]
+    assert connection_error["parser_event_families"] == ["ConnectionError"]
+    assert connection_error["parser_claim_families"] == [
+        "connection_error_event",
+        "connection_error_type_discriminator",
+        "connection_error_payload_preservation",
+        "connection_error_privacy_boundary",
+    ]
+    assert connection_error["coverage_basis"] == ["fixture_metadata_only", "parser_behavior_verified"]
+    assert "does not prove reconnect" in connection_error["review_notes"][0]
+    assert "release readiness" in connection_error["review_notes"][0]
     assert _session_entry(session_ledger, "gsm_truncation_marker_synthetic_v1")["parser_coverage"] == {
         "event_families": {"Truncation": 1},
         "unknown_entries": 0,
@@ -131,6 +144,22 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
         "external_logs_included": False,
         "decklists_included": False,
     }
+    connection_error_session = _session_entry(session_ledger, "connection_error_payload_synthetic_v1")
+    assert connection_error_session["format_family"] == "connection_runtime"
+    assert connection_error_session["match_shape"] == "connection_error_payload_signal_only"
+    assert connection_error_session["parser_coverage"] == {
+        "event_families": {"ConnectionError": 1},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+    }
+    assert connection_error_session["game_rows"] == {"count": 0, "result_shape": "not_applicable"}
+    assert connection_error_session["report_only_redactions"] == {
+        "raw_log_lines_included": False,
+        "private_paths_included": False,
+        "raw_payloads_included": False,
+        "external_logs_included": False,
+        "decklists_included": False,
+    }
 
 
 def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None:
@@ -144,10 +173,10 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     assert report["summary"] == {
         "total_scenario_families": len(corpus.SCENARIO_FAMILIES),
         "covered_committed": 6,
-        "covered_synthetic": 5,
+        "covered_synthetic": 6,
         "covered_report_only": 0,
         "partial": 3,
-        "missing": len(corpus.SCENARIO_FAMILIES) - 20,
+        "missing": len(corpus.SCENARIO_FAMILIES) - 21,
         "deferred": 0,
         "blocked_private_evidence": 0,
         "blocked_external_boundary": 6,
@@ -210,7 +239,35 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
             "metadata only; sealed deckbuild remains missing."
         ],
     }
+    assert _matrix_row(report, "connection.connection_error_payload") == {
+        "scenario_family": "connection.connection_error_payload",
+        "coverage_status": "covered_synthetic",
+        "coverage_basis": ["fixture_metadata_only", "parser_behavior_verified"],
+        "mythic_edge_entries": ["connection_error_payload_synthetic_v1"],
+        "external_reference_status": "reference_category_not_checked",
+        "notes": [
+            "Synthetic connection error payload coverage proves parser-owned ConnectionError payload metadata "
+            "only; it does not prove reconnect, disconnect, network reliability, private smoke, release "
+            "readiness, analytics truth, AI truth, or production behavior."
+        ],
+    }
     assert _matrix_row(report, "connection.reconnect")["coverage_status"] == "blocked_external_boundary"
+    assert _matrix_row(report, "connection.disconnect") == {
+        "scenario_family": "connection.disconnect",
+        "coverage_status": "missing",
+        "coverage_basis": ["external_reference_only"],
+        "mythic_edge_entries": [],
+        "external_reference_status": "reference_category_not_checked",
+        "notes": [],
+    }
+    assert _matrix_row(report, "connection.firewall_or_network_drop") == {
+        "scenario_family": "connection.firewall_or_network_drop",
+        "coverage_status": "missing",
+        "coverage_basis": ["external_reference_only"],
+        "mythic_edge_entries": [],
+        "external_reference_status": "reference_category_not_checked",
+        "notes": [],
+    }
     assert report["privacy"] == {
         "raw_private_log_committed": False,
         "external_logs_committed": False,
