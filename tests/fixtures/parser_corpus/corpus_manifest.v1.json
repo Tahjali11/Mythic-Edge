@@ -360,6 +360,47 @@
       ]
     },
     {
+      "entry_id": "connection_disconnect_synthetic_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/366",
+      "authorized_by_contract": "docs/contracts/parser_corpus_connection_disconnect_coverage.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "connection_parser_test": "tests/test_connection_parsers.py",
+        "router_test": "tests/test_router_unit.py",
+        "event_schema_snapshot_test": "tests/test_event_schema_snapshots.py"
+      },
+      "scenario_families": [
+        "connection.disconnect"
+      ],
+      "parser_event_families": [
+        "MatchConnectionState",
+        "TcpConnectionClose",
+        "WebSocketClosed"
+      ],
+      "parser_claim_families": [
+        "connection_state_transition",
+        "tcp_connection_close_payload",
+        "websocket_closed_payload",
+        "disconnect_privacy_boundary"
+      ],
+      "coverage_status": "covered_synthetic",
+      "coverage_basis": [
+        "fixture_metadata_only",
+        "parser_behavior_verified"
+      ],
+      "known_gaps": [
+        "Synthetic connection disconnect metadata does not prove reconnect behavior, firewall or network-drop behavior, private Player.log resilience, runtime health, release readiness, analytics truth, AI truth, coaching truth, or production behavior."
+      ],
+      "review_notes": [
+        "Synthetic connection disconnect coverage proves parser-owned MatchConnectionState, TcpConnectionClose, and WebSocketClosed metadata only; it does not prove reconnect, firewall/drop behavior, network reliability, private smoke, release readiness, analytics truth, AI truth, coaching truth, or production behavior."
+      ]
+    },
+    {
       "entry_id": "parser_corpus_session_ledger_v1",
       "entry_type": "session_ledger_entry",
       "source_kind": "committed_count_only_report",
