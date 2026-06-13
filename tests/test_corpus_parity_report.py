@@ -109,6 +109,19 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
     assert connection_disconnect["coverage_basis"] == ["fixture_metadata_only", "parser_behavior_verified"]
     assert "does not prove reconnect" in connection_disconnect["review_notes"][0]
     assert "firewall/drop behavior" in connection_disconnect["review_notes"][0]
+    detailed_logs_disabled = _manifest_entry(manifest, "detailed_logs_disabled_synthetic_v1")
+    assert detailed_logs_disabled["coverage_status"] == "covered_synthetic"
+    assert detailed_logs_disabled["scenario_families"] == ["log_runtime.detailed_logs_disabled"]
+    assert detailed_logs_disabled["parser_event_families"] == ["DetailedLoggingStatus"]
+    assert detailed_logs_disabled["parser_claim_families"] == [
+        "detailed_logging_status_event",
+        "detailed_logs_disabled_marker",
+        "detailed_logging_metadata_parser",
+        "detailed_logging_privacy_boundary",
+    ]
+    assert detailed_logs_disabled["coverage_basis"] == ["fixture_metadata_only", "parser_behavior_verified"]
+    assert "does not prove live MTGA settings" in detailed_logs_disabled["review_notes"][0]
+    assert "unknown-entry routing" in detailed_logs_disabled["review_notes"][0]
     assert _session_entry(session_ledger, "gsm_truncation_marker_synthetic_v1")["parser_coverage"] == {
         "event_families": {"Truncation": 1},
         "unknown_entries": 0,
@@ -139,6 +152,22 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
     }
     assert connection_disconnect_session["game_rows"] == {"count": 0, "result_shape": "not_applicable"}
     assert connection_disconnect_session["report_only_redactions"] == {
+        "raw_log_lines_included": False,
+        "private_paths_included": False,
+        "raw_payloads_included": False,
+        "external_logs_included": False,
+        "decklists_included": False,
+    }
+    detailed_logs_disabled_session = _session_entry(session_ledger, "detailed_logs_disabled_synthetic_v1")
+    assert detailed_logs_disabled_session["format_family"] == "log_runtime"
+    assert detailed_logs_disabled_session["match_shape"] == "detailed_logging_status_signal_only"
+    assert detailed_logs_disabled_session["parser_coverage"] == {
+        "event_families": {"DetailedLoggingStatus": 1},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+    }
+    assert detailed_logs_disabled_session["game_rows"] == {"count": 0, "result_shape": "not_applicable"}
+    assert detailed_logs_disabled_session["report_only_redactions"] == {
         "raw_log_lines_included": False,
         "private_paths_included": False,
         "raw_payloads_included": False,
@@ -206,10 +235,10 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     assert report["summary"] == {
         "total_scenario_families": len(corpus.SCENARIO_FAMILIES),
         "covered_committed": 6,
-        "covered_synthetic": 7,
+        "covered_synthetic": 8,
         "covered_report_only": 0,
         "partial": 3,
-        "missing": len(corpus.SCENARIO_FAMILIES) - 22,
+        "missing": len(corpus.SCENARIO_FAMILIES) - 23,
         "deferred": 0,
         "blocked_private_evidence": 0,
         "blocked_external_boundary": 6,
@@ -271,6 +300,44 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
             "Synthetic sealed match coverage proves sealed context plus parser-owned match/game result summary "
             "metadata only; sealed deckbuild remains missing."
         ],
+    }
+    assert _matrix_row(report, "log_runtime.detailed_logs_disabled") == {
+        "scenario_family": "log_runtime.detailed_logs_disabled",
+        "coverage_status": "covered_synthetic",
+        "coverage_basis": ["fixture_metadata_only", "parser_behavior_verified"],
+        "mythic_edge_entries": ["detailed_logs_disabled_synthetic_v1"],
+        "external_reference_status": "reference_category_not_checked",
+        "notes": [
+            "Synthetic detailed logs disabled coverage proves parser-owned DetailedLoggingStatus metadata only; "
+            "it does not prove live MTGA settings, log rotation, malformed/headerless log handling, timestamp "
+            "anomaly handling, unknown-entry routing, private smoke, release readiness, analytics truth, "
+            "AI truth, coaching truth, or production behavior."
+        ],
+    }
+    assert _matrix_row(report, "log_runtime.rotation")["coverage_status"] == "blocked_external_boundary"
+    assert _matrix_row(report, "log_runtime.malformed_or_headerless") == {
+        "scenario_family": "log_runtime.malformed_or_headerless",
+        "coverage_status": "missing",
+        "coverage_basis": ["external_reference_only"],
+        "mythic_edge_entries": [],
+        "external_reference_status": "reference_category_not_checked",
+        "notes": [],
+    }
+    assert _matrix_row(report, "log_runtime.timestamp_anomaly") == {
+        "scenario_family": "log_runtime.timestamp_anomaly",
+        "coverage_status": "missing",
+        "coverage_basis": ["external_reference_only"],
+        "mythic_edge_entries": [],
+        "external_reference_status": "reference_category_not_checked",
+        "notes": [],
+    }
+    assert _matrix_row(report, "log_runtime.unknown_entry") == {
+        "scenario_family": "log_runtime.unknown_entry",
+        "coverage_status": "missing",
+        "coverage_basis": ["external_reference_only"],
+        "mythic_edge_entries": [],
+        "external_reference_status": "reference_category_not_checked",
+        "notes": [],
     }
     assert _matrix_row(report, "connection.connection_error_payload") == {
         "scenario_family": "connection.connection_error_payload",
