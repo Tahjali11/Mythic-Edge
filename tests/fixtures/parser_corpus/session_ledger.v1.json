@@ -107,6 +107,38 @@
         "private_paths_included": false,
         "raw_payloads_included": false
       }
+    },
+    {
+      "session_id": "gsm_truncation_marker_synthetic_v1",
+      "title": "Synthetic GSM truncation data-loss marker",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "scenario_families": [
+        "drift_debug.gsm_truncation"
+      ],
+      "format_family": "parser_drift_debug",
+      "match_shape": "not_applicable_data_loss_marker",
+      "record_summary": "synthetic_marker_summary_only",
+      "parser_coverage": {
+        "event_families": {
+          "Truncation": 1
+        },
+        "unknown_entries": 0,
+        "truncation_count": 1
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Truncation marker coverage does not recover omitted GameState objects, annotations, zones, actions, timers, or game facts."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false
+      }
     }
   ]
 }
