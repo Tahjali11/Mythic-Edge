@@ -280,6 +280,47 @@
       ]
     },
     {
+      "entry_id": "sealed_deckbuild_synthetic_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/361",
+      "authorized_by_contract": "docs/contracts/parser_corpus_sealed_deckbuild_coverage.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "event_identity_test": "tests/test_event_identity.py",
+        "client_actions_test": "tests/test_client_actions_parser.py",
+        "state_summary_test": "tests/test_state.py",
+        "evidence_boundary_contract": "docs/contracts/player_log_evidence_ledger_tier4_submitted_deck_cards.md"
+      },
+      "scenario_families": [
+        "core_gameplay.sealed_deckbuild"
+      ],
+      "parser_event_families": [
+        "MatchState",
+        "ClientAction"
+      ],
+      "parser_claim_families": [
+        "sealed_event_identity",
+        "sealed_submit_deck_signal",
+        "bounded_submit_deck_shape",
+        "deckbuild_privacy_boundary"
+      ],
+      "coverage_status": "covered_synthetic",
+      "coverage_basis": [
+        "fixture_metadata_only",
+        "parser_behavior_verified"
+      ],
+      "known_gaps": [
+        "Synthetic sealed deckbuild metadata does not prove sealed pool contents, submitted-deck card-content truth, decklists, deck names, deck IDs, card choices, archetypes, gameplay advice, analytics truth, AI truth, or coaching truth."
+      ],
+      "review_notes": [
+        "Synthetic sealed deckbuild coverage proves sealed context plus bounded submit-deck signal metadata only; it does not include submitted card lists, sealed pool contents, deck names, card choices, analytics truth, AI truth, or coaching truth."
+      ]
+    },
+    {
       "entry_id": "parser_corpus_session_ledger_v1",
       "entry_type": "session_ledger_entry",
       "source_kind": "committed_count_only_report",

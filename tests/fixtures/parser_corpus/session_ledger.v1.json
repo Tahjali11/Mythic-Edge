@@ -216,6 +216,44 @@
         "external_logs_included": false,
         "decklists_included": false
       }
+    },
+    {
+      "session_id": "sealed_deckbuild_synthetic_v1",
+      "title": "Synthetic sealed deckbuild submit-deck signal evidence",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/361",
+      "authorized_by_contract": "docs/contracts/parser_corpus_sealed_deckbuild_coverage.md",
+      "scenario_families": [
+        "core_gameplay.sealed_deckbuild"
+      ],
+      "format_family": "limited_sealed",
+      "match_shape": "sealed_deckbuild_submit_deck_signal_only",
+      "record_summary": "synthetic_metadata_summary_only",
+      "parser_coverage": {
+        "event_families": {
+          "MatchState": 1,
+          "ClientAction": 1
+        },
+        "unknown_entries": 0,
+        "truncation_count": 0
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Synthetic sealed deckbuild signal metadata does not include submitted card lists, sealed pool contents, decklists, deck names, deck IDs, card choices, strategy notes, analytics truth, AI truth, or coaching truth."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "decklists_included": false
+      }
     }
   ]
 }
