@@ -30,6 +30,14 @@ def _matrix_row(report: dict, scenario_family: str) -> dict:
     return next(row for row in report["coverage_matrix"] if row["scenario_family"] == scenario_family)
 
 
+def _manifest_entry(manifest: dict, entry_id: str) -> dict:
+    return next(entry for entry in manifest["entries"] if entry["entry_id"] == entry_id)
+
+
+def _session_entry(session_ledger: dict, session_id: str) -> dict:
+    return next(session for session in session_ledger["sessions"] if session["session_id"] == session_id)
+
+
 def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
     manifest = corpus.load_corpus_manifest(MANIFEST_PATH)
     session_ledger = corpus.load_session_ledger(SESSION_LEDGER_PATH)
@@ -37,6 +45,12 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
     assert corpus.validate_corpus_manifest(manifest) == []
     assert corpus.validate_session_ledger(session_ledger) == []
     assert [family["family_id"] for family in manifest["taxonomy"]["families"]] == list(corpus.SCENARIO_FAMILIES)
+    assert _manifest_entry(manifest, "gsm_truncation_marker_synthetic_v1")["coverage_status"] == "covered_synthetic"
+    assert _session_entry(session_ledger, "gsm_truncation_marker_synthetic_v1")["parser_coverage"] == {
+        "event_families": {"Truncation": 1},
+        "unknown_entries": 0,
+        "truncation_count": 1,
+    }
 
 
 def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None:
@@ -50,9 +64,9 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     assert report["summary"] == {
         "total_scenario_families": len(corpus.SCENARIO_FAMILIES),
         "covered_committed": 6,
-        "covered_synthetic": 1,
+        "covered_synthetic": 2,
         "covered_report_only": 0,
-        "partial": 4,
+        "partial": 3,
         "missing": len(corpus.SCENARIO_FAMILIES) - 17,
         "deferred": 0,
         "blocked_private_evidence": 0,
@@ -68,7 +82,20 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
         "notes": [],
     }
     assert _matrix_row(report, "core_gameplay.draft_only")["coverage_status"] == "covered_synthetic"
-    assert _matrix_row(report, "drift_debug.gsm_truncation")["coverage_status"] == "partial"
+    gsm_row = _matrix_row(report, "drift_debug.gsm_truncation")
+    assert gsm_row["coverage_status"] == "covered_synthetic"
+    assert gsm_row["coverage_status"] != "covered_committed"
+    assert gsm_row["coverage_basis"] == [
+        "count_ratchet_only",
+        "diagnostics_only",
+        "fixture_metadata_only",
+        "parser_behavior_verified",
+    ]
+    assert gsm_row["mythic_edge_entries"] == [
+        "feature_equity_corpus_baseline_v1",
+        "gsm_truncation_marker_synthetic_v1",
+    ]
+    assert "GSM truncation is parser-owned data-loss evidence, not recovered GameState truth." in gsm_row["notes"]
     assert _matrix_row(report, "core_gameplay.sealed_entry")["coverage_status"] == "missing"
     assert _matrix_row(report, "connection.reconnect")["coverage_status"] == "blocked_external_boundary"
     assert report["privacy"] == {

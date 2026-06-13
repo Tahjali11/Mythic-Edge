@@ -161,6 +161,43 @@
       ]
     },
     {
+      "entry_id": "gsm_truncation_marker_synthetic_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/351",
+      "authorized_by_contract": "docs/contracts/parser_gsm_truncation_corpus_coverage.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "focused_parser_test": "tests/test_gsm_truncation_parser.py",
+        "diagnostics_test": "tests/test_parser_diagnostics_mode.py",
+        "drift_test": "tests/test_log_drift_sensor.py"
+      },
+      "scenario_families": [
+        "drift_debug.gsm_truncation"
+      ],
+      "parser_event_families": [
+        "Truncation"
+      ],
+      "parser_claim_families": [
+        "truncation_data_loss_evidence"
+      ],
+      "coverage_status": "covered_synthetic",
+      "coverage_basis": [
+        "parser_behavior_verified",
+        "fixture_metadata_only",
+        "diagnostics_only"
+      ],
+      "known_gaps": [
+        "Synthetic marker coverage proves data-loss detection only; it does not reconstruct omitted GameState data."
+      ],
+      "review_notes": [
+        "GSM truncation is parser-owned data-loss evidence, not recovered GameState truth."
+      ]
+    },
+    {
       "entry_id": "parser_corpus_session_ledger_v1",
       "entry_type": "session_ledger_entry",
       "source_kind": "committed_count_only_report",
