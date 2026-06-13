@@ -46,10 +46,32 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
     assert corpus.validate_session_ledger(session_ledger) == []
     assert [family["family_id"] for family in manifest["taxonomy"]["families"]] == list(corpus.SCENARIO_FAMILIES)
     assert _manifest_entry(manifest, "gsm_truncation_marker_synthetic_v1")["coverage_status"] == "covered_synthetic"
+    sealed_entry = _manifest_entry(manifest, "sealed_entry_lifecycle_synthetic_v1")
+    assert sealed_entry["coverage_status"] == "covered_synthetic"
+    assert sealed_entry["scenario_families"] == ["core_gameplay.sealed_entry"]
+    assert sealed_entry["parser_event_families"] == ["MatchState", "EventLifecycle"]
+    assert sealed_entry["parser_claim_families"] == ["sealed_event_identity", "event_lifecycle"]
+    assert sealed_entry["coverage_basis"] == ["fixture_metadata_only", "parser_behavior_verified"]
+    assert "sealed deckbuild and sealed matches remain missing" in sealed_entry["review_notes"][0]
     assert _session_entry(session_ledger, "gsm_truncation_marker_synthetic_v1")["parser_coverage"] == {
         "event_families": {"Truncation": 1},
         "unknown_entries": 0,
         "truncation_count": 1,
+    }
+    sealed_session = _session_entry(session_ledger, "sealed_entry_lifecycle_synthetic_v1")
+    assert sealed_session["format_family"] == "limited_sealed"
+    assert sealed_session["match_shape"] == "sealed_entry_only"
+    assert sealed_session["parser_coverage"] == {
+        "event_families": {"MatchState": 1, "EventLifecycle": 1},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+    }
+    assert sealed_session["report_only_redactions"] == {
+        "raw_log_lines_included": False,
+        "private_paths_included": False,
+        "raw_payloads_included": False,
+        "external_logs_included": False,
+        "decklists_included": False,
     }
 
 
@@ -64,10 +86,10 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     assert report["summary"] == {
         "total_scenario_families": len(corpus.SCENARIO_FAMILIES),
         "covered_committed": 6,
-        "covered_synthetic": 2,
+        "covered_synthetic": 3,
         "covered_report_only": 0,
         "partial": 3,
-        "missing": len(corpus.SCENARIO_FAMILIES) - 17,
+        "missing": len(corpus.SCENARIO_FAMILIES) - 18,
         "deferred": 0,
         "blocked_private_evidence": 0,
         "blocked_external_boundary": 6,
@@ -96,7 +118,33 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
         "gsm_truncation_marker_synthetic_v1",
     ]
     assert "GSM truncation is parser-owned data-loss evidence, not recovered GameState truth." in gsm_row["notes"]
-    assert _matrix_row(report, "core_gameplay.sealed_entry")["coverage_status"] == "missing"
+    assert _matrix_row(report, "core_gameplay.sealed_entry") == {
+        "scenario_family": "core_gameplay.sealed_entry",
+        "coverage_status": "covered_synthetic",
+        "coverage_basis": ["fixture_metadata_only", "parser_behavior_verified"],
+        "mythic_edge_entries": ["sealed_entry_lifecycle_synthetic_v1"],
+        "external_reference_status": "reference_category_not_checked",
+        "notes": [
+            "Synthetic sealed entry coverage proves sealed context plus event-entry lifecycle metadata only; "
+            "sealed deckbuild and sealed matches remain missing."
+        ],
+    }
+    assert _matrix_row(report, "core_gameplay.sealed_deckbuild") == {
+        "scenario_family": "core_gameplay.sealed_deckbuild",
+        "coverage_status": "missing",
+        "coverage_basis": ["external_reference_only"],
+        "mythic_edge_entries": [],
+        "external_reference_status": "reference_category_not_checked",
+        "notes": [],
+    }
+    assert _matrix_row(report, "core_gameplay.sealed_matches") == {
+        "scenario_family": "core_gameplay.sealed_matches",
+        "coverage_status": "missing",
+        "coverage_basis": ["external_reference_only"],
+        "mythic_edge_entries": [],
+        "external_reference_status": "reference_category_not_checked",
+        "notes": [],
+    }
     assert _matrix_row(report, "connection.reconnect")["coverage_status"] == "blocked_external_boundary"
     assert report["privacy"] == {
         "raw_private_log_committed": False,

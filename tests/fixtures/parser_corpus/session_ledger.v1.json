@@ -139,6 +139,44 @@
         "private_paths_included": false,
         "raw_payloads_included": false
       }
+    },
+    {
+      "session_id": "sealed_entry_lifecycle_synthetic_v1",
+      "title": "Synthetic sealed entry lifecycle evidence",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/357",
+      "authorized_by_contract": "docs/contracts/parser_corpus_sealed_entry_lifecycle_coverage.md",
+      "scenario_families": [
+        "core_gameplay.sealed_entry"
+      ],
+      "format_family": "limited_sealed",
+      "match_shape": "sealed_entry_only",
+      "record_summary": "synthetic_metadata_summary_only",
+      "parser_coverage": {
+        "event_families": {
+          "MatchState": 1,
+          "EventLifecycle": 1
+        },
+        "unknown_entries": 0,
+        "truncation_count": 0
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Synthetic sealed entry metadata does not prove sealed deckbuilding, sealed matches, sealed pool contents, submitted-deck contents, or full sealed lifecycle support."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "decklists_included": false
+      }
     }
   ]
 }
