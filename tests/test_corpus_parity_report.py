@@ -153,6 +153,24 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
     assert "line-buffer and header-boundary metadata only" in malformed_headerless["review_notes"][0]
     assert "unknown-entry routing" in malformed_headerless["review_notes"][0]
     assert "semantic recovery from arbitrary malformed Player.log payloads" in malformed_headerless["review_notes"][0]
+    active_player_timer = _manifest_entry(manifest, "active_player_timer_synthetic_v1")
+    assert active_player_timer["coverage_status"] == "covered_synthetic"
+    assert active_player_timer["scenario_families"] == ["timer.active_player_timer"]
+    assert active_player_timer["parser_event_families"] == ["GameState"]
+    assert active_player_timer["parser_claim_families"] == [
+        "gre_timer_normalization",
+        "active_player_timer_record",
+        "active_player_timer_direct_seat_evidence",
+        "timer_turn_info_context_boundary",
+        "timer_time_unit_boundary",
+        "timer_privacy_boundary",
+    ]
+    assert active_player_timer["coverage_basis"] == ["fixture_metadata_only", "parser_behavior_verified"]
+    assert "normalized_timers GameState metadata" in active_player_timer["review_notes"][0]
+    assert "does not infer timer ownership from turn_info context" in active_player_timer["review_notes"][0]
+    assert "inactivity-timeout" in active_player_timer["review_notes"][0]
+    assert "clock-pressure" in active_player_timer["review_notes"][0]
+    assert "gameplay-advice" in active_player_timer["review_notes"][0]
     assert _session_entry(session_ledger, "gsm_truncation_marker_synthetic_v1")["parser_coverage"] == {
         "event_families": {"Truncation": 1},
         "unknown_entries": 0,
@@ -247,6 +265,30 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
         "external_logs_included": False,
         "decklists_included": False,
     }
+    active_player_timer_session = _session_entry(session_ledger, "active_player_timer_synthetic_v1")
+    assert active_player_timer_session["format_family"] == "timer_runtime"
+    assert active_player_timer_session["match_shape"] == "active_player_timer_signal_only"
+    assert active_player_timer_session["record_summary"] == "synthetic_timer_normalization_summary_only"
+    assert active_player_timer_session["parser_coverage"] == {
+        "event_families": {"GameState": 1},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "normalized_timer_records": 1,
+        "active_player_timer_records": 1,
+        "timer_records_with_direct_seat_evidence": 1,
+        "timer_records_with_contextual_active_player": 1,
+        "timer_records_with_seconds_values": 1,
+        "timer_records_with_milliseconds_values": 1,
+        "timer_degraded_records": 0,
+    }
+    assert active_player_timer_session["game_rows"] == {"count": 0, "result_shape": "not_applicable"}
+    assert active_player_timer_session["report_only_redactions"] == {
+        "raw_log_lines_included": False,
+        "private_paths_included": False,
+        "raw_payloads_included": False,
+        "external_logs_included": False,
+        "decklists_included": False,
+    }
     sealed_match_session = _session_entry(session_ledger, "sealed_match_synthetic_v1")
     assert sealed_match_session["format_family"] == "limited_sealed"
     assert sealed_match_session["match_shape"] == "sealed_match_single_game"
@@ -308,10 +350,10 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     assert report["summary"] == {
         "total_scenario_families": len(corpus.SCENARIO_FAMILIES),
         "covered_committed": 6,
-        "covered_synthetic": 10,
+        "covered_synthetic": 11,
         "covered_report_only": 0,
         "partial": 3,
-        "missing": len(corpus.SCENARIO_FAMILIES) - 25,
+        "missing": len(corpus.SCENARIO_FAMILIES) - 26,
         "deferred": 0,
         "blocked_private_evidence": 0,
         "blocked_external_boundary": 6,
@@ -451,6 +493,36 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     }
     assert _matrix_row(report, "connection.firewall_or_network_drop") == {
         "scenario_family": "connection.firewall_or_network_drop",
+        "coverage_status": "missing",
+        "coverage_basis": ["external_reference_only"],
+        "mythic_edge_entries": [],
+        "external_reference_status": "reference_category_not_checked",
+        "notes": [],
+    }
+    assert _matrix_row(report, "timer.active_player_timer") == {
+        "scenario_family": "timer.active_player_timer",
+        "coverage_status": "covered_synthetic",
+        "coverage_basis": ["fixture_metadata_only", "parser_behavior_verified"],
+        "mythic_edge_entries": ["active_player_timer_synthetic_v1"],
+        "external_reference_status": "reference_category_not_checked",
+        "notes": [
+            "Synthetic active player timer coverage proves parser-owned normalized_timers GameState metadata "
+            "only; it does not infer timer ownership from turn_info context or claim clock-pressure, rope, "
+            "inactivity-timeout, gameplay-advice, analytics, AI, coaching, release, or production truth."
+        ],
+    }
+    assert _matrix_row(report, "timer.inactivity_timeout") == {
+        "scenario_family": "timer.inactivity_timeout",
+        "coverage_status": "blocked_external_boundary",
+        "coverage_basis": ["external_reference_only"],
+        "mythic_edge_entries": ["external_reference_category_boundary"],
+        "external_reference_status": "reference_category_not_checked",
+        "notes": [
+            "Reference categories require future Mythic Edge fixtures or report-only evidence before support claims."
+        ],
+    }
+    assert _matrix_row(report, "timer.pre_match_idle") == {
+        "scenario_family": "timer.pre_match_idle",
         "coverage_status": "missing",
         "coverage_basis": ["external_reference_only"],
         "mythic_edge_entries": [],
