@@ -529,6 +529,53 @@
         "external_logs_included": false,
         "decklists_included": false
       }
+    },
+    {
+      "session_id": "evidence_ledger_provenance_report_reference_v1",
+      "title": "Report-only evidence-ledger provenance scaffold",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/379",
+      "authorized_by_contract": "docs/contracts/parser_corpus_evidence_ledger_provenance_coverage.md",
+      "scenario_families": [
+        "mythic_edge.evidence_ledger_provenance"
+      ],
+      "format_family": "mythic_edge_provenance",
+      "match_shape": "evidence_ledger_report_reference_only",
+      "record_summary": "committed_provenance_metadata_summary_only",
+      "parser_coverage": {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "evidence_ledger_output_families": 7,
+        "evidence_ledger_entries": 71,
+        "evidence_ledger_evidence_signals": 448,
+        "evidence_schema_snapshot_status": "pass",
+        "evidence_schema_drift_status": "pass",
+        "evidence_invariant_execution_status": "pass",
+        "executable_invariants": 11,
+        "declared_invariants": 425,
+        "declared_unique_invariants": 394,
+        "runtime_field_evidence_surface": "available_review_sidecar",
+        "validation_report_wiring_surface": "available_report_only",
+        "runtime_health_surface": "available_summary_only"
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Evidence-ledger provenance metadata does not prove semantic parser correctness, universal field-evidence attachment, live private-log health, release readiness, analytics truth, AI truth, coaching truth, production behavior, tracker completion, timer.pre_match_idle coverage, workbook row coverage, confidence/finality/degradation coverage, or private-log drift coverage."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "decklists_included": false
+      }
     }
   ]
 }

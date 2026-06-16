@@ -196,6 +196,32 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
     assert "does not mean the parser understood the unknown entries" in unknown_entry["review_notes"][0]
     assert "parser support for unknown semantic content" in unknown_entry["known_gaps"][0]
     assert "live private Player.log drift health" in unknown_entry["known_gaps"][0]
+    evidence_ledger_provenance = _manifest_entry(manifest, "evidence_ledger_provenance_report_reference_v1")
+    assert evidence_ledger_provenance["coverage_status"] == "covered_report_only"
+    assert evidence_ledger_provenance["scenario_families"] == ["mythic_edge.evidence_ledger_provenance"]
+    assert evidence_ledger_provenance["parser_event_families"] == []
+    assert evidence_ledger_provenance["parser_claim_families"] == [
+        "evidence_ledger_schema",
+        "evidence_ledger_entries",
+        "evidence_schema_snapshot",
+        "evidence_schema_drift_report",
+        "evidence_invariant_execution",
+        "runtime_field_evidence_mapping",
+        "validation_report_wiring",
+        "runtime_health_summary_boundary",
+        "evidence_ledger_privacy_boundary",
+    ]
+    assert evidence_ledger_provenance["coverage_basis"] == [
+        "evidence_ledger_only",
+        "fixture_metadata_only",
+        "count_ratchet_only",
+    ]
+    assert "parser_behavior_verified" not in evidence_ledger_provenance["coverage_basis"]
+    assert "timer.pre_match_idle" in evidence_ledger_provenance["known_gaps"][0]
+    assert "workbook row coverage" in evidence_ledger_provenance["known_gaps"][0]
+    assert "confidence/finality/degradation coverage" in evidence_ledger_provenance["known_gaps"][0]
+    assert "committed, deterministic provenance metadata" in evidence_ledger_provenance["review_notes"][0]
+    assert "does not prove parser correctness for every field" in evidence_ledger_provenance["review_notes"][0]
     assert _session_entry(session_ledger, "gsm_truncation_marker_synthetic_v1")["parser_coverage"] == {
         "event_families": {"Truncation": 1},
         "unknown_entries": 0,
@@ -336,6 +362,35 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
         "external_logs_included": False,
         "decklists_included": False,
     }
+    evidence_ledger_session = _session_entry(session_ledger, "evidence_ledger_provenance_report_reference_v1")
+    assert evidence_ledger_session["format_family"] == "mythic_edge_provenance"
+    assert evidence_ledger_session["match_shape"] == "evidence_ledger_report_reference_only"
+    assert evidence_ledger_session["record_summary"] == "committed_provenance_metadata_summary_only"
+    assert evidence_ledger_session["parser_coverage"] == {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "evidence_ledger_output_families": 7,
+        "evidence_ledger_entries": 71,
+        "evidence_ledger_evidence_signals": 448,
+        "evidence_schema_snapshot_status": "pass",
+        "evidence_schema_drift_status": "pass",
+        "evidence_invariant_execution_status": "pass",
+        "executable_invariants": 11,
+        "declared_invariants": 425,
+        "declared_unique_invariants": 394,
+        "runtime_field_evidence_surface": "available_review_sidecar",
+        "validation_report_wiring_surface": "available_report_only",
+        "runtime_health_surface": "available_summary_only",
+    }
+    assert evidence_ledger_session["game_rows"] == {"count": 0, "result_shape": "not_applicable"}
+    assert evidence_ledger_session["report_only_redactions"] == {
+        "raw_log_lines_included": False,
+        "private_paths_included": False,
+        "raw_payloads_included": False,
+        "external_logs_included": False,
+        "decklists_included": False,
+    }
     sealed_match_session = _session_entry(session_ledger, "sealed_match_synthetic_v1")
     assert sealed_match_session["format_family"] == "limited_sealed"
     assert sealed_match_session["match_shape"] == "sealed_match_single_game"
@@ -398,9 +453,9 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
         "total_scenario_families": len(corpus.SCENARIO_FAMILIES),
         "covered_committed": 6,
         "covered_synthetic": 11,
-        "covered_report_only": 1,
+        "covered_report_only": 2,
         "partial": 3,
-        "missing": len(corpus.SCENARIO_FAMILIES) - 27,
+        "missing": len(corpus.SCENARIO_FAMILIES) - 28,
         "deferred": 0,
         "blocked_private_evidence": 0,
         "blocked_external_boundary": 6,
@@ -518,6 +573,50 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     }
     assert _matrix_row(report, "mythic_edge.private_log_report_only_drift") == {
         "scenario_family": "mythic_edge.private_log_report_only_drift",
+        "coverage_status": "missing",
+        "coverage_basis": ["external_reference_only"],
+        "mythic_edge_entries": [],
+        "external_reference_status": "reference_category_not_checked",
+        "notes": [],
+    }
+    assert _matrix_row(report, "mythic_edge.evidence_ledger_provenance") == {
+        "scenario_family": "mythic_edge.evidence_ledger_provenance",
+        "coverage_status": "covered_report_only",
+        "coverage_basis": ["count_ratchet_only", "evidence_ledger_only", "fixture_metadata_only"],
+        "mythic_edge_entries": ["evidence_ledger_provenance_report_reference_v1"],
+        "external_reference_status": "reference_category_not_checked",
+        "notes": [
+            "Evidence-ledger provenance coverage proves that Mythic Edge has committed, deterministic "
+            "provenance metadata and review scaffolding for parser-owned fact evidence; it does not prove "
+            "parser correctness for every field or runtime attachment in every consumer."
+        ],
+    }
+    assert _matrix_row(report, "mythic_edge.confidence_finality_degradation") == {
+        "scenario_family": "mythic_edge.confidence_finality_degradation",
+        "coverage_status": "partial",
+        "coverage_basis": ["count_ratchet_only"],
+        "mythic_edge_entries": ["feature_equity_corpus_baseline_v1"],
+        "external_reference_status": "reference_category_not_checked",
+        "notes": ["Committed count-only baseline summarizes existing golden replay manifests."],
+    }
+    assert _matrix_row(report, "mythic_edge.workbook_row_coverage") == {
+        "scenario_family": "mythic_edge.workbook_row_coverage",
+        "coverage_status": "partial",
+        "coverage_basis": ["count_ratchet_only"],
+        "mythic_edge_entries": ["feature_equity_corpus_baseline_v1"],
+        "external_reference_status": "reference_category_not_checked",
+        "notes": ["Committed count-only baseline summarizes existing golden replay manifests."],
+    }
+    assert _matrix_row(report, "mythic_edge.live_diagnostics") == {
+        "scenario_family": "mythic_edge.live_diagnostics",
+        "coverage_status": "missing",
+        "coverage_basis": ["external_reference_only"],
+        "mythic_edge_entries": [],
+        "external_reference_status": "reference_category_not_checked",
+        "notes": [],
+    }
+    assert _matrix_row(report, "mythic_edge.analytics_readiness_labels") == {
+        "scenario_family": "mythic_edge.analytics_readiness_labels",
         "coverage_status": "missing",
         "coverage_basis": ["external_reference_only"],
         "mythic_edge_entries": [],
