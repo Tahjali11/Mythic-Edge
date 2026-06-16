@@ -152,6 +152,25 @@ def test_credential_assignments_fail_and_redact_value(tmp_path: Path) -> None:
     assert "client_secret=<redacted:credential_value>" in report
 
 
+def test_environment_lookup_credential_assignments_do_not_fail(tmp_path: Path) -> None:
+    _write_text(
+        tmp_path,
+        "src/config.py",
+        "\n".join(
+            (
+                'WEBHOOK_URL = _env_text("MYTHICEDGE_SHEETS_WEBHOOK", DEFAULT_WEBHOOK_URL)',
+                'LEGACY_WEBHOOK_URL = os.environ.get("MYTHICEDGE_SHEETS_WEBHOOK", "")',
+                "webhook_url=self.webhook_var.get(),",
+            )
+        ),
+    )
+
+    result = scanner.evaluate_paths(["src/config.py"], base="origin/main", repo_root=tmp_path)
+
+    assert result.exit_code == 0
+    assert result.forbidden == ()
+
+
 def test_placeholder_secret_references_warn_without_failing(tmp_path: Path) -> None:
     _write_text(tmp_path, "docs/example.md", "API_KEY=<placeholder-token>\n")
 
@@ -247,6 +266,26 @@ def test_artifact_payload_markers_have_stable_categories(
 
     assert result.exit_code == 1
     assert result.forbidden[0].category_id == category_id
+
+
+def test_python_source_references_to_status_helpers_do_not_count_as_payloads(tmp_path: Path) -> None:
+    _write_text(
+        tmp_path,
+        "tools/example.py",
+        "\n".join(
+            (
+                "def load_runtime_status(project_root: Path) -> dict:",
+                '    f"{webhook_successes} ok / {webhook_failures} failed"',
+                '    return {"last_manual": format_scryfall_refresh_timestamp(value)}',
+                "def open_failed_posts_folder(self) -> None:",
+            )
+        ),
+    )
+
+    result = scanner.evaluate_paths(["tools/example.py"], base="origin/main", repo_root=tmp_path)
+
+    assert result.exit_code == 0
+    assert result.forbidden == ()
 
 
 def test_binary_files_warn_as_skipped(tmp_path: Path) -> None:

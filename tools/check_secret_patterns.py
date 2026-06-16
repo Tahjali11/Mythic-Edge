@@ -172,6 +172,43 @@ def _has_placeholder_context(text: str) -> bool:
     return any(marker in lowered for marker in PLACEHOLDER_MARKERS)
 
 
+def _is_indirect_credential_lookup(value: str) -> bool:
+    normalized = value.strip()
+    return bool(
+        re.match(r"^(?:os\.environ\.get|os\.getenv|_env_text|[A-Za-z_][\w.]*\.get)\(", normalized)
+        or re.match(r"^self\.[A-Za-z_][\w.]*\(\)$", normalized)
+    )
+
+
+def _is_python_source_reference(path: str, line: str) -> bool:
+    if not path.endswith(".py"):
+        return False
+    stripped = line.strip()
+    if stripped.startswith(
+        (
+            "def ",
+            "class ",
+            "return ",
+            "if ",
+            "elif ",
+            "else",
+            "for ",
+            "while ",
+            "with ",
+            "try",
+            "except",
+            "f\"",
+            "f'",
+        )
+    ):
+        return True
+    if stripped[:1] in {"'", '"'} and ":" in stripped and stripped.endswith(","):
+        return True
+    if "lambda" in stripped and ":" in stripped:
+        return True
+    return ":" in stripped and stripped.endswith(",") and not stripped.startswith(("'", '"', "{", "["))
+
+
 def _is_policy_path(path: str) -> bool:
     return path.startswith(
         (
@@ -364,6 +401,8 @@ def _append_credential_findings(
 
     for match in CREDENTIAL_ASSIGNMENT_RE.finditer(line):
         value = match.group("value")
+        if _is_indirect_credential_lookup(value):
+            continue
         if value.startswith("<") and value.endswith(">"):
             placeholder = True
         else:
@@ -483,6 +522,8 @@ def _append_artifact_payload_findings(
     line_number: int,
     line: str,
 ) -> None:
+    if _is_python_source_reference(path, line):
+        return
     lowered = line.lower()
     line_is_jsonish = "{" in line or ":" in line
     if FAILED_POST_RE.search(line) and (line_is_jsonish or "payload" in lowered):

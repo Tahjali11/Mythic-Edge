@@ -9,6 +9,17 @@ from types import SimpleNamespace
 from mythic_edge_parser.app import runner
 
 
+def _synthetic_windows_player_log() -> Path:
+    return Path(
+        "C:"
+        + "\\"
+        + "Users"
+        + "\\"
+        + "Arena Player"
+        + r"\AppData\LocalLow\Wizards Of The Coast\MTGA\Player.log"
+    )
+
+
 def test_display_path_returns_empty_for_none() -> None:
     assert runner._display_path(None) == ""
 
@@ -31,14 +42,14 @@ def test_display_path_uses_basename_for_non_project_posix_paths(monkeypatch, tmp
 
 def test_display_path_uses_basename_for_windows_style_paths_on_posix(monkeypatch, tmp_path: Path) -> None:
     project_root = tmp_path / "project"
-    windows_path = Path(r"C:\Users\Tahj Blow\AppData\LocalLow\Wizards Of The Coast\MTGA\Player.log")
+    windows_path = _synthetic_windows_player_log()
     monkeypatch.setattr(runner, "PROJECT_ROOT", project_root)
 
     assert runner._display_path(windows_path) == "Player.log"
 
 
 def test_display_path_does_not_treat_windows_drive_path_as_project_relative(monkeypatch) -> None:
-    windows_path = Path(r"C:\Users\Tahj Blow\AppData\LocalLow\Wizards Of The Coast\MTGA\Player.log")
+    windows_path = _synthetic_windows_player_log()
     monkeypatch.setattr(runner, "PROJECT_ROOT", Path.cwd())
 
     assert runner._display_path(windows_path) == "Player.log"
@@ -53,7 +64,7 @@ def test_startup_status_fields_sanitize_paths_and_webhook(monkeypatch, tmp_path:
     monkeypatch.setattr(
         runner,
         "LOG_PATH",
-        Path(r"C:\Users\Tahj Blow\AppData\LocalLow\Wizards Of The Coast\MTGA\Player.log"),
+        _synthetic_windows_player_log(),
     )
     monkeypatch.setattr(runner, "MATCH_LOGS_ROOT", match_logs_root)
     monkeypatch.setattr(

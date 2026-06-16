@@ -1,10 +1,14 @@
-from pathlib import Path
-from mythic_edge_parser import MtgaEventStream
 import asyncio
+import os
+from pathlib import Path
+
+from mythic_edge_parser import MtgaEventStream
+from mythic_edge_parser.app.config import DEFAULT_MTGA_PLAYER_LOG
+
 
 async def main():
     stream, subscriber = await MtgaEventStream.start(
-        Path(r"C:\Users\Tahj Blow\AppData\LocalLow\Wizards Of The Coast\MTGA\Player.log")
+        Path(os.environ.get("MTGA_PLAYER_LOG", str(DEFAULT_MTGA_PLAYER_LOG)))
     )
     try:
         while True:

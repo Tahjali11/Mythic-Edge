@@ -21,12 +21,12 @@ Codex C: Module Implementer.
 
 ## Worktree Note
 
-The original checkout at `/Users/tahjblow/Documents/New project/Mythic-Edge`
+The original checkout at `/Users/<redacted>/Documents/New project/Mythic-Edge`
 was five commits behind `origin/codex/parser-reliability-intelligence` and had
 unrelated untracked files from earlier modules. Codex C implemented this module
 in a clean sibling worktree at:
 
-`/Users/tahjblow/Documents/New project/Mythic-Edge-issue-124`
+`/Users/<redacted>/Documents/New project/Mythic-Edge-issue-124`
 
 That worktree is detached at `origin/codex/parser-reliability-intelligence`
 commit `11ce81d`, with the `docs/contracts/parser_draft_complete.md` source
@@ -343,7 +343,7 @@ workflow_handoff:
   target_artifact: "docs/implementation_handoffs/parser_draft_complete_comparison.md"
   verdict: "ready_for_module_reviewer"
   branch: "codex/parser-reliability-intelligence"
-  worktree: "/Users/tahjblow/Documents/New project/Mythic-Edge-issue-124"
+  worktree: "/Users/<redacted>/Documents/New project/Mythic-Edge-issue-124"
   risk_tier: "High"
   validation:
     - "python3 -m pytest -q tests/test_draft_complete_parser.py"
