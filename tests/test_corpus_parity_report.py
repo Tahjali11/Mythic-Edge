@@ -137,6 +137,22 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
     assert "malformed/headerless log handling" in timestamp_anomaly["review_notes"][0]
     assert "unknown-entry routing" in timestamp_anomaly["review_notes"][0]
     assert "real local Player.log timestamp drift" in timestamp_anomaly["review_notes"][0]
+    malformed_headerless = _manifest_entry(manifest, "malformed_headerless_synthetic_v1")
+    assert malformed_headerless["coverage_status"] == "covered_synthetic"
+    assert malformed_headerless["scenario_families"] == ["log_runtime.malformed_or_headerless"]
+    assert malformed_headerless["parser_event_families"] == []
+    assert malformed_headerless["parser_claim_families"] == [
+        "line_buffer_header_classification",
+        "line_buffer_headerless_orphan_noise_ignored",
+        "line_buffer_unknown_header_boundary",
+        "line_buffer_partial_line_boundary",
+        "line_buffer_multiline_boundary",
+        "malformed_headerless_privacy_boundary",
+    ]
+    assert malformed_headerless["coverage_basis"] == ["fixture_metadata_only", "parser_behavior_verified"]
+    assert "line-buffer and header-boundary metadata only" in malformed_headerless["review_notes"][0]
+    assert "unknown-entry routing" in malformed_headerless["review_notes"][0]
+    assert "semantic recovery from arbitrary malformed Player.log payloads" in malformed_headerless["review_notes"][0]
     assert _session_entry(session_ledger, "gsm_truncation_marker_synthetic_v1")["parser_coverage"] == {
         "event_families": {"Truncation": 1},
         "unknown_entries": 0,
@@ -209,6 +225,28 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
         "external_logs_included": False,
         "decklists_included": False,
     }
+    malformed_headerless_session = _session_entry(session_ledger, "malformed_headerless_synthetic_v1")
+    assert malformed_headerless_session["format_family"] == "log_runtime"
+    assert malformed_headerless_session["match_shape"] == "line_buffer_boundary_signal_only"
+    assert malformed_headerless_session["record_summary"] == "synthetic_line_buffer_summary_only"
+    assert malformed_headerless_session["parser_coverage"] == {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "line_buffer_headerless_orphan_lines_ignored": 1,
+        "line_buffer_unknown_header_entries": 1,
+        "line_buffer_partial_fragments_joined": 1,
+        "line_buffer_multiline_entries_finalized": 1,
+        "line_buffer_single_line_headers_emitted": 1,
+    }
+    assert malformed_headerless_session["game_rows"] == {"count": 0, "result_shape": "not_applicable"}
+    assert malformed_headerless_session["report_only_redactions"] == {
+        "raw_log_lines_included": False,
+        "private_paths_included": False,
+        "raw_payloads_included": False,
+        "external_logs_included": False,
+        "decklists_included": False,
+    }
     sealed_match_session = _session_entry(session_ledger, "sealed_match_synthetic_v1")
     assert sealed_match_session["format_family"] == "limited_sealed"
     assert sealed_match_session["match_shape"] == "sealed_match_single_game"
@@ -270,10 +308,10 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     assert report["summary"] == {
         "total_scenario_families": len(corpus.SCENARIO_FAMILIES),
         "covered_committed": 6,
-        "covered_synthetic": 9,
+        "covered_synthetic": 10,
         "covered_report_only": 0,
         "partial": 3,
-        "missing": len(corpus.SCENARIO_FAMILIES) - 24,
+        "missing": len(corpus.SCENARIO_FAMILIES) - 25,
         "deferred": 0,
         "blocked_private_evidence": 0,
         "blocked_external_boundary": 6,
@@ -352,11 +390,16 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     assert _matrix_row(report, "log_runtime.rotation")["coverage_status"] == "blocked_external_boundary"
     assert _matrix_row(report, "log_runtime.malformed_or_headerless") == {
         "scenario_family": "log_runtime.malformed_or_headerless",
-        "coverage_status": "missing",
-        "coverage_basis": ["external_reference_only"],
-        "mythic_edge_entries": [],
+        "coverage_status": "covered_synthetic",
+        "coverage_basis": ["fixture_metadata_only", "parser_behavior_verified"],
+        "mythic_edge_entries": ["malformed_headerless_synthetic_v1"],
         "external_reference_status": "reference_category_not_checked",
-        "notes": [],
+        "notes": [
+            "Synthetic malformed/headerless coverage proves line-buffer and header-boundary metadata only; "
+            "it does not prove unknown-entry routing, log drift detection, log rotation, semantic recovery "
+            "from arbitrary malformed Player.log payloads, private smoke, release readiness, analytics truth, "
+            "AI truth, coaching truth, or production behavior."
+        ],
     }
     assert _matrix_row(report, "log_runtime.timestamp_anomaly") == {
         "scenario_family": "log_runtime.timestamp_anomaly",
