@@ -367,6 +367,44 @@
         "external_logs_included": false,
         "decklists_included": false
       }
+    },
+    {
+      "session_id": "timestamp_anomaly_synthetic_v1",
+      "title": "Synthetic timestamp anomaly router-stats evidence",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/370",
+      "authorized_by_contract": "docs/contracts/parser_corpus_timestamp_anomaly_coverage.md",
+      "scenario_families": [
+        "log_runtime.timestamp_anomaly"
+      ],
+      "format_family": "log_runtime",
+      "match_shape": "timestamp_anomaly_signal_only",
+      "record_summary": "synthetic_router_stats_summary_only",
+      "parser_coverage": {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "timestamp_missing": 1,
+        "timestamp_parse_failure": 1,
+        "timestamp_anomalies": 2
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Synthetic timestamp anomaly metadata does not prove malformed or headerless log handling, unknown-entry routing, log rotation support, real local Player.log timestamp drift, private smoke, release readiness, analytics truth, AI truth, coaching truth, or production behavior."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "decklists_included": false
+      }
     }
   ]
 }
