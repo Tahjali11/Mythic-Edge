@@ -559,6 +559,49 @@
       ]
     },
     {
+      "entry_id": "unknown_entry_drift_report_reference_v1",
+      "entry_type": "diagnostics_report",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/377",
+      "authorized_by_contract": "docs/contracts/parser_corpus_unknown_entry_coverage.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "drift_fixture_manifest": "tests/fixtures/golden_fixture_manifest.json",
+        "normalized_drift_report_reference": "tests/fixtures/player_log_drift_flush_timing_expected.json",
+        "drift_sensor_test": "tests/test_log_drift_sensor.py",
+        "diagnostics_test": "tests/test_parser_diagnostics_mode.py",
+        "evidence_ledger_test": "tests/test_evidence_ledger.py",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py"
+      },
+      "scenario_families": [
+        "log_runtime.unknown_entry"
+      ],
+      "parser_event_families": [],
+      "parser_claim_families": [
+        "router_unknown_entry_count",
+        "drift_unknown_signature_review_samples",
+        "drift_unmatched_api_name_review_samples",
+        "diagnostics_unknown_entries_review_status",
+        "evidence_ledger_unknown_entry_count_boundary",
+        "unknown_entry_privacy_boundary"
+      ],
+      "coverage_status": "covered_report_only",
+      "coverage_basis": [
+        "diagnostics_only",
+        "fixture_metadata_only",
+        "evidence_ledger_only"
+      ],
+      "known_gaps": [
+        "Report-only unknown-entry coverage does not prove parser support for unknown semantic content, automatic parser-gap creation, log rotation, missing-message-type recovery, reconnect or network-drop behavior, live private Player.log drift health, diagnostics readiness, release readiness, analytics truth, AI truth, coaching truth, or production behavior."
+      ],
+      "review_notes": [
+        "Unknown-entry coverage proves that existing drift/diagnostics reports can surface unknown counts and review samples from a committed normalized report reference; it does not mean the parser understood the unknown entries."
+      ]
+    },
+    {
       "entry_id": "parser_corpus_session_ledger_v1",
       "entry_type": "session_ledger_entry",
       "source_kind": "committed_count_only_report",
