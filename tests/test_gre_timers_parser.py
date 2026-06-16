@@ -137,6 +137,65 @@ def test_normalize_timer_array_covers_clean_active_player_timer_evidence() -> No
     assert timer_records_by_direct_seat(normalized) == {1: [record]}
 
 
+def test_normalize_timer_array_covers_pre_match_idle_without_direct_seat() -> None:
+    normalized = normalize_timer_array(
+        [
+            {
+                "timerId": 21,
+                "timerType": "TimerType_PreMatchIdle",
+                "timerName": "PreMatchIdleTimer",
+                "timerState": "waiting",
+                "idleSeconds": 90,
+                "durationMs": 90000,
+                "running": False,
+            }
+        ]
+    )
+
+    assert normalized["object"] == TIMER_COLLECTION_OBJECT
+    assert normalized["schema_version"] == SCHEMA_VERSION
+    assert normalized["total_records"] == 1
+    assert normalized["degraded_records"] == 0
+    assert normalized["review_required"] is False
+    assert normalized["timer_ids"] == [21]
+    assert normalized["timer_types"] == ["TimerType_PreMatchIdle"]
+    assert normalized["direct_seat_ids"] == []
+    assert normalized["time_units_seen"] == {"seconds": 1, "milliseconds": 1, "unknown": 0}
+    assert normalized["contextual_turn_info"] == {
+        "turn_number": "",
+        "active_player_seat_id": "",
+        "decision_player_seat_id": "",
+        "priority_player_seat_id": "",
+    }
+
+    record = normalized["records"][0]
+    assert record["object"] == TIMER_RECORD_OBJECT
+    assert record["timer_id"] == 21
+    assert record["timer_type"] == "TimerType_PreMatchIdle"
+    assert record["timer_name"] == "PreMatchIdleTimer"
+    assert record["timer_state"] == "waiting"
+    assert record["seat_fields"] == {
+        "owner_seat_id": "",
+        "controller_seat_id": "",
+        "player_seat_id": "",
+        "system_seat_id": "",
+        "team_id": "",
+        "player_id": "",
+    }
+    assert record["direct_seat_ids"] == []
+    assert record["boolean_fields"] == [{"key": "running", "normalized_key": "running", "value": False}]
+    assert record["time_values"] == {
+        "seconds": [{"key": "idleSeconds", "value": 90, "seconds_value": 90}],
+        "milliseconds": [{"key": "durationMs", "value": 90000, "seconds_value": 90.0}],
+        "unknown_unit": [],
+    }
+    assert record["evidence_status"] == "observed"
+    assert record["value_source"] == "derived"
+    assert record["confidence"] == "high"
+    assert record["degradation_flags"] == []
+    assert timer_records_by_direct_seat(normalized) == {}
+
+
 def test_normalize_timer_array_handles_missing_malformed_and_placeholder_records() -> None:
     missing = normalize_timer_array(None)
     assert missing["records"] == []

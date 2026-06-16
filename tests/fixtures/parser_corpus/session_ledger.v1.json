@@ -491,6 +491,51 @@
       }
     },
     {
+      "session_id": "pre_match_idle_timer_synthetic_v1",
+      "title": "Synthetic pre-match idle timer evidence",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/389",
+      "authorized_by_contract": "docs/contracts/parser_corpus_pre_match_idle_timer_coverage.md",
+      "scenario_families": [
+        "timer.pre_match_idle"
+      ],
+      "format_family": "timer_runtime",
+      "match_shape": "pre_match_idle_timer_signal_only",
+      "record_summary": "synthetic_timer_normalization_summary_only",
+      "parser_coverage": {
+        "event_families": {
+          "GameState": 1
+        },
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "normalized_timer_records": 1,
+        "pre_match_idle_timer_records": 1,
+        "timer_records_with_direct_seat_evidence": 0,
+        "timer_records_without_direct_seat_evidence": 1,
+        "timer_records_with_contextual_active_player": 0,
+        "timer_records_with_seconds_values": 1,
+        "timer_records_with_milliseconds_values": 1,
+        "timer_degraded_records": 0
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Synthetic pre-match idle timer metadata does not prove live Arena pre-match idle behavior, inactivity timeout, rope behavior, clock pressure, private Player.log timer drift, release readiness, analytics truth, AI truth, coaching truth, or production behavior."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "decklists_included": false
+      }
+    },
+    {
       "session_id": "unknown_entry_drift_report_reference_v1",
       "title": "Report-only unknown-entry drift evidence",
       "source_kind": "committed_count_only_report",
