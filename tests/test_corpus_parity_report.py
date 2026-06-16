@@ -171,6 +171,24 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
     assert "inactivity-timeout" in active_player_timer["review_notes"][0]
     assert "clock-pressure" in active_player_timer["review_notes"][0]
     assert "gameplay-advice" in active_player_timer["review_notes"][0]
+    pre_match_idle_timer = _manifest_entry(manifest, "pre_match_idle_timer_synthetic_v1")
+    assert pre_match_idle_timer["coverage_status"] == "covered_synthetic"
+    assert pre_match_idle_timer["scenario_families"] == ["timer.pre_match_idle"]
+    assert pre_match_idle_timer["parser_event_families"] == ["GameState"]
+    assert pre_match_idle_timer["parser_claim_families"] == [
+        "gre_timer_normalization",
+        "pre_match_idle_timer_record",
+        "pre_match_idle_no_direct_seat_boundary",
+        "pre_match_idle_time_unit_boundary",
+        "timer_privacy_boundary",
+    ]
+    assert pre_match_idle_timer["coverage_basis"] == ["fixture_metadata_only", "parser_behavior_verified"]
+    assert "no-direct-seat timer shape" in pre_match_idle_timer["review_notes"][0]
+    assert "does not infer player ownership" in pre_match_idle_timer["review_notes"][0]
+    assert "inactivity timeout" in pre_match_idle_timer["review_notes"][0]
+    assert "clock pressure" in pre_match_idle_timer["review_notes"][0]
+    assert "gameplay advice" in pre_match_idle_timer["review_notes"][0]
+    assert "private Player.log timer drift" in pre_match_idle_timer["known_gaps"][0]
     unknown_entry = _manifest_entry(manifest, "unknown_entry_drift_report_reference_v1")
     assert unknown_entry["coverage_status"] == "covered_report_only"
     assert unknown_entry["scenario_families"] == ["log_runtime.unknown_entry"]
@@ -340,6 +358,31 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
         "external_logs_included": False,
         "decklists_included": False,
     }
+    pre_match_idle_session = _session_entry(session_ledger, "pre_match_idle_timer_synthetic_v1")
+    assert pre_match_idle_session["format_family"] == "timer_runtime"
+    assert pre_match_idle_session["match_shape"] == "pre_match_idle_timer_signal_only"
+    assert pre_match_idle_session["record_summary"] == "synthetic_timer_normalization_summary_only"
+    assert pre_match_idle_session["parser_coverage"] == {
+        "event_families": {"GameState": 1},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "normalized_timer_records": 1,
+        "pre_match_idle_timer_records": 1,
+        "timer_records_with_direct_seat_evidence": 0,
+        "timer_records_without_direct_seat_evidence": 1,
+        "timer_records_with_contextual_active_player": 0,
+        "timer_records_with_seconds_values": 1,
+        "timer_records_with_milliseconds_values": 1,
+        "timer_degraded_records": 0,
+    }
+    assert pre_match_idle_session["game_rows"] == {"count": 0, "result_shape": "not_applicable"}
+    assert pre_match_idle_session["report_only_redactions"] == {
+        "raw_log_lines_included": False,
+        "private_paths_included": False,
+        "raw_payloads_included": False,
+        "external_logs_included": False,
+        "decklists_included": False,
+    }
     unknown_entry_session = _session_entry(session_ledger, "unknown_entry_drift_report_reference_v1")
     assert unknown_entry_session["format_family"] == "log_runtime"
     assert unknown_entry_session["match_shape"] == "unknown_entry_drift_report_reference_only"
@@ -452,10 +495,10 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     assert report["summary"] == {
         "total_scenario_families": len(corpus.SCENARIO_FAMILIES),
         "covered_committed": 6,
-        "covered_synthetic": 11,
+        "covered_synthetic": 12,
         "covered_report_only": 2,
         "partial": 3,
-        "missing": len(corpus.SCENARIO_FAMILIES) - 28,
+        "missing": len(corpus.SCENARIO_FAMILIES) - 29,
         "deferred": 0,
         "blocked_private_evidence": 0,
         "blocked_external_boundary": 6,
@@ -681,11 +724,16 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     }
     assert _matrix_row(report, "timer.pre_match_idle") == {
         "scenario_family": "timer.pre_match_idle",
-        "coverage_status": "missing",
-        "coverage_basis": ["external_reference_only"],
-        "mythic_edge_entries": [],
+        "coverage_status": "covered_synthetic",
+        "coverage_basis": ["fixture_metadata_only", "parser_behavior_verified"],
+        "mythic_edge_entries": ["pre_match_idle_timer_synthetic_v1"],
         "external_reference_status": "reference_category_not_checked",
-        "notes": [],
+        "notes": [
+            "Synthetic pre-match idle timer coverage proves parser-owned normalized_timers GameState metadata "
+            "for a no-direct-seat timer shape only; it does not infer player ownership, inactivity timeout, "
+            "rope behavior, clock pressure, gameplay advice, analytics, AI, coaching, release, or production "
+            "truth."
+        ],
     }
     assert report["privacy"] == {
         "raw_private_log_committed": False,
