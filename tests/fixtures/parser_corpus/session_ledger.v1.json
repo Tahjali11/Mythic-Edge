@@ -489,6 +489,46 @@
         "external_logs_included": false,
         "decklists_included": false
       }
+    },
+    {
+      "session_id": "unknown_entry_drift_report_reference_v1",
+      "title": "Report-only unknown-entry drift evidence",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/377",
+      "authorized_by_contract": "docs/contracts/parser_corpus_unknown_entry_coverage.md",
+      "scenario_families": [
+        "log_runtime.unknown_entry"
+      ],
+      "format_family": "log_runtime",
+      "match_shape": "unknown_entry_drift_report_reference_only",
+      "record_summary": "normalized_drift_report_reference_only",
+      "parser_coverage": {
+        "event_families": {},
+        "unknown_entries": 7,
+        "truncation_count": 0,
+        "drift_report_status": "review",
+        "unknown_signatures": 4,
+        "unmatched_api_names": 3,
+        "unmatched_request_api_names": 3,
+        "routed_event_families": 0
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Unknown-entry drift evidence is review-only and does not prove parser support, parser correctness, live private drift health, diagnostics readiness, release readiness, analytics truth, AI truth, coaching truth, or production behavior."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "decklists_included": false
+      }
     }
   ]
 }

@@ -171,6 +171,31 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
     assert "inactivity-timeout" in active_player_timer["review_notes"][0]
     assert "clock-pressure" in active_player_timer["review_notes"][0]
     assert "gameplay-advice" in active_player_timer["review_notes"][0]
+    unknown_entry = _manifest_entry(manifest, "unknown_entry_drift_report_reference_v1")
+    assert unknown_entry["coverage_status"] == "covered_report_only"
+    assert unknown_entry["scenario_families"] == ["log_runtime.unknown_entry"]
+    assert unknown_entry["parser_event_families"] == []
+    assert unknown_entry["parser_claim_families"] == [
+        "router_unknown_entry_count",
+        "drift_unknown_signature_review_samples",
+        "drift_unmatched_api_name_review_samples",
+        "diagnostics_unknown_entries_review_status",
+        "evidence_ledger_unknown_entry_count_boundary",
+        "unknown_entry_privacy_boundary",
+    ]
+    assert unknown_entry["coverage_basis"] == [
+        "diagnostics_only",
+        "fixture_metadata_only",
+        "evidence_ledger_only",
+    ]
+    assert unknown_entry["paths"]["normalized_drift_report_reference"] == (
+        "tests/fixtures/player_log_drift_flush_timing_expected.json"
+    )
+    assert "flush_timing_corpus_slice.log" not in unknown_entry["paths"].values()
+    assert "unknown counts and review samples" in unknown_entry["review_notes"][0]
+    assert "does not mean the parser understood the unknown entries" in unknown_entry["review_notes"][0]
+    assert "parser support for unknown semantic content" in unknown_entry["known_gaps"][0]
+    assert "live private Player.log drift health" in unknown_entry["known_gaps"][0]
     assert _session_entry(session_ledger, "gsm_truncation_marker_synthetic_v1")["parser_coverage"] == {
         "event_families": {"Truncation": 1},
         "unknown_entries": 0,
@@ -289,6 +314,28 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
         "external_logs_included": False,
         "decklists_included": False,
     }
+    unknown_entry_session = _session_entry(session_ledger, "unknown_entry_drift_report_reference_v1")
+    assert unknown_entry_session["format_family"] == "log_runtime"
+    assert unknown_entry_session["match_shape"] == "unknown_entry_drift_report_reference_only"
+    assert unknown_entry_session["record_summary"] == "normalized_drift_report_reference_only"
+    assert unknown_entry_session["parser_coverage"] == {
+        "event_families": {},
+        "unknown_entries": 7,
+        "truncation_count": 0,
+        "drift_report_status": "review",
+        "unknown_signatures": 4,
+        "unmatched_api_names": 3,
+        "unmatched_request_api_names": 3,
+        "routed_event_families": 0,
+    }
+    assert unknown_entry_session["game_rows"] == {"count": 0, "result_shape": "not_applicable"}
+    assert unknown_entry_session["report_only_redactions"] == {
+        "raw_log_lines_included": False,
+        "private_paths_included": False,
+        "raw_payloads_included": False,
+        "external_logs_included": False,
+        "decklists_included": False,
+    }
     sealed_match_session = _session_entry(session_ledger, "sealed_match_synthetic_v1")
     assert sealed_match_session["format_family"] == "limited_sealed"
     assert sealed_match_session["match_shape"] == "sealed_match_single_game"
@@ -351,9 +398,9 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
         "total_scenario_families": len(corpus.SCENARIO_FAMILIES),
         "covered_committed": 6,
         "covered_synthetic": 11,
-        "covered_report_only": 0,
+        "covered_report_only": 1,
         "partial": 3,
-        "missing": len(corpus.SCENARIO_FAMILIES) - 26,
+        "missing": len(corpus.SCENARIO_FAMILIES) - 27,
         "deferred": 0,
         "blocked_private_evidence": 0,
         "blocked_external_boundary": 6,
@@ -459,6 +506,18 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     }
     assert _matrix_row(report, "log_runtime.unknown_entry") == {
         "scenario_family": "log_runtime.unknown_entry",
+        "coverage_status": "covered_report_only",
+        "coverage_basis": ["diagnostics_only", "evidence_ledger_only", "fixture_metadata_only"],
+        "mythic_edge_entries": ["unknown_entry_drift_report_reference_v1"],
+        "external_reference_status": "reference_category_not_checked",
+        "notes": [
+            "Unknown-entry coverage proves that existing drift/diagnostics reports can surface unknown counts "
+            "and review samples from a committed normalized report reference; it does not mean the parser "
+            "understood the unknown entries."
+        ],
+    }
+    assert _matrix_row(report, "mythic_edge.private_log_report_only_drift") == {
+        "scenario_family": "mythic_edge.private_log_report_only_drift",
         "coverage_status": "missing",
         "coverage_basis": ["external_reference_only"],
         "mythic_edge_entries": [],
