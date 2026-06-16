@@ -122,6 +122,21 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
     assert detailed_logs_disabled["coverage_basis"] == ["fixture_metadata_only", "parser_behavior_verified"]
     assert "does not prove live MTGA settings" in detailed_logs_disabled["review_notes"][0]
     assert "unknown-entry routing" in detailed_logs_disabled["review_notes"][0]
+    timestamp_anomaly = _manifest_entry(manifest, "timestamp_anomaly_synthetic_v1")
+    assert timestamp_anomaly["coverage_status"] == "covered_synthetic"
+    assert timestamp_anomaly["scenario_families"] == ["log_runtime.timestamp_anomaly"]
+    assert timestamp_anomaly["parser_event_families"] == []
+    assert timestamp_anomaly["parser_claim_families"] == [
+        "router_timestamp_missing_stat",
+        "router_timestamp_parse_failure_stat",
+        "router_timestamp_anomalies_aggregate",
+        "timestamp_anomaly_privacy_boundary",
+    ]
+    assert timestamp_anomaly["coverage_basis"] == ["fixture_metadata_only", "parser_behavior_verified"]
+    assert "router-owned timestamp_missing" in timestamp_anomaly["review_notes"][0]
+    assert "malformed/headerless log handling" in timestamp_anomaly["review_notes"][0]
+    assert "unknown-entry routing" in timestamp_anomaly["review_notes"][0]
+    assert "real local Player.log timestamp drift" in timestamp_anomaly["review_notes"][0]
     assert _session_entry(session_ledger, "gsm_truncation_marker_synthetic_v1")["parser_coverage"] == {
         "event_families": {"Truncation": 1},
         "unknown_entries": 0,
@@ -168,6 +183,26 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
     }
     assert detailed_logs_disabled_session["game_rows"] == {"count": 0, "result_shape": "not_applicable"}
     assert detailed_logs_disabled_session["report_only_redactions"] == {
+        "raw_log_lines_included": False,
+        "private_paths_included": False,
+        "raw_payloads_included": False,
+        "external_logs_included": False,
+        "decklists_included": False,
+    }
+    timestamp_anomaly_session = _session_entry(session_ledger, "timestamp_anomaly_synthetic_v1")
+    assert timestamp_anomaly_session["format_family"] == "log_runtime"
+    assert timestamp_anomaly_session["match_shape"] == "timestamp_anomaly_signal_only"
+    assert timestamp_anomaly_session["record_summary"] == "synthetic_router_stats_summary_only"
+    assert timestamp_anomaly_session["parser_coverage"] == {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "timestamp_missing": 1,
+        "timestamp_parse_failure": 1,
+        "timestamp_anomalies": 2,
+    }
+    assert timestamp_anomaly_session["game_rows"] == {"count": 0, "result_shape": "not_applicable"}
+    assert timestamp_anomaly_session["report_only_redactions"] == {
         "raw_log_lines_included": False,
         "private_paths_included": False,
         "raw_payloads_included": False,
@@ -235,10 +270,10 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     assert report["summary"] == {
         "total_scenario_families": len(corpus.SCENARIO_FAMILIES),
         "covered_committed": 6,
-        "covered_synthetic": 8,
+        "covered_synthetic": 9,
         "covered_report_only": 0,
         "partial": 3,
-        "missing": len(corpus.SCENARIO_FAMILIES) - 23,
+        "missing": len(corpus.SCENARIO_FAMILIES) - 24,
         "deferred": 0,
         "blocked_private_evidence": 0,
         "blocked_external_boundary": 6,
@@ -325,11 +360,17 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     }
     assert _matrix_row(report, "log_runtime.timestamp_anomaly") == {
         "scenario_family": "log_runtime.timestamp_anomaly",
-        "coverage_status": "missing",
-        "coverage_basis": ["external_reference_only"],
-        "mythic_edge_entries": [],
+        "coverage_status": "covered_synthetic",
+        "coverage_basis": ["fixture_metadata_only", "parser_behavior_verified"],
+        "mythic_edge_entries": ["timestamp_anomaly_synthetic_v1"],
         "external_reference_status": "reference_category_not_checked",
-        "notes": [],
+        "notes": [
+            "Synthetic timestamp anomaly coverage proves router-owned timestamp_missing, "
+            "timestamp_parse_failure, and timestamp_anomalies stats only; it does not prove "
+            "malformed/headerless log handling, unknown-entry routing, log rotation, real local "
+            "Player.log timestamp drift, private smoke, release readiness, analytics truth, AI truth, "
+            "coaching truth, or production behavior."
+        ],
     }
     assert _matrix_row(report, "log_runtime.unknown_entry") == {
         "scenario_family": "log_runtime.unknown_entry",
