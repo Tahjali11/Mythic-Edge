@@ -405,6 +405,46 @@
         "external_logs_included": false,
         "decklists_included": false
       }
+    },
+    {
+      "session_id": "malformed_headerless_synthetic_v1",
+      "title": "Synthetic malformed/headerless line-buffer evidence",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/372",
+      "authorized_by_contract": "docs/contracts/parser_corpus_malformed_headerless_coverage.md",
+      "scenario_families": [
+        "log_runtime.malformed_or_headerless"
+      ],
+      "format_family": "log_runtime",
+      "match_shape": "line_buffer_boundary_signal_only",
+      "record_summary": "synthetic_line_buffer_summary_only",
+      "parser_coverage": {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "line_buffer_headerless_orphan_lines_ignored": 1,
+        "line_buffer_unknown_header_entries": 1,
+        "line_buffer_partial_fragments_joined": 1,
+        "line_buffer_multiline_entries_finalized": 1,
+        "line_buffer_single_line_headers_emitted": 1
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Synthetic malformed/headerless metadata does not prove unknown-entry routing, log drift detection, log rotation support, semantic recovery from arbitrary malformed Player.log payloads, private smoke, release readiness, analytics truth, AI truth, coaching truth, or production behavior."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "decklists_included": false
+      }
     }
   ]
 }
