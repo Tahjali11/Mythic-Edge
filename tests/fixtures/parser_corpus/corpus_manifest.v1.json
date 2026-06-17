@@ -599,6 +599,46 @@
       ]
     },
     {
+      "entry_id": "start_hook_deck_snapshot_synthetic_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/392",
+      "authorized_by_contract": "docs/contracts/parser_corpus_start_hook_deck_snapshot_coverage.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "collection_parser_test": "tests/test_collection_parser.py",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py"
+      },
+      "scenario_families": [
+        "deck_api.start_hook_deck_snapshot"
+      ],
+      "parser_event_families": [
+        "Collection",
+        "DeckCollection"
+      ],
+      "parser_claim_families": [
+        "start_hook_collection_snapshot",
+        "start_hook_deck_collection_snapshot",
+        "start_hook_deck_summary_to_deck_map_correlation",
+        "start_hook_raw_evidence_preservation",
+        "start_hook_deck_snapshot_privacy_boundary"
+      ],
+      "coverage_status": "covered_synthetic",
+      "coverage_basis": [
+        "fixture_metadata_only",
+        "parser_behavior_verified"
+      ],
+      "known_gaps": [
+        "Synthetic StartHook deck snapshot metadata does not prove private deck contents, exact deck identity, submitted-deck truth, sideboard-delta truth, collection ownership truth, inventory/economy state, deck-summary coverage, deck-upsert coverage, store/pack/inbox/crafting coverage, archetype classification, decklist completion, analytics truth, AI truth, coaching truth, release readiness, or production behavior."
+      ],
+      "review_notes": [
+        "Synthetic StartHook deck snapshot coverage proves parser-owned Collection and DeckCollection StartHook metadata only; it preserves a bounded deck snapshot as evidence and does not claim deck identity, submitted-deck, sideboard-delta, inventory/economy, analytics, AI, coaching, release, or production truth."
+      ]
+    },
+    {
       "entry_id": "unknown_entry_drift_report_reference_v1",
       "entry_type": "diagnostics_report",
       "source_kind": "committed_count_only_report",
