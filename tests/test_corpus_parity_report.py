@@ -189,6 +189,25 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
     assert "clock pressure" in pre_match_idle_timer["review_notes"][0]
     assert "gameplay advice" in pre_match_idle_timer["review_notes"][0]
     assert "private Player.log timer drift" in pre_match_idle_timer["known_gaps"][0]
+    start_hook_deck_snapshot = _manifest_entry(manifest, "start_hook_deck_snapshot_synthetic_v1")
+    assert start_hook_deck_snapshot["coverage_status"] == "covered_synthetic"
+    assert start_hook_deck_snapshot["scenario_families"] == ["deck_api.start_hook_deck_snapshot"]
+    assert start_hook_deck_snapshot["parser_event_families"] == ["Collection", "DeckCollection"]
+    assert start_hook_deck_snapshot["parser_claim_families"] == [
+        "start_hook_collection_snapshot",
+        "start_hook_deck_collection_snapshot",
+        "start_hook_deck_summary_to_deck_map_correlation",
+        "start_hook_raw_evidence_preservation",
+        "start_hook_deck_snapshot_privacy_boundary",
+    ]
+    assert start_hook_deck_snapshot["coverage_basis"] == [
+        "fixture_metadata_only",
+        "parser_behavior_verified",
+    ]
+    assert "bounded deck snapshot as evidence" in start_hook_deck_snapshot["review_notes"][0]
+    assert "does not claim deck identity" in start_hook_deck_snapshot["review_notes"][0]
+    assert "deck-summary coverage" in start_hook_deck_snapshot["known_gaps"][0]
+    assert "store/pack/inbox/crafting coverage" in start_hook_deck_snapshot["known_gaps"][0]
     unknown_entry = _manifest_entry(manifest, "unknown_entry_drift_report_reference_v1")
     assert unknown_entry["coverage_status"] == "covered_report_only"
     assert unknown_entry["scenario_families"] == ["log_runtime.unknown_entry"]
@@ -383,6 +402,30 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
         "external_logs_included": False,
         "decklists_included": False,
     }
+    start_hook_session = _session_entry(session_ledger, "start_hook_deck_snapshot_synthetic_v1")
+    assert start_hook_session["format_family"] == "deck_api"
+    assert start_hook_session["match_shape"] == "start_hook_deck_snapshot_signal_only"
+    assert start_hook_session["record_summary"] == "synthetic_start_hook_summary_only"
+    assert start_hook_session["parser_coverage"] == {
+        "event_families": {"Collection": 1, "DeckCollection": 1},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "start_hook_collection_snapshots": 1,
+        "start_hook_deck_collection_snapshots": 1,
+        "start_hook_correlated_decks": 1,
+        "start_hook_orphaned_deck_summaries_skipped": 0,
+        "start_hook_malformed_deck_summaries_skipped": 0,
+    }
+    assert start_hook_session["game_rows"] == {"count": 0, "result_shape": "not_applicable"}
+    assert start_hook_session["report_only_redactions"] == {
+        "raw_log_lines_included": False,
+        "private_paths_included": False,
+        "raw_payloads_included": False,
+        "external_logs_included": False,
+        "decklists_included": False,
+        "private_deck_names_included": False,
+        "private_collection_data_included": False,
+    }
     unknown_entry_session = _session_entry(session_ledger, "unknown_entry_drift_report_reference_v1")
     assert unknown_entry_session["format_family"] == "log_runtime"
     assert unknown_entry_session["match_shape"] == "unknown_entry_drift_report_reference_only"
@@ -495,10 +538,10 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     assert report["summary"] == {
         "total_scenario_families": len(corpus.SCENARIO_FAMILIES),
         "covered_committed": 6,
-        "covered_synthetic": 12,
+        "covered_synthetic": 13,
         "covered_report_only": 2,
         "partial": 3,
-        "missing": len(corpus.SCENARIO_FAMILIES) - 29,
+        "missing": len(corpus.SCENARIO_FAMILIES) - 30,
         "deferred": 0,
         "blocked_private_evidence": 0,
         "blocked_external_boundary": 6,
@@ -734,6 +777,51 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
             "rope behavior, clock pressure, gameplay advice, analytics, AI, coaching, release, or production "
             "truth."
         ],
+    }
+    assert _matrix_row(report, "deck_api.start_hook_deck_snapshot") == {
+        "scenario_family": "deck_api.start_hook_deck_snapshot",
+        "coverage_status": "covered_synthetic",
+        "coverage_basis": ["fixture_metadata_only", "parser_behavior_verified"],
+        "mythic_edge_entries": ["start_hook_deck_snapshot_synthetic_v1"],
+        "external_reference_status": "reference_category_not_checked",
+        "notes": [
+            "Synthetic StartHook deck snapshot coverage proves parser-owned Collection and DeckCollection "
+            "StartHook metadata only; it preserves a bounded deck snapshot as evidence and does not claim "
+            "deck identity, submitted-deck, sideboard-delta, inventory/economy, analytics, AI, coaching, "
+            "release, or production truth."
+        ],
+    }
+    assert _matrix_row(report, "deck_api.deck_summary") == {
+        "scenario_family": "deck_api.deck_summary",
+        "coverage_status": "missing",
+        "coverage_basis": ["external_reference_only"],
+        "mythic_edge_entries": [],
+        "external_reference_status": "reference_category_not_checked",
+        "notes": [],
+    }
+    assert _matrix_row(report, "deck_api.deck_upsert") == {
+        "scenario_family": "deck_api.deck_upsert",
+        "coverage_status": "missing",
+        "coverage_basis": ["external_reference_only"],
+        "mythic_edge_entries": [],
+        "external_reference_status": "reference_category_not_checked",
+        "notes": [],
+    }
+    assert _matrix_row(report, "deck_api.event_set_deck") == {
+        "scenario_family": "deck_api.event_set_deck",
+        "coverage_status": "covered_committed",
+        "coverage_basis": ["fixture_metadata_only", "parser_behavior_verified"],
+        "mythic_edge_entries": ["bo1_match_win_basic"],
+        "external_reference_status": "reference_category_not_checked",
+        "notes": [],
+    }
+    assert _matrix_row(report, "deck_api.store_pack_inbox_or_crafting") == {
+        "scenario_family": "deck_api.store_pack_inbox_or_crafting",
+        "coverage_status": "missing",
+        "coverage_basis": ["external_reference_only"],
+        "mythic_edge_entries": [],
+        "external_reference_status": "reference_category_not_checked",
+        "notes": [],
     }
     assert report["privacy"] == {
         "raw_private_log_committed": False,

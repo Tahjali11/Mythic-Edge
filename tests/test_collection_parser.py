@@ -19,7 +19,7 @@ def _expect_one_event(value: BaseEvent | Sequence[BaseEvent] | None) -> BaseEven
 def test_collection_parse_player_cards_only() -> None:
     entry = LogEntry(
         EntryHeader.UNITY_CROSS_THREAD_LOGGER,
-        '[UnityCrossThreadLogger]2/22/2026 11:59:51 AM\n<== StartHook(deck-uuid)\n{"PlayerCards":{"123":4}}',
+        '<== StartHook(deck-uuid)\n{"PlayerCards":{"123":4}}',
     )
     event = _expect_one_event(collection.try_parse(entry, TS))
     assert event.kind == "Collection"
@@ -30,7 +30,6 @@ def test_collection_parse_player_cards_only() -> None:
 def test_collection_parse_emits_player_cards_and_deck_collection() -> None:
     entry = LogEntry(
         EntryHeader.UNITY_CROSS_THREAD_LOGGER,
-        '[UnityCrossThreadLogger]2/22/2026 11:59:51 AM\n'
         '<== StartHook(deck-uuid)\n'
         '{"PlayerCards":{"123":4},'
         '"DeckSummaries":[{"DeckId":"deck-1","Name":"Reanimator"}],'
@@ -44,10 +43,41 @@ def test_collection_parse_emits_player_cards_and_deck_collection() -> None:
     assert events[1].payload["decks"]["deck-1"]["list"]["MainDeck"][0]["cardId"] == 1
 
 
+def test_collection_parse_start_hook_deck_snapshot_preserves_raw_evidence() -> None:
+    entry = LogEntry(
+        EntryHeader.UNITY_CROSS_THREAD_LOGGER,
+        '<== StartHook(deck-snapshot-synthetic)\n'
+        '{"PlayerCards":{"123":4},'
+        '"DeckSummaries":[{"DeckId":"deck-1","Name":"Synthetic Deck",'
+        '"Attributes":[{"name":"Format","value":"Standard"}]}],'
+        '"Decks":{"deck-1":{"MainDeck":[{"cardId":1,"quantity":4}],"Sideboard":[]}}}',
+    )
+
+    events = collection.try_parse(entry, TS)
+
+    assert isinstance(events, list)
+    assert [event.kind for event in events] == ["Collection", "DeckCollection"]
+
+    collection_event = events[0]
+    assert collection_event.payload["type"] == "collection_snapshot"
+    assert collection_event.payload["player_cards"] == {"123": 4}
+    assert collection_event.payload["raw_start_hook"]["PlayerCards"] == {"123": 4}
+
+    deck_event = events[1]
+    assert deck_event.payload["type"] == "deck_collection_snapshot"
+    assert list(deck_event.payload["decks"]) == ["deck-1"]
+    deck = deck_event.payload["decks"]["deck-1"]
+    assert deck["DeckId"] == "deck-1"
+    assert deck["Name"] == "Synthetic Deck"
+    assert deck["Attributes"] == [{"name": "Format", "value": "Standard"}]
+    assert deck["list"] == {"MainDeck": [{"cardId": 1, "quantity": 4}], "Sideboard": []}
+    assert deck_event.payload["raw_start_hook"]["DeckSummaries"][0]["DeckId"] == "deck-1"
+    assert deck_event.payload["raw_start_hook"]["Decks"]["deck-1"]["Sideboard"] == []
+
+
 def test_collection_parse_skips_orphaned_deck_summaries() -> None:
     entry = LogEntry(
         EntryHeader.UNITY_CROSS_THREAD_LOGGER,
-        '[UnityCrossThreadLogger]2/22/2026 11:59:51 AM\n'
         '<== StartHook(deck-uuid)\n'
         '{"DeckSummaries":[{"DeckId":"deck-1","Name":"Missing"},{"DeckId":"deck-2","Name":"Present"}],'
         '"Decks":{"deck-2":{"MainDeck":[{"cardId":2,"quantity":3}]}}}',
@@ -61,7 +91,6 @@ def test_collection_parse_skips_orphaned_deck_summaries() -> None:
 def test_collection_parse_real_start_hook_shape_emits_deck_collection() -> None:
     entry = LogEntry(
         EntryHeader.UNITY_CROSS_THREAD_LOGGER,
-        '[UnityCrossThreadLogger]5/7/2026 11:45:35 PM\n'
         '<== StartHook(real-start-hook)\n'
         '{"InventoryInfo":{"Gold":12750},'
         '"DeckSummaries":[{"DeckId":"deck-1","Name":"Orzhov Skeletons",'
@@ -78,7 +107,7 @@ def test_collection_parse_real_start_hook_shape_emits_deck_collection() -> None:
 def test_collection_parse_requires_mapping_player_cards() -> None:
     entry = LogEntry(
         EntryHeader.UNITY_CROSS_THREAD_LOGGER,
-        '[UnityCrossThreadLogger]2/22/2026 11:59:51 AM\n<== StartHook(collection-shape)\n{"PlayerCards":[1,2,3]}',
+        '<== StartHook(collection-shape)\n{"PlayerCards":[1,2,3]}',
     )
 
     event = collection.try_parse(entry, TS)
@@ -89,7 +118,6 @@ def test_collection_parse_requires_mapping_player_cards() -> None:
 def test_collection_parse_skips_empty_correlated_decks() -> None:
     entry = LogEntry(
         EntryHeader.UNITY_CROSS_THREAD_LOGGER,
-        '[UnityCrossThreadLogger]2/22/2026 11:59:51 AM\n'
         '<== StartHook(deck-uuid)\n'
         '{"DeckSummaries":[{"DeckId":"deck-1","Name":"Missing"}],"Decks":{"deck-2":{"MainDeck":[{"cardId":2,"quantity":3}]}}}',
     )
@@ -102,7 +130,6 @@ def test_collection_parse_skips_empty_correlated_decks() -> None:
 def test_collection_parse_skips_malformed_deck_summary_entries() -> None:
     entry = LogEntry(
         EntryHeader.UNITY_CROSS_THREAD_LOGGER,
-        '[UnityCrossThreadLogger]2/22/2026 11:59:51 AM\n'
         '<== StartHook(deck-uuid)\n'
         '{"DeckSummaries":["bad",{"DeckId":9},{"DeckId":"deck-1","Name":"Playable"}],'
         '"Decks":{"deck-1":{"MainDeck":[{"cardId":7,"quantity":2}]},"deck-2":"bad"}}',
