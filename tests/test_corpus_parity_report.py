@@ -547,6 +547,41 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
     assert "not live Player.log truth" in live_diagnostics["review_notes"][0]
     assert "watcher correctness" in live_diagnostics["review_notes"][0]
     assert "release readiness" in live_diagnostics["review_notes"][0]
+    private_log_drift = _manifest_entry(
+        manifest,
+        "private_log_report_only_drift_private_evidence_boundary_v1",
+    )
+    assert private_log_drift["entry_type"] == "local_private_report_summary"
+    assert private_log_drift["source_kind"] == "local_private_report_only"
+    assert private_log_drift["commit_status"] == "local_report_only"
+    assert private_log_drift["privacy_class"] == "local_private_not_committed"
+    assert private_log_drift["sanitization_status"] == "requires_review"
+    assert private_log_drift["paths"] == {}
+    assert private_log_drift["coverage_status"] == "blocked_private_evidence"
+    assert private_log_drift["scenario_families"] == ["mythic_edge.private_log_report_only_drift"]
+    assert private_log_drift["parser_event_families"] == []
+    assert private_log_drift["parser_claim_families"] == [
+        "private_log_drift_private_evidence_required",
+        "committed_drift_references_non_claim",
+        "live_diagnostics_non_claim",
+        "private_local_readiness_non_claim",
+        "analytics_readiness_non_claim",
+        "private_artifact_boundary",
+    ]
+    assert private_log_drift["coverage_basis"] == ["local_report_only"]
+    assert "covered_report_only" not in private_log_drift["coverage_status"]
+    assert "parser_behavior_verified" not in private_log_drift["coverage_basis"]
+    assert "diagnostics_only" not in private_log_drift["coverage_basis"]
+    assert "fixture_metadata_only" not in private_log_drift["coverage_basis"]
+    assert "evidence_ledger_only" not in private_log_drift["coverage_basis"]
+    assert "future approved private/local evidence" in private_log_drift["known_gaps"][0]
+    assert "private smoke success" in private_log_drift["known_gaps"][0]
+    assert "live Player.log health" in private_log_drift["known_gaps"][0]
+    assert "parser support" in private_log_drift["known_gaps"][0]
+    assert "drift health" in private_log_drift["known_gaps"][0]
+    assert "analytics readiness" in private_log_drift["known_gaps"][0]
+    assert "no private local report artifact" in private_log_drift["review_notes"][0]
+    assert "session-ledger entry" in private_log_drift["review_notes"][0]
     evidence_ledger_provenance = _manifest_entry(manifest, "evidence_ledger_provenance_report_reference_v1")
     assert evidence_ledger_provenance["coverage_status"] == "covered_report_only"
     assert evidence_ledger_provenance["scenario_families"] == ["mythic_edge.evidence_ledger_provenance"]
@@ -1069,6 +1104,10 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
         "card_choices_included": False,
         "credentials_tokens_keys_webhooks_included": False,
     }
+    assert all(
+        session["session_id"] != "private_log_report_only_drift_private_evidence_boundary_v1"
+        for session in session_ledger["sessions"]
+    )
     evidence_ledger_session = _session_entry(session_ledger, "evidence_ledger_provenance_report_reference_v1")
     assert evidence_ledger_session["format_family"] == "mythic_edge_provenance"
     assert evidence_ledger_session["match_shape"] == "evidence_ledger_report_reference_only"
@@ -1378,9 +1417,9 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
         "covered_synthetic": 14,
         "covered_report_only": 14,
         "partial": 3,
-        "missing": len(corpus.SCENARIO_FAMILIES) - 43,
+        "missing": len(corpus.SCENARIO_FAMILIES) - 44,
         "deferred": 0,
-        "blocked_private_evidence": 1,
+        "blocked_private_evidence": 2,
         "blocked_external_boundary": 5,
         "not_applicable": 0,
     }
@@ -1579,12 +1618,25 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     }
     assert _matrix_row(report, "mythic_edge.private_log_report_only_drift") == {
         "scenario_family": "mythic_edge.private_log_report_only_drift",
-        "coverage_status": "missing",
-        "coverage_basis": ["external_reference_only"],
-        "mythic_edge_entries": [],
+        "coverage_status": "blocked_private_evidence",
+        "coverage_basis": ["local_report_only"],
+        "mythic_edge_entries": ["private_log_report_only_drift_private_evidence_boundary_v1"],
         "external_reference_status": "reference_category_not_checked",
-        "notes": [],
+        "notes": [
+            "Private log report-only drift coverage is intentionally blocked by private evidence "
+            "requirements: no private local report artifact, private Player.log evidence, private smoke "
+            "output, parser event family, session-ledger entry, release/deploy readiness claim, analytics "
+            "readiness claim, AI/coaching claim, or full corpus parity claim is committed in this slice."
+        ],
     }
+    private_log_drift_gap = next(
+        gap for gap in report["gaps"] if gap["scenario_family"] == "mythic_edge.private_log_report_only_drift"
+    )
+    assert private_log_drift_gap["gap_status"] == "blocked_private_evidence"
+    assert private_log_drift_gap["blocked_by"] == [
+        "no_committed_safe_fixture",
+        "private_evidence_required",
+    ]
     assert _matrix_row(report, "mythic_edge.evidence_ledger_provenance") == {
         "scenario_family": "mythic_edge.evidence_ledger_provenance",
         "coverage_status": "covered_report_only",

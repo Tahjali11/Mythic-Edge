@@ -1245,6 +1245,40 @@
       ]
     },
     {
+      "entry_id": "private_log_report_only_drift_private_evidence_boundary_v1",
+      "entry_type": "local_private_report_summary",
+      "source_kind": "local_private_report_only",
+      "commit_status": "local_report_only",
+      "privacy_class": "local_private_not_committed",
+      "sanitization_status": "requires_review",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/422",
+      "authorized_by_contract": "docs/contracts/parser_corpus_private_log_report_only_drift_coverage.md",
+      "paths": {},
+      "scenario_families": [
+        "mythic_edge.private_log_report_only_drift"
+      ],
+      "parser_event_families": [],
+      "parser_claim_families": [
+        "private_log_drift_private_evidence_required",
+        "committed_drift_references_non_claim",
+        "live_diagnostics_non_claim",
+        "private_local_readiness_non_claim",
+        "analytics_readiness_non_claim",
+        "private_artifact_boundary"
+      ],
+      "coverage_status": "blocked_private_evidence",
+      "coverage_basis": [
+        "local_report_only"
+      ],
+      "external_reference_status": "reference_category_not_checked",
+      "known_gaps": [
+        "Private log report-only drift coverage is blocked by future approved private/local evidence; committed diagnostics, log-drift machinery, unknown-entry report references, live diagnostics boundary coverage, evidence-ledger health context, private-local readiness docs, browser smoke plans, golden replay reports, feature-equity reports, public taxonomy metadata, and corpus parity metadata do not prove private smoke success, live Player.log health, parser support, drift health, release readiness, deploy readiness, production behavior, analytics readiness, analytics truth, AI truth, coaching truth, or full Mythic Edge corpus parity."
+      ],
+      "review_notes": [
+        "Private log report-only drift coverage is intentionally blocked by private evidence requirements: no private local report artifact, private Player.log evidence, private smoke output, parser event family, session-ledger entry, release/deploy readiness claim, analytics readiness claim, AI/coaching claim, or full corpus parity claim is committed in this slice."
+      ]
+    },
+    {
       "entry_id": "evidence_ledger_provenance_report_reference_v1",
       "entry_type": "session_ledger_entry",
       "source_kind": "committed_count_only_report",
