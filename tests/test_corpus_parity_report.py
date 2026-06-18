@@ -440,6 +440,29 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
     assert "does not mean the parser understood the unknown entries" in unknown_entry["review_notes"][0]
     assert "parser support for unknown semantic content" in unknown_entry["known_gaps"][0]
     assert "live private Player.log drift health" in unknown_entry["known_gaps"][0]
+    missing_message_type = _manifest_entry(manifest, "missing_message_type_boundary_report_v1")
+    assert missing_message_type["coverage_status"] == "covered_report_only"
+    assert missing_message_type["scenario_families"] == ["drift_debug.missing_message_type"]
+    assert missing_message_type["parser_event_families"] == []
+    assert missing_message_type["parser_claim_families"] == [
+        "missing_message_type_boundary_report",
+        "unknown_entry_not_missing_message_type_truth",
+        "gsm_truncation_not_type_field_failure_truth",
+        "timestamp_anomaly_not_message_type_truth",
+        "generic_client_action_not_drift_debug_support",
+        "gre_game_state_message_type_not_recovery_truth",
+        "message_recovery_non_claim",
+    ]
+    assert missing_message_type["coverage_basis"] == ["fixture_metadata_only"]
+    assert "report-only boundary metadata" in missing_message_type["known_gaps"][0]
+    assert "do not prove missing-message-type parser support" in missing_message_type["known_gaps"][0]
+    assert "parser message recovery" in missing_message_type["known_gaps"][0]
+    assert "GameState reconstruction" in missing_message_type["known_gaps"][0]
+    assert "unknown future MTGA message support" in missing_message_type["known_gaps"][0]
+    assert "unknown-entry drift reporting" in missing_message_type["review_notes"][0]
+    assert "GSM truncation coverage" in missing_message_type["review_notes"][0]
+    assert "generic client-action fallback" in missing_message_type["review_notes"][0]
+    assert "do not prove parser message recovery" in missing_message_type["review_notes"][0]
     evidence_ledger_provenance = _manifest_entry(manifest, "evidence_ledger_provenance_report_reference_v1")
     assert evidence_ledger_provenance["coverage_status"] == "covered_report_only"
     assert evidence_ledger_provenance["scenario_families"] == ["mythic_edge.evidence_ledger_provenance"]
@@ -761,6 +784,50 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
         "external_logs_included": False,
         "decklists_included": False,
     }
+    missing_message_type_session = _session_entry(session_ledger, "missing_message_type_boundary_report_v1")
+    assert missing_message_type_session["format_family"] == "drift_debug"
+    assert missing_message_type_session["match_shape"] == "missing_message_type_boundary_report_only"
+    assert missing_message_type_session["record_summary"] == (
+        "committed_missing_message_type_boundary_metadata_only"
+    )
+    assert missing_message_type_session["parser_coverage"] == {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "unknown_entry_reference_entries": 1,
+        "gsm_truncation_reference_entries": 1,
+        "timestamp_anomaly_reference_entries": 1,
+        "gre_game_state_reference_entries": 1,
+        "client_action_reference_entries": 1,
+        "diagnostics_reference_entries": 1,
+        "evidence_ledger_reference_entries": 1,
+        "dedicated_missing_message_type_fixtures": 0,
+        "message_recovery_claims": 0,
+        "game_state_reconstruction_claims": 0,
+        "unknown_future_message_support_claims": 0,
+    }
+    assert missing_message_type_session["game_rows"] == {"count": 0, "result_shape": "not_applicable"}
+    assert "does not include a dedicated missing-message-type fixture" in (
+        missing_message_type_session["known_gaps"][0]
+    )
+    assert "parser message recovery claim" in missing_message_type_session["known_gaps"][0]
+    assert "GameState reconstruction claim" in missing_message_type_session["known_gaps"][0]
+    assert "unknown future MTGA message support claim" in missing_message_type_session["known_gaps"][0]
+    assert missing_message_type_session["report_only_redactions"] == {
+        "raw_log_lines_included": False,
+        "private_paths_included": False,
+        "raw_payloads_included": False,
+        "external_logs_included": False,
+        "message_bodies_included": False,
+        "private_smoke_outputs_included": False,
+        "generated_private_runtime_artifacts_included": False,
+        "sqlite_files_included": False,
+        "workbook_exports_included": False,
+        "decklists_included": False,
+        "card_choices_included": False,
+        "strategy_notes_included": False,
+        "credentials_tokens_keys_webhooks_included": False,
+    }
     evidence_ledger_session = _session_entry(session_ledger, "evidence_ledger_provenance_report_reference_v1")
     assert evidence_ledger_session["format_family"] == "mythic_edge_provenance"
     assert evidence_ledger_session["match_shape"] == "evidence_ledger_report_reference_only"
@@ -1068,9 +1135,9 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
         "total_scenario_families": len(corpus.SCENARIO_FAMILIES),
         "covered_committed": 6,
         "covered_synthetic": 14,
-        "covered_report_only": 10,
+        "covered_report_only": 11,
         "partial": 3,
-        "missing": len(corpus.SCENARIO_FAMILIES) - 39,
+        "missing": len(corpus.SCENARIO_FAMILIES) - 40,
         "deferred": 0,
         "blocked_private_evidence": 1,
         "blocked_external_boundary": 5,
@@ -1204,6 +1271,21 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
             "Unknown-entry coverage proves that existing drift/diagnostics reports can surface unknown counts "
             "and review samples from a committed normalized report reference; it does not mean the parser "
             "understood the unknown entries."
+        ],
+    }
+    assert _matrix_row(report, "drift_debug.missing_message_type") == {
+        "scenario_family": "drift_debug.missing_message_type",
+        "coverage_status": "covered_report_only",
+        "coverage_basis": ["fixture_metadata_only"],
+        "mythic_edge_entries": ["missing_message_type_boundary_report_v1"],
+        "external_reference_status": "reference_category_not_checked",
+        "notes": [
+            "Missing-message-type coverage is report-only boundary metadata: unknown-entry drift reporting, "
+            "GSM truncation coverage, timestamp-anomaly coverage, generic client-action fallback, GRE "
+            "GameState parsing, diagnostics, golden replay, feature-equity behavior, evidence-ledger "
+            "provenance, and public taxonomy metadata do not prove parser message recovery, hidden payload "
+            "truth, GameState reconstruction, unknown future MTGA message support, release readiness, "
+            "production behavior, analytics truth, AI truth, coaching truth, or full corpus parity."
         ],
     }
     assert _matrix_row(report, "mythic_edge.private_log_report_only_drift") == {
