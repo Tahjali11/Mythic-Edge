@@ -211,7 +211,6 @@
         "feature_equity_baseline": "tests/fixtures/feature_equity_corpus/feature_equity_corpus_baseline.v1.json"
       },
       "scenario_families": [
-        "mythic_edge.workbook_row_coverage",
         "drift_debug.gsm_truncation"
       ],
       "parser_event_families": [],
@@ -1457,6 +1456,61 @@
       ],
       "review_notes": [
         "This boundary records committed metadata for value-source, confidence, finality, degradation, drift flag, invariant-status, and review-required vocabulary without changing parser behavior, evidence-ledger behavior, runtime field-evidence behavior, workbook/export behavior, analytics behavior, AI behavior, readiness policy, or tracker lifecycle."
+      ]
+    },
+    {
+      "entry_id": "workbook_row_coverage_boundary_report_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/432",
+      "authorized_by_contract": "docs/contracts/parser_corpus_workbook_row_coverage_residual.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "sheet_schema_contract": "docs/contracts/parser_sheet_schema.md",
+        "sheet_exports_contract": "docs/contracts/parser_sheet_exports.md",
+        "parser_outputs_contract": "docs/contracts/parser_outputs.md",
+        "parser_runner_contract": "docs/contracts/parser_runner.md",
+        "workbook_webhook_schema_snapshot_contract": "docs/contracts/repo_wide_workbook_webhook_schema_snapshots.md",
+        "sheet_schema_report": "docs/contract_test_reports/parser_sheet_schema.md",
+        "sheet_exports_report": "docs/contract_test_reports/parser_sheet_exports.md",
+        "parser_outputs_report": "docs/contract_test_reports/parser_outputs.md",
+        "parser_runner_report": "docs/contract_test_reports/parser_runner.md",
+        "workbook_webhook_schema_snapshot_handoff": "docs/implementation_handoffs/repo_wide_workbook_webhook_schema_snapshots_comparison.md",
+        "sheet_schema_test": "tests/test_sheet_schema.py",
+        "sheet_exports_test": "tests/test_sheet_exports.py",
+        "event_schema_snapshot_test": "tests/test_event_schema_snapshots.py",
+        "app_models_test": "tests/test_app_models.py",
+        "app_outputs_test": "tests/test_app_outputs.py",
+        "webhook_payload_schema_test": "tests/test_webhook_payload_schema.py",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py"
+      },
+      "scenario_families": [
+        "mythic_edge.workbook_row_coverage"
+      ],
+      "parser_event_families": [],
+      "parser_claim_families": [
+        "match_log_row_keys",
+        "game_log_row_keys",
+        "sync_field_registry",
+        "runtime_sheet_headers",
+        "runtime_export_row_keys",
+        "repo_side_apps_script_mapping_parity",
+        "webhook_top_level_row_shape",
+        "live_workbook_non_claim",
+        "downstream_truth_non_claim"
+      ],
+      "coverage_status": "covered_report_only",
+      "coverage_basis": [
+        "fixture_metadata_only"
+      ],
+      "known_gaps": [
+        "Parser-side workbook-facing metadata does not prove live workbook behavior, deployed Apps Script behavior, Google Sheets sync, webhook delivery success, schema migration approval, workbook formulas, dashboards, analytics truth, AI truth, coaching truth, release readiness, production readiness, tracker completion, or full corpus parity."
+      ],
+      "review_notes": [
+        "This report-only boundary records committed parser-side workbook-facing contracts, tests, schema snapshots, repo-side Apps Script parity checks, and webhook row-shape guardrails without changing parser behavior, workbook schema, Apps Script behavior, Google Sheets sync, output transport, analytics behavior, AI behavior, readiness policy, or tracker lifecycle."
       ]
     },
     {
