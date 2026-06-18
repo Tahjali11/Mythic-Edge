@@ -1102,6 +1102,51 @@
       ]
     },
     {
+      "entry_id": "rename_rotation_collision_boundary_report_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/416",
+      "authorized_by_contract": "docs/contracts/parser_corpus_rename_rotation_collision_coverage.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "missing_message_type_contract": "docs/contracts/parser_corpus_missing_message_type_coverage.md",
+        "unknown_entry_contract": "docs/contracts/parser_corpus_unknown_entry_coverage.md",
+        "timestamp_anomaly_contract": "docs/contracts/parser_corpus_timestamp_anomaly_coverage.md",
+        "tailer_module": "src/mythic_edge_parser/log/tailer.py",
+        "stream_module": "src/mythic_edge_parser/stream.py",
+        "diagnostics_contract": "docs/contracts/parser_diagnostics_mode.md",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py"
+      },
+      "scenario_families": [
+        "drift_debug.rename_or_rotation_collision"
+      ],
+      "parser_event_families": [],
+      "parser_claim_families": [
+        "rename_rotation_collision_boundary_report",
+        "tailer_rotation_not_collision_truth",
+        "log_runtime_rotation_not_collision_truth",
+        "recycle_or_rollback_not_collision_truth",
+        "unknown_entry_not_collision_truth",
+        "timestamp_anomaly_not_collision_truth",
+        "missing_message_type_not_collision_truth",
+        "file_system_truth_non_claim",
+        "duplicate_replay_prevention_non_claim"
+      ],
+      "coverage_status": "covered_report_only",
+      "coverage_basis": [
+        "fixture_metadata_only"
+      ],
+      "known_gaps": [
+        "Rename/rotation collision coverage is report-only boundary metadata; Mythic Edge has tailer rotation, stream rotation-event, log-drift, diagnostics, golden replay, feature-equity, timestamp anomaly, unknown-entry, and missing-message-type context, but they do not prove rename/rotation collision parser support, log-rotation truth, live file-system truth, file identity tracking truth, rename/recycle collision handling, duplicate/replay prevention, parser drift recovery truth, private smoke success, live watcher correctness, diagnostics readiness, release readiness, production behavior, analytics truth, AI truth, coaching truth, or full Mythic Edge corpus parity."
+      ],
+      "review_notes": [
+        "Rename/rotation collision coverage is report-only boundary metadata: tailer/stream rotation signals, log-runtime rotation boundaries, recycle/rollback boundaries, unknown-entry reporting, timestamp anomaly reporting, missing-message-type coverage, diagnostics, log-drift reports, golden replay, feature-equity, corpus parity metadata, and public taxonomy metadata do not prove live file-system truth, rename/recycle collision handling, duplicate/replay prevention, private smoke success, parser drift recovery truth, release readiness, production behavior, analytics truth, AI truth, coaching truth, or full corpus parity."
+      ]
+    },
+    {
       "entry_id": "evidence_ledger_provenance_report_reference_v1",
       "entry_type": "session_ledger_entry",
       "source_kind": "committed_count_only_report",

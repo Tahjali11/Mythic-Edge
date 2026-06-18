@@ -1095,6 +1095,64 @@
       }
     },
     {
+      "session_id": "rename_rotation_collision_boundary_report_v1",
+      "title": "Rename rotation collision boundary report",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/416",
+      "authorized_by_contract": "docs/contracts/parser_corpus_rename_rotation_collision_coverage.md",
+      "scenario_families": [
+        "drift_debug.rename_or_rotation_collision"
+      ],
+      "format_family": "drift_debug",
+      "match_shape": "rename_rotation_collision_boundary_report_only",
+      "record_summary": "committed_rename_rotation_collision_boundary_metadata_only",
+      "parser_coverage": {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "tailer_rotation_reference_entries": 1,
+        "stream_rotation_event_reference_entries": 1,
+        "log_drift_reference_entries": 1,
+        "diagnostics_reference_entries": 1,
+        "golden_replay_reference_entries": 1,
+        "feature_equity_reference_entries": 1,
+        "dedicated_rename_rotation_collision_fixtures": 0,
+        "file_identity_tracking_claims": 0,
+        "rename_collision_detection_claims": 0,
+        "recycle_collision_detection_claims": 0,
+        "duplicate_replay_prevention_claims": 0,
+        "private_smoke_success_claims": 0,
+        "production_watcher_support_claims": 0
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Report-only rename/rotation collision boundary metadata does not include a dedicated rename/rotation collision fixture, file identity tracking claim, rename collision detection claim, recycle collision detection claim, duplicate/replay prevention claim, private smoke success claim, production watcher support claim, log-rotation truth, live file-system truth, parser drift recovery truth, diagnostics readiness, release readiness, production behavior, analytics truth, AI truth, coaching truth, or full corpus parity."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "file_path_identities_included": false,
+        "file_hashes_included": false,
+        "byte_size_lists_included": false,
+        "capture_date_rows_included": false,
+        "private_smoke_outputs_included": false,
+        "generated_private_runtime_artifacts_included": false,
+        "sqlite_files_included": false,
+        "workbook_exports_included": false,
+        "decklists_included": false,
+        "card_choices_included": false,
+        "credentials_tokens_keys_webhooks_included": false
+      }
+    },
+    {
       "session_id": "evidence_ledger_provenance_report_reference_v1",
       "title": "Report-only evidence-ledger provenance scaffold",
       "source_kind": "committed_count_only_report",
