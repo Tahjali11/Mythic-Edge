@@ -1058,6 +1058,50 @@
       ]
     },
     {
+      "entry_id": "missing_message_type_boundary_report_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/414",
+      "authorized_by_contract": "docs/contracts/parser_corpus_missing_message_type_coverage.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "unknown_entry_contract": "docs/contracts/parser_corpus_unknown_entry_coverage.md",
+        "gsm_truncation_contract": "docs/contracts/parser_gsm_truncation_corpus_coverage.md",
+        "timestamp_anomaly_contract": "docs/contracts/parser_corpus_timestamp_anomaly_coverage.md",
+        "gre_game_state_contract": "docs/contracts/parser_gre_game_state.md",
+        "client_actions_contract": "docs/contracts/parser_client_actions.md",
+        "diagnostics_contract": "docs/contracts/parser_diagnostics_mode.md",
+        "evidence_ledger_contract": "docs/contracts/player_log_evidence_ledger_tier6_runtime_health_drift.md",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py"
+      },
+      "scenario_families": [
+        "drift_debug.missing_message_type"
+      ],
+      "parser_event_families": [],
+      "parser_claim_families": [
+        "missing_message_type_boundary_report",
+        "unknown_entry_not_missing_message_type_truth",
+        "gsm_truncation_not_type_field_failure_truth",
+        "timestamp_anomaly_not_message_type_truth",
+        "generic_client_action_not_drift_debug_support",
+        "gre_game_state_message_type_not_recovery_truth",
+        "message_recovery_non_claim"
+      ],
+      "coverage_status": "covered_report_only",
+      "coverage_basis": [
+        "fixture_metadata_only"
+      ],
+      "known_gaps": [
+        "Missing-message-type coverage is report-only boundary metadata; Mythic Edge has unknown-entry, GSM truncation, timestamp anomaly, generic client-action fallback, GRE GameState, diagnostics, golden replay, feature-equity, and evidence-ledger context, but they do not prove missing-message-type parser support, parser message recovery, hidden payload truth, GameState reconstruction, unknown future MTGA message support, unknown-entry drift truth, GSM truncation truth, timestamp anomaly truth, generic client-action support truth, diagnostics readiness, release readiness, production behavior, analytics truth, AI truth, coaching truth, or full Mythic Edge corpus parity."
+      ],
+      "review_notes": [
+        "Missing-message-type coverage is report-only boundary metadata: unknown-entry drift reporting, GSM truncation coverage, timestamp-anomaly coverage, generic client-action fallback, GRE GameState parsing, diagnostics, golden replay, feature-equity behavior, evidence-ledger provenance, and public taxonomy metadata do not prove parser message recovery, hidden payload truth, GameState reconstruction, unknown future MTGA message support, release readiness, production behavior, analytics truth, AI truth, coaching truth, or full corpus parity."
+      ]
+    },
+    {
       "entry_id": "evidence_ledger_provenance_report_reference_v1",
       "entry_type": "session_ledger_entry",
       "source_kind": "committed_count_only_report",
