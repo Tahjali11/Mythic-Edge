@@ -169,6 +169,25 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
     assert "adjacent connection error, reconnect, and disconnect corpus rows do not prove" in (
         firewall_network_drop["review_notes"][0]
     )
+    opponent_auto_concede = _manifest_entry(manifest, "opponent_auto_concede_boundary_report_v1")
+    assert opponent_auto_concede["coverage_status"] == "covered_report_only"
+    assert opponent_auto_concede["scenario_families"] == ["gameplay_stress.opponent_auto_concede"]
+    assert opponent_auto_concede["parser_event_families"] == []
+    assert opponent_auto_concede["parser_claim_families"] == [
+        "opponent_auto_concede_boundary_report",
+        "normal_game_result_not_auto_concede",
+        "no_action_not_inferred",
+        "concession_intent_not_claimed",
+        "game_end_edge_fixture_required",
+        "gameplay_advice_non_claim",
+    ]
+    assert opponent_auto_concede["coverage_basis"] == ["fixture_metadata_only"]
+    assert "report-only boundary metadata" in opponent_auto_concede["known_gaps"][0]
+    assert "normal game-result and final-reconciliation evidence" in opponent_auto_concede["known_gaps"][0]
+    assert "does not prove auto-concede behavior" in opponent_auto_concede["known_gaps"][0]
+    assert "hidden opponent actions" in opponent_auto_concede["known_gaps"][0]
+    assert "normal GameResult" in opponent_auto_concede["review_notes"][0]
+    assert "public-taxonomy evidence do not prove" in opponent_auto_concede["review_notes"][0]
     detailed_logs_disabled = _manifest_entry(manifest, "detailed_logs_disabled_synthetic_v1")
     assert detailed_logs_disabled["coverage_status"] == "covered_synthetic"
     assert detailed_logs_disabled["scenario_families"] == ["log_runtime.detailed_logs_disabled"]
@@ -779,6 +798,39 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
         "card_choices_included": False,
         "strategy_notes_included": False,
     }
+    opponent_auto_concede_session = _session_entry(session_ledger, "opponent_auto_concede_boundary_report_v1")
+    assert opponent_auto_concede_session["format_family"] == "gameplay_stress"
+    assert opponent_auto_concede_session["match_shape"] == "opponent_auto_concede_boundary_report_only"
+    assert opponent_auto_concede_session["record_summary"] == (
+        "committed_opponent_auto_concede_boundary_metadata_only"
+    )
+    assert opponent_auto_concede_session["parser_coverage"] == {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "normal_game_result_reference_entries": 1,
+        "dedicated_auto_concede_fixtures": 0,
+        "dedicated_no_action_fixtures": 0,
+        "concession_intent_claims": 0,
+        "hidden_action_absence_claims": 0,
+    }
+    assert opponent_auto_concede_session["game_rows"] == {"count": 0, "result_shape": "not_applicable"}
+    assert "does not include a dedicated auto-concede/no-action fixture" in (
+        opponent_auto_concede_session["known_gaps"][0]
+    )
+    assert "does not prove concession intent" in opponent_auto_concede_session["known_gaps"][0]
+    assert "hidden action absence" in opponent_auto_concede_session["known_gaps"][0]
+    assert opponent_auto_concede_session["report_only_redactions"] == {
+        "raw_log_lines_included": False,
+        "private_paths_included": False,
+        "raw_payloads_included": False,
+        "external_logs_included": False,
+        "opponent_identifiers_included": False,
+        "private_match_context_included": False,
+        "decklists_included": False,
+        "card_choices_included": False,
+        "strategy_notes_included": False,
+    }
 
 
 def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None:
@@ -793,9 +845,9 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
         "total_scenario_families": len(corpus.SCENARIO_FAMILIES),
         "covered_committed": 6,
         "covered_synthetic": 14,
-        "covered_report_only": 6,
+        "covered_report_only": 7,
         "partial": 3,
-        "missing": len(corpus.SCENARIO_FAMILIES) - 35,
+        "missing": len(corpus.SCENARIO_FAMILIES) - 36,
         "deferred": 0,
         "blocked_private_evidence": 1,
         "blocked_external_boundary": 5,
@@ -1039,6 +1091,70 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     )
     assert firewall_gap["gap_status"] == "blocked_private_evidence"
     assert firewall_gap["blocked_by"] == ["no_committed_safe_fixture", "private_evidence_required"]
+    assert _matrix_row(report, "gameplay_stress.mulligan") == {
+        "scenario_family": "gameplay_stress.mulligan",
+        "coverage_status": "covered_committed",
+        "coverage_basis": ["fixture_metadata_only", "parser_behavior_verified"],
+        "mythic_edge_entries": ["bo3_sideboard_match_loss"],
+        "external_reference_status": "reference_category_not_checked",
+        "notes": [],
+    }
+    assert _matrix_row(report, "gameplay_stress.opponent_auto_concede") == {
+        "scenario_family": "gameplay_stress.opponent_auto_concede",
+        "coverage_status": "covered_report_only",
+        "coverage_basis": ["fixture_metadata_only"],
+        "mythic_edge_entries": ["opponent_auto_concede_boundary_report_v1"],
+        "external_reference_status": "reference_category_not_checked",
+        "notes": [
+            "Opponent auto-concede/no-action coverage is report-only boundary metadata: normal GameResult, "
+            "local-win, opponent-loss, short-duration, sparse-action, and public-taxonomy evidence do not "
+            "prove opponent auto-concede or no-action behavior."
+        ],
+    }
+    assert _matrix_row(report, "gameplay_stress.conjure") == {
+        "scenario_family": "gameplay_stress.conjure",
+        "coverage_status": "blocked_external_boundary",
+        "coverage_basis": ["external_reference_only"],
+        "mythic_edge_entries": ["external_reference_category_boundary"],
+        "external_reference_status": "reference_category_not_checked",
+        "notes": [
+            "Reference categories require future Mythic Edge fixtures or report-only evidence before support claims."
+        ],
+    }
+    assert _matrix_row(report, "gameplay_stress.spellbook") == {
+        "scenario_family": "gameplay_stress.spellbook",
+        "coverage_status": "blocked_external_boundary",
+        "coverage_basis": ["external_reference_only"],
+        "mythic_edge_entries": ["external_reference_category_boundary"],
+        "external_reference_status": "reference_category_not_checked",
+        "notes": [
+            "Reference categories require future Mythic Edge fixtures or report-only evidence before support claims."
+        ],
+    }
+    assert _matrix_row(report, "gameplay_stress.companion_or_large_deck") == {
+        "scenario_family": "gameplay_stress.companion_or_large_deck",
+        "coverage_status": "missing",
+        "coverage_basis": ["external_reference_only"],
+        "mythic_edge_entries": [],
+        "external_reference_status": "reference_category_not_checked",
+        "notes": [],
+    }
+    assert _matrix_row(report, "gameplay_stress.action_attribution") == {
+        "scenario_family": "gameplay_stress.action_attribution",
+        "coverage_status": "missing",
+        "coverage_basis": ["external_reference_only"],
+        "mythic_edge_entries": [],
+        "external_reference_status": "reference_category_not_checked",
+        "notes": [],
+    }
+    assert _matrix_row(report, "gameplay_stress.event_ordering") == {
+        "scenario_family": "gameplay_stress.event_ordering",
+        "coverage_status": "missing",
+        "coverage_basis": ["external_reference_only"],
+        "mythic_edge_entries": [],
+        "external_reference_status": "reference_category_not_checked",
+        "notes": [],
+    }
     assert _matrix_row(report, "timer.active_player_timer") == {
         "scenario_family": "timer.active_player_timer",
         "coverage_status": "covered_synthetic",
