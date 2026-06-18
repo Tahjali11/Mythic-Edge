@@ -211,7 +211,6 @@
         "feature_equity_baseline": "tests/fixtures/feature_equity_corpus/feature_equity_corpus_baseline.v1.json"
       },
       "scenario_families": [
-        "mythic_edge.confidence_finality_degradation",
         "mythic_edge.workbook_row_coverage",
         "drift_debug.gsm_truncation"
       ],
@@ -1410,6 +1409,54 @@
       ],
       "review_notes": [
         "Evidence-ledger provenance coverage proves that Mythic Edge has committed, deterministic provenance metadata and review scaffolding for parser-owned fact evidence; it does not prove parser correctness for every field or runtime attachment in every consumer."
+      ]
+    },
+    {
+      "entry_id": "confidence_finality_degradation_boundary_report_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/430",
+      "authorized_by_contract": "docs/contracts/parser_corpus_confidence_finality_degradation_residual.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "evidence_ledger_schema_contract": "docs/contracts/player_log_evidence_ledger_schema.md",
+        "evidence_ledger_contract": "docs/contracts/player_log_evidence_ledger.md",
+        "runtime_field_evidence_contract": "docs/contracts/player_log_evidence_ledger_runtime_field_evidence.md",
+        "invariant_execution_contract": "docs/contracts/player_log_evidence_ledger_invariant_execution.md",
+        "validation_report_wiring_contract": "docs/contracts/player_log_evidence_ledger_validation_report_wiring.md",
+        "evidence_ledger_test": "tests/test_evidence_ledger.py",
+        "runtime_field_evidence_test": "tests/test_runtime_field_evidence.py",
+        "evidence_invariant_execution_test": "tests/test_evidence_invariant_execution.py",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py"
+      },
+      "scenario_families": [
+        "mythic_edge.confidence_finality_degradation"
+      ],
+      "parser_event_families": [],
+      "parser_claim_families": [
+        "value_source_vocabulary",
+        "confidence_vocabulary",
+        "finality_vocabulary",
+        "degradation_vocabulary",
+        "drift_flag_vocabulary",
+        "invariant_status_vocabulary",
+        "review_required_policy",
+        "field_evidence_review_boundary",
+        "downstream_truth_non_claim"
+      ],
+      "coverage_status": "covered_report_only",
+      "coverage_basis": [
+        "evidence_ledger_only",
+        "fixture_metadata_only"
+      ],
+      "known_gaps": [
+        "Confidence/finality/degradation coverage is report-only boundary metadata: committed evidence-ledger contracts, review scaffolds, and focused tests document vocabulary and review policy, but they do not prove parser correctness for every field, universal runtime field-evidence attachment, workbook row coverage, private Player.log evidence, full corpus parity, release readiness, analytics truth, AI truth, or coaching truth."
+      ],
+      "review_notes": [
+        "This boundary records committed metadata for value-source, confidence, finality, degradation, drift flag, invariant-status, and review-required vocabulary without changing parser behavior, evidence-ledger behavior, runtime field-evidence behavior, workbook/export behavior, analytics behavior, AI behavior, readiness policy, or tracker lifecycle."
       ]
     },
     {
