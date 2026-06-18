@@ -66,6 +66,39 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
     assert "intentionally report-only" in draft_with_games_boundary["review_notes"][0]
     assert "synthetic GameState anchor" in draft_with_games_boundary["review_notes"][0]
     assert "not draft-with-games evidence" in draft_with_games_boundary["review_notes"][0]
+    manifest_metadata_boundary = _manifest_entry(manifest, "parser_corpus_manifest_metadata_boundary_v1")
+    assert manifest_metadata_boundary["entry_type"] == "session_ledger_entry"
+    assert manifest_metadata_boundary["source_kind"] == "committed_count_only_report"
+    assert manifest_metadata_boundary["commit_status"] == "committed"
+    assert manifest_metadata_boundary["privacy_class"] == "committed_count_only"
+    assert manifest_metadata_boundary["sanitization_status"] == "not_applicable_count_only"
+    assert manifest_metadata_boundary["scenario_families"] == ["manifest.metadata"]
+    assert manifest_metadata_boundary["parser_event_families"] == []
+    assert manifest_metadata_boundary["parser_claim_families"] == [
+        "corpus_manifest_metadata_boundary",
+        "manifest_schema_v1",
+        "taxonomy_family_inventory",
+        "source_privacy_flags",
+        "manifest_entry_vocabulary",
+        "private_artifact_non_claim",
+    ]
+    assert manifest_metadata_boundary["coverage_status"] == "covered_report_only"
+    assert manifest_metadata_boundary["coverage_basis"] == ["fixture_metadata_only"]
+    assert "parser behavior" in manifest_metadata_boundary["known_gaps"][0]
+    assert "session-ledger completeness" in manifest_metadata_boundary["known_gaps"][0]
+    assert "full corpus parity" in manifest_metadata_boundary["known_gaps"][0]
+    assert "private smoke success" in manifest_metadata_boundary["known_gaps"][0]
+    assert "analytics truth" in manifest_metadata_boundary["known_gaps"][0]
+    assert "AI truth" in manifest_metadata_boundary["known_gaps"][0]
+    assert "coaching truth" in manifest_metadata_boundary["known_gaps"][0]
+    assert "report-only boundary" in manifest_metadata_boundary["review_notes"][0]
+    feature_equity_baseline = _manifest_entry(manifest, "feature_equity_corpus_baseline_v1")
+    assert "manifest.metadata" not in feature_equity_baseline["scenario_families"]
+    assert feature_equity_baseline["scenario_families"] == [
+        "mythic_edge.confidence_finality_degradation",
+        "mythic_edge.workbook_row_coverage",
+        "drift_debug.gsm_truncation",
+    ]
     sealed_entry = _manifest_entry(manifest, "sealed_entry_lifecycle_synthetic_v1")
     assert sealed_entry["coverage_status"] == "covered_synthetic"
     assert sealed_entry["scenario_families"] == ["core_gameplay.sealed_entry"]
@@ -1498,8 +1531,8 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
         "total_scenario_families": len(corpus.SCENARIO_FAMILIES),
         "covered_committed": 6,
         "covered_synthetic": 14,
-        "covered_report_only": 15,
-        "partial": 3,
+        "covered_report_only": 16,
+        "partial": 2,
         "missing": 0,
         "deferred": 0,
         "blocked_private_evidence": 2,
@@ -1533,6 +1566,19 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
             "documenting why the current draft-only fixture and synthetic GameState anchor are not "
             "draft-with-games evidence; future dedicated coverage remains blocked until Mythic Edge has "
             "owned, sanitized, parser-supported evidence for a completed draft session with games and results."
+        ],
+    }
+    assert _matrix_row(report, "manifest.metadata") == {
+        "scenario_family": "manifest.metadata",
+        "coverage_status": "covered_report_only",
+        "coverage_basis": ["fixture_metadata_only"],
+        "mythic_edge_entries": ["parser_corpus_manifest_metadata_boundary_v1"],
+        "external_reference_status": "reference_category_not_checked",
+        "notes": [
+            "This report-only boundary moves manifest.metadata off the count-ratchet baseline and onto "
+            "explicit manifest metadata validation without changing parser behavior, private evidence, "
+            "external corpus inputs, session-ledger semantics, downstream truth, readiness policy, or "
+            "tracker lifecycle."
         ],
     }
     gsm_row = _matrix_row(report, "drift_debug.gsm_truncation")
