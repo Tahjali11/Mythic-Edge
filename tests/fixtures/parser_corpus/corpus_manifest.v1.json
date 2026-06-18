@@ -1198,6 +1198,53 @@
       ]
     },
     {
+      "entry_id": "live_diagnostics_boundary_report_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/420",
+      "authorized_by_contract": "docs/contracts/parser_corpus_live_diagnostics_coverage.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "parser_diagnostics_contract": "docs/contracts/parser_diagnostics_mode.md",
+        "parser_diagnostics_report": "docs/contract_test_reports/parser_diagnostics_mode.md",
+        "live_watcher_diagnostics_contract": "docs/contracts/live_app_watcher_diagnostics.md",
+        "live_watcher_diagnostics_report": "docs/contract_test_reports/live_app_watcher_diagnostics.md",
+        "live_capture_no_row_contract": "docs/contracts/live_app_capture_heartbeat_no_row_diagnostics.md",
+        "evidence_review_status_contract": "listed in docs/contracts/parser_corpus_live_diagnostics_coverage.md",
+        "unknown_entry_contract": "docs/contracts/parser_corpus_unknown_entry_coverage.md",
+        "evidence_ledger_contract": "docs/contracts/parser_corpus_evidence_ledger_provenance_coverage.md",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py"
+      },
+      "scenario_families": [
+        "mythic_edge.live_diagnostics"
+      ],
+      "parser_event_families": [],
+      "parser_claim_families": [
+        "live_diagnostics_boundary_report",
+        "parser_diagnostics_not_live_health_truth",
+        "live_watcher_diagnostics_not_watcher_correctness_truth",
+        "live_capture_status_not_game_truth",
+        "evidence_review_status_not_live_arena_truth",
+        "status_api_not_release_readiness",
+        "log_drift_not_private_smoke_truth",
+        "analytics_ai_coaching_non_claim"
+      ],
+      "coverage_status": "covered_report_only",
+      "coverage_basis": [
+        "diagnostics_only",
+        "fixture_metadata_only"
+      ],
+      "known_gaps": [
+        "Live diagnostics coverage is report-only boundary metadata; Mythic Edge has parser diagnostics, local app watcher diagnostics, live-capture heartbeat/no-row diagnostics, evidence review health, status API exposure, unknown-entry routing, log-drift reports, local status summaries, and corpus parity context, but they do not prove private smoke success, live Player.log health, watcher correctness, parser support for a live run, status API correctness as release readiness, production behavior, analytics readiness, AI/coaching readiness, or full Mythic Edge corpus parity."
+      ],
+      "review_notes": [
+        "Live diagnostics coverage is intentionally report-only: committed diagnostics and status surfaces define safe local review boundaries, not live Player.log truth, watcher correctness, private smoke success, release readiness, production behavior, analytics truth, AI truth, coaching truth, or full corpus parity."
+      ]
+    },
+    {
       "entry_id": "evidence_ledger_provenance_report_reference_v1",
       "entry_type": "session_ledger_entry",
       "source_kind": "committed_count_only_report",

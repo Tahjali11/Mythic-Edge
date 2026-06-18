@@ -520,6 +520,33 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
     assert "adjacent deck" in phantom_deck_origin["review_notes"][0]
     assert "public taxonomy surfaces are non-claims" in phantom_deck_origin["review_notes"][0]
     assert "phantom-card support or deck-origin truth" in phantom_deck_origin["review_notes"][0]
+    live_diagnostics = _manifest_entry(manifest, "live_diagnostics_boundary_report_v1")
+    assert live_diagnostics["coverage_status"] == "covered_report_only"
+    assert live_diagnostics["scenario_families"] == ["mythic_edge.live_diagnostics"]
+    assert live_diagnostics["parser_event_families"] == []
+    assert live_diagnostics["parser_claim_families"] == [
+        "live_diagnostics_boundary_report",
+        "parser_diagnostics_not_live_health_truth",
+        "live_watcher_diagnostics_not_watcher_correctness_truth",
+        "live_capture_status_not_game_truth",
+        "evidence_review_status_not_live_arena_truth",
+        "status_api_not_release_readiness",
+        "log_drift_not_private_smoke_truth",
+        "analytics_ai_coaching_non_claim",
+    ]
+    assert live_diagnostics["coverage_basis"] == ["diagnostics_only", "fixture_metadata_only"]
+    assert "parser_behavior_verified" not in live_diagnostics["coverage_basis"]
+    assert "local_report_only" not in live_diagnostics["coverage_basis"]
+    assert "report-only boundary metadata" in live_diagnostics["known_gaps"][0]
+    assert "private smoke success" in live_diagnostics["known_gaps"][0]
+    assert "live Player.log health" in live_diagnostics["known_gaps"][0]
+    assert "watcher correctness" in live_diagnostics["known_gaps"][0]
+    assert "parser support for a live run" in live_diagnostics["known_gaps"][0]
+    assert "analytics readiness" in live_diagnostics["known_gaps"][0]
+    assert "intentionally report-only" in live_diagnostics["review_notes"][0]
+    assert "not live Player.log truth" in live_diagnostics["review_notes"][0]
+    assert "watcher correctness" in live_diagnostics["review_notes"][0]
+    assert "release readiness" in live_diagnostics["review_notes"][0]
     evidence_ledger_provenance = _manifest_entry(manifest, "evidence_ledger_provenance_report_reference_v1")
     assert evidence_ledger_provenance["coverage_status"] == "covered_report_only"
     assert evidence_ledger_provenance["scenario_families"] == ["mythic_edge.evidence_ledger_provenance"]
@@ -990,6 +1017,58 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
         "strategy_notes_included": False,
         "credentials_tokens_keys_webhooks_included": False,
     }
+    live_diagnostics_session = _session_entry(session_ledger, "live_diagnostics_boundary_report_v1")
+    assert live_diagnostics_session["source_entry_id"] == "live_diagnostics_boundary_report_v1"
+    assert live_diagnostics_session["format_family"] == "mythic_edge"
+    assert live_diagnostics_session["match_shape"] == "live_diagnostics_boundary_report_only"
+    assert live_diagnostics_session["record_summary"] == (
+        "committed_live_diagnostics_boundary_metadata_only"
+    )
+    assert live_diagnostics_session["parser_coverage"] == {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "parser_diagnostics_reference_entries": 1,
+        "live_watcher_diagnostics_reference_entries": 1,
+        "live_capture_no_row_reference_entries": 1,
+        "evidence_review_status_reference_entries": 1,
+        "status_api_reference_entries": 1,
+        "log_drift_reference_entries": 1,
+        "unknown_entry_reference_entries": 1,
+        "private_smoke_success_claims": 0,
+        "live_player_log_health_claims": 0,
+        "watcher_correctness_claims": 0,
+        "parser_support_claims": 0,
+        "release_readiness_claims": 0,
+        "deploy_readiness_claims": 0,
+        "production_readiness_claims": 0,
+        "analytics_truth_claims": 0,
+        "ai_truth_claims": 0,
+        "coaching_truth_claims": 0,
+    }
+    assert live_diagnostics_session["game_rows"] == {"count": 0, "result_shape": "not_applicable"}
+    assert "no committed private Player.log evidence" in live_diagnostics_session["known_gaps"][0]
+    assert "no private smoke output" in live_diagnostics_session["known_gaps"][0]
+    assert "no live watcher correctness proof" in live_diagnostics_session["known_gaps"][0]
+    assert "no live Player.log health proof" in live_diagnostics_session["known_gaps"][0]
+    assert "no parser support or parser correctness claim" in live_diagnostics_session["known_gaps"][0]
+    assert live_diagnostics_session["report_only_redactions"] == {
+        "raw_log_lines_included": False,
+        "private_paths_included": False,
+        "raw_payloads_included": False,
+        "external_logs_included": False,
+        "private_player_log_evidence_included": False,
+        "private_smoke_outputs_included": False,
+        "generated_private_runtime_artifacts_included": False,
+        "local_status_artifacts_included": False,
+        "sqlite_files_included": False,
+        "workbook_exports_included": False,
+        "operator_notes_included": False,
+        "browser_smoke_reports_included": False,
+        "decklists_included": False,
+        "card_choices_included": False,
+        "credentials_tokens_keys_webhooks_included": False,
+    }
     evidence_ledger_session = _session_entry(session_ledger, "evidence_ledger_provenance_report_reference_v1")
     assert evidence_ledger_session["format_family"] == "mythic_edge_provenance"
     assert evidence_ledger_session["match_shape"] == "evidence_ledger_report_reference_only"
@@ -1297,9 +1376,9 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
         "total_scenario_families": len(corpus.SCENARIO_FAMILIES),
         "covered_committed": 6,
         "covered_synthetic": 14,
-        "covered_report_only": 13,
+        "covered_report_only": 14,
         "partial": 3,
-        "missing": len(corpus.SCENARIO_FAMILIES) - 42,
+        "missing": len(corpus.SCENARIO_FAMILIES) - 43,
         "deferred": 0,
         "blocked_private_evidence": 1,
         "blocked_external_boundary": 5,
@@ -1536,11 +1615,16 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     }
     assert _matrix_row(report, "mythic_edge.live_diagnostics") == {
         "scenario_family": "mythic_edge.live_diagnostics",
-        "coverage_status": "missing",
-        "coverage_basis": ["external_reference_only"],
-        "mythic_edge_entries": [],
+        "coverage_status": "covered_report_only",
+        "coverage_basis": ["diagnostics_only", "fixture_metadata_only"],
+        "mythic_edge_entries": ["live_diagnostics_boundary_report_v1"],
         "external_reference_status": "reference_category_not_checked",
-        "notes": [],
+        "notes": [
+            "Live diagnostics coverage is intentionally report-only: committed diagnostics and status "
+            "surfaces define safe local review boundaries, not live Player.log truth, watcher correctness, "
+            "private smoke success, release readiness, production behavior, analytics truth, AI truth, "
+            "coaching truth, or full corpus parity."
+        ],
     }
     assert _matrix_row(report, "mythic_edge.analytics_readiness_labels") == {
         "scenario_family": "mythic_edge.analytics_readiness_labels",

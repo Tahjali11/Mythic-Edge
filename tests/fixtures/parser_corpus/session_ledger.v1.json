@@ -1218,6 +1218,69 @@
       }
     },
     {
+      "session_id": "live_diagnostics_boundary_report_v1",
+      "source_entry_id": "live_diagnostics_boundary_report_v1",
+      "title": "Live diagnostics boundary report",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/420",
+      "authorized_by_contract": "docs/contracts/parser_corpus_live_diagnostics_coverage.md",
+      "scenario_families": [
+        "mythic_edge.live_diagnostics"
+      ],
+      "format_family": "mythic_edge",
+      "match_shape": "live_diagnostics_boundary_report_only",
+      "record_summary": "committed_live_diagnostics_boundary_metadata_only",
+      "parser_coverage": {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "parser_diagnostics_reference_entries": 1,
+        "live_watcher_diagnostics_reference_entries": 1,
+        "live_capture_no_row_reference_entries": 1,
+        "evidence_review_status_reference_entries": 1,
+        "status_api_reference_entries": 1,
+        "log_drift_reference_entries": 1,
+        "unknown_entry_reference_entries": 1,
+        "private_smoke_success_claims": 0,
+        "live_player_log_health_claims": 0,
+        "watcher_correctness_claims": 0,
+        "parser_support_claims": 0,
+        "release_readiness_claims": 0,
+        "deploy_readiness_claims": 0,
+        "production_readiness_claims": 0,
+        "analytics_truth_claims": 0,
+        "ai_truth_claims": 0,
+        "coaching_truth_claims": 0
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Report-only live diagnostics boundary metadata includes no committed private Player.log evidence, no private smoke output, no live watcher correctness proof, no live Player.log health proof, no parser support or parser correctness claim, and no status API, local app, analytics, AI, coaching, release, deploy, or production readiness claim."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "private_player_log_evidence_included": false,
+        "private_smoke_outputs_included": false,
+        "generated_private_runtime_artifacts_included": false,
+        "local_status_artifacts_included": false,
+        "sqlite_files_included": false,
+        "workbook_exports_included": false,
+        "operator_notes_included": false,
+        "browser_smoke_reports_included": false,
+        "decklists_included": false,
+        "card_choices_included": false,
+        "credentials_tokens_keys_webhooks_included": false
+      }
+    },
+    {
       "session_id": "evidence_ledger_provenance_report_reference_v1",
       "title": "Report-only evidence-ledger provenance scaffold",
       "source_kind": "committed_count_only_report",
