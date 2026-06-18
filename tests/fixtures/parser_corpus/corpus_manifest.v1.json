@@ -1279,6 +1279,56 @@
       ]
     },
     {
+      "entry_id": "analytics_readiness_labels_boundary_report_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/424",
+      "authorized_by_contract": "docs/contracts/parser_corpus_analytics_readiness_labels_coverage.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "analytics_schema_contract": "docs/contracts/analytics_local_sqlite_schema.md",
+        "analytics_replay_ingest_contract": "docs/contracts/analytics_parser_normalized_replay_ingest.md",
+        "analytics_gameplay_action_ingest_contract": "docs/contracts/analytics_gameplay_action_ingest.md",
+        "analytics_opponent_observation_ingest_contract": "docs/contracts/analytics_opponent_card_observation_ingest.md",
+        "analytics_field_evidence_ingest_contract": "docs/contracts/analytics_field_evidence_ingest.md",
+        "analytics_sql_view_contract": "docs/contracts/analytics_derived_sql_views.md",
+        "analytics_replay_validation_contract": "docs/contracts/analytics_replay_view_validation_harness.md",
+        "runtime_field_evidence_contract": "docs/contracts/player_log_evidence_ledger_runtime_field_evidence.md",
+        "tier7_derived_analytics_contract": "docs/contracts/player_log_evidence_ledger_tier7_derived_analytics.md",
+        "private_log_drift_contract": "docs/contracts/parser_corpus_private_log_report_only_drift_coverage.md",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py"
+      },
+      "scenario_families": [
+        "mythic_edge.analytics_readiness_labels"
+      ],
+      "parser_event_families": [],
+      "parser_claim_families": [
+        "analytics_readiness_label_boundary",
+        "analytics_schema_context_non_claim",
+        "analytics_ingest_context_non_claim",
+        "analytics_sql_view_context_non_claim",
+        "analytics_replay_validation_context_non_claim",
+        "evidence_ledger_tier7_context_non_claim",
+        "private_log_drift_non_claim",
+        "release_deploy_production_non_claim",
+        "ai_coaching_non_claim"
+      ],
+      "coverage_status": "covered_report_only",
+      "coverage_basis": [
+        "fixture_metadata_only"
+      ],
+      "external_reference_status": "reference_category_not_checked",
+      "known_gaps": [
+        "Analytics readiness labels coverage is committed report-only boundary metadata; Mythic Edge has local analytics schema, ingest, SQL view, replay-validation, runtime field-evidence, evidence-ledger Tier 7, live diagnostics, private-log drift, private-local readiness, and feature-equity context, but they do not prove analytics truth, statistical validity, product readiness, release readiness, deploy readiness, production behavior, AI readiness or truth, coaching readiness or truth, parser support, private smoke success, live Player.log health, or full Mythic Edge corpus parity."
+      ],
+      "review_notes": [
+        "Analytics readiness labels are intentionally report-only corpus context labels: zero missing rows after this boundary does not mean full corpus parity while partial, blocked-private, and blocked-external rows remain."
+      ]
+    },
+    {
       "entry_id": "evidence_ledger_provenance_report_reference_v1",
       "entry_type": "session_ledger_entry",
       "source_kind": "committed_count_only_report",

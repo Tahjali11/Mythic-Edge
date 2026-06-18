@@ -582,6 +582,34 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
     assert "analytics readiness" in private_log_drift["known_gaps"][0]
     assert "no private local report artifact" in private_log_drift["review_notes"][0]
     assert "session-ledger entry" in private_log_drift["review_notes"][0]
+    analytics_readiness = _manifest_entry(manifest, "analytics_readiness_labels_boundary_report_v1")
+    assert analytics_readiness["coverage_status"] == "covered_report_only"
+    assert analytics_readiness["scenario_families"] == ["mythic_edge.analytics_readiness_labels"]
+    assert analytics_readiness["parser_event_families"] == []
+    assert analytics_readiness["parser_claim_families"] == [
+        "analytics_readiness_label_boundary",
+        "analytics_schema_context_non_claim",
+        "analytics_ingest_context_non_claim",
+        "analytics_sql_view_context_non_claim",
+        "analytics_replay_validation_context_non_claim",
+        "evidence_ledger_tier7_context_non_claim",
+        "private_log_drift_non_claim",
+        "release_deploy_production_non_claim",
+        "ai_coaching_non_claim",
+    ]
+    assert analytics_readiness["coverage_basis"] == ["fixture_metadata_only"]
+    assert "parser_behavior_verified" not in analytics_readiness["coverage_basis"]
+    assert "diagnostics_only" not in analytics_readiness["coverage_basis"]
+    assert "evidence_ledger_only" not in analytics_readiness["coverage_basis"]
+    assert "count_ratchet_only" not in analytics_readiness["coverage_basis"]
+    assert "local_report_only" not in analytics_readiness["coverage_basis"]
+    assert "analytics truth" in analytics_readiness["known_gaps"][0]
+    assert "statistical validity" in analytics_readiness["known_gaps"][0]
+    assert "release readiness" in analytics_readiness["known_gaps"][0]
+    assert "AI readiness or truth" in analytics_readiness["known_gaps"][0]
+    assert "full Mythic Edge corpus parity" in analytics_readiness["known_gaps"][0]
+    assert "zero missing rows" in analytics_readiness["review_notes"][0]
+    assert "does not mean full corpus parity" in analytics_readiness["review_notes"][0]
     evidence_ledger_provenance = _manifest_entry(manifest, "evidence_ledger_provenance_report_reference_v1")
     assert evidence_ledger_provenance["coverage_status"] == "covered_report_only"
     assert evidence_ledger_provenance["scenario_families"] == ["mythic_edge.evidence_ledger_provenance"]
@@ -1108,6 +1136,61 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
         session["session_id"] != "private_log_report_only_drift_private_evidence_boundary_v1"
         for session in session_ledger["sessions"]
     )
+    analytics_readiness_session = _session_entry(session_ledger, "analytics_readiness_labels_boundary_report_v1")
+    assert analytics_readiness_session["source_entry_id"] == "analytics_readiness_labels_boundary_report_v1"
+    assert analytics_readiness_session["format_family"] == "mythic_edge"
+    assert analytics_readiness_session["match_shape"] == "analytics_readiness_labels_boundary_report_only"
+    assert analytics_readiness_session["record_summary"] == (
+        "committed_analytics_readiness_labels_boundary_metadata_only"
+    )
+    assert analytics_readiness_session["parser_coverage"] == {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "analytics_schema_contract_reference_entries": 1,
+        "analytics_ingest_contract_reference_entries": 4,
+        "analytics_sql_view_contract_reference_entries": 1,
+        "analytics_replay_validation_contract_reference_entries": 1,
+        "runtime_field_evidence_contract_reference_entries": 1,
+        "tier7_derived_analytics_contract_reference_entries": 1,
+        "private_log_drift_blocked_boundary_reference_entries": 1,
+        "analytics_truth_claims": 0,
+        "statistical_validity_claims": 0,
+        "product_readiness_claims": 0,
+        "release_readiness_claims": 0,
+        "deploy_readiness_claims": 0,
+        "production_readiness_claims": 0,
+        "parser_support_claims": 0,
+        "private_smoke_success_claims": 0,
+        "ai_truth_claims": 0,
+        "coaching_truth_claims": 0,
+        "full_corpus_parity_claims": 0,
+    }
+    assert analytics_readiness_session["game_rows"] == {
+        "count": 0,
+        "result_shape": "not_applicable",
+    }
+    assert "no analytics correctness certification" in analytics_readiness_session["known_gaps"][0]
+    assert "no statistical validity evidence" in analytics_readiness_session["known_gaps"][0]
+    assert "no private analytics dataset" in analytics_readiness_session["known_gaps"][0]
+    assert "no private smoke output" in analytics_readiness_session["known_gaps"][0]
+    assert "full-corpus-parity claim" in analytics_readiness_session["known_gaps"][0]
+    assert analytics_readiness_session["report_only_redactions"] == {
+        "raw_log_lines_included": False,
+        "private_paths_included": False,
+        "raw_payloads_included": False,
+        "external_logs_included": False,
+        "private_analytics_datasets_included": False,
+        "private_player_log_evidence_included": False,
+        "private_smoke_outputs_included": False,
+        "generated_private_runtime_artifacts_included": False,
+        "sqlite_files_included": False,
+        "workbook_exports_included": False,
+        "decklists_included": False,
+        "card_choices_included": False,
+        "strategy_notes_included": False,
+        "credentials_tokens_keys_webhooks_included": False,
+    }
     evidence_ledger_session = _session_entry(session_ledger, "evidence_ledger_provenance_report_reference_v1")
     assert evidence_ledger_session["format_family"] == "mythic_edge_provenance"
     assert evidence_ledger_session["match_shape"] == "evidence_ledger_report_reference_only"
@@ -1415,9 +1498,9 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
         "total_scenario_families": len(corpus.SCENARIO_FAMILIES),
         "covered_committed": 6,
         "covered_synthetic": 14,
-        "covered_report_only": 14,
+        "covered_report_only": 15,
         "partial": 3,
-        "missing": len(corpus.SCENARIO_FAMILIES) - 44,
+        "missing": 0,
         "deferred": 0,
         "blocked_private_evidence": 2,
         "blocked_external_boundary": 5,
@@ -1680,11 +1763,15 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     }
     assert _matrix_row(report, "mythic_edge.analytics_readiness_labels") == {
         "scenario_family": "mythic_edge.analytics_readiness_labels",
-        "coverage_status": "missing",
-        "coverage_basis": ["external_reference_only"],
-        "mythic_edge_entries": [],
+        "coverage_status": "covered_report_only",
+        "coverage_basis": ["fixture_metadata_only"],
+        "mythic_edge_entries": ["analytics_readiness_labels_boundary_report_v1"],
         "external_reference_status": "reference_category_not_checked",
-        "notes": [],
+        "notes": [
+            "Analytics readiness labels are intentionally report-only corpus context labels: zero missing "
+            "rows after this boundary does not mean full corpus parity while partial, blocked-private, "
+            "and blocked-external rows remain."
+        ],
     }
     assert _matrix_row(report, "connection.connection_error_payload") == {
         "scenario_family": "connection.connection_error_payload",
