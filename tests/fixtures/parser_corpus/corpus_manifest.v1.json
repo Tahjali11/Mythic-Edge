@@ -625,6 +625,48 @@
       ]
     },
     {
+      "entry_id": "gameplay_event_ordering_boundary_report_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/412",
+      "authorized_by_contract": "docs/contracts/parser_corpus_gameplay_event_ordering_coverage.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "gameplay_action_attribution_contract": "docs/contracts/parser_corpus_gameplay_action_attribution_coverage.md",
+        "parser_runner_contract": "docs/contracts/parser_runner.md",
+        "gameplay_action_contract": "docs/contracts/player_log_evidence_ledger_tier5_gameplay_action.md",
+        "opponent_card_observation_contract": "docs/contracts/player_log_evidence_ledger_tier5_opponent_card_observation.md",
+        "analytics_gameplay_action_contract": "docs/contracts/analytics_gameplay_action_ingest.md",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py"
+      },
+      "scenario_families": [
+        "gameplay_stress.event_ordering"
+      ],
+      "parser_event_families": [],
+      "parser_claim_families": [
+        "gameplay_event_ordering_boundary_report",
+        "parser_timestamps_not_complete_ordering_truth",
+        "router_dispatch_order_not_stress_coverage",
+        "gameplay_action_order_not_event_sequence_truth",
+        "action_attribution_not_event_ordering_truth",
+        "diagnostics_replay_reports_not_parser_truth",
+        "hidden_action_inference_non_claim"
+      ],
+      "coverage_status": "covered_report_only",
+      "coverage_basis": [
+        "fixture_metadata_only"
+      ],
+      "known_gaps": [
+        "Gameplay event-ordering coverage is report-only boundary metadata; Mythic Edge has timestamp, router dispatch, GameState, gameplay-action, diagnostics, golden replay, feature-equity, action-attribution, and analytics-ingest context, but they do not prove event-ordering parser stress support, complete event-sequence truth, causal ordering truth, hidden actions, hidden cards, opponent intent, why an action happened, action-attribution support beyond issue #410 report-only metadata, player mistakes, best-line truth, archetype classification, decklist completion, gameplay advice, analytics truth, AI truth, coaching truth, release readiness, production behavior, or full Mythic Edge corpus parity."
+      ],
+      "review_notes": [
+        "Gameplay event-ordering coverage is report-only boundary metadata: parser timestamps, router dispatch order, gameplay-action row order, action-attribution report-only coverage, diagnostics reports, golden replay reports, feature-equity reports, evidence-ledger provenance, analytics ingest, and public taxonomy metadata do not prove complete event-sequence truth, causal ordering truth, hidden actions, hidden cards, opponent intent, player mistakes, gameplay advice, analytics truth, AI truth, coaching truth, release readiness, or production behavior."
+      ]
+    },
+    {
       "entry_id": "detailed_logs_disabled_synthetic_v1",
       "entry_type": "session_ledger_entry",
       "source_kind": "synthetic_committed_fixture",
