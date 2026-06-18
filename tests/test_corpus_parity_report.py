@@ -145,6 +145,30 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
     assert connection_disconnect["coverage_basis"] == ["fixture_metadata_only", "parser_behavior_verified"]
     assert "does not prove reconnect" in connection_disconnect["review_notes"][0]
     assert "firewall/drop behavior" in connection_disconnect["review_notes"][0]
+    firewall_network_drop = _manifest_entry(manifest, "firewall_network_drop_private_evidence_boundary_v1")
+    assert firewall_network_drop["entry_type"] == "local_private_report_summary"
+    assert firewall_network_drop["source_kind"] == "local_private_report_only"
+    assert firewall_network_drop["commit_status"] == "local_report_only"
+    assert firewall_network_drop["privacy_class"] == "local_private_not_committed"
+    assert firewall_network_drop["sanitization_status"] == "requires_review"
+    assert firewall_network_drop["coverage_status"] == "blocked_private_evidence"
+    assert firewall_network_drop["scenario_families"] == ["connection.firewall_or_network_drop"]
+    assert firewall_network_drop["parser_event_families"] == []
+    assert firewall_network_drop["parser_claim_families"] == [
+        "firewall_network_drop_private_evidence_required",
+        "connection_adjacent_rows_non_claim",
+        "network_reliability_non_claim",
+        "private_artifact_boundary",
+    ]
+    assert firewall_network_drop["coverage_basis"] == ["local_report_only"]
+    assert "future approved private/live evidence" in firewall_network_drop["known_gaps"][0]
+    assert "generic connection errors" in firewall_network_drop["known_gaps"][0]
+    assert "reconnect metadata" in firewall_network_drop["known_gaps"][0]
+    assert "synthetic text do not prove firewall behavior" in firewall_network_drop["known_gaps"][0]
+    assert "blocked by private/live evidence requirements" in firewall_network_drop["review_notes"][0]
+    assert "adjacent connection error, reconnect, and disconnect corpus rows do not prove" in (
+        firewall_network_drop["review_notes"][0]
+    )
     detailed_logs_disabled = _manifest_entry(manifest, "detailed_logs_disabled_synthetic_v1")
     assert detailed_logs_disabled["coverage_status"] == "covered_synthetic"
     assert detailed_logs_disabled["scenario_families"] == ["log_runtime.detailed_logs_disabled"]
@@ -771,9 +795,9 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
         "covered_synthetic": 14,
         "covered_report_only": 6,
         "partial": 3,
-        "missing": len(corpus.SCENARIO_FAMILIES) - 34,
+        "missing": len(corpus.SCENARIO_FAMILIES) - 35,
         "deferred": 0,
-        "blocked_private_evidence": 0,
+        "blocked_private_evidence": 1,
         "blocked_external_boundary": 5,
         "not_applicable": 0,
     }
@@ -999,12 +1023,22 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     }
     assert _matrix_row(report, "connection.firewall_or_network_drop") == {
         "scenario_family": "connection.firewall_or_network_drop",
-        "coverage_status": "missing",
-        "coverage_basis": ["external_reference_only"],
-        "mythic_edge_entries": [],
+        "coverage_status": "blocked_private_evidence",
+        "coverage_basis": ["local_report_only"],
+        "mythic_edge_entries": ["firewall_network_drop_private_evidence_boundary_v1"],
         "external_reference_status": "reference_category_not_checked",
-        "notes": [],
+        "notes": [
+            "Firewall/network-drop coverage is blocked by private/live evidence requirements; adjacent "
+            "connection error, reconnect, and disconnect corpus rows do not prove firewall/drop behavior, "
+            "network reliability, private smoke success, release readiness, analytics truth, AI truth, "
+            "coaching truth, or production behavior."
+        ],
     }
+    firewall_gap = next(
+        gap for gap in report["gaps"] if gap["scenario_family"] == "connection.firewall_or_network_drop"
+    )
+    assert firewall_gap["gap_status"] == "blocked_private_evidence"
+    assert firewall_gap["blocked_by"] == ["no_committed_safe_fixture", "private_evidence_required"]
     assert _matrix_row(report, "timer.active_player_timer") == {
         "scenario_family": "timer.active_player_timer",
         "coverage_status": "covered_synthetic",
