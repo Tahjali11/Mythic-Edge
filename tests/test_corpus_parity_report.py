@@ -227,6 +227,24 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
     assert "report-only boundary metadata" in deck_summary_boundary["review_notes"][0]
     assert "does not claim a standalone deck-summary API parser" in deck_summary_boundary["review_notes"][0]
     assert "deck identity/submitted-deck truth" in deck_summary_boundary["review_notes"][0]
+    deck_upsert_boundary = _manifest_entry(manifest, "deck_upsert_boundary_report_v1")
+    assert deck_upsert_boundary["coverage_status"] == "covered_report_only"
+    assert deck_upsert_boundary["scenario_families"] == ["deck_api.deck_upsert"]
+    assert deck_upsert_boundary["parser_event_families"] == []
+    assert deck_upsert_boundary["parser_claim_families"] == [
+        "deck_upsert_boundary_report",
+        "event_set_deck_reference_only",
+        "submit_deck_reference_only",
+        "dedicated_deck_upsert_api_not_claimed",
+        "deck_upsert_privacy_boundary",
+    ]
+    assert deck_upsert_boundary["coverage_basis"] == ["fixture_metadata_only"]
+    assert "parser_behavior_verified" not in deck_upsert_boundary["coverage_basis"]
+    assert "event-set deck coverage" in deck_upsert_boundary["known_gaps"][0]
+    assert "dedicated deck-upsert API parser support" in deck_upsert_boundary["known_gaps"][0]
+    assert "submitted-deck truth beyond existing parser-owned fields" in deck_upsert_boundary["known_gaps"][0]
+    assert "intentionally report-only" in deck_upsert_boundary["review_notes"][0]
+    assert "not deck-upsert evidence" in deck_upsert_boundary["review_notes"][0]
     unknown_entry = _manifest_entry(manifest, "unknown_entry_drift_report_reference_v1")
     assert unknown_entry["coverage_status"] == "covered_report_only"
     assert unknown_entry["scenario_families"] == ["log_runtime.unknown_entry"]
@@ -471,6 +489,32 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
         "private_deck_names_included": False,
         "private_collection_data_included": False,
     }
+    deck_upsert_session = _session_entry(session_ledger, "deck_upsert_boundary_report_v1")
+    assert deck_upsert_session["format_family"] == "deck_api"
+    assert deck_upsert_session["match_shape"] == "deck_upsert_boundary_report_only"
+    assert deck_upsert_session["record_summary"] == "committed_deck_upsert_boundary_metadata_only"
+    assert deck_upsert_session["parser_coverage"] == {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "event_set_deck_reference_entries": 1,
+        "submit_deck_reference_entries": 1,
+        "dedicated_deck_upsert_api_events": 0,
+        "dedicated_deck_upsert_parser_routes": 0,
+    }
+    assert deck_upsert_session["game_rows"] == {"count": 0, "result_shape": "not_applicable"}
+    assert "report-only metadata" in deck_upsert_session["known_gaps"][0]
+    assert "dedicated deck-upsert API parsing" in deck_upsert_session["known_gaps"][0]
+    assert "store/pack/inbox/crafting coverage" in deck_upsert_session["known_gaps"][0]
+    assert deck_upsert_session["report_only_redactions"] == {
+        "raw_log_lines_included": False,
+        "private_paths_included": False,
+        "raw_payloads_included": False,
+        "external_logs_included": False,
+        "decklists_included": False,
+        "private_deck_names_included": False,
+        "private_collection_data_included": False,
+    }
     unknown_entry_session = _session_entry(session_ledger, "unknown_entry_drift_report_reference_v1")
     assert unknown_entry_session["format_family"] == "log_runtime"
     assert unknown_entry_session["match_shape"] == "unknown_entry_drift_report_reference_only"
@@ -584,9 +628,9 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
         "total_scenario_families": len(corpus.SCENARIO_FAMILIES),
         "covered_committed": 6,
         "covered_synthetic": 13,
-        "covered_report_only": 3,
+        "covered_report_only": 4,
         "partial": 3,
-        "missing": len(corpus.SCENARIO_FAMILIES) - 31,
+        "missing": len(corpus.SCENARIO_FAMILIES) - 32,
         "deferred": 0,
         "blocked_private_evidence": 0,
         "blocked_external_boundary": 6,
@@ -850,11 +894,16 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     }
     assert _matrix_row(report, "deck_api.deck_upsert") == {
         "scenario_family": "deck_api.deck_upsert",
-        "coverage_status": "missing",
-        "coverage_basis": ["external_reference_only"],
-        "mythic_edge_entries": [],
+        "coverage_status": "covered_report_only",
+        "coverage_basis": ["fixture_metadata_only"],
+        "mythic_edge_entries": ["deck_upsert_boundary_report_v1"],
         "external_reference_status": "reference_category_not_checked",
-        "notes": [],
+        "notes": [
+            "The deck-upsert row is intentionally report-only and prevents false parity claims by documenting "
+            "why nearby event-set, deck-summary, StartHook, submit-deck, and submitted-deck-card evidence is "
+            "not deck-upsert evidence; future dedicated deck-upsert fixture work remains blocked until Mythic "
+            "Edge has owned, sanitized, parser-supported evidence."
+        ],
     }
     assert _matrix_row(report, "deck_api.event_set_deck") == {
         "scenario_family": "deck_api.event_set_deck",
