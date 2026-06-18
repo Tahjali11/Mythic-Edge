@@ -112,6 +112,22 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
     assert connection_error["coverage_basis"] == ["fixture_metadata_only", "parser_behavior_verified"]
     assert "does not prove reconnect" in connection_error["review_notes"][0]
     assert "release readiness" in connection_error["review_notes"][0]
+    connection_reconnect = _manifest_entry(manifest, "connection_reconnect_synthetic_v1")
+    assert connection_reconnect["coverage_status"] == "covered_synthetic"
+    assert connection_reconnect["scenario_families"] == ["connection.reconnect"]
+    assert connection_reconnect["parser_event_families"] == ["ConnectionError"]
+    assert connection_reconnect["parser_claim_families"] == [
+        "reconnect_result_payload",
+        "reconnect_outcome_payload",
+        "gre_connection_lost_reconnect_context",
+        "reconnect_privacy_boundary",
+    ]
+    assert connection_reconnect["coverage_basis"] == ["fixture_metadata_only", "parser_behavior_verified"]
+    assert "live reconnect success" in connection_reconnect["known_gaps"][0]
+    assert "network reliability" in connection_reconnect["known_gaps"][0]
+    assert "firewall or network-drop behavior" in connection_reconnect["known_gaps"][0]
+    assert "ConnectionError reconnect result/outcome metadata only" in connection_reconnect["review_notes"][0]
+    assert "private smoke" in connection_reconnect["review_notes"][0]
     connection_disconnect = _manifest_entry(manifest, "connection_disconnect_synthetic_v1")
     assert connection_disconnect["coverage_status"] == "covered_synthetic"
     assert connection_disconnect["scenario_families"] == ["connection.disconnect"]
@@ -365,6 +381,28 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
     }
     assert connection_disconnect_session["game_rows"] == {"count": 0, "result_shape": "not_applicable"}
     assert connection_disconnect_session["report_only_redactions"] == {
+        "raw_log_lines_included": False,
+        "private_paths_included": False,
+        "raw_payloads_included": False,
+        "external_logs_included": False,
+        "decklists_included": False,
+    }
+    connection_reconnect_session = _session_entry(session_ledger, "connection_reconnect_synthetic_v1")
+    assert connection_reconnect_session["format_family"] == "connection_runtime"
+    assert connection_reconnect_session["match_shape"] == "connection_reconnect_signal_only"
+    assert connection_reconnect_session["parser_coverage"] == {
+        "event_families": {"ConnectionError": 5},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "reconnect_result_entries": 1,
+        "reconnect_outcome_entries": 3,
+        "gre_connection_lost_entries": 1,
+    }
+    assert connection_reconnect_session["game_rows"] == {"count": 0, "result_shape": "not_applicable"}
+    assert "live reconnect success" in connection_reconnect_session["known_gaps"][0]
+    assert "network reliability" in connection_reconnect_session["known_gaps"][0]
+    assert "firewall or network-drop behavior" in connection_reconnect_session["known_gaps"][0]
+    assert connection_reconnect_session["report_only_redactions"] == {
         "raw_log_lines_included": False,
         "private_paths_included": False,
         "raw_payloads_included": False,
@@ -730,13 +768,13 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     assert report["summary"] == {
         "total_scenario_families": len(corpus.SCENARIO_FAMILIES),
         "covered_committed": 6,
-        "covered_synthetic": 13,
+        "covered_synthetic": 14,
         "covered_report_only": 6,
         "partial": 3,
         "missing": len(corpus.SCENARIO_FAMILIES) - 34,
         "deferred": 0,
         "blocked_private_evidence": 0,
-        "blocked_external_boundary": 6,
+        "blocked_external_boundary": 5,
         "not_applicable": 0,
     }
     assert _matrix_row(report, "core_gameplay.standard_bo1") == {
@@ -933,7 +971,19 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
             "readiness, analytics truth, AI truth, or production behavior."
         ],
     }
-    assert _matrix_row(report, "connection.reconnect")["coverage_status"] == "blocked_external_boundary"
+    assert _matrix_row(report, "connection.reconnect") == {
+        "scenario_family": "connection.reconnect",
+        "coverage_status": "covered_synthetic",
+        "coverage_basis": ["fixture_metadata_only", "parser_behavior_verified"],
+        "mythic_edge_entries": ["connection_reconnect_synthetic_v1"],
+        "external_reference_status": "reference_category_not_checked",
+        "notes": [
+            "Synthetic reconnect coverage proves parser-owned ConnectionError reconnect result/outcome "
+            "metadata only; it does not prove live reconnect resilience, network reliability, firewall/drop "
+            "behavior, private smoke, release readiness, analytics truth, AI truth, coaching truth, or "
+            "production behavior."
+        ],
+    }
     assert _matrix_row(report, "connection.disconnect") == {
         "scenario_family": "connection.disconnect",
         "coverage_status": "covered_synthetic",

@@ -396,6 +396,45 @@
       ]
     },
     {
+      "entry_id": "connection_reconnect_synthetic_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/402",
+      "authorized_by_contract": "docs/contracts/parser_corpus_reconnect_coverage.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "connection_parser_test": "tests/test_connection_parsers.py",
+        "router_test": "tests/test_router_unit.py",
+        "event_schema_snapshot_test": "tests/test_event_schema_snapshots.py"
+      },
+      "scenario_families": [
+        "connection.reconnect"
+      ],
+      "parser_event_families": [
+        "ConnectionError"
+      ],
+      "parser_claim_families": [
+        "reconnect_result_payload",
+        "reconnect_outcome_payload",
+        "gre_connection_lost_reconnect_context",
+        "reconnect_privacy_boundary"
+      ],
+      "coverage_status": "covered_synthetic",
+      "coverage_basis": [
+        "fixture_metadata_only",
+        "parser_behavior_verified"
+      ],
+      "known_gaps": [
+        "Synthetic reconnect metadata does not prove live reconnect success, network reliability, disconnect behavior, firewall or network-drop behavior, private Player.log resilience, runtime health, release readiness, analytics truth, AI truth, coaching truth, or production behavior."
+      ],
+      "review_notes": [
+        "Synthetic reconnect coverage proves parser-owned ConnectionError reconnect result/outcome metadata only; it does not prove live reconnect resilience, network reliability, firewall/drop behavior, private smoke, release readiness, analytics truth, AI truth, coaching truth, or production behavior."
+      ]
+    },
+    {
       "entry_id": "connection_disconnect_synthetic_v1",
       "entry_type": "session_ledger_entry",
       "source_kind": "synthetic_committed_fixture",
@@ -913,7 +952,6 @@
       "authorized_by_contract": "docs/contracts/parser_corpus_parity_expansion.md",
       "paths": {},
       "scenario_families": [
-        "connection.reconnect",
         "log_runtime.rotation",
         "timer.inactivity_timeout",
         "gameplay_stress.conjure",
