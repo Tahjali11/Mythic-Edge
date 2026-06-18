@@ -1448,6 +1448,68 @@
         "strategy_notes_included": false,
         "credentials_tokens_keys_webhooks_included": false
       }
+    },
+    {
+      "session_id": "workbook_row_coverage_boundary_report_v1",
+      "title": "Workbook row coverage boundary report",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/432",
+      "authorized_by_contract": "docs/contracts/parser_corpus_workbook_row_coverage_residual.md",
+      "scenario_families": [
+        "mythic_edge.workbook_row_coverage"
+      ],
+      "format_family": "mythic_edge_workbook_transport",
+      "match_shape": "workbook_row_coverage_boundary_report_only",
+      "record_summary": "committed_workbook_row_coverage_metadata_only",
+      "parser_coverage": {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "match_log_sync_fields": "available",
+        "game_log_sync_fields": "available",
+        "match_log_row_key_snapshot": "available",
+        "game_log_row_key_snapshot": "available",
+        "runtime_sheet_schema_snapshot": "available",
+        "runtime_export_row_key_snapshot": "available",
+        "repo_side_apps_script_parity_snapshot": "available",
+        "webhook_top_level_row_shape_test": "available",
+        "live_workbook_claims": 0,
+        "deployed_apps_script_claims": 0,
+        "google_sheets_sync_claims": 0,
+        "webhook_delivery_claims": 0,
+        "dashboard_truth_claims": 0,
+        "analytics_truth_claims": 0,
+        "ai_truth_claims": 0,
+        "coaching_truth_claims": 0
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Workbook row coverage boundary metadata does not include live workbook contents, deployed Apps Script output, Google Sheets sync proof, webhook delivery captures, runtime artifacts, workbook exports, private Player.log evidence, workbook formula truth, dashboard truth, analytics truth, AI truth, coaching truth, release readiness, production behavior, tracker completion, or full corpus parity."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "live_workbook_contents_included": false,
+        "deployed_apps_script_output_included": false,
+        "google_sheets_contents_included": false,
+        "webhook_payload_captures_included": false,
+        "runtime_artifacts_included": false,
+        "workbook_exports_included": false,
+        "private_player_log_evidence_included": false,
+        "private_smoke_outputs_included": false,
+        "decklists_included": false,
+        "card_choices_included": false,
+        "strategy_notes_included": false,
+        "credentials_tokens_keys_webhooks_included": false
+      }
     }
   ]
 }

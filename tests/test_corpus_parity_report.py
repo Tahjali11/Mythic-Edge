@@ -95,10 +95,8 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
     feature_equity_baseline = _manifest_entry(manifest, "feature_equity_corpus_baseline_v1")
     assert "manifest.metadata" not in feature_equity_baseline["scenario_families"]
     assert "mythic_edge.confidence_finality_degradation" not in feature_equity_baseline["scenario_families"]
-    assert feature_equity_baseline["scenario_families"] == [
-        "mythic_edge.workbook_row_coverage",
-        "drift_debug.gsm_truncation",
-    ]
+    assert "mythic_edge.workbook_row_coverage" not in feature_equity_baseline["scenario_families"]
+    assert feature_equity_baseline["scenario_families"] == ["drift_debug.gsm_truncation"]
     sealed_entry = _manifest_entry(manifest, "sealed_entry_lifecycle_synthetic_v1")
     assert sealed_entry["coverage_status"] == "covered_synthetic"
     assert sealed_entry["scenario_families"] == ["core_gameplay.sealed_entry"]
@@ -703,6 +701,36 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
     assert "without changing parser behavior" in confidence_finality_degradation["review_notes"][0]
     assert "evidence-ledger behavior" in confidence_finality_degradation["review_notes"][0]
     assert "runtime field-evidence behavior" in confidence_finality_degradation["review_notes"][0]
+    workbook_row_coverage = _manifest_entry(manifest, "workbook_row_coverage_boundary_report_v1")
+    assert workbook_row_coverage["entry_type"] == "session_ledger_entry"
+    assert workbook_row_coverage["source_kind"] == "committed_count_only_report"
+    assert workbook_row_coverage["commit_status"] == "committed"
+    assert workbook_row_coverage["privacy_class"] == "committed_count_only"
+    assert workbook_row_coverage["sanitization_status"] == "not_applicable_count_only"
+    assert workbook_row_coverage["scenario_families"] == ["mythic_edge.workbook_row_coverage"]
+    assert workbook_row_coverage["parser_event_families"] == []
+    assert workbook_row_coverage["parser_claim_families"] == [
+        "match_log_row_keys",
+        "game_log_row_keys",
+        "sync_field_registry",
+        "runtime_sheet_headers",
+        "runtime_export_row_keys",
+        "repo_side_apps_script_mapping_parity",
+        "webhook_top_level_row_shape",
+        "live_workbook_non_claim",
+        "downstream_truth_non_claim",
+    ]
+    assert workbook_row_coverage["coverage_status"] == "covered_report_only"
+    assert workbook_row_coverage["coverage_basis"] == ["fixture_metadata_only"]
+    assert "parser_behavior_verified" not in workbook_row_coverage["coverage_basis"]
+    assert "count_ratchet_only" not in workbook_row_coverage["coverage_basis"]
+    assert "live workbook behavior" in workbook_row_coverage["known_gaps"][0]
+    assert "deployed Apps Script behavior" in workbook_row_coverage["known_gaps"][0]
+    assert "webhook delivery success" in workbook_row_coverage["known_gaps"][0]
+    assert "full corpus parity" in workbook_row_coverage["known_gaps"][0]
+    assert "without changing parser behavior" in workbook_row_coverage["review_notes"][0]
+    assert "workbook schema" in workbook_row_coverage["review_notes"][0]
+    assert "Google Sheets sync" in workbook_row_coverage["review_notes"][0]
     assert _session_entry(session_ledger, "gsm_truncation_marker_synthetic_v1")["parser_coverage"] == {
         "event_families": {"Truncation": 1},
         "unknown_entries": 0,
@@ -1343,6 +1371,53 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
         "strategy_notes_included": False,
         "credentials_tokens_keys_webhooks_included": False,
     }
+    workbook_row_session = _session_entry(session_ledger, "workbook_row_coverage_boundary_report_v1")
+    assert workbook_row_session["format_family"] == "mythic_edge_workbook_transport"
+    assert workbook_row_session["match_shape"] == "workbook_row_coverage_boundary_report_only"
+    assert workbook_row_session["record_summary"] == "committed_workbook_row_coverage_metadata_only"
+    assert workbook_row_session["parser_coverage"] == {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "match_log_sync_fields": "available",
+        "game_log_sync_fields": "available",
+        "match_log_row_key_snapshot": "available",
+        "game_log_row_key_snapshot": "available",
+        "runtime_sheet_schema_snapshot": "available",
+        "runtime_export_row_key_snapshot": "available",
+        "repo_side_apps_script_parity_snapshot": "available",
+        "webhook_top_level_row_shape_test": "available",
+        "live_workbook_claims": 0,
+        "deployed_apps_script_claims": 0,
+        "google_sheets_sync_claims": 0,
+        "webhook_delivery_claims": 0,
+        "dashboard_truth_claims": 0,
+        "analytics_truth_claims": 0,
+        "ai_truth_claims": 0,
+        "coaching_truth_claims": 0,
+    }
+    assert workbook_row_session["game_rows"] == {"count": 0, "result_shape": "not_applicable"}
+    assert "live workbook contents" in workbook_row_session["known_gaps"][0]
+    assert "webhook delivery captures" in workbook_row_session["known_gaps"][0]
+    assert "full corpus parity" in workbook_row_session["known_gaps"][0]
+    assert workbook_row_session["report_only_redactions"] == {
+        "raw_log_lines_included": False,
+        "private_paths_included": False,
+        "raw_payloads_included": False,
+        "external_logs_included": False,
+        "live_workbook_contents_included": False,
+        "deployed_apps_script_output_included": False,
+        "google_sheets_contents_included": False,
+        "webhook_payload_captures_included": False,
+        "runtime_artifacts_included": False,
+        "workbook_exports_included": False,
+        "private_player_log_evidence_included": False,
+        "private_smoke_outputs_included": False,
+        "decklists_included": False,
+        "card_choices_included": False,
+        "strategy_notes_included": False,
+        "credentials_tokens_keys_webhooks_included": False,
+    }
     sealed_match_session = _session_entry(session_ledger, "sealed_match_synthetic_v1")
     assert sealed_match_session["format_family"] == "limited_sealed"
     assert sealed_match_session["match_shape"] == "sealed_match_single_game"
@@ -1621,8 +1696,8 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
         "total_scenario_families": len(corpus.SCENARIO_FAMILIES),
         "covered_committed": 6,
         "covered_synthetic": 14,
-        "covered_report_only": 17,
-        "partial": 1,
+        "covered_report_only": 18,
+        "partial": 0,
         "missing": 0,
         "deferred": 0,
         "blocked_private_evidence": 2,
@@ -1883,12 +1958,18 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     }
     assert _matrix_row(report, "mythic_edge.workbook_row_coverage") == {
         "scenario_family": "mythic_edge.workbook_row_coverage",
-        "coverage_status": "partial",
-        "coverage_basis": ["count_ratchet_only"],
-        "mythic_edge_entries": ["feature_equity_corpus_baseline_v1"],
+        "coverage_status": "covered_report_only",
+        "coverage_basis": ["fixture_metadata_only"],
+        "mythic_edge_entries": ["workbook_row_coverage_boundary_report_v1"],
         "external_reference_status": "reference_category_not_checked",
-        "notes": ["Committed count-only baseline summarizes existing golden replay manifests."],
+        "notes": [
+            "This report-only boundary records committed parser-side workbook-facing contracts, tests, "
+            "schema snapshots, repo-side Apps Script parity checks, and webhook row-shape guardrails "
+            "without changing parser behavior, workbook schema, Apps Script behavior, Google Sheets sync, "
+            "output transport, analytics behavior, AI behavior, readiness policy, or tracker lifecycle."
+        ],
     }
+    assert not any(gap["scenario_family"] == "mythic_edge.workbook_row_coverage" for gap in report["gaps"])
     assert _matrix_row(report, "mythic_edge.live_diagnostics") == {
         "scenario_family": "mythic_edge.live_diagnostics",
         "coverage_status": "covered_report_only",
