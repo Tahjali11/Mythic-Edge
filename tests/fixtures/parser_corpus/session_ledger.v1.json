@@ -170,6 +170,60 @@
       }
     },
     {
+      "session_id": "gameplay_action_attribution_boundary_report_v1",
+      "title": "Gameplay action-attribution boundary report",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/410",
+      "authorized_by_contract": "docs/contracts/parser_corpus_gameplay_action_attribution_coverage.md",
+      "scenario_families": [
+        "gameplay_stress.action_attribution"
+      ],
+      "format_family": "gameplay_stress",
+      "match_shape": "gameplay_action_attribution_boundary_report_only",
+      "record_summary": "committed_gameplay_action_attribution_boundary_metadata_only",
+      "parser_coverage": {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "gameplay_action_reference_entries": 1,
+        "opponent_card_observation_reference_entries": 1,
+        "action_log_reference_entries": 1,
+        "analytics_ingest_reference_entries": 1,
+        "dedicated_action_attribution_fixtures": 0,
+        "dedicated_event_ordering_fixtures": 0,
+        "hidden_action_claims": 0,
+        "causal_intent_claims": 0,
+        "event_ordering_claims": 0
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Report-only gameplay action-attribution boundary metadata does not include a dedicated action-attribution fixture, dedicated event-ordering fixture, hidden-action claim, causal-intent claim, event-ordering claim, player-mistake claim, best-line claim, archetype claim, decklist claim, gameplay advice claim, analytics truth, AI truth, coaching truth, release readiness, or production behavior."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "private_action_artifacts_included": false,
+        "private_smoke_outputs_included": false,
+        "generated_private_runtime_artifacts_included": false,
+        "decklists_included": false,
+        "deck_names_included": false,
+        "card_choices_included": false,
+        "sideboard_choices_included": false,
+        "strategy_notes_included": false,
+        "opponent_identifiers_included": false,
+        "private_match_context_included": false,
+        "credentials_tokens_keys_webhooks_included": false
+      }
+    },
+    {
       "session_id": "draft_parser_family_v1",
       "title": "Synthetic draft parser family slice",
       "source_kind": "synthetic_committed_fixture",

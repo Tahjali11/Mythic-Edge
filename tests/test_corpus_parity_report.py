@@ -210,6 +210,31 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
     assert "submitted-deck card-content evidence" in companion_large_deck["review_notes"][0]
     assert "card identity provenance" in companion_large_deck["review_notes"][0]
     assert "do not prove companion presence" in companion_large_deck["review_notes"][0]
+    gameplay_action_attribution = _manifest_entry(manifest, "gameplay_action_attribution_boundary_report_v1")
+    assert gameplay_action_attribution["coverage_status"] == "covered_report_only"
+    assert gameplay_action_attribution["scenario_families"] == ["gameplay_stress.action_attribution"]
+    assert gameplay_action_attribution["parser_event_families"] == []
+    assert gameplay_action_attribution["parser_claim_families"] == [
+        "gameplay_action_attribution_boundary_report",
+        "gameplay_action_extraction_not_stress_coverage",
+        "opponent_card_observation_not_action_attribution_truth",
+        "action_log_row_not_causal_truth",
+        "analytics_ingest_not_parser_truth",
+        "event_ordering_not_claimed",
+        "hidden_action_inference_non_claim",
+    ]
+    assert gameplay_action_attribution["coverage_basis"] == ["fixture_metadata_only"]
+    assert "report-only boundary metadata" in gameplay_action_attribution["known_gaps"][0]
+    assert "gameplay-action extraction" in gameplay_action_attribution["known_gaps"][0]
+    assert "do not prove action-attribution parser stress support" in (
+        gameplay_action_attribution["known_gaps"][0]
+    )
+    assert "event ordering" in gameplay_action_attribution["known_gaps"][0]
+    assert "hidden actions" in gameplay_action_attribution["known_gaps"][0]
+    assert "gameplay-action extraction" in gameplay_action_attribution["review_notes"][0]
+    assert "opponent-card observations" in gameplay_action_attribution["review_notes"][0]
+    assert "analytics gameplay-action ingest" in gameplay_action_attribution["review_notes"][0]
+    assert "do not prove action-attribution stress support" in gameplay_action_attribution["review_notes"][0]
     detailed_logs_disabled = _manifest_entry(manifest, "detailed_logs_disabled_synthetic_v1")
     assert detailed_logs_disabled["coverage_status"] == "covered_synthetic"
     assert detailed_logs_disabled["scenario_families"] == ["log_runtime.detailed_logs_disabled"]
@@ -893,6 +918,59 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
         "generated_private_runtime_artifacts_included": False,
         "credentials_tokens_keys_webhooks_included": False,
     }
+    gameplay_action_attribution_session = _session_entry(
+        session_ledger,
+        "gameplay_action_attribution_boundary_report_v1",
+    )
+    assert gameplay_action_attribution_session["format_family"] == "gameplay_stress"
+    assert gameplay_action_attribution_session["match_shape"] == (
+        "gameplay_action_attribution_boundary_report_only"
+    )
+    assert gameplay_action_attribution_session["record_summary"] == (
+        "committed_gameplay_action_attribution_boundary_metadata_only"
+    )
+    assert gameplay_action_attribution_session["parser_coverage"] == {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "gameplay_action_reference_entries": 1,
+        "opponent_card_observation_reference_entries": 1,
+        "action_log_reference_entries": 1,
+        "analytics_ingest_reference_entries": 1,
+        "dedicated_action_attribution_fixtures": 0,
+        "dedicated_event_ordering_fixtures": 0,
+        "hidden_action_claims": 0,
+        "causal_intent_claims": 0,
+        "event_ordering_claims": 0,
+    }
+    assert gameplay_action_attribution_session["game_rows"] == {
+        "count": 0,
+        "result_shape": "not_applicable",
+    }
+    assert "does not include a dedicated action-attribution fixture" in (
+        gameplay_action_attribution_session["known_gaps"][0]
+    )
+    assert "dedicated event-ordering fixture" in gameplay_action_attribution_session["known_gaps"][0]
+    assert "hidden-action claim" in gameplay_action_attribution_session["known_gaps"][0]
+    assert "causal-intent claim" in gameplay_action_attribution_session["known_gaps"][0]
+    assert "event-ordering claim" in gameplay_action_attribution_session["known_gaps"][0]
+    assert gameplay_action_attribution_session["report_only_redactions"] == {
+        "raw_log_lines_included": False,
+        "private_paths_included": False,
+        "raw_payloads_included": False,
+        "external_logs_included": False,
+        "private_action_artifacts_included": False,
+        "private_smoke_outputs_included": False,
+        "generated_private_runtime_artifacts_included": False,
+        "decklists_included": False,
+        "deck_names_included": False,
+        "card_choices_included": False,
+        "sideboard_choices_included": False,
+        "strategy_notes_included": False,
+        "opponent_identifiers_included": False,
+        "private_match_context_included": False,
+        "credentials_tokens_keys_webhooks_included": False,
+    }
 
 
 def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None:
@@ -907,9 +985,9 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
         "total_scenario_families": len(corpus.SCENARIO_FAMILIES),
         "covered_committed": 6,
         "covered_synthetic": 14,
-        "covered_report_only": 8,
+        "covered_report_only": 9,
         "partial": 3,
-        "missing": len(corpus.SCENARIO_FAMILIES) - 37,
+        "missing": len(corpus.SCENARIO_FAMILIES) - 38,
         "deferred": 0,
         "blocked_private_evidence": 1,
         "blocked_external_boundary": 5,
@@ -1210,11 +1288,18 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     }
     assert _matrix_row(report, "gameplay_stress.action_attribution") == {
         "scenario_family": "gameplay_stress.action_attribution",
-        "coverage_status": "missing",
-        "coverage_basis": ["external_reference_only"],
-        "mythic_edge_entries": [],
+        "coverage_status": "covered_report_only",
+        "coverage_basis": ["fixture_metadata_only"],
+        "mythic_edge_entries": ["gameplay_action_attribution_boundary_report_v1"],
         "external_reference_status": "reference_category_not_checked",
-        "notes": [],
+        "notes": [
+            "Gameplay action-attribution coverage is report-only boundary metadata: gameplay-action "
+            "extraction, opponent-card observations, ActionLogRow surfaces, analytics gameplay-action "
+            "ingest, evidence-ledger provenance, and public taxonomy metadata do not prove "
+            "action-attribution stress support, causal truth, hidden actions, hidden cards, opponent "
+            "intent, event ordering, player mistakes, gameplay advice, analytics truth, AI truth, "
+            "coaching truth, release readiness, or production behavior."
+        ],
     }
     assert _matrix_row(report, "gameplay_stress.event_ordering") == {
         "scenario_family": "gameplay_stress.event_ordering",

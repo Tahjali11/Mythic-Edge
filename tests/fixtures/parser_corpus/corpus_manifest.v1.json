@@ -585,6 +585,46 @@
       ]
     },
     {
+      "entry_id": "gameplay_action_attribution_boundary_report_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/410",
+      "authorized_by_contract": "docs/contracts/parser_corpus_gameplay_action_attribution_coverage.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "gameplay_action_contract": "docs/contracts/player_log_evidence_ledger_tier5_gameplay_action.md",
+        "opponent_card_observation_contract": "docs/contracts/player_log_evidence_ledger_tier5_opponent_card_observation.md",
+        "analytics_gameplay_action_contract": "docs/contracts/analytics_gameplay_action_ingest.md",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py"
+      },
+      "scenario_families": [
+        "gameplay_stress.action_attribution"
+      ],
+      "parser_event_families": [],
+      "parser_claim_families": [
+        "gameplay_action_attribution_boundary_report",
+        "gameplay_action_extraction_not_stress_coverage",
+        "opponent_card_observation_not_action_attribution_truth",
+        "action_log_row_not_causal_truth",
+        "analytics_ingest_not_parser_truth",
+        "event_ordering_not_claimed",
+        "hidden_action_inference_non_claim"
+      ],
+      "coverage_status": "covered_report_only",
+      "coverage_basis": [
+        "fixture_metadata_only"
+      ],
+      "known_gaps": [
+        "Gameplay action-attribution coverage is report-only boundary metadata; Mythic Edge has gameplay-action extraction, opponent-card-observation, ActionLogRow, evidence-ledger, and analytics-ingest surfaces, but they do not prove action-attribution parser stress support, causal action truth, hidden actions, hidden cards, opponent intent, why an action happened, event ordering, player mistakes, best-line truth, archetype classification, decklist completion, gameplay advice, analytics truth, AI truth, coaching truth, release readiness, production behavior, or full corpus parity."
+      ],
+      "review_notes": [
+        "Gameplay action-attribution coverage is report-only boundary metadata: gameplay-action extraction, opponent-card observations, ActionLogRow surfaces, analytics gameplay-action ingest, evidence-ledger provenance, and public taxonomy metadata do not prove action-attribution stress support, causal truth, hidden actions, hidden cards, opponent intent, event ordering, player mistakes, gameplay advice, analytics truth, AI truth, coaching truth, release readiness, or production behavior."
+      ]
+    },
+    {
       "entry_id": "detailed_logs_disabled_synthetic_v1",
       "entry_type": "session_ledger_entry",
       "source_kind": "synthetic_committed_fixture",
