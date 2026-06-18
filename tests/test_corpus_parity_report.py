@@ -208,6 +208,25 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
     assert "does not claim deck identity" in start_hook_deck_snapshot["review_notes"][0]
     assert "deck-summary coverage" in start_hook_deck_snapshot["known_gaps"][0]
     assert "store/pack/inbox/crafting coverage" in start_hook_deck_snapshot["known_gaps"][0]
+    deck_summary_boundary = _manifest_entry(manifest, "deck_summary_boundary_report_v1")
+    assert deck_summary_boundary["coverage_status"] == "covered_report_only"
+    assert deck_summary_boundary["scenario_families"] == ["deck_api.deck_summary"]
+    assert deck_summary_boundary["parser_event_families"] == []
+    assert deck_summary_boundary["parser_claim_families"] == [
+        "deck_summary_boundary_report",
+        "start_hook_deck_summaries_reference_only",
+        "dedicated_deck_summary_api_not_claimed",
+        "deck_summary_privacy_boundary",
+    ]
+    assert deck_summary_boundary["coverage_basis"] == ["fixture_metadata_only"]
+    assert "parser_behavior_verified" not in deck_summary_boundary["coverage_basis"]
+    assert "StartHook-bound and report-only" in deck_summary_boundary["known_gaps"][0]
+    assert "dedicated deck-summary API parser" in deck_summary_boundary["known_gaps"][0]
+    assert "deck-upsert coverage" in deck_summary_boundary["known_gaps"][0]
+    assert "store/pack/inbox/crafting coverage" in deck_summary_boundary["known_gaps"][0]
+    assert "report-only boundary metadata" in deck_summary_boundary["review_notes"][0]
+    assert "does not claim a standalone deck-summary API parser" in deck_summary_boundary["review_notes"][0]
+    assert "deck identity/submitted-deck truth" in deck_summary_boundary["review_notes"][0]
     unknown_entry = _manifest_entry(manifest, "unknown_entry_drift_report_reference_v1")
     assert unknown_entry["coverage_status"] == "covered_report_only"
     assert unknown_entry["scenario_families"] == ["log_runtime.unknown_entry"]
@@ -426,6 +445,32 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
         "private_deck_names_included": False,
         "private_collection_data_included": False,
     }
+    deck_summary_session = _session_entry(session_ledger, "deck_summary_boundary_report_v1")
+    assert deck_summary_session["format_family"] == "deck_api"
+    assert deck_summary_session["match_shape"] == "deck_summary_boundary_report_only"
+    assert deck_summary_session["record_summary"] == "committed_deck_summary_boundary_metadata_only"
+    assert deck_summary_session["parser_coverage"] == {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "start_hook_deck_summaries_reference_entries": 1,
+        "dedicated_deck_summary_api_events": 0,
+        "dedicated_deck_summary_parser_routes": 0,
+    }
+    assert deck_summary_session["game_rows"] == {"count": 0, "result_shape": "not_applicable"}
+    assert "StartHook-bound report-only evidence" in deck_summary_session["known_gaps"][0]
+    assert "dedicated deck-summary API parsing" in deck_summary_session["known_gaps"][0]
+    assert "deck-upsert coverage" in deck_summary_session["known_gaps"][0]
+    assert "store/pack/inbox/crafting coverage" in deck_summary_session["known_gaps"][0]
+    assert deck_summary_session["report_only_redactions"] == {
+        "raw_log_lines_included": False,
+        "private_paths_included": False,
+        "raw_payloads_included": False,
+        "external_logs_included": False,
+        "decklists_included": False,
+        "private_deck_names_included": False,
+        "private_collection_data_included": False,
+    }
     unknown_entry_session = _session_entry(session_ledger, "unknown_entry_drift_report_reference_v1")
     assert unknown_entry_session["format_family"] == "log_runtime"
     assert unknown_entry_session["match_shape"] == "unknown_entry_drift_report_reference_only"
@@ -539,9 +584,9 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
         "total_scenario_families": len(corpus.SCENARIO_FAMILIES),
         "covered_committed": 6,
         "covered_synthetic": 13,
-        "covered_report_only": 2,
+        "covered_report_only": 3,
         "partial": 3,
-        "missing": len(corpus.SCENARIO_FAMILIES) - 30,
+        "missing": len(corpus.SCENARIO_FAMILIES) - 31,
         "deferred": 0,
         "blocked_private_evidence": 0,
         "blocked_external_boundary": 6,
@@ -793,11 +838,15 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     }
     assert _matrix_row(report, "deck_api.deck_summary") == {
         "scenario_family": "deck_api.deck_summary",
-        "coverage_status": "missing",
-        "coverage_basis": ["external_reference_only"],
-        "mythic_edge_entries": [],
+        "coverage_status": "covered_report_only",
+        "coverage_basis": ["fixture_metadata_only"],
+        "mythic_edge_entries": ["deck_summary_boundary_report_v1"],
         "external_reference_status": "reference_category_not_checked",
-        "notes": [],
+        "notes": [
+            "Deck summary coverage is report-only boundary metadata: Mythic Edge has StartHook "
+            "DeckSummaries evidence through the existing DeckCollection parser and #392 coverage, but "
+            "does not claim a standalone deck-summary API parser or deck identity/submitted-deck truth."
+        ],
     }
     assert _matrix_row(report, "deck_api.deck_upsert") == {
         "scenario_family": "deck_api.deck_upsert",

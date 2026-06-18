@@ -639,6 +639,42 @@
       ]
     },
     {
+      "entry_id": "deck_summary_boundary_report_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/394",
+      "authorized_by_contract": "docs/contracts/parser_corpus_deck_summary_coverage.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "prior_start_hook_contract": "docs/contracts/parser_corpus_start_hook_deck_snapshot_coverage.md",
+        "prior_start_hook_report": "docs/contract_test_reports/parser_corpus_start_hook_deck_snapshot_coverage.md",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py"
+      },
+      "scenario_families": [
+        "deck_api.deck_summary"
+      ],
+      "parser_event_families": [],
+      "parser_claim_families": [
+        "deck_summary_boundary_report",
+        "start_hook_deck_summaries_reference_only",
+        "dedicated_deck_summary_api_not_claimed",
+        "deck_summary_privacy_boundary"
+      ],
+      "coverage_status": "covered_report_only",
+      "coverage_basis": [
+        "fixture_metadata_only"
+      ],
+      "known_gaps": [
+        "Deck summary boundary coverage records that current Mythic Edge evidence is StartHook-bound and report-only; it does not prove a dedicated deck-summary API parser, private deck contents, exact deck identity, submitted-deck truth, sideboard-delta truth, collection ownership truth, inventory/economy state, deck-upsert coverage, store/pack/inbox/crafting coverage, archetype classification, decklist completion, analytics truth, AI truth, coaching truth, release readiness, or production behavior."
+      ],
+      "review_notes": [
+        "Deck summary coverage is report-only boundary metadata: Mythic Edge has StartHook DeckSummaries evidence through the existing DeckCollection parser and #392 coverage, but does not claim a standalone deck-summary API parser or deck identity/submitted-deck truth."
+      ]
+    },
+    {
       "entry_id": "unknown_entry_drift_report_reference_v1",
       "entry_type": "diagnostics_report",
       "source_kind": "committed_count_only_report",

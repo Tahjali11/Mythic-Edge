@@ -581,6 +581,46 @@
       }
     },
     {
+      "session_id": "deck_summary_boundary_report_v1",
+      "title": "Deck summary boundary report",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/394",
+      "authorized_by_contract": "docs/contracts/parser_corpus_deck_summary_coverage.md",
+      "scenario_families": [
+        "deck_api.deck_summary"
+      ],
+      "format_family": "deck_api",
+      "match_shape": "deck_summary_boundary_report_only",
+      "record_summary": "committed_deck_summary_boundary_metadata_only",
+      "parser_coverage": {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "start_hook_deck_summaries_reference_entries": 1,
+        "dedicated_deck_summary_api_events": 0,
+        "dedicated_deck_summary_parser_routes": 0
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Deck summary boundary coverage records StartHook-bound report-only evidence and does not prove dedicated deck-summary API parsing, private deck contents, exact deck identity, submitted-deck truth, sideboard-delta truth, collection ownership truth, inventory/economy state, deck-upsert coverage, store/pack/inbox/crafting coverage, analytics truth, AI truth, coaching truth, release readiness, or production behavior."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "decklists_included": false,
+        "private_deck_names_included": false,
+        "private_collection_data_included": false
+      }
+    },
+    {
       "session_id": "unknown_entry_drift_report_reference_v1",
       "title": "Report-only unknown-entry drift evidence",
       "source_kind": "committed_count_only_report",
