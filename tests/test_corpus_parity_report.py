@@ -94,8 +94,8 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
     assert "report-only boundary" in manifest_metadata_boundary["review_notes"][0]
     feature_equity_baseline = _manifest_entry(manifest, "feature_equity_corpus_baseline_v1")
     assert "manifest.metadata" not in feature_equity_baseline["scenario_families"]
+    assert "mythic_edge.confidence_finality_degradation" not in feature_equity_baseline["scenario_families"]
     assert feature_equity_baseline["scenario_families"] == [
-        "mythic_edge.confidence_finality_degradation",
         "mythic_edge.workbook_row_coverage",
         "drift_debug.gsm_truncation",
     ]
@@ -669,6 +669,40 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
     assert "confidence/finality/degradation coverage" in evidence_ledger_provenance["known_gaps"][0]
     assert "committed, deterministic provenance metadata" in evidence_ledger_provenance["review_notes"][0]
     assert "does not prove parser correctness for every field" in evidence_ledger_provenance["review_notes"][0]
+    confidence_finality_degradation = _manifest_entry(
+        manifest, "confidence_finality_degradation_boundary_report_v1"
+    )
+    assert confidence_finality_degradation["coverage_status"] == "covered_report_only"
+    assert confidence_finality_degradation["scenario_families"] == [
+        "mythic_edge.confidence_finality_degradation"
+    ]
+    assert confidence_finality_degradation["parser_event_families"] == []
+    assert confidence_finality_degradation["parser_claim_families"] == [
+        "value_source_vocabulary",
+        "confidence_vocabulary",
+        "finality_vocabulary",
+        "degradation_vocabulary",
+        "drift_flag_vocabulary",
+        "invariant_status_vocabulary",
+        "review_required_policy",
+        "field_evidence_review_boundary",
+        "downstream_truth_non_claim",
+    ]
+    assert confidence_finality_degradation["coverage_basis"] == [
+        "evidence_ledger_only",
+        "fixture_metadata_only",
+    ]
+    assert "parser_behavior_verified" not in confidence_finality_degradation["coverage_basis"]
+    assert "count_ratchet_only" not in confidence_finality_degradation["coverage_basis"]
+    assert "parser correctness for every field" in confidence_finality_degradation["known_gaps"][0]
+    assert "universal runtime field-evidence attachment" in confidence_finality_degradation["known_gaps"][0]
+    assert "workbook row coverage" in confidence_finality_degradation["known_gaps"][0]
+    assert "analytics truth" in confidence_finality_degradation["known_gaps"][0]
+    assert "AI truth" in confidence_finality_degradation["known_gaps"][0]
+    assert "coaching truth" in confidence_finality_degradation["known_gaps"][0]
+    assert "without changing parser behavior" in confidence_finality_degradation["review_notes"][0]
+    assert "evidence-ledger behavior" in confidence_finality_degradation["review_notes"][0]
+    assert "runtime field-evidence behavior" in confidence_finality_degradation["review_notes"][0]
     assert _session_entry(session_ledger, "gsm_truncation_marker_synthetic_v1")["parser_coverage"] == {
         "event_families": {"Truncation": 1},
         "unknown_entries": 0,
@@ -1253,6 +1287,62 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
         "external_logs_included": False,
         "decklists_included": False,
     }
+    confidence_finality_session = _session_entry(
+        session_ledger, "confidence_finality_degradation_boundary_report_v1"
+    )
+    assert confidence_finality_session["format_family"] == "mythic_edge_provenance"
+    assert confidence_finality_session["match_shape"] == (
+        "confidence_finality_degradation_boundary_report_only"
+    )
+    assert confidence_finality_session["record_summary"] == (
+        "committed_confidence_finality_degradation_metadata_only"
+    )
+    assert confidence_finality_session["parser_coverage"] == {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "value_source_vocabulary": "available",
+        "confidence_vocabulary": "available",
+        "finality_vocabulary": "available",
+        "degradation_vocabulary": "available",
+        "drift_flag_vocabulary": "available",
+        "invariant_status_vocabulary": "available",
+        "review_required_policy": "available",
+        "representative_field_runtime_attachment_claims": 0,
+        "parser_behavior_claims": 0,
+        "workbook_row_claims": 0,
+        "analytics_truth_claims": 0,
+        "ai_truth_claims": 0,
+        "coaching_truth_claims": 0,
+    }
+    assert confidence_finality_session["game_rows"] == {"count": 0, "result_shape": "not_applicable"}
+    assert "raw field-evidence records" in confidence_finality_session["known_gaps"][0]
+    assert "parser correctness claims for every field" in confidence_finality_session["known_gaps"][0]
+    assert "universal runtime field-evidence attachment claims" in (
+        confidence_finality_session["known_gaps"][0]
+    )
+    assert "workbook row coverage" in confidence_finality_session["known_gaps"][0]
+    assert "analytics truth" in confidence_finality_session["known_gaps"][0]
+    assert "AI truth" in confidence_finality_session["known_gaps"][0]
+    assert "coaching truth" in confidence_finality_session["known_gaps"][0]
+    assert confidence_finality_session["report_only_redactions"] == {
+        "raw_log_lines_included": False,
+        "private_paths_included": False,
+        "raw_payloads_included": False,
+        "external_logs_included": False,
+        "raw_field_evidence_included": False,
+        "raw_invariant_reports_included": False,
+        "schema_snapshots_included": False,
+        "schema_drift_diffs_included": False,
+        "runtime_artifacts_included": False,
+        "workbook_exports_included": False,
+        "private_player_log_evidence_included": False,
+        "private_smoke_outputs_included": False,
+        "decklists_included": False,
+        "card_choices_included": False,
+        "strategy_notes_included": False,
+        "credentials_tokens_keys_webhooks_included": False,
+    }
     sealed_match_session = _session_entry(session_ledger, "sealed_match_synthetic_v1")
     assert sealed_match_session["format_family"] == "limited_sealed"
     assert sealed_match_session["match_shape"] == "sealed_match_single_game"
@@ -1531,8 +1621,8 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
         "total_scenario_families": len(corpus.SCENARIO_FAMILIES),
         "covered_committed": 6,
         "covered_synthetic": 14,
-        "covered_report_only": 16,
-        "partial": 2,
+        "covered_report_only": 17,
+        "partial": 1,
         "missing": 0,
         "deferred": 0,
         "blocked_private_evidence": 2,
@@ -1780,11 +1870,16 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     }
     assert _matrix_row(report, "mythic_edge.confidence_finality_degradation") == {
         "scenario_family": "mythic_edge.confidence_finality_degradation",
-        "coverage_status": "partial",
-        "coverage_basis": ["count_ratchet_only"],
-        "mythic_edge_entries": ["feature_equity_corpus_baseline_v1"],
+        "coverage_status": "covered_report_only",
+        "coverage_basis": ["evidence_ledger_only", "fixture_metadata_only"],
+        "mythic_edge_entries": ["confidence_finality_degradation_boundary_report_v1"],
         "external_reference_status": "reference_category_not_checked",
-        "notes": ["Committed count-only baseline summarizes existing golden replay manifests."],
+        "notes": [
+            "This boundary records committed metadata for value-source, confidence, finality, degradation, "
+            "drift flag, invariant-status, and review-required vocabulary without changing parser behavior, "
+            "evidence-ledger behavior, runtime field-evidence behavior, workbook/export behavior, analytics "
+            "behavior, AI behavior, readiness policy, or tracker lifecycle."
+        ],
     }
     assert _matrix_row(report, "mythic_edge.workbook_row_coverage") == {
         "scenario_family": "mythic_edge.workbook_row_coverage",

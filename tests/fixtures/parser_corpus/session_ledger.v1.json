@@ -1389,6 +1389,65 @@
         "external_logs_included": false,
         "decklists_included": false
       }
+    },
+    {
+      "session_id": "confidence_finality_degradation_boundary_report_v1",
+      "title": "Confidence / finality / degradation boundary report",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/430",
+      "authorized_by_contract": "docs/contracts/parser_corpus_confidence_finality_degradation_residual.md",
+      "scenario_families": [
+        "mythic_edge.confidence_finality_degradation"
+      ],
+      "format_family": "mythic_edge_provenance",
+      "match_shape": "confidence_finality_degradation_boundary_report_only",
+      "record_summary": "committed_confidence_finality_degradation_metadata_only",
+      "parser_coverage": {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "value_source_vocabulary": "available",
+        "confidence_vocabulary": "available",
+        "finality_vocabulary": "available",
+        "degradation_vocabulary": "available",
+        "drift_flag_vocabulary": "available",
+        "invariant_status_vocabulary": "available",
+        "review_required_policy": "available",
+        "representative_field_runtime_attachment_claims": 0,
+        "parser_behavior_claims": 0,
+        "workbook_row_claims": 0,
+        "analytics_truth_claims": 0,
+        "ai_truth_claims": 0,
+        "coaching_truth_claims": 0
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Confidence/finality/degradation boundary metadata does not include raw field-evidence records, raw invariant reports, full schema snapshots, full drift diffs, runtime artifacts, workbook exports, private Player.log evidence, parser correctness claims for every field, universal runtime field-evidence attachment claims, workbook row coverage, release readiness, analytics truth, AI truth, coaching truth, production behavior, or tracker completion."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "raw_field_evidence_included": false,
+        "raw_invariant_reports_included": false,
+        "schema_snapshots_included": false,
+        "schema_drift_diffs_included": false,
+        "runtime_artifacts_included": false,
+        "workbook_exports_included": false,
+        "private_player_log_evidence_included": false,
+        "private_smoke_outputs_included": false,
+        "decklists_included": false,
+        "card_choices_included": false,
+        "strategy_notes_included": false,
+        "credentials_tokens_keys_webhooks_included": false
+      }
     }
   ]
 }
