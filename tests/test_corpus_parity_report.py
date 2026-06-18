@@ -46,6 +46,26 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
     assert corpus.validate_session_ledger(session_ledger) == []
     assert [family["family_id"] for family in manifest["taxonomy"]["families"]] == list(corpus.SCENARIO_FAMILIES)
     assert _manifest_entry(manifest, "gsm_truncation_marker_synthetic_v1")["coverage_status"] == "covered_synthetic"
+    draft_with_games_boundary = _manifest_entry(manifest, "draft_with_games_boundary_report_v1")
+    assert draft_with_games_boundary["coverage_status"] == "covered_report_only"
+    assert draft_with_games_boundary["scenario_families"] == ["core_gameplay.draft_with_games"]
+    assert draft_with_games_boundary["parser_event_families"] == []
+    assert draft_with_games_boundary["parser_claim_families"] == [
+        "draft_with_games_boundary_report",
+        "draft_only_reference_only",
+        "draft_parser_family_not_completed_games",
+        "limited_game_result_evidence_not_claimed",
+        "draft_privacy_boundary",
+    ]
+    assert draft_with_games_boundary["coverage_basis"] == ["fixture_metadata_only"]
+    assert "parser_behavior_verified" not in draft_with_games_boundary["coverage_basis"]
+    assert "draft-only" in draft_with_games_boundary["known_gaps"][0]
+    assert "completed limited gameplay" in draft_with_games_boundary["known_gaps"][0]
+    assert "game-result evidence" in draft_with_games_boundary["known_gaps"][0]
+    assert "draft deck construction" in draft_with_games_boundary["known_gaps"][0]
+    assert "intentionally report-only" in draft_with_games_boundary["review_notes"][0]
+    assert "synthetic GameState anchor" in draft_with_games_boundary["review_notes"][0]
+    assert "not draft-with-games evidence" in draft_with_games_boundary["review_notes"][0]
     sealed_entry = _manifest_entry(manifest, "sealed_entry_lifecycle_synthetic_v1")
     assert sealed_entry["coverage_status"] == "covered_synthetic"
     assert sealed_entry["scenario_families"] == ["core_gameplay.sealed_entry"]
@@ -665,6 +685,38 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
         "external_logs_included": False,
         "decklists_included": False,
     }
+    draft_with_games_session = _session_entry(session_ledger, "draft_with_games_boundary_report_v1")
+    assert draft_with_games_session["format_family"] == "limited_draft"
+    assert draft_with_games_session["match_shape"] == "draft_with_games_boundary_report_only"
+    assert draft_with_games_session["record_summary"] == "committed_draft_with_games_boundary_metadata_only"
+    assert draft_with_games_session["parser_coverage"] == {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "draft_only_reference_entries": 1,
+        "draft_parser_family_reference_entries": 1,
+        "completed_draft_game_rows": 0,
+        "game_result_events": 0,
+        "match_result_events": 0,
+        "dedicated_draft_with_games_fixtures": 0,
+    }
+    assert draft_with_games_session["game_rows"] == {"count": 0, "result_shape": "not_applicable"}
+    assert "report-only metadata" in draft_with_games_session["known_gaps"][0]
+    assert "completed limited gameplay" in draft_with_games_session["known_gaps"][0]
+    assert "game-result evidence" in draft_with_games_session["known_gaps"][0]
+    assert "draft deck construction" in draft_with_games_session["known_gaps"][0]
+    assert draft_with_games_session["report_only_redactions"] == {
+        "raw_log_lines_included": False,
+        "private_paths_included": False,
+        "raw_payloads_included": False,
+        "external_logs_included": False,
+        "draft_picks_included": False,
+        "draft_pools_included": False,
+        "decklists_included": False,
+        "private_deck_names_included": False,
+        "card_choices_included": False,
+        "strategy_notes_included": False,
+    }
 
 
 def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None:
@@ -679,9 +731,9 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
         "total_scenario_families": len(corpus.SCENARIO_FAMILIES),
         "covered_committed": 6,
         "covered_synthetic": 13,
-        "covered_report_only": 5,
+        "covered_report_only": 6,
         "partial": 3,
-        "missing": len(corpus.SCENARIO_FAMILIES) - 33,
+        "missing": len(corpus.SCENARIO_FAMILIES) - 34,
         "deferred": 0,
         "blocked_private_evidence": 0,
         "blocked_external_boundary": 6,
@@ -695,7 +747,27 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
         "external_reference_status": "reference_category_not_checked",
         "notes": [],
     }
-    assert _matrix_row(report, "core_gameplay.draft_only")["coverage_status"] == "covered_synthetic"
+    assert _matrix_row(report, "core_gameplay.draft_only") == {
+        "scenario_family": "core_gameplay.draft_only",
+        "coverage_status": "covered_synthetic",
+        "coverage_basis": ["fixture_metadata_only", "parser_behavior_verified"],
+        "mythic_edge_entries": ["draft_parser_family"],
+        "external_reference_status": "reference_category_not_checked",
+        "notes": ["Synthetic draft parser-family slice covers draft events but not full limited match play."],
+    }
+    assert _matrix_row(report, "core_gameplay.draft_with_games") == {
+        "scenario_family": "core_gameplay.draft_with_games",
+        "coverage_status": "covered_report_only",
+        "coverage_basis": ["fixture_metadata_only"],
+        "mythic_edge_entries": ["draft_with_games_boundary_report_v1"],
+        "external_reference_status": "reference_category_not_checked",
+        "notes": [
+            "The draft-with-games row is intentionally report-only and prevents false parity claims by "
+            "documenting why the current draft-only fixture and synthetic GameState anchor are not "
+            "draft-with-games evidence; future dedicated coverage remains blocked until Mythic Edge has "
+            "owned, sanitized, parser-supported evidence for a completed draft session with games and results."
+        ],
+    }
     gsm_row = _matrix_row(report, "drift_debug.gsm_truncation")
     assert gsm_row["coverage_status"] == "covered_synthetic"
     assert gsm_row["coverage_status"] != "covered_committed"
