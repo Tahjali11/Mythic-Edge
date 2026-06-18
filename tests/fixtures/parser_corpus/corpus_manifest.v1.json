@@ -675,6 +675,43 @@
       ]
     },
     {
+      "entry_id": "deck_upsert_boundary_report_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/396",
+      "authorized_by_contract": "docs/contracts/parser_corpus_deck_upsert_coverage.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "event_set_deck_reference": "tests/fixtures/golden_replay/bo1_match_win_basic.manifest.json",
+        "client_actions_test": "tests/test_client_actions_parser.py",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py"
+      },
+      "scenario_families": [
+        "deck_api.deck_upsert"
+      ],
+      "parser_event_families": [],
+      "parser_claim_families": [
+        "deck_upsert_boundary_report",
+        "event_set_deck_reference_only",
+        "submit_deck_reference_only",
+        "dedicated_deck_upsert_api_not_claimed",
+        "deck_upsert_privacy_boundary"
+      ],
+      "coverage_status": "covered_report_only",
+      "coverage_basis": [
+        "fixture_metadata_only"
+      ],
+      "known_gaps": [
+        "Deck-upsert coverage is report-only boundary metadata: Mythic Edge has event-set deck coverage, deck-summary boundary coverage, and submit-deck parser/provenance surfaces, but none of those prove dedicated deck-upsert API parser support, private deck contents, exact deck identity, active-deck identity, submitted-deck truth beyond existing parser-owned fields, sideboard-delta truth, decklist completion, collection ownership, inventory/economy state, analytics truth, AI truth, coaching truth, release readiness, or production behavior."
+      ],
+      "review_notes": [
+        "The deck-upsert row is intentionally report-only and prevents false parity claims by documenting why nearby event-set, deck-summary, StartHook, submit-deck, and submitted-deck-card evidence is not deck-upsert evidence; future dedicated deck-upsert fixture work remains blocked until Mythic Edge has owned, sanitized, parser-supported evidence."
+      ]
+    },
+    {
       "entry_id": "unknown_entry_drift_report_reference_v1",
       "entry_type": "diagnostics_report",
       "source_kind": "committed_count_only_report",
