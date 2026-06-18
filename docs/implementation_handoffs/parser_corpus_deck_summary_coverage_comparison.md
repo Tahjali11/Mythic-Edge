@@ -1,0 +1,370 @@
+# Parser Corpus Deck Summary Coverage Implementation Handoff
+
+## Issue
+
+https://github.com/Tahjali11/Mythic-Edge/issues/394
+
+## Tracker
+
+https://github.com/Tahjali11/Mythic-Edge/issues/158
+
+## Contract
+
+`docs/contracts/parser_corpus_deck_summary_coverage.md`
+
+## Role Performed
+
+Codex C: Module Implementer
+
+## Verdict
+
+`deck_summary_report_only_boundary_ready_for_review`
+
+## Files Changed
+
+- `tests/fixtures/parser_corpus/corpus_manifest.v1.json`
+  - Added `deck_summary_boundary_report_v1`.
+- `tests/fixtures/parser_corpus/session_ledger.v1.json`
+  - Added matching report-only deck-summary boundary metadata.
+- `tests/test_corpus_parity_report.py`
+  - Updated report-only/missing summary counts.
+  - Added focused checks for manifest/session shape, empty parser event
+    families, `fixture_metadata_only` basis, deck-summary non-claims, and
+    adjacent deck API rows.
+- `docs/contract_test_reports/parser_corpus_deck_summary_coverage.md`
+  - New Codex C evidence report.
+- `docs/implementation_handoffs/parser_corpus_deck_summary_coverage_comparison.md`
+  - New implementation handoff.
+
+The Codex B contract was present as an untracked source artifact:
+
+- `docs/contracts/parser_corpus_deck_summary_coverage.md`
+
+No parser source, parser tests, StartHook parser behavior, parser event
+classes, router semantics, parser state final reconciliation, diagnostics
+source, golden replay source, feature-equity source, evidence-ledger source,
+runtime source, workbook export, generated/private artifact, raw fixture,
+private log, private decklist, private deck name, private collection data, or
+external corpus content was added or changed.
+
+## Pre-Change Comparison
+
+Before editing, the repo-owned corpus parity report showed:
+
+- status: `partial_coverage_map_ready`
+- covered_committed: 6
+- covered_synthetic: 13
+- covered_report_only: 2
+- partial: 3
+- missing: 15
+- `deck_api.start_hook_deck_snapshot`: `covered_synthetic`
+- `deck_api.deck_summary`: `missing`
+- `deck_api.deck_upsert`: `missing`
+- `deck_api.event_set_deck`: `covered_committed`
+- `deck_api.store_pack_inbox_or_crafting`: `missing`
+
+This matched the contract's expected starting state after issue #392.
+
+Repo search found StartHook `DeckSummaries` handling in
+`src/mythic_edge_parser/parsers/collection.py` and focused tests, but no
+dedicated standalone deck-summary parser surface.
+
+## Contract Changes Implemented
+
+Implemented exactly one authorized coverage movement:
+
+| Scenario family | Before | After |
+| --- | --- | --- |
+| `deck_api.deck_summary` | `missing` | `covered_report_only` |
+
+Preserved the required adjacent deck API boundary:
+
+- `deck_api.start_hook_deck_snapshot` remains `covered_synthetic` through
+  `start_hook_deck_snapshot_synthetic_v1`.
+- `deck_api.deck_upsert` remains `missing`.
+- `deck_api.event_set_deck` remains `covered_committed` through
+  `bo1_match_win_basic`.
+- `deck_api.store_pack_inbox_or_crafting` remains `missing`.
+
+Added the required report-only metadata:
+
+- entry id: `deck_summary_boundary_report_v1`
+- session id: `deck_summary_boundary_report_v1`
+- source kind: `committed_count_only_report`
+- privacy class: `committed_count_only`
+- sanitization status: `not_applicable_count_only`
+- parser event families: none
+- parser claim families:
+  - `deck_summary_boundary_report`
+  - `start_hook_deck_summaries_reference_only`
+  - `dedicated_deck_summary_api_not_claimed`
+  - `deck_summary_privacy_boundary`
+- coverage basis:
+  - `fixture_metadata_only`
+
+The coverage row intentionally does not use `parser_behavior_verified`,
+`diagnostics_only`, `evidence_ledger_only`, `count_ratchet_only`, or
+`external_reference_only`.
+
+## Focused Test Coverage
+
+`tests/test_corpus_parity_report.py` now pins:
+
+- manifest validation and session-ledger validation;
+- the `deck_summary_boundary_report_v1` manifest entry shape;
+- `parser_event_families: []`;
+- exact `covered_report_only` status and `fixture_metadata_only` basis;
+- absence of `parser_behavior_verified` from the deck-summary boundary row;
+- required known-gap and review-note non-claims;
+- session-ledger parser coverage counts:
+  - `event_families: {}`
+  - `unknown_entries: 0`
+  - `truncation_count: 0`
+  - `start_hook_deck_summaries_reference_entries: 1`
+  - `dedicated_deck_summary_api_events: 0`
+  - `dedicated_deck_summary_parser_routes: 0`
+- game-row non-applicability;
+- privacy redaction flags, including no decklists, private deck names, or
+  private collection data;
+- report summary movement from 2 to 3 report-only families and 15 to 14
+  missing families;
+- the exact `deck_api.deck_summary` matrix row;
+- unchanged adjacent `deck_api.start_hook_deck_snapshot`,
+  `deck_api.deck_upsert`, `deck_api.event_set_deck`, and
+  `deck_api.store_pack_inbox_or_crafting` rows.
+
+## Contract Mismatches
+
+No blocking mismatches were found.
+
+The selected report-only boundary path was viable without parser behavior or
+parser test changes.
+
+## Missing Safeguards
+
+No additional safeguard implementation was needed for this slice.
+
+Future coverage for a dedicated deck-summary API parser, deck-upsert behavior,
+store/pack/inbox/crafting behavior, private deck contents, exact deck
+identity, submitted-deck truth, sideboard deltas, inventory/economy state,
+diagnostics readiness, release readiness, analytics truth, AI truth, coaching
+truth, or production behavior needs separate contract authority.
+
+## Missing Or Weak Tests
+
+No missing focused tests remain for the contract-required report-only metadata
+and boundary assertions.
+
+This package does not add parser behavior tests, private smoke, live log,
+diagnostics, analytics, release, or production tests because those claims are
+outside the contract.
+
+## Validation Run
+
+```bash
+PYTHONPATH=src python3 -m pytest -q tests/test_corpus_parity_report.py
+```
+
+- passed: 7 passed
+
+```bash
+PYTHONPATH=src python3 -m mythic_edge_parser.app.corpus_parity_report tests/fixtures/parser_corpus/corpus_manifest.v1.json --session-ledger tests/fixtures/parser_corpus/session_ledger.v1.json
+```
+
+- passed: `Corpus parity report: partial_coverage_map_ready (45 families, 6 committed, 14 missing)`
+
+Direct report-row inspection confirmed:
+
+- `deck_api.start_hook_deck_snapshot`: `covered_synthetic` with
+  `start_hook_deck_snapshot_synthetic_v1`;
+- `deck_api.deck_summary`: `covered_report_only` with
+  `deck_summary_boundary_report_v1`;
+- `deck_api.deck_upsert`: `missing`;
+- `deck_api.event_set_deck`: `covered_committed` with `bo1_match_win_basic`;
+- `deck_api.store_pack_inbox_or_crafting`: `missing`.
+
+```bash
+PYTHONPATH=src python3 -m pytest -q tests/test_collection_parser.py
+```
+
+- passed: 8 passed
+
+```bash
+PYTHONPATH=src python3 -m ruff check src tests
+```
+
+- passed: all checks passed
+
+```bash
+PYTHONPATH=src python3 -m ruff check src tests tools
+```
+
+- passed: all checks passed
+
+```bash
+git diff --check
+```
+
+- passed with no output
+
+Untracked-source/report whitespace checks:
+
+```bash
+git diff --no-index --check /dev/null docs/contracts/parser_corpus_deck_summary_coverage.md
+git diff --no-index --check /dev/null docs/implementation_handoffs/parser_corpus_deck_summary_coverage_comparison.md
+git diff --no-index --check /dev/null docs/contract_test_reports/parser_corpus_deck_summary_coverage.md
+```
+
+- passed with no output
+
+```bash
+python3 tools/check_agent_docs.py
+```
+
+- passed: checked files 32, errors 0, warnings 0
+
+Changed-package path-scoped checks included the untracked Codex B source
+contract and the Codex C handoff/report:
+
+```bash
+printf '%s\n' docs/contracts/parser_corpus_deck_summary_coverage.md tests/fixtures/parser_corpus/corpus_manifest.v1.json tests/fixtures/parser_corpus/session_ledger.v1.json tests/test_corpus_parity_report.py docs/implementation_handoffs/parser_corpus_deck_summary_coverage_comparison.md docs/contract_test_reports/parser_corpus_deck_summary_coverage.md | python3 tools/check_secret_patterns.py --base origin/codex/parser-parity --paths-from-stdin
+```
+
+- passed: scanned paths 6, forbidden 0, warnings 0
+
+```bash
+printf '%s\n' docs/contracts/parser_corpus_deck_summary_coverage.md tests/fixtures/parser_corpus/corpus_manifest.v1.json tests/fixtures/parser_corpus/session_ledger.v1.json tests/test_corpus_parity_report.py docs/implementation_handoffs/parser_corpus_deck_summary_coverage_comparison.md docs/contract_test_reports/parser_corpus_deck_summary_coverage.md | python3 tools/check_protected_surfaces.py --base origin/codex/parser-parity --paths-from-stdin
+```
+
+- passed: changed paths 6, forbidden 0, warnings 0
+
+```bash
+printf '%s\n' docs/contracts/parser_corpus_deck_summary_coverage.md tests/fixtures/parser_corpus/corpus_manifest.v1.json tests/fixtures/parser_corpus/session_ledger.v1.json tests/test_corpus_parity_report.py docs/implementation_handoffs/parser_corpus_deck_summary_coverage_comparison.md docs/contract_test_reports/parser_corpus_deck_summary_coverage.md | python3 tools/select_validation.py --base origin/codex/parser-parity --paths-from-stdin
+```
+
+- passed: `selection_status: ok`
+
+```bash
+LC_ALL=C rg -n '[^[:ascii:]]' docs/contracts/parser_corpus_deck_summary_coverage.md tests/fixtures/parser_corpus/corpus_manifest.v1.json tests/fixtures/parser_corpus/session_ledger.v1.json tests/test_corpus_parity_report.py docs/implementation_handoffs/parser_corpus_deck_summary_coverage_comparison.md docs/contract_test_reports/parser_corpus_deck_summary_coverage.md
+```
+
+- passed: no non-ASCII matches
+
+```bash
+find . \( -name '*.sqlite' -o -name '*.sqlite3' -o -name '*.db' -o -name '*.db-wal' -o -name '*.db-shm' -o -name '*.sqlite-wal' -o -name '*.sqlite-shm' \) -print
+```
+
+- passed: no generated SQLite artifacts found
+
+## Open Risks
+
+- This is report-only boundary coverage. It does not prove a standalone
+  deck-summary API parser or live private deck-summary payload diversity.
+- It does not cover private deck contents, private deck names, exact deck
+  identity, submitted-deck truth, active-deck truth, sideboard-delta truth,
+  collection ownership truth, inventory/economy state, deck-upsert behavior,
+  store/pack/inbox/crafting behavior, hidden-card inference, decklist
+  completion, archetype classification, gameplay advice, player-mistake
+  labels, diagnostics readiness, analytics truth, AI truth, coaching truth,
+  release readiness, production behavior, or tracker #158 completion.
+- Future dedicated deck-summary parser evidence may require a separate issue
+  and contract before this family can be promoted to `covered_synthetic`.
+- External Manasight metadata remains taxonomy/category context only and was
+  not imported, copied, mirrored, or committed.
+
+## Next Recommended Role
+
+Codex E: Module Reviewer.
+
+## Pasteable Codex E Prompt
+
+```yaml
+prompt: |
+  Use the Mythic Edge agent constitution.
+  Use $mythic-edge-workflow.
+
+  Act as Codex E: Module Reviewer for issue #394, Deck summary corpus evidence boundary under tracker #158.
+
+  Context:
+    - Tracker: https://github.com/Tahjali11/Mythic-Edge/issues/158
+    - Issue: https://github.com/Tahjali11/Mythic-Edge/issues/394
+    - Previous issue: https://github.com/Tahjali11/Mythic-Edge/issues/392
+    - Previous PR: https://github.com/Tahjali11/Mythic-Edge/pull/393
+    - Previous merge commit: 4658ae79cd861309b795f4be71912f65cf444bbd
+    - Branch: codex/parser-corpus-deck-summary-coverage
+    - Base branch: codex/parser-parity
+    - Contract: docs/contracts/parser_corpus_deck_summary_coverage.md
+    - Implementation handoff: docs/implementation_handoffs/parser_corpus_deck_summary_coverage_comparison.md
+    - Contract test report: docs/contract_test_reports/parser_corpus_deck_summary_coverage.md
+
+  Goal:
+    Review the #394 implementation against the contract, focused diff, and validation evidence. Do not implement fixes.
+
+  Review focus:
+    - Confirm only deck_api.deck_summary moved from missing to covered_report_only.
+    - Confirm coverage_basis is exactly fixture_metadata_only and parser_event_families is empty.
+    - Confirm parser_behavior_verified is not used for the deck-summary boundary row.
+    - Confirm deck_api.start_hook_deck_snapshot remains covered_synthetic through start_hook_deck_snapshot_synthetic_v1.
+    - Confirm deck_api.deck_upsert and deck_api.store_pack_inbox_or_crafting remain missing.
+    - Confirm deck_api.event_set_deck remains covered_committed through bo1_match_win_basic.
+    - Confirm no parser source, parser tests, StartHook behavior, runtime behavior, workbook/webhook/App Script behavior, diagnostics, golden replay, feature-equity, evidence-ledger, analytics, AI/coaching behavior, generated/private artifact, raw Player.log excerpt, private decklist, private deck name, or external corpus content changed.
+    - Confirm the handoff/report state the report-only boundary and non-claims clearly.
+
+  Validation to inspect or rerun:
+    - PYTHONPATH=src python3 -m pytest -q tests/test_corpus_parity_report.py
+    - PYTHONPATH=src python3 -m pytest -q tests/test_collection_parser.py
+    - PYTHONPATH=src python3 -m mythic_edge_parser.app.corpus_parity_report tests/fixtures/parser_corpus/corpus_manifest.v1.json --session-ledger tests/fixtures/parser_corpus/session_ledger.v1.json
+    - PYTHONPATH=src python3 -m ruff check src tests
+    - git diff --check
+    - python3 tools/check_agent_docs.py
+    - path-scoped secret/private-marker scan over the #394 package
+    - path-scoped protected-surface gate over the #394 package
+    - path-scoped validation selector over the #394 package
+
+  Do not:
+    - Implement fixes.
+    - Target main directly.
+    - Close #394 or tracker #158.
+    - Promote deck_api.deck_summary to covered_synthetic.
+    - Claim a standalone deck-summary API parser.
+    - Broaden coverage to deck upsert, store/pack/inbox/crafting, inventory/economy, analytics, AI, coaching, release, or production behavior.
+    - Change parser behavior or protected parser/runtime/workbook/webhook/App Script/output surfaces.
+    - Commit raw private Player.log excerpts, private decklists, private deck names, generated/private/runtime artifacts, or external corpus content.
+
+workflow_handoff:
+  issue: "https://github.com/Tahjali11/Mythic-Edge/issues/394"
+  tracker: "https://github.com/Tahjali11/Mythic-Edge/issues/158"
+  previous_issue: "https://github.com/Tahjali11/Mythic-Edge/issues/392"
+  previous_pr: "https://github.com/Tahjali11/Mythic-Edge/pull/393"
+  previous_merge_commit: "4658ae79cd861309b795f4be71912f65cf444bbd"
+  completed_thread: "C"
+  next_thread: "E"
+  source_artifact: "docs/implementation_handoffs/parser_corpus_deck_summary_coverage_comparison.md"
+  target_artifact: "docs/contract_test_reports/parser_corpus_deck_summary_coverage.md"
+  verdict: "deck_summary_report_only_boundary_ready_for_review"
+  risk_tier: "High"
+  branch: "codex/parser-corpus-deck-summary-coverage"
+  base_branch: "codex/parser-parity"
+  selected_path: "covered_report_only_boundary"
+```
+
+## Workflow Handoff
+
+```yaml
+workflow_handoff:
+  issue: "https://github.com/Tahjali11/Mythic-Edge/issues/394"
+  tracker: "https://github.com/Tahjali11/Mythic-Edge/issues/158"
+  previous_issue: "https://github.com/Tahjali11/Mythic-Edge/issues/392"
+  previous_pr: "https://github.com/Tahjali11/Mythic-Edge/pull/393"
+  previous_merge_commit: "4658ae79cd861309b795f4be71912f65cf444bbd"
+  completed_thread: "C"
+  next_thread: "E"
+  source_artifact: "docs/contracts/parser_corpus_deck_summary_coverage.md"
+  target_artifact: "docs/implementation_handoffs/parser_corpus_deck_summary_coverage_comparison.md"
+  expected_report: "docs/contract_test_reports/parser_corpus_deck_summary_coverage.md"
+  verdict: "deck_summary_report_only_boundary_ready_for_review"
+  risk_tier: "High"
+  branch: "codex/parser-corpus-deck-summary-coverage"
+  base_branch: "codex/parser-parity"
+  selected_path: "covered_report_only_boundary"
+```
