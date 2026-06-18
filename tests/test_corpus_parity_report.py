@@ -463,6 +463,36 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
     assert "GSM truncation coverage" in missing_message_type["review_notes"][0]
     assert "generic client-action fallback" in missing_message_type["review_notes"][0]
     assert "do not prove parser message recovery" in missing_message_type["review_notes"][0]
+    rename_rotation_collision = _manifest_entry(
+        manifest,
+        "rename_rotation_collision_boundary_report_v1",
+    )
+    assert rename_rotation_collision["coverage_status"] == "covered_report_only"
+    assert rename_rotation_collision["scenario_families"] == [
+        "drift_debug.rename_or_rotation_collision"
+    ]
+    assert rename_rotation_collision["parser_event_families"] == []
+    assert rename_rotation_collision["parser_claim_families"] == [
+        "rename_rotation_collision_boundary_report",
+        "tailer_rotation_not_collision_truth",
+        "log_runtime_rotation_not_collision_truth",
+        "recycle_or_rollback_not_collision_truth",
+        "unknown_entry_not_collision_truth",
+        "timestamp_anomaly_not_collision_truth",
+        "missing_message_type_not_collision_truth",
+        "file_system_truth_non_claim",
+        "duplicate_replay_prevention_non_claim",
+    ]
+    assert rename_rotation_collision["coverage_basis"] == ["fixture_metadata_only"]
+    assert "report-only boundary metadata" in rename_rotation_collision["known_gaps"][0]
+    assert "do not prove rename/rotation collision parser support" in (
+        rename_rotation_collision["known_gaps"][0]
+    )
+    assert "live file-system truth" in rename_rotation_collision["known_gaps"][0]
+    assert "duplicate/replay prevention" in rename_rotation_collision["known_gaps"][0]
+    assert "tailer/stream rotation signals" in rename_rotation_collision["review_notes"][0]
+    assert "recycle/rollback boundaries" in rename_rotation_collision["review_notes"][0]
+    assert "do not prove live file-system truth" in rename_rotation_collision["review_notes"][0]
     evidence_ledger_provenance = _manifest_entry(manifest, "evidence_ledger_provenance_report_reference_v1")
     assert evidence_ledger_provenance["coverage_status"] == "covered_report_only"
     assert evidence_ledger_provenance["scenario_families"] == ["mythic_edge.evidence_ledger_provenance"]
@@ -828,6 +858,54 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
         "strategy_notes_included": False,
         "credentials_tokens_keys_webhooks_included": False,
     }
+    rename_rotation_session = _session_entry(session_ledger, "rename_rotation_collision_boundary_report_v1")
+    assert rename_rotation_session["format_family"] == "drift_debug"
+    assert rename_rotation_session["match_shape"] == "rename_rotation_collision_boundary_report_only"
+    assert rename_rotation_session["record_summary"] == (
+        "committed_rename_rotation_collision_boundary_metadata_only"
+    )
+    assert rename_rotation_session["parser_coverage"] == {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "tailer_rotation_reference_entries": 1,
+        "stream_rotation_event_reference_entries": 1,
+        "log_drift_reference_entries": 1,
+        "diagnostics_reference_entries": 1,
+        "golden_replay_reference_entries": 1,
+        "feature_equity_reference_entries": 1,
+        "dedicated_rename_rotation_collision_fixtures": 0,
+        "file_identity_tracking_claims": 0,
+        "rename_collision_detection_claims": 0,
+        "recycle_collision_detection_claims": 0,
+        "duplicate_replay_prevention_claims": 0,
+        "private_smoke_success_claims": 0,
+        "production_watcher_support_claims": 0,
+    }
+    assert rename_rotation_session["game_rows"] == {"count": 0, "result_shape": "not_applicable"}
+    assert "does not include a dedicated rename/rotation collision fixture" in (
+        rename_rotation_session["known_gaps"][0]
+    )
+    assert "file identity tracking claim" in rename_rotation_session["known_gaps"][0]
+    assert "duplicate/replay prevention claim" in rename_rotation_session["known_gaps"][0]
+    assert "production watcher support claim" in rename_rotation_session["known_gaps"][0]
+    assert rename_rotation_session["report_only_redactions"] == {
+        "raw_log_lines_included": False,
+        "private_paths_included": False,
+        "raw_payloads_included": False,
+        "external_logs_included": False,
+        "file_path_identities_included": False,
+        "file_hashes_included": False,
+        "byte_size_lists_included": False,
+        "capture_date_rows_included": False,
+        "private_smoke_outputs_included": False,
+        "generated_private_runtime_artifacts_included": False,
+        "sqlite_files_included": False,
+        "workbook_exports_included": False,
+        "decklists_included": False,
+        "card_choices_included": False,
+        "credentials_tokens_keys_webhooks_included": False,
+    }
     evidence_ledger_session = _session_entry(session_ledger, "evidence_ledger_provenance_report_reference_v1")
     assert evidence_ledger_session["format_family"] == "mythic_edge_provenance"
     assert evidence_ledger_session["match_shape"] == "evidence_ledger_report_reference_only"
@@ -1135,9 +1213,9 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
         "total_scenario_families": len(corpus.SCENARIO_FAMILIES),
         "covered_committed": 6,
         "covered_synthetic": 14,
-        "covered_report_only": 11,
+        "covered_report_only": 12,
         "partial": 3,
-        "missing": len(corpus.SCENARIO_FAMILIES) - 40,
+        "missing": len(corpus.SCENARIO_FAMILIES) - 41,
         "deferred": 0,
         "blocked_private_evidence": 1,
         "blocked_external_boundary": 5,
@@ -1233,7 +1311,16 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
             "AI truth, coaching truth, or production behavior."
         ],
     }
-    assert _matrix_row(report, "log_runtime.rotation")["coverage_status"] == "blocked_external_boundary"
+    assert _matrix_row(report, "log_runtime.rotation") == {
+        "scenario_family": "log_runtime.rotation",
+        "coverage_status": "blocked_external_boundary",
+        "coverage_basis": ["external_reference_only"],
+        "mythic_edge_entries": ["external_reference_category_boundary"],
+        "external_reference_status": "reference_category_not_checked",
+        "notes": [
+            "Reference categories require future Mythic Edge fixtures or report-only evidence before support claims."
+        ],
+    }
     assert _matrix_row(report, "log_runtime.malformed_or_headerless") == {
         "scenario_family": "log_runtime.malformed_or_headerless",
         "coverage_status": "covered_synthetic",
@@ -1287,6 +1374,40 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
             "truth, GameState reconstruction, unknown future MTGA message support, release readiness, "
             "production behavior, analytics truth, AI truth, coaching truth, or full corpus parity."
         ],
+    }
+    assert _matrix_row(report, "drift_debug.rename_or_rotation_collision") == {
+        "scenario_family": "drift_debug.rename_or_rotation_collision",
+        "coverage_status": "covered_report_only",
+        "coverage_basis": ["fixture_metadata_only"],
+        "mythic_edge_entries": ["rename_rotation_collision_boundary_report_v1"],
+        "external_reference_status": "reference_category_not_checked",
+        "notes": [
+            "Rename/rotation collision coverage is report-only boundary metadata: tailer/stream rotation "
+            "signals, log-runtime rotation boundaries, recycle/rollback boundaries, unknown-entry "
+            "reporting, timestamp anomaly reporting, missing-message-type coverage, diagnostics, log-drift "
+            "reports, golden replay, feature-equity, corpus parity metadata, and public taxonomy metadata "
+            "do not prove live file-system truth, rename/recycle collision handling, duplicate/replay "
+            "prevention, private smoke success, parser drift recovery truth, release readiness, production "
+            "behavior, analytics truth, AI truth, coaching truth, or full corpus parity."
+        ],
+    }
+    assert _matrix_row(report, "drift_debug.recycle_or_rollback") == {
+        "scenario_family": "drift_debug.recycle_or_rollback",
+        "coverage_status": "blocked_external_boundary",
+        "coverage_basis": ["external_reference_only"],
+        "mythic_edge_entries": ["external_reference_category_boundary"],
+        "external_reference_status": "reference_category_not_checked",
+        "notes": [
+            "Reference categories require future Mythic Edge fixtures or report-only evidence before support claims."
+        ],
+    }
+    assert _matrix_row(report, "drift_debug.phantom_or_deck_origin") == {
+        "scenario_family": "drift_debug.phantom_or_deck_origin",
+        "coverage_status": "missing",
+        "coverage_basis": ["external_reference_only"],
+        "mythic_edge_entries": [],
+        "external_reference_status": "reference_category_not_checked",
+        "notes": [],
     }
     assert _matrix_row(report, "mythic_edge.private_log_report_only_drift") == {
         "scenario_family": "mythic_edge.private_log_report_only_drift",
