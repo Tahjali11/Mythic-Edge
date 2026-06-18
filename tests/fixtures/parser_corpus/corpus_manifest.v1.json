@@ -127,6 +127,78 @@
       ]
     },
     {
+      "entry_id": "draft_with_games_boundary_report_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/400",
+      "authorized_by_contract": "docs/contracts/parser_corpus_draft_with_games_coverage.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "golden_replay_manifest": "tests/fixtures/golden_replay/draft_parser_family.manifest.json",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py"
+      },
+      "scenario_families": [
+        "core_gameplay.draft_with_games"
+      ],
+      "parser_event_families": [],
+      "parser_claim_families": [
+        "draft_with_games_boundary_report",
+        "draft_only_reference_only",
+        "draft_parser_family_not_completed_games",
+        "limited_game_result_evidence_not_claimed",
+        "draft_privacy_boundary"
+      ],
+      "coverage_status": "covered_report_only",
+      "coverage_basis": [
+        "fixture_metadata_only"
+      ],
+      "known_gaps": [
+        "Draft-with-games coverage is report-only boundary metadata: Mythic Edge has synthetic draft parser-family coverage for DraftBot, DraftHuman, and DraftComplete, but that coverage is draft-only and does not prove completed limited gameplay, game-result evidence, match-result evidence, game rows, draft deck construction, draft picks as strategy evidence, analytics truth, AI truth, coaching truth, release readiness, or production behavior."
+      ],
+      "review_notes": [
+        "The draft-with-games row is intentionally report-only and prevents false parity claims by documenting why the current draft-only fixture and synthetic GameState anchor are not draft-with-games evidence; future dedicated coverage remains blocked until Mythic Edge has owned, sanitized, parser-supported evidence for a completed draft session with games and results."
+      ]
+    },
+    {
+      "entry_id": "parser_corpus_manifest_metadata_boundary_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/428",
+      "authorized_by_contract": "docs/contracts/parser_corpus_manifest_metadata_residual.md",
+      "paths": {
+        "corpus_manifest": "tests/fixtures/parser_corpus/corpus_manifest.v1.json",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py"
+      },
+      "scenario_families": [
+        "manifest.metadata"
+      ],
+      "parser_event_families": [],
+      "parser_claim_families": [
+        "corpus_manifest_metadata_boundary",
+        "manifest_schema_v1",
+        "taxonomy_family_inventory",
+        "source_privacy_flags",
+        "manifest_entry_vocabulary",
+        "private_artifact_non_claim"
+      ],
+      "coverage_status": "covered_report_only",
+      "coverage_basis": [
+        "fixture_metadata_only"
+      ],
+      "known_gaps": [
+        "Manifest metadata coverage proves only the committed privacy-safe corpus manifest metadata boundary; it does not prove parser behavior, parser support, complete fixture adequacy, session-ledger completeness, full corpus parity, tracker completion, release readiness, private smoke success, analytics truth, AI truth, or coaching truth."
+      ],
+      "review_notes": [
+        "This report-only boundary moves manifest.metadata off the count-ratchet baseline and onto explicit manifest metadata validation without changing parser behavior, private evidence, external corpus inputs, session-ledger semantics, downstream truth, readiness policy, or tracker lifecycle."
+      ]
+    },
+    {
       "entry_id": "feature_equity_corpus_baseline_v1",
       "entry_type": "feature_equity_report",
       "source_kind": "committed_count_only_report",
@@ -139,9 +211,6 @@
         "feature_equity_baseline": "tests/fixtures/feature_equity_corpus/feature_equity_corpus_baseline.v1.json"
       },
       "scenario_families": [
-        "manifest.metadata",
-        "mythic_edge.confidence_finality_degradation",
-        "mythic_edge.workbook_row_coverage",
         "drift_debug.gsm_truncation"
       ],
       "parser_event_families": [],
@@ -198,6 +267,1253 @@
       ]
     },
     {
+      "entry_id": "sealed_entry_lifecycle_synthetic_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/357",
+      "authorized_by_contract": "docs/contracts/parser_corpus_sealed_entry_lifecycle_coverage.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "event_identity_test": "tests/test_event_identity.py",
+        "event_lifecycle_test": "tests/test_parser_small_modules.py",
+        "match_state_test": "tests/test_parsers.py"
+      },
+      "scenario_families": [
+        "core_gameplay.sealed_entry"
+      ],
+      "parser_event_families": [
+        "MatchState",
+        "EventLifecycle"
+      ],
+      "parser_claim_families": [
+        "sealed_event_identity",
+        "event_lifecycle"
+      ],
+      "coverage_status": "covered_synthetic",
+      "coverage_basis": [
+        "fixture_metadata_only",
+        "parser_behavior_verified"
+      ],
+      "known_gaps": [
+        "Synthetic sealed entry metadata does not prove sealed deckbuilding, sealed matches, sealed pool contents, submitted-deck contents, or full sealed lifecycle support."
+      ],
+      "review_notes": [
+        "Synthetic sealed entry coverage proves sealed context plus event-entry lifecycle metadata only; sealed deckbuild and sealed matches remain missing."
+      ]
+    },
+    {
+      "entry_id": "sealed_match_synthetic_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/359",
+      "authorized_by_contract": "docs/contracts/parser_corpus_sealed_match_coverage.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "event_identity_test": "tests/test_event_identity.py",
+        "match_state_test": "tests/test_match_state_parser.py",
+        "game_state_test": "tests/test_gre_game_state_parser.py",
+        "game_result_test": "tests/test_gre_game_result_parser.py",
+        "state_summary_test": "tests/test_state.py"
+      },
+      "scenario_families": [
+        "core_gameplay.sealed_matches"
+      ],
+      "parser_event_families": [
+        "MatchState",
+        "GameState",
+        "GameResult"
+      ],
+      "parser_claim_families": [
+        "sealed_event_identity",
+        "sealed_match_state",
+        "sealed_game_state",
+        "sealed_game_result",
+        "match_summary"
+      ],
+      "coverage_status": "covered_synthetic",
+      "coverage_basis": [
+        "fixture_metadata_only",
+        "parser_behavior_verified"
+      ],
+      "known_gaps": [
+        "Synthetic sealed match metadata does not prove sealed deckbuilding, sealed pool contents, submitted-deck contents, decklists, archetypes, gameplay advice, analytics truth, AI truth, or coaching truth."
+      ],
+      "review_notes": [
+        "Synthetic sealed match coverage proves sealed context plus parser-owned match/game result summary metadata only; sealed deckbuild remains missing."
+      ]
+    },
+    {
+      "entry_id": "sealed_deckbuild_synthetic_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/361",
+      "authorized_by_contract": "docs/contracts/parser_corpus_sealed_deckbuild_coverage.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "event_identity_test": "tests/test_event_identity.py",
+        "client_actions_test": "tests/test_client_actions_parser.py",
+        "state_summary_test": "tests/test_state.py",
+        "evidence_boundary_contract": "docs/contracts/player_log_evidence_ledger_tier4_submitted_deck_cards.md"
+      },
+      "scenario_families": [
+        "core_gameplay.sealed_deckbuild"
+      ],
+      "parser_event_families": [
+        "MatchState",
+        "ClientAction"
+      ],
+      "parser_claim_families": [
+        "sealed_event_identity",
+        "sealed_submit_deck_signal",
+        "bounded_submit_deck_shape",
+        "deckbuild_privacy_boundary"
+      ],
+      "coverage_status": "covered_synthetic",
+      "coverage_basis": [
+        "fixture_metadata_only",
+        "parser_behavior_verified"
+      ],
+      "known_gaps": [
+        "Synthetic sealed deckbuild metadata does not prove sealed pool contents, submitted-deck card-content truth, decklists, deck names, deck IDs, card choices, archetypes, gameplay advice, analytics truth, AI truth, or coaching truth."
+      ],
+      "review_notes": [
+        "Synthetic sealed deckbuild coverage proves sealed context plus bounded submit-deck signal metadata only; it does not include submitted card lists, sealed pool contents, deck names, card choices, analytics truth, AI truth, or coaching truth."
+      ]
+    },
+    {
+      "entry_id": "connection_error_payload_synthetic_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/364",
+      "authorized_by_contract": "docs/contracts/parser_corpus_connection_error_payload_coverage.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "connection_parser_test": "tests/test_connection_parsers.py",
+        "router_test": "tests/test_router_unit.py",
+        "event_schema_snapshot_test": "tests/test_event_schema_snapshots.py"
+      },
+      "scenario_families": [
+        "connection.connection_error_payload"
+      ],
+      "parser_event_families": [
+        "ConnectionError"
+      ],
+      "parser_claim_families": [
+        "connection_error_event",
+        "connection_error_type_discriminator",
+        "connection_error_payload_preservation",
+        "connection_error_privacy_boundary"
+      ],
+      "coverage_status": "covered_synthetic",
+      "coverage_basis": [
+        "fixture_metadata_only",
+        "parser_behavior_verified"
+      ],
+      "known_gaps": [
+        "Synthetic connection error payload metadata does not prove reconnect behavior, disconnect behavior, firewall or network-drop behavior, private Player.log resilience, runtime health, release readiness, analytics truth, AI truth, coaching truth, or production behavior."
+      ],
+      "review_notes": [
+        "Synthetic connection error payload coverage proves parser-owned ConnectionError payload metadata only; it does not prove reconnect, disconnect, network reliability, private smoke, release readiness, analytics truth, AI truth, or production behavior."
+      ]
+    },
+    {
+      "entry_id": "connection_reconnect_synthetic_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/402",
+      "authorized_by_contract": "docs/contracts/parser_corpus_reconnect_coverage.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "connection_parser_test": "tests/test_connection_parsers.py",
+        "router_test": "tests/test_router_unit.py",
+        "event_schema_snapshot_test": "tests/test_event_schema_snapshots.py"
+      },
+      "scenario_families": [
+        "connection.reconnect"
+      ],
+      "parser_event_families": [
+        "ConnectionError"
+      ],
+      "parser_claim_families": [
+        "reconnect_result_payload",
+        "reconnect_outcome_payload",
+        "gre_connection_lost_reconnect_context",
+        "reconnect_privacy_boundary"
+      ],
+      "coverage_status": "covered_synthetic",
+      "coverage_basis": [
+        "fixture_metadata_only",
+        "parser_behavior_verified"
+      ],
+      "known_gaps": [
+        "Synthetic reconnect metadata does not prove live reconnect success, network reliability, disconnect behavior, firewall or network-drop behavior, private Player.log resilience, runtime health, release readiness, analytics truth, AI truth, coaching truth, or production behavior."
+      ],
+      "review_notes": [
+        "Synthetic reconnect coverage proves parser-owned ConnectionError reconnect result/outcome metadata only; it does not prove live reconnect resilience, network reliability, firewall/drop behavior, private smoke, release readiness, analytics truth, AI truth, coaching truth, or production behavior."
+      ]
+    },
+    {
+      "entry_id": "connection_disconnect_synthetic_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/366",
+      "authorized_by_contract": "docs/contracts/parser_corpus_connection_disconnect_coverage.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "connection_parser_test": "tests/test_connection_parsers.py",
+        "router_test": "tests/test_router_unit.py",
+        "event_schema_snapshot_test": "tests/test_event_schema_snapshots.py"
+      },
+      "scenario_families": [
+        "connection.disconnect"
+      ],
+      "parser_event_families": [
+        "MatchConnectionState",
+        "TcpConnectionClose",
+        "WebSocketClosed"
+      ],
+      "parser_claim_families": [
+        "connection_state_transition",
+        "tcp_connection_close_payload",
+        "websocket_closed_payload",
+        "disconnect_privacy_boundary"
+      ],
+      "coverage_status": "covered_synthetic",
+      "coverage_basis": [
+        "fixture_metadata_only",
+        "parser_behavior_verified"
+      ],
+      "known_gaps": [
+        "Synthetic connection disconnect metadata does not prove reconnect behavior, firewall or network-drop behavior, private Player.log resilience, runtime health, release readiness, analytics truth, AI truth, coaching truth, or production behavior."
+      ],
+      "review_notes": [
+        "Synthetic connection disconnect coverage proves parser-owned MatchConnectionState, TcpConnectionClose, and WebSocketClosed metadata only; it does not prove reconnect, firewall/drop behavior, network reliability, private smoke, release readiness, analytics truth, AI truth, coaching truth, or production behavior."
+      ]
+    },
+    {
+      "entry_id": "firewall_network_drop_private_evidence_boundary_v1",
+      "entry_type": "local_private_report_summary",
+      "source_kind": "local_private_report_only",
+      "commit_status": "local_report_only",
+      "privacy_class": "local_private_not_committed",
+      "sanitization_status": "requires_review",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/404",
+      "authorized_by_contract": "docs/contracts/parser_corpus_firewall_network_drop_coverage.md",
+      "paths": {},
+      "scenario_families": [
+        "connection.firewall_or_network_drop"
+      ],
+      "parser_event_families": [],
+      "parser_claim_families": [
+        "firewall_network_drop_private_evidence_required",
+        "connection_adjacent_rows_non_claim",
+        "network_reliability_non_claim",
+        "private_artifact_boundary"
+      ],
+      "coverage_status": "blocked_private_evidence",
+      "coverage_basis": [
+        "local_report_only"
+      ],
+      "known_gaps": [
+        "Firewall/network-drop corpus coverage requires future approved private/live evidence or a narrower parser-owned signal; generic connection errors, reconnect metadata, disconnect metadata, public taxonomy, and synthetic text do not prove firewall behavior, Wi-Fi/drop behavior, OS/router/network diagnostics, runtime health, release readiness, analytics truth, AI truth, coaching truth, or production behavior."
+      ],
+      "review_notes": [
+        "Firewall/network-drop coverage is blocked by private/live evidence requirements; adjacent connection error, reconnect, and disconnect corpus rows do not prove firewall/drop behavior, network reliability, private smoke success, release readiness, analytics truth, AI truth, coaching truth, or production behavior."
+      ]
+    },
+    {
+      "entry_id": "opponent_auto_concede_boundary_report_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/406",
+      "authorized_by_contract": "docs/contracts/parser_corpus_opponent_auto_concede_coverage.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "game_result_contract": "docs/contracts/parser_gre_game_result.md",
+        "game_result_ledger_contract": "docs/contracts/player_log_evidence_ledger_tier3_game_results.md",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py"
+      },
+      "scenario_families": [
+        "gameplay_stress.opponent_auto_concede"
+      ],
+      "parser_event_families": [],
+      "parser_claim_families": [
+        "opponent_auto_concede_boundary_report",
+        "normal_game_result_not_auto_concede",
+        "no_action_not_inferred",
+        "concession_intent_not_claimed",
+        "game_end_edge_fixture_required",
+        "gameplay_advice_non_claim"
+      ],
+      "coverage_status": "covered_report_only",
+      "coverage_basis": [
+        "fixture_metadata_only"
+      ],
+      "known_gaps": [
+        "Opponent auto-concede coverage is report-only boundary metadata; Mythic Edge has normal game-result and final-reconciliation evidence, but that evidence does not prove auto-concede behavior, no-action behavior, concession intent, hidden opponent actions, timeout reason, disconnection reason, player mistakes, gameplay advice, analytics truth, AI truth, coaching truth, release readiness, or production behavior."
+      ],
+      "review_notes": [
+        "Opponent auto-concede/no-action coverage is report-only boundary metadata: normal GameResult, local-win, opponent-loss, short-duration, sparse-action, and public-taxonomy evidence do not prove opponent auto-concede or no-action behavior."
+      ]
+    },
+    {
+      "entry_id": "companion_large_deck_boundary_report_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/408",
+      "authorized_by_contract": "docs/contracts/parser_corpus_companion_large_deck_coverage.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "start_hook_contract": "docs/contracts/parser_corpus_start_hook_deck_snapshot_coverage.md",
+        "deck_summary_contract": "docs/contracts/parser_corpus_deck_summary_coverage.md",
+        "submitted_deck_contract": "docs/contracts/player_log_evidence_ledger_tier4_submitted_deck_cards.md",
+        "card_identity_contract": "docs/contracts/player_log_evidence_ledger_tier5_card_identity.md",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py"
+      },
+      "scenario_families": [
+        "gameplay_stress.companion_or_large_deck"
+      ],
+      "parser_event_families": [],
+      "parser_claim_families": [
+        "companion_large_deck_boundary_report",
+        "generic_deck_snapshot_not_companion_or_large_deck",
+        "submitted_deck_cards_not_decklist_truth",
+        "card_identity_not_deck_shape_truth",
+        "companion_legality_not_claimed",
+        "decklist_completion_non_claim"
+      ],
+      "coverage_status": "covered_report_only",
+      "coverage_basis": [
+        "fixture_metadata_only"
+      ],
+      "known_gaps": [
+        "Companion / large-deck coverage is report-only boundary metadata; Mythic Edge has adjacent deck/card evidence surfaces, but they do not prove companion presence, companion legality, companion castability, large-deck size, complete decklist contents, deck identity, deck ownership, sideboard truth beyond existing observed lists, hidden-card truth, archetype classification, matchup plans, gameplay advice, analytics truth, AI truth, coaching truth, release readiness, production behavior, or full corpus parity."
+      ],
+      "review_notes": [
+        "Companion / large-deck coverage is report-only boundary metadata: generic deck snapshots, submitted-deck card-content evidence, StartHook summaries, card identity provenance, and public taxonomy metadata do not prove companion presence, companion legality, large-deck size, complete decklists, deck identity, hidden-card truth, archetype classification, gameplay advice, analytics truth, AI truth, coaching truth, release readiness, or production behavior."
+      ]
+    },
+    {
+      "entry_id": "gameplay_action_attribution_boundary_report_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/410",
+      "authorized_by_contract": "docs/contracts/parser_corpus_gameplay_action_attribution_coverage.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "gameplay_action_contract": "docs/contracts/player_log_evidence_ledger_tier5_gameplay_action.md",
+        "opponent_card_observation_contract": "docs/contracts/player_log_evidence_ledger_tier5_opponent_card_observation.md",
+        "analytics_gameplay_action_contract": "docs/contracts/analytics_gameplay_action_ingest.md",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py"
+      },
+      "scenario_families": [
+        "gameplay_stress.action_attribution"
+      ],
+      "parser_event_families": [],
+      "parser_claim_families": [
+        "gameplay_action_attribution_boundary_report",
+        "gameplay_action_extraction_not_stress_coverage",
+        "opponent_card_observation_not_action_attribution_truth",
+        "action_log_row_not_causal_truth",
+        "analytics_ingest_not_parser_truth",
+        "event_ordering_not_claimed",
+        "hidden_action_inference_non_claim"
+      ],
+      "coverage_status": "covered_report_only",
+      "coverage_basis": [
+        "fixture_metadata_only"
+      ],
+      "known_gaps": [
+        "Gameplay action-attribution coverage is report-only boundary metadata; Mythic Edge has gameplay-action extraction, opponent-card-observation, ActionLogRow, evidence-ledger, and analytics-ingest surfaces, but they do not prove action-attribution parser stress support, causal action truth, hidden actions, hidden cards, opponent intent, why an action happened, event ordering, player mistakes, best-line truth, archetype classification, decklist completion, gameplay advice, analytics truth, AI truth, coaching truth, release readiness, production behavior, or full corpus parity."
+      ],
+      "review_notes": [
+        "Gameplay action-attribution coverage is report-only boundary metadata: gameplay-action extraction, opponent-card observations, ActionLogRow surfaces, analytics gameplay-action ingest, evidence-ledger provenance, and public taxonomy metadata do not prove action-attribution stress support, causal truth, hidden actions, hidden cards, opponent intent, event ordering, player mistakes, gameplay advice, analytics truth, AI truth, coaching truth, release readiness, or production behavior."
+      ]
+    },
+    {
+      "entry_id": "gameplay_event_ordering_boundary_report_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/412",
+      "authorized_by_contract": "docs/contracts/parser_corpus_gameplay_event_ordering_coverage.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "gameplay_action_attribution_contract": "docs/contracts/parser_corpus_gameplay_action_attribution_coverage.md",
+        "parser_runner_contract": "docs/contracts/parser_runner.md",
+        "gameplay_action_contract": "docs/contracts/player_log_evidence_ledger_tier5_gameplay_action.md",
+        "opponent_card_observation_contract": "docs/contracts/player_log_evidence_ledger_tier5_opponent_card_observation.md",
+        "analytics_gameplay_action_contract": "docs/contracts/analytics_gameplay_action_ingest.md",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py"
+      },
+      "scenario_families": [
+        "gameplay_stress.event_ordering"
+      ],
+      "parser_event_families": [],
+      "parser_claim_families": [
+        "gameplay_event_ordering_boundary_report",
+        "parser_timestamps_not_complete_ordering_truth",
+        "router_dispatch_order_not_stress_coverage",
+        "gameplay_action_order_not_event_sequence_truth",
+        "action_attribution_not_event_ordering_truth",
+        "diagnostics_replay_reports_not_parser_truth",
+        "hidden_action_inference_non_claim"
+      ],
+      "coverage_status": "covered_report_only",
+      "coverage_basis": [
+        "fixture_metadata_only"
+      ],
+      "known_gaps": [
+        "Gameplay event-ordering coverage is report-only boundary metadata; Mythic Edge has timestamp, router dispatch, GameState, gameplay-action, diagnostics, golden replay, feature-equity, action-attribution, and analytics-ingest context, but they do not prove event-ordering parser stress support, complete event-sequence truth, causal ordering truth, hidden actions, hidden cards, opponent intent, why an action happened, action-attribution support beyond issue #410 report-only metadata, player mistakes, best-line truth, archetype classification, decklist completion, gameplay advice, analytics truth, AI truth, coaching truth, release readiness, production behavior, or full Mythic Edge corpus parity."
+      ],
+      "review_notes": [
+        "Gameplay event-ordering coverage is report-only boundary metadata: parser timestamps, router dispatch order, gameplay-action row order, action-attribution report-only coverage, diagnostics reports, golden replay reports, feature-equity reports, evidence-ledger provenance, analytics ingest, and public taxonomy metadata do not prove complete event-sequence truth, causal ordering truth, hidden actions, hidden cards, opponent intent, player mistakes, gameplay advice, analytics truth, AI truth, coaching truth, release readiness, or production behavior."
+      ]
+    },
+    {
+      "entry_id": "detailed_logs_disabled_synthetic_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/368",
+      "authorized_by_contract": "docs/contracts/parser_corpus_detailed_logs_disabled_coverage.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "metadata_parser_test": "tests/test_parser_small_modules.py",
+        "parser_smoke_test": "tests/test_parsers.py",
+        "router_test": "tests/test_router_unit.py",
+        "event_schema_snapshot_test": "tests/test_event_schema_snapshots.py",
+        "tailer_router_integration_test": "tests/test_tailer_router_integration.py"
+      },
+      "scenario_families": [
+        "log_runtime.detailed_logs_disabled"
+      ],
+      "parser_event_families": [
+        "DetailedLoggingStatus"
+      ],
+      "parser_claim_families": [
+        "detailed_logging_status_event",
+        "detailed_logs_disabled_marker",
+        "detailed_logging_metadata_parser",
+        "detailed_logging_privacy_boundary"
+      ],
+      "coverage_status": "covered_synthetic",
+      "coverage_basis": [
+        "fixture_metadata_only",
+        "parser_behavior_verified"
+      ],
+      "known_gaps": [
+        "Synthetic detailed logs disabled metadata does not prove live MTGA settings, private Player.log resilience, log rotation, malformed or headerless log handling, timestamp anomaly handling, unknown-entry routing, diagnostics readiness, release readiness, analytics truth, AI truth, coaching truth, or production behavior."
+      ],
+      "review_notes": [
+        "Synthetic detailed logs disabled coverage proves parser-owned DetailedLoggingStatus metadata only; it does not prove live MTGA settings, log rotation, malformed/headerless log handling, timestamp anomaly handling, unknown-entry routing, private smoke, release readiness, analytics truth, AI truth, coaching truth, or production behavior."
+      ]
+    },
+    {
+      "entry_id": "timestamp_anomaly_synthetic_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/370",
+      "authorized_by_contract": "docs/contracts/parser_corpus_timestamp_anomaly_coverage.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "router_test": "tests/test_router_unit.py",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py"
+      },
+      "scenario_families": [
+        "log_runtime.timestamp_anomaly"
+      ],
+      "parser_event_families": [],
+      "parser_claim_families": [
+        "router_timestamp_missing_stat",
+        "router_timestamp_parse_failure_stat",
+        "router_timestamp_anomalies_aggregate",
+        "timestamp_anomaly_privacy_boundary"
+      ],
+      "coverage_status": "covered_synthetic",
+      "coverage_basis": [
+        "fixture_metadata_only",
+        "parser_behavior_verified"
+      ],
+      "known_gaps": [
+        "Synthetic timestamp anomaly metadata does not prove malformed or headerless log handling, unknown-entry routing, log rotation support, real local Player.log timestamp drift, private smoke, release readiness, analytics truth, AI truth, coaching truth, or production behavior."
+      ],
+      "review_notes": [
+        "Synthetic timestamp anomaly coverage proves router-owned timestamp_missing, timestamp_parse_failure, and timestamp_anomalies stats only; it does not prove malformed/headerless log handling, unknown-entry routing, log rotation, real local Player.log timestamp drift, private smoke, release readiness, analytics truth, AI truth, coaching truth, or production behavior."
+      ]
+    },
+    {
+      "entry_id": "malformed_headerless_synthetic_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/372",
+      "authorized_by_contract": "docs/contracts/parser_corpus_malformed_headerless_coverage.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "log_entry_headers_test": "tests/test_log_entry_headers.py",
+        "entry_buffer_edges_test": "tests/test_entry_buffer_edges.py",
+        "line_buffer_corpus_test": "tests/test_line_buffer_corpus.py",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py"
+      },
+      "scenario_families": [
+        "log_runtime.malformed_or_headerless"
+      ],
+      "parser_event_families": [],
+      "parser_claim_families": [
+        "line_buffer_header_classification",
+        "line_buffer_headerless_orphan_noise_ignored",
+        "line_buffer_unknown_header_boundary",
+        "line_buffer_partial_line_boundary",
+        "line_buffer_multiline_boundary",
+        "malformed_headerless_privacy_boundary"
+      ],
+      "coverage_status": "covered_synthetic",
+      "coverage_basis": [
+        "fixture_metadata_only",
+        "parser_behavior_verified"
+      ],
+      "known_gaps": [
+        "Synthetic malformed/headerless metadata does not prove unknown-entry routing, log drift detection, log rotation support, semantic recovery from arbitrary malformed Player.log payloads, private smoke, release readiness, analytics truth, AI truth, coaching truth, or production behavior."
+      ],
+      "review_notes": [
+        "Synthetic malformed/headerless coverage proves line-buffer and header-boundary metadata only; it does not prove unknown-entry routing, log drift detection, log rotation, semantic recovery from arbitrary malformed Player.log payloads, private smoke, release readiness, analytics truth, AI truth, coaching truth, or production behavior."
+      ]
+    },
+    {
+      "entry_id": "active_player_timer_synthetic_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/375",
+      "authorized_by_contract": "docs/contracts/parser_corpus_active_player_timer_coverage.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "timer_normalization_test": "tests/test_gre_timers_parser.py",
+        "game_state_test": "tests/test_gre_game_state_parser.py",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py"
+      },
+      "scenario_families": [
+        "timer.active_player_timer"
+      ],
+      "parser_event_families": [
+        "GameState"
+      ],
+      "parser_claim_families": [
+        "gre_timer_normalization",
+        "active_player_timer_record",
+        "active_player_timer_direct_seat_evidence",
+        "timer_turn_info_context_boundary",
+        "timer_time_unit_boundary",
+        "timer_privacy_boundary"
+      ],
+      "coverage_status": "covered_synthetic",
+      "coverage_basis": [
+        "fixture_metadata_only",
+        "parser_behavior_verified"
+      ],
+      "known_gaps": [
+        "Synthetic active player timer metadata does not prove inactivity timeout, pre-match idle timers, rope behavior, clock pressure, live private Player.log timer drift, diagnostics readiness, release readiness, analytics truth, AI truth, coaching truth, or production behavior."
+      ],
+      "review_notes": [
+        "Synthetic active player timer coverage proves parser-owned normalized_timers GameState metadata only; it does not infer timer ownership from turn_info context or claim clock-pressure, rope, inactivity-timeout, gameplay-advice, analytics, AI, coaching, release, or production truth."
+      ]
+    },
+    {
+      "entry_id": "pre_match_idle_timer_synthetic_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/389",
+      "authorized_by_contract": "docs/contracts/parser_corpus_pre_match_idle_timer_coverage.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "timer_normalization_test": "tests/test_gre_timers_parser.py",
+        "game_state_test": "tests/test_gre_game_state_parser.py",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py"
+      },
+      "scenario_families": [
+        "timer.pre_match_idle"
+      ],
+      "parser_event_families": [
+        "GameState"
+      ],
+      "parser_claim_families": [
+        "gre_timer_normalization",
+        "pre_match_idle_timer_record",
+        "pre_match_idle_no_direct_seat_boundary",
+        "pre_match_idle_time_unit_boundary",
+        "timer_privacy_boundary"
+      ],
+      "coverage_status": "covered_synthetic",
+      "coverage_basis": [
+        "fixture_metadata_only",
+        "parser_behavior_verified"
+      ],
+      "known_gaps": [
+        "Synthetic pre-match idle timer metadata does not prove live Arena pre-match idle behavior, inactivity timeout, rope behavior, clock pressure, player waiting behavior, player mistakes, private Player.log timer drift, diagnostics readiness, release readiness, analytics truth, AI truth, coaching truth, or production behavior."
+      ],
+      "review_notes": [
+        "Synthetic pre-match idle timer coverage proves parser-owned normalized_timers GameState metadata for a no-direct-seat timer shape only; it does not infer player ownership, inactivity timeout, rope behavior, clock pressure, gameplay advice, analytics, AI, coaching, release, or production truth."
+      ]
+    },
+    {
+      "entry_id": "start_hook_deck_snapshot_synthetic_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/392",
+      "authorized_by_contract": "docs/contracts/parser_corpus_start_hook_deck_snapshot_coverage.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "collection_parser_test": "tests/test_collection_parser.py",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py"
+      },
+      "scenario_families": [
+        "deck_api.start_hook_deck_snapshot"
+      ],
+      "parser_event_families": [
+        "Collection",
+        "DeckCollection"
+      ],
+      "parser_claim_families": [
+        "start_hook_collection_snapshot",
+        "start_hook_deck_collection_snapshot",
+        "start_hook_deck_summary_to_deck_map_correlation",
+        "start_hook_raw_evidence_preservation",
+        "start_hook_deck_snapshot_privacy_boundary"
+      ],
+      "coverage_status": "covered_synthetic",
+      "coverage_basis": [
+        "fixture_metadata_only",
+        "parser_behavior_verified"
+      ],
+      "known_gaps": [
+        "Synthetic StartHook deck snapshot metadata does not prove private deck contents, exact deck identity, submitted-deck truth, sideboard-delta truth, collection ownership truth, inventory/economy state, deck-summary coverage, deck-upsert coverage, store/pack/inbox/crafting coverage, archetype classification, decklist completion, analytics truth, AI truth, coaching truth, release readiness, or production behavior."
+      ],
+      "review_notes": [
+        "Synthetic StartHook deck snapshot coverage proves parser-owned Collection and DeckCollection StartHook metadata only; it preserves a bounded deck snapshot as evidence and does not claim deck identity, submitted-deck, sideboard-delta, inventory/economy, analytics, AI, coaching, release, or production truth."
+      ]
+    },
+    {
+      "entry_id": "deck_summary_boundary_report_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/394",
+      "authorized_by_contract": "docs/contracts/parser_corpus_deck_summary_coverage.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "prior_start_hook_contract": "docs/contracts/parser_corpus_start_hook_deck_snapshot_coverage.md",
+        "prior_start_hook_report": "docs/contract_test_reports/parser_corpus_start_hook_deck_snapshot_coverage.md",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py"
+      },
+      "scenario_families": [
+        "deck_api.deck_summary"
+      ],
+      "parser_event_families": [],
+      "parser_claim_families": [
+        "deck_summary_boundary_report",
+        "start_hook_deck_summaries_reference_only",
+        "dedicated_deck_summary_api_not_claimed",
+        "deck_summary_privacy_boundary"
+      ],
+      "coverage_status": "covered_report_only",
+      "coverage_basis": [
+        "fixture_metadata_only"
+      ],
+      "known_gaps": [
+        "Deck summary boundary coverage records that current Mythic Edge evidence is StartHook-bound and report-only; it does not prove a dedicated deck-summary API parser, private deck contents, exact deck identity, submitted-deck truth, sideboard-delta truth, collection ownership truth, inventory/economy state, deck-upsert coverage, store/pack/inbox/crafting coverage, archetype classification, decklist completion, analytics truth, AI truth, coaching truth, release readiness, or production behavior."
+      ],
+      "review_notes": [
+        "Deck summary coverage is report-only boundary metadata: Mythic Edge has StartHook DeckSummaries evidence through the existing DeckCollection parser and #392 coverage, but does not claim a standalone deck-summary API parser or deck identity/submitted-deck truth."
+      ]
+    },
+    {
+      "entry_id": "deck_upsert_boundary_report_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/396",
+      "authorized_by_contract": "docs/contracts/parser_corpus_deck_upsert_coverage.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "event_set_deck_reference": "tests/fixtures/golden_replay/bo1_match_win_basic.manifest.json",
+        "client_actions_test": "tests/test_client_actions_parser.py",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py"
+      },
+      "scenario_families": [
+        "deck_api.deck_upsert"
+      ],
+      "parser_event_families": [],
+      "parser_claim_families": [
+        "deck_upsert_boundary_report",
+        "event_set_deck_reference_only",
+        "submit_deck_reference_only",
+        "dedicated_deck_upsert_api_not_claimed",
+        "deck_upsert_privacy_boundary"
+      ],
+      "coverage_status": "covered_report_only",
+      "coverage_basis": [
+        "fixture_metadata_only"
+      ],
+      "known_gaps": [
+        "Deck-upsert coverage is report-only boundary metadata: Mythic Edge has event-set deck coverage, deck-summary boundary coverage, and submit-deck parser/provenance surfaces, but none of those prove dedicated deck-upsert API parser support, private deck contents, exact deck identity, active-deck identity, submitted-deck truth beyond existing parser-owned fields, sideboard-delta truth, decklist completion, collection ownership, inventory/economy state, analytics truth, AI truth, coaching truth, release readiness, or production behavior."
+      ],
+      "review_notes": [
+        "The deck-upsert row is intentionally report-only and prevents false parity claims by documenting why nearby event-set, deck-summary, StartHook, submit-deck, and submitted-deck-card evidence is not deck-upsert evidence; future dedicated deck-upsert fixture work remains blocked until Mythic Edge has owned, sanitized, parser-supported evidence."
+      ]
+    },
+    {
+      "entry_id": "store_pack_inbox_crafting_boundary_report_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/398",
+      "authorized_by_contract": "docs/contracts/parser_corpus_store_pack_inbox_crafting_coverage.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "inventory_parser": "src/mythic_edge_parser/parsers/inventory.py",
+        "inventory_parser_test": "tests/test_parser_small_modules.py",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py"
+      },
+      "scenario_families": [
+        "deck_api.store_pack_inbox_or_crafting"
+      ],
+      "parser_event_families": [],
+      "parser_claim_families": [
+        "store_pack_inbox_crafting_boundary_report",
+        "inventory_info_reference_only",
+        "store_api_not_claimed",
+        "pack_inbox_crafting_not_claimed",
+        "inventory_economy_privacy_boundary"
+      ],
+      "coverage_status": "covered_report_only",
+      "coverage_basis": [
+        "fixture_metadata_only"
+      ],
+      "known_gaps": [
+        "Store/pack/inbox/crafting coverage is report-only boundary metadata: Mythic Edge has bounded StartHook InventoryInfo snapshot parsing, but that does not prove store API parsing, pack-opening parsing, inbox/reward parsing, crafting/wildcard truth, transactions, collection ownership, account state, broad inventory/economy support, currency balances, pack inventory, inbox contents, crafting choices, card ownership, deck identity, submitted-deck truth, sideboard-delta truth, analytics truth, AI truth, coaching truth, release readiness, or production behavior."
+      ],
+      "review_notes": [
+        "The store/pack/inbox/crafting row is intentionally report-only and prevents false parity claims by documenting why InventoryInfo, StartHook deck snapshot, deck-summary, deck-upsert, event-set deck, submit-deck, and submitted-deck-card evidence is not store/pack/inbox/crafting evidence; future dedicated coverage remains blocked until Mythic Edge has owned, sanitized, parser-supported evidence for a narrower store, pack, inbox, reward, crafting, transaction, or economy surface."
+      ]
+    },
+    {
+      "entry_id": "unknown_entry_drift_report_reference_v1",
+      "entry_type": "diagnostics_report",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/377",
+      "authorized_by_contract": "docs/contracts/parser_corpus_unknown_entry_coverage.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "drift_fixture_manifest": "tests/fixtures/golden_fixture_manifest.json",
+        "normalized_drift_report_reference": "tests/fixtures/player_log_drift_flush_timing_expected.json",
+        "drift_sensor_test": "tests/test_log_drift_sensor.py",
+        "diagnostics_test": "tests/test_parser_diagnostics_mode.py",
+        "evidence_ledger_test": "tests/test_evidence_ledger.py",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py"
+      },
+      "scenario_families": [
+        "log_runtime.unknown_entry"
+      ],
+      "parser_event_families": [],
+      "parser_claim_families": [
+        "router_unknown_entry_count",
+        "drift_unknown_signature_review_samples",
+        "drift_unmatched_api_name_review_samples",
+        "diagnostics_unknown_entries_review_status",
+        "evidence_ledger_unknown_entry_count_boundary",
+        "unknown_entry_privacy_boundary"
+      ],
+      "coverage_status": "covered_report_only",
+      "coverage_basis": [
+        "diagnostics_only",
+        "fixture_metadata_only",
+        "evidence_ledger_only"
+      ],
+      "known_gaps": [
+        "Report-only unknown-entry coverage does not prove parser support for unknown semantic content, automatic parser-gap creation, log rotation, missing-message-type recovery, reconnect or network-drop behavior, live private Player.log drift health, diagnostics readiness, release readiness, analytics truth, AI truth, coaching truth, or production behavior."
+      ],
+      "review_notes": [
+        "Unknown-entry coverage proves that existing drift/diagnostics reports can surface unknown counts and review samples from a committed normalized report reference; it does not mean the parser understood the unknown entries."
+      ]
+    },
+    {
+      "entry_id": "missing_message_type_boundary_report_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/414",
+      "authorized_by_contract": "docs/contracts/parser_corpus_missing_message_type_coverage.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "unknown_entry_contract": "docs/contracts/parser_corpus_unknown_entry_coverage.md",
+        "gsm_truncation_contract": "docs/contracts/parser_gsm_truncation_corpus_coverage.md",
+        "timestamp_anomaly_contract": "docs/contracts/parser_corpus_timestamp_anomaly_coverage.md",
+        "gre_game_state_contract": "docs/contracts/parser_gre_game_state.md",
+        "client_actions_contract": "docs/contracts/parser_client_actions.md",
+        "diagnostics_contract": "docs/contracts/parser_diagnostics_mode.md",
+        "evidence_ledger_contract": "docs/contracts/player_log_evidence_ledger_tier6_runtime_health_drift.md",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py"
+      },
+      "scenario_families": [
+        "drift_debug.missing_message_type"
+      ],
+      "parser_event_families": [],
+      "parser_claim_families": [
+        "missing_message_type_boundary_report",
+        "unknown_entry_not_missing_message_type_truth",
+        "gsm_truncation_not_type_field_failure_truth",
+        "timestamp_anomaly_not_message_type_truth",
+        "generic_client_action_not_drift_debug_support",
+        "gre_game_state_message_type_not_recovery_truth",
+        "message_recovery_non_claim"
+      ],
+      "coverage_status": "covered_report_only",
+      "coverage_basis": [
+        "fixture_metadata_only"
+      ],
+      "known_gaps": [
+        "Missing-message-type coverage is report-only boundary metadata; Mythic Edge has unknown-entry, GSM truncation, timestamp anomaly, generic client-action fallback, GRE GameState, diagnostics, golden replay, feature-equity, and evidence-ledger context, but they do not prove missing-message-type parser support, parser message recovery, hidden payload truth, GameState reconstruction, unknown future MTGA message support, unknown-entry drift truth, GSM truncation truth, timestamp anomaly truth, generic client-action support truth, diagnostics readiness, release readiness, production behavior, analytics truth, AI truth, coaching truth, or full Mythic Edge corpus parity."
+      ],
+      "review_notes": [
+        "Missing-message-type coverage is report-only boundary metadata: unknown-entry drift reporting, GSM truncation coverage, timestamp-anomaly coverage, generic client-action fallback, GRE GameState parsing, diagnostics, golden replay, feature-equity behavior, evidence-ledger provenance, and public taxonomy metadata do not prove parser message recovery, hidden payload truth, GameState reconstruction, unknown future MTGA message support, release readiness, production behavior, analytics truth, AI truth, coaching truth, or full corpus parity."
+      ]
+    },
+    {
+      "entry_id": "rename_rotation_collision_boundary_report_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/416",
+      "authorized_by_contract": "docs/contracts/parser_corpus_rename_rotation_collision_coverage.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "missing_message_type_contract": "docs/contracts/parser_corpus_missing_message_type_coverage.md",
+        "unknown_entry_contract": "docs/contracts/parser_corpus_unknown_entry_coverage.md",
+        "timestamp_anomaly_contract": "docs/contracts/parser_corpus_timestamp_anomaly_coverage.md",
+        "tailer_module": "src/mythic_edge_parser/log/tailer.py",
+        "stream_module": "src/mythic_edge_parser/stream.py",
+        "diagnostics_contract": "docs/contracts/parser_diagnostics_mode.md",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py"
+      },
+      "scenario_families": [
+        "drift_debug.rename_or_rotation_collision"
+      ],
+      "parser_event_families": [],
+      "parser_claim_families": [
+        "rename_rotation_collision_boundary_report",
+        "tailer_rotation_not_collision_truth",
+        "log_runtime_rotation_not_collision_truth",
+        "recycle_or_rollback_not_collision_truth",
+        "unknown_entry_not_collision_truth",
+        "timestamp_anomaly_not_collision_truth",
+        "missing_message_type_not_collision_truth",
+        "file_system_truth_non_claim",
+        "duplicate_replay_prevention_non_claim"
+      ],
+      "coverage_status": "covered_report_only",
+      "coverage_basis": [
+        "fixture_metadata_only"
+      ],
+      "known_gaps": [
+        "Rename/rotation collision coverage is report-only boundary metadata; Mythic Edge has tailer rotation, stream rotation-event, log-drift, diagnostics, golden replay, feature-equity, timestamp anomaly, unknown-entry, and missing-message-type context, but they do not prove rename/rotation collision parser support, log-rotation truth, live file-system truth, file identity tracking truth, rename/recycle collision handling, duplicate/replay prevention, parser drift recovery truth, private smoke success, live watcher correctness, diagnostics readiness, release readiness, production behavior, analytics truth, AI truth, coaching truth, or full Mythic Edge corpus parity."
+      ],
+      "review_notes": [
+        "Rename/rotation collision coverage is report-only boundary metadata: tailer/stream rotation signals, log-runtime rotation boundaries, recycle/rollback boundaries, unknown-entry reporting, timestamp anomaly reporting, missing-message-type coverage, diagnostics, log-drift reports, golden replay, feature-equity, corpus parity metadata, and public taxonomy metadata do not prove live file-system truth, rename/recycle collision handling, duplicate/replay prevention, private smoke success, parser drift recovery truth, release readiness, production behavior, analytics truth, AI truth, coaching truth, or full corpus parity."
+      ]
+    },
+    {
+      "entry_id": "phantom_deck_origin_boundary_report_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/418",
+      "authorized_by_contract": "docs/contracts/parser_corpus_phantom_deck_origin_coverage.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "start_hook_contract": "docs/contracts/parser_corpus_start_hook_deck_snapshot_coverage.md",
+        "deck_summary_contract": "docs/contracts/parser_corpus_deck_summary_coverage.md",
+        "deck_upsert_contract": "docs/contracts/parser_corpus_deck_upsert_coverage.md",
+        "submitted_deck_contract": "docs/contracts/player_log_evidence_ledger_tier4_submitted_deck_cards.md",
+        "deck_state_boundary_contract": "docs/contracts/player_log_evidence_ledger_tier4_deck_state_boundary.md",
+        "card_identity_contract": "docs/contracts/player_log_evidence_ledger_tier5_card_identity.md",
+        "gameplay_action_contract": "docs/contracts/player_log_evidence_ledger_tier5_gameplay_action.md",
+        "opponent_observation_contract": "docs/contracts/player_log_evidence_ledger_tier5_opponent_card_observation.md",
+        "diagnostics_contract": "docs/contracts/parser_diagnostics_mode.md",
+        "evidence_ledger_contract": "docs/contracts/player_log_evidence_ledger_schema.md",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py"
+      },
+      "scenario_families": [
+        "drift_debug.phantom_or_deck_origin"
+      ],
+      "parser_event_families": [],
+      "parser_claim_families": [
+        "phantom_deck_origin_boundary_report",
+        "start_hook_deck_snapshot_not_deck_origin_truth",
+        "deck_summary_not_deck_origin_truth",
+        "deck_upsert_not_deck_origin_truth",
+        "submitted_deck_not_phantom_truth",
+        "deck_state_boundary_not_deck_origin_truth",
+        "card_identity_not_hidden_card_truth",
+        "gameplay_action_not_deck_origin_truth",
+        "opponent_observation_not_hidden_card_truth",
+        "runtime_active_deck_not_parser_truth",
+        "analytics_ai_coaching_non_claim"
+      ],
+      "coverage_status": "covered_report_only",
+      "coverage_basis": [
+        "fixture_metadata_only"
+      ],
+      "known_gaps": [
+        "Phantom/deck-origin coverage is report-only boundary metadata; Mythic Edge has StartHook deck snapshots, deck-summary boundaries, deck-upsert boundaries, submitted-deck provenance, broad deck-state boundary notes, card identity provenance, gameplay actions, opponent-card observations, diagnostics, log-drift reports, golden replay, feature-equity, evidence-ledger provenance, runtime active-deck surfaces, card catalog enrichment, local decklist references, and public taxonomy context, but they do not prove phantom-card parser support, deck-origin parser support, hidden-card truth, complete decklists, exact deck identity, card ownership, collection ownership, sideboard deltas, archetype classification, gameplay advice, player mistake labels, parser recovery, private smoke success, diagnostics readiness, release readiness, production behavior, analytics truth, AI truth, coaching truth, or full Mythic Edge corpus parity."
+      ],
+      "review_notes": [
+        "Phantom/deck-origin coverage is intentionally report-only: adjacent deck, card identity, gameplay-action, opponent-observation, diagnostics, drift, evidence-ledger, runtime, analytics, AI, coaching, and public taxonomy surfaces are non-claims for phantom-card support or deck-origin truth."
+      ]
+    },
+    {
+      "entry_id": "live_diagnostics_boundary_report_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/420",
+      "authorized_by_contract": "docs/contracts/parser_corpus_live_diagnostics_coverage.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "parser_diagnostics_contract": "docs/contracts/parser_diagnostics_mode.md",
+        "parser_diagnostics_report": "docs/contract_test_reports/parser_diagnostics_mode.md",
+        "live_watcher_diagnostics_contract": "docs/contracts/live_app_watcher_diagnostics.md",
+        "live_watcher_diagnostics_report": "docs/contract_test_reports/live_app_watcher_diagnostics.md",
+        "live_capture_no_row_contract": "docs/contracts/live_app_capture_heartbeat_no_row_diagnostics.md",
+        "evidence_review_status_contract": "listed in docs/contracts/parser_corpus_live_diagnostics_coverage.md",
+        "unknown_entry_contract": "docs/contracts/parser_corpus_unknown_entry_coverage.md",
+        "evidence_ledger_contract": "docs/contracts/parser_corpus_evidence_ledger_provenance_coverage.md",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py"
+      },
+      "scenario_families": [
+        "mythic_edge.live_diagnostics"
+      ],
+      "parser_event_families": [],
+      "parser_claim_families": [
+        "live_diagnostics_boundary_report",
+        "parser_diagnostics_not_live_health_truth",
+        "live_watcher_diagnostics_not_watcher_correctness_truth",
+        "live_capture_status_not_game_truth",
+        "evidence_review_status_not_live_arena_truth",
+        "status_api_not_release_readiness",
+        "log_drift_not_private_smoke_truth",
+        "analytics_ai_coaching_non_claim"
+      ],
+      "coverage_status": "covered_report_only",
+      "coverage_basis": [
+        "diagnostics_only",
+        "fixture_metadata_only"
+      ],
+      "known_gaps": [
+        "Live diagnostics coverage is report-only boundary metadata; Mythic Edge has parser diagnostics, local app watcher diagnostics, live-capture heartbeat/no-row diagnostics, evidence review health, status API exposure, unknown-entry routing, log-drift reports, local status summaries, and corpus parity context, but they do not prove private smoke success, live Player.log health, watcher correctness, parser support for a live run, status API correctness as release readiness, production behavior, analytics readiness, AI/coaching readiness, or full Mythic Edge corpus parity."
+      ],
+      "review_notes": [
+        "Live diagnostics coverage is intentionally report-only: committed diagnostics and status surfaces define safe local review boundaries, not live Player.log truth, watcher correctness, private smoke success, release readiness, production behavior, analytics truth, AI truth, coaching truth, or full corpus parity."
+      ]
+    },
+    {
+      "entry_id": "private_log_report_only_drift_private_evidence_boundary_v1",
+      "entry_type": "local_private_report_summary",
+      "source_kind": "local_private_report_only",
+      "commit_status": "local_report_only",
+      "privacy_class": "local_private_not_committed",
+      "sanitization_status": "requires_review",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/422",
+      "authorized_by_contract": "docs/contracts/parser_corpus_private_log_report_only_drift_coverage.md",
+      "paths": {},
+      "scenario_families": [
+        "mythic_edge.private_log_report_only_drift"
+      ],
+      "parser_event_families": [],
+      "parser_claim_families": [
+        "private_log_drift_private_evidence_required",
+        "committed_drift_references_non_claim",
+        "live_diagnostics_non_claim",
+        "private_local_readiness_non_claim",
+        "analytics_readiness_non_claim",
+        "private_artifact_boundary"
+      ],
+      "coverage_status": "blocked_private_evidence",
+      "coverage_basis": [
+        "local_report_only"
+      ],
+      "external_reference_status": "reference_category_not_checked",
+      "known_gaps": [
+        "Private log report-only drift coverage is blocked by future approved private/local evidence; committed diagnostics, log-drift machinery, unknown-entry report references, live diagnostics boundary coverage, evidence-ledger health context, private-local readiness docs, browser smoke plans, golden replay reports, feature-equity reports, public taxonomy metadata, and corpus parity metadata do not prove private smoke success, live Player.log health, parser support, drift health, release readiness, deploy readiness, production behavior, analytics readiness, analytics truth, AI truth, coaching truth, or full Mythic Edge corpus parity."
+      ],
+      "review_notes": [
+        "Private log report-only drift coverage is intentionally blocked by private evidence requirements: no private local report artifact, private Player.log evidence, private smoke output, parser event family, session-ledger entry, release/deploy readiness claim, analytics readiness claim, AI/coaching claim, or full corpus parity claim is committed in this slice."
+      ]
+    },
+    {
+      "entry_id": "analytics_readiness_labels_boundary_report_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/424",
+      "authorized_by_contract": "docs/contracts/parser_corpus_analytics_readiness_labels_coverage.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "analytics_schema_contract": "docs/contracts/analytics_local_sqlite_schema.md",
+        "analytics_replay_ingest_contract": "docs/contracts/analytics_parser_normalized_replay_ingest.md",
+        "analytics_gameplay_action_ingest_contract": "docs/contracts/analytics_gameplay_action_ingest.md",
+        "analytics_opponent_observation_ingest_contract": "docs/contracts/analytics_opponent_card_observation_ingest.md",
+        "analytics_field_evidence_ingest_contract": "docs/contracts/analytics_field_evidence_ingest.md",
+        "analytics_sql_view_contract": "docs/contracts/analytics_derived_sql_views.md",
+        "analytics_replay_validation_contract": "docs/contracts/analytics_replay_view_validation_harness.md",
+        "runtime_field_evidence_contract": "docs/contracts/player_log_evidence_ledger_runtime_field_evidence.md",
+        "tier7_derived_analytics_contract": "docs/contracts/player_log_evidence_ledger_tier7_derived_analytics.md",
+        "private_log_drift_contract": "docs/contracts/parser_corpus_private_log_report_only_drift_coverage.md",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py"
+      },
+      "scenario_families": [
+        "mythic_edge.analytics_readiness_labels"
+      ],
+      "parser_event_families": [],
+      "parser_claim_families": [
+        "analytics_readiness_label_boundary",
+        "analytics_schema_context_non_claim",
+        "analytics_ingest_context_non_claim",
+        "analytics_sql_view_context_non_claim",
+        "analytics_replay_validation_context_non_claim",
+        "evidence_ledger_tier7_context_non_claim",
+        "private_log_drift_non_claim",
+        "release_deploy_production_non_claim",
+        "ai_coaching_non_claim"
+      ],
+      "coverage_status": "covered_report_only",
+      "coverage_basis": [
+        "fixture_metadata_only"
+      ],
+      "external_reference_status": "reference_category_not_checked",
+      "known_gaps": [
+        "Analytics readiness labels coverage is committed report-only boundary metadata; Mythic Edge has local analytics schema, ingest, SQL view, replay-validation, runtime field-evidence, evidence-ledger Tier 7, live diagnostics, private-log drift, private-local readiness, and feature-equity context, but they do not prove analytics truth, statistical validity, product readiness, release readiness, deploy readiness, production behavior, AI readiness or truth, coaching readiness or truth, parser support, private smoke success, live Player.log health, or full Mythic Edge corpus parity."
+      ],
+      "review_notes": [
+        "Analytics readiness labels are intentionally report-only corpus context labels: zero missing rows after this boundary does not mean full corpus parity while partial, blocked-private, and blocked-external rows remain."
+      ]
+    },
+    {
+      "entry_id": "evidence_ledger_provenance_report_reference_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/379",
+      "authorized_by_contract": "docs/contracts/parser_corpus_evidence_ledger_provenance_coverage.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "evidence_schema_snapshot": "tests/fixtures/evidence_schema_snapshots/player_log_evidence_ledger_schema_snapshot.v1.json",
+        "evidence_ledger_test": "tests/test_evidence_ledger.py",
+        "evidence_schema_snapshot_test": "tests/test_evidence_schema_snapshot.py",
+        "evidence_schema_drift_report_test": "tests/test_evidence_schema_drift_report.py",
+        "evidence_invariant_execution_test": "tests/test_evidence_invariant_execution.py",
+        "runtime_field_evidence_test": "tests/test_runtime_field_evidence.py",
+        "evidence_validation_report_wiring_test": "tests/test_evidence_validation_report_wiring.py",
+        "runtime_health_summary_test": "focused runtime-health summary tests",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py"
+      },
+      "scenario_families": [
+        "mythic_edge.evidence_ledger_provenance"
+      ],
+      "parser_event_families": [],
+      "parser_claim_families": [
+        "evidence_ledger_schema",
+        "evidence_ledger_entries",
+        "evidence_schema_snapshot",
+        "evidence_schema_drift_report",
+        "evidence_invariant_execution",
+        "runtime_field_evidence_mapping",
+        "validation_report_wiring",
+        "runtime_health_summary_boundary",
+        "evidence_ledger_privacy_boundary"
+      ],
+      "coverage_status": "covered_report_only",
+      "coverage_basis": [
+        "evidence_ledger_only",
+        "fixture_metadata_only",
+        "count_ratchet_only"
+      ],
+      "known_gaps": [
+        "Evidence-ledger provenance coverage does not prove semantic parser correctness for every ledger entry, universal runtime field-evidence attachment, live private-log health, diagnostics readiness, release readiness, analytics truth, AI truth, coaching truth, production behavior, tracker completion, timer.pre_match_idle coverage, workbook row coverage, confidence/finality/degradation coverage, or private-log drift coverage."
+      ],
+      "review_notes": [
+        "Evidence-ledger provenance coverage proves that Mythic Edge has committed, deterministic provenance metadata and review scaffolding for parser-owned fact evidence; it does not prove parser correctness for every field or runtime attachment in every consumer."
+      ]
+    },
+    {
+      "entry_id": "confidence_finality_degradation_boundary_report_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/430",
+      "authorized_by_contract": "docs/contracts/parser_corpus_confidence_finality_degradation_residual.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "evidence_ledger_schema_contract": "docs/contracts/player_log_evidence_ledger_schema.md",
+        "evidence_ledger_contract": "docs/contracts/player_log_evidence_ledger.md",
+        "runtime_field_evidence_contract": "docs/contracts/player_log_evidence_ledger_runtime_field_evidence.md",
+        "invariant_execution_contract": "docs/contracts/player_log_evidence_ledger_invariant_execution.md",
+        "validation_report_wiring_contract": "docs/contracts/player_log_evidence_ledger_validation_report_wiring.md",
+        "evidence_ledger_test": "tests/test_evidence_ledger.py",
+        "runtime_field_evidence_test": "tests/test_runtime_field_evidence.py",
+        "evidence_invariant_execution_test": "tests/test_evidence_invariant_execution.py",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py"
+      },
+      "scenario_families": [
+        "mythic_edge.confidence_finality_degradation"
+      ],
+      "parser_event_families": [],
+      "parser_claim_families": [
+        "value_source_vocabulary",
+        "confidence_vocabulary",
+        "finality_vocabulary",
+        "degradation_vocabulary",
+        "drift_flag_vocabulary",
+        "invariant_status_vocabulary",
+        "review_required_policy",
+        "field_evidence_review_boundary",
+        "downstream_truth_non_claim"
+      ],
+      "coverage_status": "covered_report_only",
+      "coverage_basis": [
+        "evidence_ledger_only",
+        "fixture_metadata_only"
+      ],
+      "known_gaps": [
+        "Confidence/finality/degradation coverage is report-only boundary metadata: committed evidence-ledger contracts, review scaffolds, and focused tests document vocabulary and review policy, but they do not prove parser correctness for every field, universal runtime field-evidence attachment, workbook row coverage, private Player.log evidence, full corpus parity, release readiness, analytics truth, AI truth, or coaching truth."
+      ],
+      "review_notes": [
+        "This boundary records committed metadata for value-source, confidence, finality, degradation, drift flag, invariant-status, and review-required vocabulary without changing parser behavior, evidence-ledger behavior, runtime field-evidence behavior, workbook/export behavior, analytics behavior, AI behavior, readiness policy, or tracker lifecycle."
+      ]
+    },
+    {
+      "entry_id": "workbook_row_coverage_boundary_report_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/432",
+      "authorized_by_contract": "docs/contracts/parser_corpus_workbook_row_coverage_residual.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "sheet_schema_contract": "docs/contracts/parser_sheet_schema.md",
+        "sheet_exports_contract": "docs/contracts/parser_sheet_exports.md",
+        "parser_outputs_contract": "docs/contracts/parser_outputs.md",
+        "parser_runner_contract": "docs/contracts/parser_runner.md",
+        "workbook_webhook_schema_snapshot_contract": "docs/contracts/repo_wide_workbook_webhook_schema_snapshots.md",
+        "sheet_schema_report": "docs/contract_test_reports/parser_sheet_schema.md",
+        "sheet_exports_report": "docs/contract_test_reports/parser_sheet_exports.md",
+        "parser_outputs_report": "docs/contract_test_reports/parser_outputs.md",
+        "parser_runner_report": "docs/contract_test_reports/parser_runner.md",
+        "workbook_webhook_schema_snapshot_handoff": "docs/implementation_handoffs/repo_wide_workbook_webhook_schema_snapshots_comparison.md",
+        "sheet_schema_test": "tests/test_sheet_schema.py",
+        "sheet_exports_test": "tests/test_sheet_exports.py",
+        "event_schema_snapshot_test": "tests/test_event_schema_snapshots.py",
+        "app_models_test": "tests/test_app_models.py",
+        "app_outputs_test": "tests/test_app_outputs.py",
+        "webhook_payload_schema_test": "tests/test_webhook_payload_schema.py",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py"
+      },
+      "scenario_families": [
+        "mythic_edge.workbook_row_coverage"
+      ],
+      "parser_event_families": [],
+      "parser_claim_families": [
+        "match_log_row_keys",
+        "game_log_row_keys",
+        "sync_field_registry",
+        "runtime_sheet_headers",
+        "runtime_export_row_keys",
+        "repo_side_apps_script_mapping_parity",
+        "webhook_top_level_row_shape",
+        "live_workbook_non_claim",
+        "downstream_truth_non_claim"
+      ],
+      "coverage_status": "covered_report_only",
+      "coverage_basis": [
+        "fixture_metadata_only"
+      ],
+      "known_gaps": [
+        "Parser-side workbook-facing metadata does not prove live workbook behavior, deployed Apps Script behavior, Google Sheets sync, webhook delivery success, schema migration approval, workbook formulas, dashboards, analytics truth, AI truth, coaching truth, release readiness, production readiness, tracker completion, or full corpus parity."
+      ],
+      "review_notes": [
+        "This report-only boundary records committed parser-side workbook-facing contracts, tests, schema snapshots, repo-side Apps Script parity checks, and webhook row-shape guardrails without changing parser behavior, workbook schema, Apps Script behavior, Google Sheets sync, output transport, analytics behavior, AI behavior, readiness policy, or tracker lifecycle."
+      ]
+    },
+    {
       "entry_id": "parser_corpus_session_ledger_v1",
       "entry_type": "session_ledger_entry",
       "source_kind": "committed_count_only_report",
@@ -234,7 +1550,6 @@
       "authorized_by_contract": "docs/contracts/parser_corpus_parity_expansion.md",
       "paths": {},
       "scenario_families": [
-        "connection.reconnect",
         "log_runtime.rotation",
         "timer.inactivity_timeout",
         "gameplay_stress.conjure",

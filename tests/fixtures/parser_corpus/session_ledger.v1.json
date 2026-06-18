@@ -74,6 +74,213 @@
       }
     },
     {
+      "session_id": "opponent_auto_concede_boundary_report_v1",
+      "title": "Opponent auto-concede boundary report",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/406",
+      "authorized_by_contract": "docs/contracts/parser_corpus_opponent_auto_concede_coverage.md",
+      "scenario_families": [
+        "gameplay_stress.opponent_auto_concede"
+      ],
+      "format_family": "gameplay_stress",
+      "match_shape": "opponent_auto_concede_boundary_report_only",
+      "record_summary": "committed_opponent_auto_concede_boundary_metadata_only",
+      "parser_coverage": {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "normal_game_result_reference_entries": 1,
+        "dedicated_auto_concede_fixtures": 0,
+        "dedicated_no_action_fixtures": 0,
+        "concession_intent_claims": 0,
+        "hidden_action_absence_claims": 0
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Report-only opponent auto-concede boundary metadata does not include a dedicated auto-concede/no-action fixture and does not prove concession intent, hidden action absence, timeout reason, disconnection reason, gameplay advice, analytics truth, AI truth, coaching truth, release readiness, or production behavior."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "opponent_identifiers_included": false,
+        "private_match_context_included": false,
+        "decklists_included": false,
+        "card_choices_included": false,
+        "strategy_notes_included": false
+      }
+    },
+    {
+      "session_id": "companion_large_deck_boundary_report_v1",
+      "title": "Companion / large-deck boundary report",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/408",
+      "authorized_by_contract": "docs/contracts/parser_corpus_companion_large_deck_coverage.md",
+      "scenario_families": [
+        "gameplay_stress.companion_or_large_deck"
+      ],
+      "format_family": "gameplay_stress",
+      "match_shape": "companion_large_deck_boundary_report_only",
+      "record_summary": "committed_companion_large_deck_boundary_metadata_only",
+      "parser_coverage": {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "deck_snapshot_reference_entries": 1,
+        "submitted_deck_reference_entries": 1,
+        "card_identity_reference_entries": 1,
+        "dedicated_companion_fixtures": 0,
+        "dedicated_large_deck_fixtures": 0,
+        "companion_legality_claims": 0,
+        "decklist_completion_claims": 0
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Report-only companion / large-deck boundary metadata does not include a dedicated companion fixture, dedicated large-deck fixture, companion legality claim, large-deck size claim, complete decklist claim, deck identity claim, hidden-card claim, archetype claim, gameplay advice claim, analytics truth, AI truth, coaching truth, release readiness, or production behavior."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "private_decklists_included": false,
+        "raw_submitted_deck_payloads_included": false,
+        "deck_names_included": false,
+        "deck_ids_included": false,
+        "sideboard_choices_included": false,
+        "companion_candidates_included": false,
+        "card_choices_included": false,
+        "strategy_notes_included": false,
+        "local_smoke_outputs_included": false,
+        "generated_private_runtime_artifacts_included": false,
+        "credentials_tokens_keys_webhooks_included": false
+      }
+    },
+    {
+      "session_id": "gameplay_action_attribution_boundary_report_v1",
+      "title": "Gameplay action-attribution boundary report",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/410",
+      "authorized_by_contract": "docs/contracts/parser_corpus_gameplay_action_attribution_coverage.md",
+      "scenario_families": [
+        "gameplay_stress.action_attribution"
+      ],
+      "format_family": "gameplay_stress",
+      "match_shape": "gameplay_action_attribution_boundary_report_only",
+      "record_summary": "committed_gameplay_action_attribution_boundary_metadata_only",
+      "parser_coverage": {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "gameplay_action_reference_entries": 1,
+        "opponent_card_observation_reference_entries": 1,
+        "action_log_reference_entries": 1,
+        "analytics_ingest_reference_entries": 1,
+        "dedicated_action_attribution_fixtures": 0,
+        "dedicated_event_ordering_fixtures": 0,
+        "hidden_action_claims": 0,
+        "causal_intent_claims": 0,
+        "event_ordering_claims": 0
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Report-only gameplay action-attribution boundary metadata does not include a dedicated action-attribution fixture, dedicated event-ordering fixture, hidden-action claim, causal-intent claim, event-ordering claim, player-mistake claim, best-line claim, archetype claim, decklist claim, gameplay advice claim, analytics truth, AI truth, coaching truth, release readiness, or production behavior."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "private_action_artifacts_included": false,
+        "private_smoke_outputs_included": false,
+        "generated_private_runtime_artifacts_included": false,
+        "decklists_included": false,
+        "deck_names_included": false,
+        "card_choices_included": false,
+        "sideboard_choices_included": false,
+        "strategy_notes_included": false,
+        "opponent_identifiers_included": false,
+        "private_match_context_included": false,
+        "credentials_tokens_keys_webhooks_included": false
+      }
+    },
+    {
+      "session_id": "gameplay_event_ordering_boundary_report_v1",
+      "title": "Gameplay event-ordering boundary report",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/412",
+      "authorized_by_contract": "docs/contracts/parser_corpus_gameplay_event_ordering_coverage.md",
+      "scenario_families": [
+        "gameplay_stress.event_ordering"
+      ],
+      "format_family": "gameplay_stress",
+      "match_shape": "gameplay_event_ordering_boundary_report_only",
+      "record_summary": "committed_gameplay_event_ordering_boundary_metadata_only",
+      "parser_coverage": {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "timestamp_reference_entries": 1,
+        "router_dispatch_reference_entries": 1,
+        "game_state_reference_entries": 1,
+        "gameplay_action_reference_entries": 1,
+        "diagnostics_reference_entries": 1,
+        "golden_replay_reference_entries": 1,
+        "feature_equity_reference_entries": 1,
+        "dedicated_event_ordering_fixtures": 0,
+        "dedicated_action_attribution_fixtures": 0,
+        "hidden_action_claims": 0,
+        "causal_ordering_claims": 0,
+        "complete_sequence_claims": 0
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Report-only gameplay event-ordering boundary metadata does not include a dedicated event-ordering fixture, complete event-sequence truth, causal-ordering claim, hidden-action claim, hidden-card claim, opponent-intent claim, why-an-action-happened claim, action-attribution support beyond issue #410 report-only metadata, player-mistake claim, best-line claim, archetype claim, decklist claim, gameplay advice claim, analytics truth, AI truth, coaching truth, release readiness, or production behavior."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "private_action_artifacts_included": false,
+        "private_smoke_outputs_included": false,
+        "generated_private_runtime_artifacts_included": false,
+        "decklists_included": false,
+        "deck_names_included": false,
+        "card_choices_included": false,
+        "sideboard_choices_included": false,
+        "strategy_notes_included": false,
+        "opponent_identifiers_included": false,
+        "private_match_context_included": false,
+        "credentials_tokens_keys_webhooks_included": false
+      }
+    },
+    {
       "session_id": "draft_parser_family_v1",
       "title": "Synthetic draft parser family slice",
       "source_kind": "synthetic_committed_fixture",
@@ -109,6 +316,52 @@
       }
     },
     {
+      "session_id": "draft_with_games_boundary_report_v1",
+      "title": "Draft with games boundary report",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/400",
+      "authorized_by_contract": "docs/contracts/parser_corpus_draft_with_games_coverage.md",
+      "scenario_families": [
+        "core_gameplay.draft_with_games"
+      ],
+      "format_family": "limited_draft",
+      "match_shape": "draft_with_games_boundary_report_only",
+      "record_summary": "committed_draft_with_games_boundary_metadata_only",
+      "parser_coverage": {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "draft_only_reference_entries": 1,
+        "draft_parser_family_reference_entries": 1,
+        "completed_draft_game_rows": 0,
+        "game_result_events": 0,
+        "match_result_events": 0,
+        "dedicated_draft_with_games_fixtures": 0
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Draft-with-games boundary coverage records report-only metadata and does not prove completed limited gameplay, game-result evidence, match-result evidence, game rows, match rows, draft deck construction, draft picks as strategy evidence, draft pool truth, decklist truth, sideboard choice truth, hidden-card truth, archetype truth, analytics truth, AI truth, coaching truth, release readiness, or production behavior."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "draft_picks_included": false,
+        "draft_pools_included": false,
+        "decklists_included": false,
+        "private_deck_names_included": false,
+        "card_choices_included": false,
+        "strategy_notes_included": false
+      }
+    },
+    {
       "session_id": "gsm_truncation_marker_synthetic_v1",
       "title": "Synthetic GSM truncation data-loss marker",
       "source_kind": "synthetic_committed_fixture",
@@ -138,6 +391,1124 @@
         "raw_log_lines_included": false,
         "private_paths_included": false,
         "raw_payloads_included": false
+      }
+    },
+    {
+      "session_id": "sealed_entry_lifecycle_synthetic_v1",
+      "title": "Synthetic sealed entry lifecycle evidence",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/357",
+      "authorized_by_contract": "docs/contracts/parser_corpus_sealed_entry_lifecycle_coverage.md",
+      "scenario_families": [
+        "core_gameplay.sealed_entry"
+      ],
+      "format_family": "limited_sealed",
+      "match_shape": "sealed_entry_only",
+      "record_summary": "synthetic_metadata_summary_only",
+      "parser_coverage": {
+        "event_families": {
+          "MatchState": 1,
+          "EventLifecycle": 1
+        },
+        "unknown_entries": 0,
+        "truncation_count": 0
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Synthetic sealed entry metadata does not prove sealed deckbuilding, sealed matches, sealed pool contents, submitted-deck contents, or full sealed lifecycle support."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "decklists_included": false
+      }
+    },
+    {
+      "session_id": "sealed_match_synthetic_v1",
+      "title": "Synthetic sealed match evidence",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/359",
+      "authorized_by_contract": "docs/contracts/parser_corpus_sealed_match_coverage.md",
+      "scenario_families": [
+        "core_gameplay.sealed_matches"
+      ],
+      "format_family": "limited_sealed",
+      "match_shape": "sealed_match_single_game",
+      "record_summary": "synthetic_metadata_summary_only",
+      "parser_coverage": {
+        "event_families": {
+          "MatchState": 1,
+          "GameState": 1,
+          "GameResult": 1
+        },
+        "unknown_entries": 0,
+        "truncation_count": 0
+      },
+      "game_rows": {
+        "count": 1,
+        "result_shape": "single_game_result"
+      },
+      "known_gaps": [
+        "Synthetic sealed match metadata does not prove sealed deckbuilding, sealed pool contents, submitted-deck contents, decklists, archetypes, gameplay advice, analytics truth, AI truth, or coaching truth."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "decklists_included": false
+      }
+    },
+    {
+      "session_id": "sealed_deckbuild_synthetic_v1",
+      "title": "Synthetic sealed deckbuild submit-deck signal evidence",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/361",
+      "authorized_by_contract": "docs/contracts/parser_corpus_sealed_deckbuild_coverage.md",
+      "scenario_families": [
+        "core_gameplay.sealed_deckbuild"
+      ],
+      "format_family": "limited_sealed",
+      "match_shape": "sealed_deckbuild_submit_deck_signal_only",
+      "record_summary": "synthetic_metadata_summary_only",
+      "parser_coverage": {
+        "event_families": {
+          "MatchState": 1,
+          "ClientAction": 1
+        },
+        "unknown_entries": 0,
+        "truncation_count": 0
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Synthetic sealed deckbuild signal metadata does not include submitted card lists, sealed pool contents, decklists, deck names, deck IDs, card choices, strategy notes, analytics truth, AI truth, or coaching truth."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "decklists_included": false
+      }
+    },
+    {
+      "session_id": "connection_error_payload_synthetic_v1",
+      "title": "Synthetic connection error payload evidence",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/364",
+      "authorized_by_contract": "docs/contracts/parser_corpus_connection_error_payload_coverage.md",
+      "scenario_families": [
+        "connection.connection_error_payload"
+      ],
+      "format_family": "connection_runtime",
+      "match_shape": "connection_error_payload_signal_only",
+      "record_summary": "synthetic_metadata_summary_only",
+      "parser_coverage": {
+        "event_families": {
+          "ConnectionError": 1
+        },
+        "unknown_entries": 0,
+        "truncation_count": 0
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Synthetic connection error payload metadata does not prove reconnect behavior, disconnect behavior, firewall or network-drop behavior, private Player.log resilience, runtime health, release readiness, analytics truth, AI truth, coaching truth, or production behavior."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "decklists_included": false
+      }
+    },
+    {
+      "session_id": "connection_reconnect_synthetic_v1",
+      "title": "Synthetic reconnect evidence",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/402",
+      "authorized_by_contract": "docs/contracts/parser_corpus_reconnect_coverage.md",
+      "scenario_families": [
+        "connection.reconnect"
+      ],
+      "format_family": "connection_runtime",
+      "match_shape": "connection_reconnect_signal_only",
+      "record_summary": "synthetic_metadata_summary_only",
+      "parser_coverage": {
+        "event_families": {
+          "ConnectionError": 5
+        },
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "reconnect_result_entries": 1,
+        "reconnect_outcome_entries": 3,
+        "gre_connection_lost_entries": 1
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Synthetic reconnect metadata does not prove live reconnect success, network reliability, disconnect behavior, firewall or network-drop behavior, private Player.log resilience, runtime health, release readiness, analytics truth, AI truth, coaching truth, or production behavior."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "decklists_included": false
+      }
+    },
+    {
+      "session_id": "connection_disconnect_synthetic_v1",
+      "title": "Synthetic connection disconnect evidence",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/366",
+      "authorized_by_contract": "docs/contracts/parser_corpus_connection_disconnect_coverage.md",
+      "scenario_families": [
+        "connection.disconnect"
+      ],
+      "format_family": "connection_runtime",
+      "match_shape": "connection_disconnect_signal_only",
+      "record_summary": "synthetic_metadata_summary_only",
+      "parser_coverage": {
+        "event_families": {
+          "MatchConnectionState": 1,
+          "TcpConnectionClose": 1,
+          "WebSocketClosed": 1
+        },
+        "unknown_entries": 0,
+        "truncation_count": 0
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Synthetic connection disconnect metadata does not prove reconnect behavior, firewall or network-drop behavior, private Player.log resilience, runtime health, release readiness, analytics truth, AI truth, coaching truth, or production behavior."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "decklists_included": false
+      }
+    },
+    {
+      "session_id": "detailed_logs_disabled_synthetic_v1",
+      "title": "Synthetic detailed logs disabled evidence",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/368",
+      "authorized_by_contract": "docs/contracts/parser_corpus_detailed_logs_disabled_coverage.md",
+      "scenario_families": [
+        "log_runtime.detailed_logs_disabled"
+      ],
+      "format_family": "log_runtime",
+      "match_shape": "detailed_logging_status_signal_only",
+      "record_summary": "synthetic_metadata_summary_only",
+      "parser_coverage": {
+        "event_families": {
+          "DetailedLoggingStatus": 1
+        },
+        "unknown_entries": 0,
+        "truncation_count": 0
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Synthetic detailed logs disabled metadata does not prove live MTGA settings, private Player.log resilience, log rotation, malformed or headerless log handling, timestamp anomaly handling, unknown-entry routing, diagnostics readiness, release readiness, analytics truth, AI truth, coaching truth, or production behavior."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "decklists_included": false
+      }
+    },
+    {
+      "session_id": "timestamp_anomaly_synthetic_v1",
+      "title": "Synthetic timestamp anomaly router-stats evidence",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/370",
+      "authorized_by_contract": "docs/contracts/parser_corpus_timestamp_anomaly_coverage.md",
+      "scenario_families": [
+        "log_runtime.timestamp_anomaly"
+      ],
+      "format_family": "log_runtime",
+      "match_shape": "timestamp_anomaly_signal_only",
+      "record_summary": "synthetic_router_stats_summary_only",
+      "parser_coverage": {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "timestamp_missing": 1,
+        "timestamp_parse_failure": 1,
+        "timestamp_anomalies": 2
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Synthetic timestamp anomaly metadata does not prove malformed or headerless log handling, unknown-entry routing, log rotation support, real local Player.log timestamp drift, private smoke, release readiness, analytics truth, AI truth, coaching truth, or production behavior."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "decklists_included": false
+      }
+    },
+    {
+      "session_id": "malformed_headerless_synthetic_v1",
+      "title": "Synthetic malformed/headerless line-buffer evidence",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/372",
+      "authorized_by_contract": "docs/contracts/parser_corpus_malformed_headerless_coverage.md",
+      "scenario_families": [
+        "log_runtime.malformed_or_headerless"
+      ],
+      "format_family": "log_runtime",
+      "match_shape": "line_buffer_boundary_signal_only",
+      "record_summary": "synthetic_line_buffer_summary_only",
+      "parser_coverage": {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "line_buffer_headerless_orphan_lines_ignored": 1,
+        "line_buffer_unknown_header_entries": 1,
+        "line_buffer_partial_fragments_joined": 1,
+        "line_buffer_multiline_entries_finalized": 1,
+        "line_buffer_single_line_headers_emitted": 1
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Synthetic malformed/headerless metadata does not prove unknown-entry routing, log drift detection, log rotation support, semantic recovery from arbitrary malformed Player.log payloads, private smoke, release readiness, analytics truth, AI truth, coaching truth, or production behavior."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "decklists_included": false
+      }
+    },
+    {
+      "session_id": "active_player_timer_synthetic_v1",
+      "title": "Synthetic active player timer evidence",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/375",
+      "authorized_by_contract": "docs/contracts/parser_corpus_active_player_timer_coverage.md",
+      "scenario_families": [
+        "timer.active_player_timer"
+      ],
+      "format_family": "timer_runtime",
+      "match_shape": "active_player_timer_signal_only",
+      "record_summary": "synthetic_timer_normalization_summary_only",
+      "parser_coverage": {
+        "event_families": {
+          "GameState": 1
+        },
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "normalized_timer_records": 1,
+        "active_player_timer_records": 1,
+        "timer_records_with_direct_seat_evidence": 1,
+        "timer_records_with_contextual_active_player": 1,
+        "timer_records_with_seconds_values": 1,
+        "timer_records_with_milliseconds_values": 1,
+        "timer_degraded_records": 0
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Synthetic active player timer metadata does not prove inactivity timeout, pre-match idle timers, rope behavior, clock pressure, private Player.log timer drift, release readiness, analytics truth, AI truth, coaching truth, or production behavior."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "decklists_included": false
+      }
+    },
+    {
+      "session_id": "pre_match_idle_timer_synthetic_v1",
+      "title": "Synthetic pre-match idle timer evidence",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/389",
+      "authorized_by_contract": "docs/contracts/parser_corpus_pre_match_idle_timer_coverage.md",
+      "scenario_families": [
+        "timer.pre_match_idle"
+      ],
+      "format_family": "timer_runtime",
+      "match_shape": "pre_match_idle_timer_signal_only",
+      "record_summary": "synthetic_timer_normalization_summary_only",
+      "parser_coverage": {
+        "event_families": {
+          "GameState": 1
+        },
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "normalized_timer_records": 1,
+        "pre_match_idle_timer_records": 1,
+        "timer_records_with_direct_seat_evidence": 0,
+        "timer_records_without_direct_seat_evidence": 1,
+        "timer_records_with_contextual_active_player": 0,
+        "timer_records_with_seconds_values": 1,
+        "timer_records_with_milliseconds_values": 1,
+        "timer_degraded_records": 0
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Synthetic pre-match idle timer metadata does not prove live Arena pre-match idle behavior, inactivity timeout, rope behavior, clock pressure, private Player.log timer drift, release readiness, analytics truth, AI truth, coaching truth, or production behavior."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "decklists_included": false
+      }
+    },
+    {
+      "session_id": "start_hook_deck_snapshot_synthetic_v1",
+      "title": "Synthetic StartHook deck snapshot evidence",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/392",
+      "authorized_by_contract": "docs/contracts/parser_corpus_start_hook_deck_snapshot_coverage.md",
+      "scenario_families": [
+        "deck_api.start_hook_deck_snapshot"
+      ],
+      "format_family": "deck_api",
+      "match_shape": "start_hook_deck_snapshot_signal_only",
+      "record_summary": "synthetic_start_hook_summary_only",
+      "parser_coverage": {
+        "event_families": {
+          "Collection": 1,
+          "DeckCollection": 1
+        },
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "start_hook_collection_snapshots": 1,
+        "start_hook_deck_collection_snapshots": 1,
+        "start_hook_correlated_decks": 1,
+        "start_hook_orphaned_deck_summaries_skipped": 0,
+        "start_hook_malformed_deck_summaries_skipped": 0
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Synthetic StartHook deck snapshot metadata does not prove private deck contents, exact deck identity, submitted-deck truth, sideboard-delta truth, collection ownership truth, inventory/economy state, deck-summary coverage, deck-upsert coverage, store/pack/inbox/crafting coverage, analytics truth, AI truth, coaching truth, release readiness, or production behavior."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "decklists_included": false,
+        "private_deck_names_included": false,
+        "private_collection_data_included": false
+      }
+    },
+    {
+      "session_id": "deck_summary_boundary_report_v1",
+      "title": "Deck summary boundary report",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/394",
+      "authorized_by_contract": "docs/contracts/parser_corpus_deck_summary_coverage.md",
+      "scenario_families": [
+        "deck_api.deck_summary"
+      ],
+      "format_family": "deck_api",
+      "match_shape": "deck_summary_boundary_report_only",
+      "record_summary": "committed_deck_summary_boundary_metadata_only",
+      "parser_coverage": {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "start_hook_deck_summaries_reference_entries": 1,
+        "dedicated_deck_summary_api_events": 0,
+        "dedicated_deck_summary_parser_routes": 0
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Deck summary boundary coverage records StartHook-bound report-only evidence and does not prove dedicated deck-summary API parsing, private deck contents, exact deck identity, submitted-deck truth, sideboard-delta truth, collection ownership truth, inventory/economy state, deck-upsert coverage, store/pack/inbox/crafting coverage, analytics truth, AI truth, coaching truth, release readiness, or production behavior."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "decklists_included": false,
+        "private_deck_names_included": false,
+        "private_collection_data_included": false
+      }
+    },
+    {
+      "session_id": "deck_upsert_boundary_report_v1",
+      "title": "Deck upsert boundary report",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/396",
+      "authorized_by_contract": "docs/contracts/parser_corpus_deck_upsert_coverage.md",
+      "scenario_families": [
+        "deck_api.deck_upsert"
+      ],
+      "format_family": "deck_api",
+      "match_shape": "deck_upsert_boundary_report_only",
+      "record_summary": "committed_deck_upsert_boundary_metadata_only",
+      "parser_coverage": {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "event_set_deck_reference_entries": 1,
+        "submit_deck_reference_entries": 1,
+        "dedicated_deck_upsert_api_events": 0,
+        "dedicated_deck_upsert_parser_routes": 0
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Deck-upsert boundary coverage records report-only metadata and does not prove dedicated deck-upsert API parsing, private deck contents, exact deck identity, active-deck identity, submitted-deck truth beyond existing parser-owned fields, sideboard-delta truth, collection ownership truth, inventory/economy state, store/pack/inbox/crafting coverage, analytics truth, AI truth, coaching truth, release readiness, or production behavior."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "decklists_included": false,
+        "private_deck_names_included": false,
+        "private_collection_data_included": false
+      }
+    },
+    {
+      "session_id": "store_pack_inbox_crafting_boundary_report_v1",
+      "title": "Store pack inbox crafting boundary report",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/398",
+      "authorized_by_contract": "docs/contracts/parser_corpus_store_pack_inbox_crafting_coverage.md",
+      "scenario_families": [
+        "deck_api.store_pack_inbox_or_crafting"
+      ],
+      "format_family": "deck_api",
+      "match_shape": "store_pack_inbox_crafting_boundary_report_only",
+      "record_summary": "committed_store_pack_inbox_crafting_boundary_metadata_only",
+      "parser_coverage": {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "inventory_info_reference_entries": 1,
+        "dedicated_store_api_events": 0,
+        "dedicated_pack_inbox_crafting_events": 0,
+        "dedicated_economy_parser_routes": 0
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Store/pack/inbox/crafting boundary coverage records report-only metadata and does not prove store API parsing, pack-opening parsing, inbox/reward parsing, crafting/wildcard truth, transactions, collection ownership, account state, broad inventory/economy support, currency balances, pack inventory, inbox contents, crafting choices, card ownership, deck identity, submitted-deck truth, sideboard-delta truth, analytics truth, AI truth, coaching truth, release readiness, or production behavior."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "decklists_included": false,
+        "private_deck_names_included": false,
+        "private_collection_data_included": false,
+        "private_economy_data_included": false,
+        "currency_balances_included": false,
+        "pack_inventory_included": false,
+        "inbox_contents_included": false,
+        "crafting_choices_included": false
+      }
+    },
+    {
+      "session_id": "unknown_entry_drift_report_reference_v1",
+      "title": "Report-only unknown-entry drift evidence",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/377",
+      "authorized_by_contract": "docs/contracts/parser_corpus_unknown_entry_coverage.md",
+      "scenario_families": [
+        "log_runtime.unknown_entry"
+      ],
+      "format_family": "log_runtime",
+      "match_shape": "unknown_entry_drift_report_reference_only",
+      "record_summary": "normalized_drift_report_reference_only",
+      "parser_coverage": {
+        "event_families": {},
+        "unknown_entries": 7,
+        "truncation_count": 0,
+        "drift_report_status": "review",
+        "unknown_signatures": 4,
+        "unmatched_api_names": 3,
+        "unmatched_request_api_names": 3,
+        "routed_event_families": 0
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Unknown-entry drift evidence is review-only and does not prove parser support, parser correctness, live private drift health, diagnostics readiness, release readiness, analytics truth, AI truth, coaching truth, or production behavior."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "decklists_included": false
+      }
+    },
+    {
+      "session_id": "missing_message_type_boundary_report_v1",
+      "title": "Missing message type boundary report",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/414",
+      "authorized_by_contract": "docs/contracts/parser_corpus_missing_message_type_coverage.md",
+      "scenario_families": [
+        "drift_debug.missing_message_type"
+      ],
+      "format_family": "drift_debug",
+      "match_shape": "missing_message_type_boundary_report_only",
+      "record_summary": "committed_missing_message_type_boundary_metadata_only",
+      "parser_coverage": {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "unknown_entry_reference_entries": 1,
+        "gsm_truncation_reference_entries": 1,
+        "timestamp_anomaly_reference_entries": 1,
+        "gre_game_state_reference_entries": 1,
+        "client_action_reference_entries": 1,
+        "diagnostics_reference_entries": 1,
+        "evidence_ledger_reference_entries": 1,
+        "dedicated_missing_message_type_fixtures": 0,
+        "message_recovery_claims": 0,
+        "game_state_reconstruction_claims": 0,
+        "unknown_future_message_support_claims": 0
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Report-only missing-message-type boundary metadata does not include a dedicated missing-message-type fixture, parser message recovery claim, hidden-payload truth claim, GameState reconstruction claim, unknown future MTGA message support claim, unknown-entry drift truth, GSM truncation truth, timestamp anomaly truth, generic client-action support truth, diagnostics readiness, release readiness, production behavior, analytics truth, AI truth, coaching truth, or full corpus parity."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "message_bodies_included": false,
+        "private_smoke_outputs_included": false,
+        "generated_private_runtime_artifacts_included": false,
+        "sqlite_files_included": false,
+        "workbook_exports_included": false,
+        "decklists_included": false,
+        "card_choices_included": false,
+        "strategy_notes_included": false,
+        "credentials_tokens_keys_webhooks_included": false
+      }
+    },
+    {
+      "session_id": "rename_rotation_collision_boundary_report_v1",
+      "title": "Rename rotation collision boundary report",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/416",
+      "authorized_by_contract": "docs/contracts/parser_corpus_rename_rotation_collision_coverage.md",
+      "scenario_families": [
+        "drift_debug.rename_or_rotation_collision"
+      ],
+      "format_family": "drift_debug",
+      "match_shape": "rename_rotation_collision_boundary_report_only",
+      "record_summary": "committed_rename_rotation_collision_boundary_metadata_only",
+      "parser_coverage": {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "tailer_rotation_reference_entries": 1,
+        "stream_rotation_event_reference_entries": 1,
+        "log_drift_reference_entries": 1,
+        "diagnostics_reference_entries": 1,
+        "golden_replay_reference_entries": 1,
+        "feature_equity_reference_entries": 1,
+        "dedicated_rename_rotation_collision_fixtures": 0,
+        "file_identity_tracking_claims": 0,
+        "rename_collision_detection_claims": 0,
+        "recycle_collision_detection_claims": 0,
+        "duplicate_replay_prevention_claims": 0,
+        "private_smoke_success_claims": 0,
+        "production_watcher_support_claims": 0
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Report-only rename/rotation collision boundary metadata does not include a dedicated rename/rotation collision fixture, file identity tracking claim, rename collision detection claim, recycle collision detection claim, duplicate/replay prevention claim, private smoke success claim, production watcher support claim, log-rotation truth, live file-system truth, parser drift recovery truth, diagnostics readiness, release readiness, production behavior, analytics truth, AI truth, coaching truth, or full corpus parity."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "file_path_identities_included": false,
+        "file_hashes_included": false,
+        "byte_size_lists_included": false,
+        "capture_date_rows_included": false,
+        "private_smoke_outputs_included": false,
+        "generated_private_runtime_artifacts_included": false,
+        "sqlite_files_included": false,
+        "workbook_exports_included": false,
+        "decklists_included": false,
+        "card_choices_included": false,
+        "credentials_tokens_keys_webhooks_included": false
+      }
+    },
+    {
+      "session_id": "phantom_deck_origin_boundary_report_v1",
+      "title": "Phantom deck origin boundary report",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/418",
+      "authorized_by_contract": "docs/contracts/parser_corpus_phantom_deck_origin_coverage.md",
+      "scenario_families": [
+        "drift_debug.phantom_or_deck_origin"
+      ],
+      "format_family": "drift_debug",
+      "match_shape": "phantom_deck_origin_boundary_report_only",
+      "record_summary": "committed_phantom_deck_origin_boundary_metadata_only",
+      "parser_coverage": {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "deck_snapshot_reference_entries": 1,
+        "deck_summary_reference_entries": 1,
+        "deck_upsert_reference_entries": 1,
+        "submitted_deck_reference_entries": 1,
+        "deck_state_boundary_reference_entries": 1,
+        "card_identity_reference_entries": 1,
+        "gameplay_action_reference_entries": 1,
+        "opponent_observation_reference_entries": 1,
+        "diagnostics_reference_entries": 1,
+        "evidence_ledger_reference_entries": 1,
+        "dedicated_phantom_deck_origin_fixtures": 0,
+        "phantom_card_detection_claims": 0,
+        "deck_origin_truth_claims": 0,
+        "hidden_card_inference_claims": 0,
+        "complete_decklist_claims": 0,
+        "archetype_classification_claims": 0,
+        "gameplay_advice_claims": 0,
+        "private_smoke_success_claims": 0
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Report-only phantom/deck-origin boundary metadata does not include a dedicated phantom/deck-origin fixture, phantom-card parser support claim, deck-origin parser support claim, hidden-card truth claim, complete decklist claim, exact deck identity claim, card ownership claim, collection ownership claim, sideboard-delta claim, archetype classification claim, gameplay advice claim, player mistake label claim, parser recovery claim, private smoke success claim, diagnostics readiness, release readiness, production behavior, analytics truth, AI truth, coaching truth, or full corpus parity."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "decklists_included": false,
+        "deck_names_included": false,
+        "deck_ids_included": false,
+        "raw_submitted_deck_payloads_included": false,
+        "card_choices_included": false,
+        "sideboard_choices_included": false,
+        "hidden_card_examples_included": false,
+        "private_smoke_outputs_included": false,
+        "generated_private_runtime_artifacts_included": false,
+        "sqlite_files_included": false,
+        "workbook_exports_included": false,
+        "strategy_notes_included": false,
+        "credentials_tokens_keys_webhooks_included": false
+      }
+    },
+    {
+      "session_id": "live_diagnostics_boundary_report_v1",
+      "source_entry_id": "live_diagnostics_boundary_report_v1",
+      "title": "Live diagnostics boundary report",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/420",
+      "authorized_by_contract": "docs/contracts/parser_corpus_live_diagnostics_coverage.md",
+      "scenario_families": [
+        "mythic_edge.live_diagnostics"
+      ],
+      "format_family": "mythic_edge",
+      "match_shape": "live_diagnostics_boundary_report_only",
+      "record_summary": "committed_live_diagnostics_boundary_metadata_only",
+      "parser_coverage": {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "parser_diagnostics_reference_entries": 1,
+        "live_watcher_diagnostics_reference_entries": 1,
+        "live_capture_no_row_reference_entries": 1,
+        "evidence_review_status_reference_entries": 1,
+        "status_api_reference_entries": 1,
+        "log_drift_reference_entries": 1,
+        "unknown_entry_reference_entries": 1,
+        "private_smoke_success_claims": 0,
+        "live_player_log_health_claims": 0,
+        "watcher_correctness_claims": 0,
+        "parser_support_claims": 0,
+        "release_readiness_claims": 0,
+        "deploy_readiness_claims": 0,
+        "production_readiness_claims": 0,
+        "analytics_truth_claims": 0,
+        "ai_truth_claims": 0,
+        "coaching_truth_claims": 0
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Report-only live diagnostics boundary metadata includes no committed private Player.log evidence, no private smoke output, no live watcher correctness proof, no live Player.log health proof, no parser support or parser correctness claim, and no status API, local app, analytics, AI, coaching, release, deploy, or production readiness claim."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "private_player_log_evidence_included": false,
+        "private_smoke_outputs_included": false,
+        "generated_private_runtime_artifacts_included": false,
+        "local_status_artifacts_included": false,
+        "sqlite_files_included": false,
+        "workbook_exports_included": false,
+        "operator_notes_included": false,
+        "browser_smoke_reports_included": false,
+        "decklists_included": false,
+        "card_choices_included": false,
+        "credentials_tokens_keys_webhooks_included": false
+      }
+    },
+    {
+      "session_id": "analytics_readiness_labels_boundary_report_v1",
+      "source_entry_id": "analytics_readiness_labels_boundary_report_v1",
+      "title": "Analytics readiness labels boundary report",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/424",
+      "authorized_by_contract": "docs/contracts/parser_corpus_analytics_readiness_labels_coverage.md",
+      "scenario_families": [
+        "mythic_edge.analytics_readiness_labels"
+      ],
+      "format_family": "mythic_edge",
+      "match_shape": "analytics_readiness_labels_boundary_report_only",
+      "record_summary": "committed_analytics_readiness_labels_boundary_metadata_only",
+      "parser_coverage": {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "analytics_schema_contract_reference_entries": 1,
+        "analytics_ingest_contract_reference_entries": 4,
+        "analytics_sql_view_contract_reference_entries": 1,
+        "analytics_replay_validation_contract_reference_entries": 1,
+        "runtime_field_evidence_contract_reference_entries": 1,
+        "tier7_derived_analytics_contract_reference_entries": 1,
+        "private_log_drift_blocked_boundary_reference_entries": 1,
+        "analytics_truth_claims": 0,
+        "statistical_validity_claims": 0,
+        "product_readiness_claims": 0,
+        "release_readiness_claims": 0,
+        "deploy_readiness_claims": 0,
+        "production_readiness_claims": 0,
+        "parser_support_claims": 0,
+        "private_smoke_success_claims": 0,
+        "ai_truth_claims": 0,
+        "coaching_truth_claims": 0,
+        "full_corpus_parity_claims": 0
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Report-only analytics readiness labels boundary metadata includes no analytics correctness certification, no statistical validity evidence, no private analytics dataset, no private smoke output, and no release, deploy, production, AI, coaching, parser-support, private-log, or full-corpus-parity claim."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "private_analytics_datasets_included": false,
+        "private_player_log_evidence_included": false,
+        "private_smoke_outputs_included": false,
+        "generated_private_runtime_artifacts_included": false,
+        "sqlite_files_included": false,
+        "workbook_exports_included": false,
+        "decklists_included": false,
+        "card_choices_included": false,
+        "strategy_notes_included": false,
+        "credentials_tokens_keys_webhooks_included": false
+      }
+    },
+    {
+      "session_id": "evidence_ledger_provenance_report_reference_v1",
+      "title": "Report-only evidence-ledger provenance scaffold",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/379",
+      "authorized_by_contract": "docs/contracts/parser_corpus_evidence_ledger_provenance_coverage.md",
+      "scenario_families": [
+        "mythic_edge.evidence_ledger_provenance"
+      ],
+      "format_family": "mythic_edge_provenance",
+      "match_shape": "evidence_ledger_report_reference_only",
+      "record_summary": "committed_provenance_metadata_summary_only",
+      "parser_coverage": {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "evidence_ledger_output_families": 7,
+        "evidence_ledger_entries": 71,
+        "evidence_ledger_evidence_signals": 448,
+        "evidence_schema_snapshot_status": "pass",
+        "evidence_schema_drift_status": "pass",
+        "evidence_invariant_execution_status": "pass",
+        "executable_invariants": 11,
+        "declared_invariants": 425,
+        "declared_unique_invariants": 394,
+        "runtime_field_evidence_surface": "available_review_sidecar",
+        "validation_report_wiring_surface": "available_report_only",
+        "runtime_health_surface": "available_summary_only"
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Evidence-ledger provenance metadata does not prove semantic parser correctness, universal field-evidence attachment, live private-log health, release readiness, analytics truth, AI truth, coaching truth, production behavior, tracker completion, timer.pre_match_idle coverage, workbook row coverage, confidence/finality/degradation coverage, or private-log drift coverage."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "decklists_included": false
+      }
+    },
+    {
+      "session_id": "confidence_finality_degradation_boundary_report_v1",
+      "title": "Confidence / finality / degradation boundary report",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/430",
+      "authorized_by_contract": "docs/contracts/parser_corpus_confidence_finality_degradation_residual.md",
+      "scenario_families": [
+        "mythic_edge.confidence_finality_degradation"
+      ],
+      "format_family": "mythic_edge_provenance",
+      "match_shape": "confidence_finality_degradation_boundary_report_only",
+      "record_summary": "committed_confidence_finality_degradation_metadata_only",
+      "parser_coverage": {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "value_source_vocabulary": "available",
+        "confidence_vocabulary": "available",
+        "finality_vocabulary": "available",
+        "degradation_vocabulary": "available",
+        "drift_flag_vocabulary": "available",
+        "invariant_status_vocabulary": "available",
+        "review_required_policy": "available",
+        "representative_field_runtime_attachment_claims": 0,
+        "parser_behavior_claims": 0,
+        "workbook_row_claims": 0,
+        "analytics_truth_claims": 0,
+        "ai_truth_claims": 0,
+        "coaching_truth_claims": 0
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Confidence/finality/degradation boundary metadata does not include raw field-evidence records, raw invariant reports, full schema snapshots, full drift diffs, runtime artifacts, workbook exports, private Player.log evidence, parser correctness claims for every field, universal runtime field-evidence attachment claims, workbook row coverage, release readiness, analytics truth, AI truth, coaching truth, production behavior, or tracker completion."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "raw_field_evidence_included": false,
+        "raw_invariant_reports_included": false,
+        "schema_snapshots_included": false,
+        "schema_drift_diffs_included": false,
+        "runtime_artifacts_included": false,
+        "workbook_exports_included": false,
+        "private_player_log_evidence_included": false,
+        "private_smoke_outputs_included": false,
+        "decklists_included": false,
+        "card_choices_included": false,
+        "strategy_notes_included": false,
+        "credentials_tokens_keys_webhooks_included": false
+      }
+    },
+    {
+      "session_id": "workbook_row_coverage_boundary_report_v1",
+      "title": "Workbook row coverage boundary report",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/432",
+      "authorized_by_contract": "docs/contracts/parser_corpus_workbook_row_coverage_residual.md",
+      "scenario_families": [
+        "mythic_edge.workbook_row_coverage"
+      ],
+      "format_family": "mythic_edge_workbook_transport",
+      "match_shape": "workbook_row_coverage_boundary_report_only",
+      "record_summary": "committed_workbook_row_coverage_metadata_only",
+      "parser_coverage": {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "match_log_sync_fields": "available",
+        "game_log_sync_fields": "available",
+        "match_log_row_key_snapshot": "available",
+        "game_log_row_key_snapshot": "available",
+        "runtime_sheet_schema_snapshot": "available",
+        "runtime_export_row_key_snapshot": "available",
+        "repo_side_apps_script_parity_snapshot": "available",
+        "webhook_top_level_row_shape_test": "available",
+        "live_workbook_claims": 0,
+        "deployed_apps_script_claims": 0,
+        "google_sheets_sync_claims": 0,
+        "webhook_delivery_claims": 0,
+        "dashboard_truth_claims": 0,
+        "analytics_truth_claims": 0,
+        "ai_truth_claims": 0,
+        "coaching_truth_claims": 0
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Workbook row coverage boundary metadata does not include live workbook contents, deployed Apps Script output, Google Sheets sync proof, webhook delivery captures, runtime artifacts, workbook exports, private Player.log evidence, workbook formula truth, dashboard truth, analytics truth, AI truth, coaching truth, release readiness, production behavior, tracker completion, or full corpus parity."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "live_workbook_contents_included": false,
+        "deployed_apps_script_output_included": false,
+        "google_sheets_contents_included": false,
+        "webhook_payload_captures_included": false,
+        "runtime_artifacts_included": false,
+        "workbook_exports_included": false,
+        "private_player_log_evidence_included": false,
+        "private_smoke_outputs_included": false,
+        "decklists_included": false,
+        "card_choices_included": false,
+        "strategy_notes_included": false,
+        "credentials_tokens_keys_webhooks_included": false
       }
     }
   ]

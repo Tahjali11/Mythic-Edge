@@ -496,6 +496,154 @@ def test_game_result_unknown_winners_do_not_overwrite_existing_winners() -> None
         assert summary.match_result_reason == "ResultReason_Existing"
 
 
+def test_sealed_context_flows_through_match_game_result_summary_metadata() -> None:
+    state.reset_runtime_state()
+    match_id = "synthetic-sealed-match"
+    game_info = {
+        "matchID": match_id,
+        "gameNumber": 1,
+        "stage": "GameStage_GameOver",
+        "matchState": "MatchState_MatchComplete",
+        "superFormat": "SuperFormat_Limited",
+        "matchWinCondition": "MatchWinCondition_BestOfOne",
+    }
+    metadata = EventMetadata(datetime(2026, 5, 12, 12, 30, 0, tzinfo=UTC), b"synthetic sealed match")
+
+    match_started = MatchStateEvent(
+        metadata,
+        {
+            "type": "match_started",
+            "match_id": match_id,
+            "event_id": "Sealed_MOM",
+            "state_type": "MatchGameRoomStateType_Playing",
+            "players": [
+                {"player_name": "Local", "team_id": 1, "system_seat_id": 1},
+                {"player_name": "Opponent", "team_id": 2, "system_seat_id": 2},
+            ],
+        },
+    )
+    game_state = GameStateEvent(
+        metadata,
+        {
+            "type": "game_state_message",
+            "identity": {"match_id": match_id, "game_number": 1},
+            "game_info": game_info,
+            "turn_info": {"turn_number": 4, "active_player_seat_id": 1},
+            "players": [
+                {"systemSeatNumber": 1, "teamId": 1},
+                {"systemSeatNumber": 2, "teamId": 2},
+            ],
+        },
+    )
+    game_result = GameResultEvent(
+        metadata,
+        {
+            "type": "game_result",
+            "winning_team_id": 1,
+            "result_type": "ResultType_WinLoss",
+            "reason": "ResultReason_Game",
+            "match_state": "MatchState_MatchComplete",
+            "identity": {"match_id": match_id, "game_number": 1},
+            "game_info": game_info,
+            "results": [
+                {
+                    "scope": "MatchScope_Game",
+                    "winningTeamId": 1,
+                    "result": "ResultType_WinLoss",
+                    "reason": "ResultReason_Game",
+                },
+                {
+                    "scope": "MatchScope_Match",
+                    "winningTeamId": 1,
+                    "result": "ResultType_MatchWinLoss",
+                    "reason": "ResultReason_Match",
+                },
+            ],
+        },
+    )
+
+    for event in (match_started, game_state, game_result):
+        state._update_match_summary(event)
+
+    summary = state.get_match_summary(match_id)
+    assert summary is not None
+    assert summary.event_id == "Sealed_MOM"
+    assert summary.super_format == "SuperFormat_Limited"
+    assert summary.match_win_condition == "MatchWinCondition_BestOfOne"
+    assert summary.player_team == 1
+    assert summary.games[1].winner_team == 1
+    assert summary.games[1].turn_count == 4
+    assert summary.match_winner_team == 1
+    assert summary.match_result_type == "ResultType_MatchWinLoss"
+    assert summary.match_result_reason == "ResultReason_Match"
+
+    event_identity = summary.event_identity()
+    assert event_identity.event_family == "sealed"
+    assert event_identity.play_mode_family == "limited"
+    assert event_identity.queue_subtype == "sealed"
+    assert event_identity.is_sealed_match is True
+
+    debug_payload = summary.to_debug_dict()
+    assert debug_payload["event_identity"]["event_family"] == "sealed"
+    assert debug_payload["event_identity"]["is_sealed_match"] is True
+    assert debug_payload["match_wl"] == "W"
+    assert debug_payload["g1_result"] == "W"
+
+
+def test_sealed_context_submit_deck_signal_sets_summary_without_deck_truth() -> None:
+    state.reset_runtime_state()
+    match_id = "synthetic-sealed-deckbuild"
+    metadata = EventMetadata(datetime(2026, 5, 12, 12, 40, 0, tzinfo=UTC), b"synthetic sealed deckbuild")
+
+    state._update_match_summary(
+        MatchStateEvent(
+            metadata,
+            {
+                "type": "match_started",
+                "match_id": match_id,
+                "event_id": "Sealed_MOM",
+                "state_type": "MatchGameRoomStateType_Playing",
+                "players": [
+                    {"player_name": "Local", "team_id": 1, "system_seat_id": 1},
+                    {"player_name": "Opponent", "team_id": 2, "system_seat_id": 2},
+                ],
+            },
+        )
+    )
+    state._update_match_summary(
+        ClientActionEvent(
+            metadata,
+            {
+                "type": "submit_deck_resp",
+                "game_state_id": 0,
+                "resp_id": 0,
+                "request_id": 0,
+                "deck_cards": [],
+                "sideboard_cards": [],
+                "raw_client_action": {
+                    "payload": {"type": "ClientMessageType_SubmitDeckResp"},
+                },
+            },
+        )
+    )
+
+    summary = state.get_match_summary(match_id)
+    assert summary is not None
+    assert summary.event_identity().is_sealed_match is True
+    assert summary.submit_deck_seen is True
+
+    debug_payload = summary.to_debug_dict()
+    assert debug_payload["event_identity"]["event_family"] == "sealed"
+    assert debug_payload["submit_deck_seen"] is True
+    assert "deck_cards" not in debug_payload
+    assert "sideboard_cards" not in debug_payload
+
+    row = summary.to_match_log_row(final=True)
+    assert row["MTGA Submit Deck Seen"] == "Yes"
+    assert "deck_cards" not in row
+    assert "sideboard_cards" not in row
+
+
 def test_hand_snapshot_duplicate_suppression_and_once_only_bottomed_capture() -> None:
     state.reset_runtime_state()
     summary = MatchSummary(match_id="match-hand")
