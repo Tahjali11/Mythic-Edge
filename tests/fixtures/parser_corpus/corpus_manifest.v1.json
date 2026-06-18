@@ -712,6 +712,43 @@
       ]
     },
     {
+      "entry_id": "store_pack_inbox_crafting_boundary_report_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/398",
+      "authorized_by_contract": "docs/contracts/parser_corpus_store_pack_inbox_crafting_coverage.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "inventory_parser": "src/mythic_edge_parser/parsers/inventory.py",
+        "inventory_parser_test": "tests/test_parser_small_modules.py",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py"
+      },
+      "scenario_families": [
+        "deck_api.store_pack_inbox_or_crafting"
+      ],
+      "parser_event_families": [],
+      "parser_claim_families": [
+        "store_pack_inbox_crafting_boundary_report",
+        "inventory_info_reference_only",
+        "store_api_not_claimed",
+        "pack_inbox_crafting_not_claimed",
+        "inventory_economy_privacy_boundary"
+      ],
+      "coverage_status": "covered_report_only",
+      "coverage_basis": [
+        "fixture_metadata_only"
+      ],
+      "known_gaps": [
+        "Store/pack/inbox/crafting coverage is report-only boundary metadata: Mythic Edge has bounded StartHook InventoryInfo snapshot parsing, but that does not prove store API parsing, pack-opening parsing, inbox/reward parsing, crafting/wildcard truth, transactions, collection ownership, account state, broad inventory/economy support, currency balances, pack inventory, inbox contents, crafting choices, card ownership, deck identity, submitted-deck truth, sideboard-delta truth, analytics truth, AI truth, coaching truth, release readiness, or production behavior."
+      ],
+      "review_notes": [
+        "The store/pack/inbox/crafting row is intentionally report-only and prevents false parity claims by documenting why InventoryInfo, StartHook deck snapshot, deck-summary, deck-upsert, event-set deck, submit-deck, and submitted-deck-card evidence is not store/pack/inbox/crafting evidence; future dedicated coverage remains blocked until Mythic Edge has owned, sanitized, parser-supported evidence for a narrower store, pack, inbox, reward, crafting, transaction, or economy surface."
+      ]
+    },
+    {
       "entry_id": "unknown_entry_drift_report_reference_v1",
       "entry_type": "diagnostics_report",
       "source_kind": "committed_count_only_report",

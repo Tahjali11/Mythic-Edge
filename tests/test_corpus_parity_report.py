@@ -245,6 +245,25 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
     assert "submitted-deck truth beyond existing parser-owned fields" in deck_upsert_boundary["known_gaps"][0]
     assert "intentionally report-only" in deck_upsert_boundary["review_notes"][0]
     assert "not deck-upsert evidence" in deck_upsert_boundary["review_notes"][0]
+    store_pack_boundary = _manifest_entry(manifest, "store_pack_inbox_crafting_boundary_report_v1")
+    assert store_pack_boundary["coverage_status"] == "covered_report_only"
+    assert store_pack_boundary["scenario_families"] == ["deck_api.store_pack_inbox_or_crafting"]
+    assert store_pack_boundary["parser_event_families"] == []
+    assert store_pack_boundary["parser_claim_families"] == [
+        "store_pack_inbox_crafting_boundary_report",
+        "inventory_info_reference_only",
+        "store_api_not_claimed",
+        "pack_inbox_crafting_not_claimed",
+        "inventory_economy_privacy_boundary",
+    ]
+    assert store_pack_boundary["coverage_basis"] == ["fixture_metadata_only"]
+    assert "parser_behavior_verified" not in store_pack_boundary["coverage_basis"]
+    assert "InventoryInfo snapshot parsing" in store_pack_boundary["known_gaps"][0]
+    assert "store API parsing" in store_pack_boundary["known_gaps"][0]
+    assert "pack-opening parsing" in store_pack_boundary["known_gaps"][0]
+    assert "crafting/wildcard truth" in store_pack_boundary["known_gaps"][0]
+    assert "intentionally report-only" in store_pack_boundary["review_notes"][0]
+    assert "not store/pack/inbox/crafting evidence" in store_pack_boundary["review_notes"][0]
     unknown_entry = _manifest_entry(manifest, "unknown_entry_drift_report_reference_v1")
     assert unknown_entry["coverage_status"] == "covered_report_only"
     assert unknown_entry["scenario_families"] == ["log_runtime.unknown_entry"]
@@ -515,6 +534,38 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
         "private_deck_names_included": False,
         "private_collection_data_included": False,
     }
+    store_pack_session = _session_entry(session_ledger, "store_pack_inbox_crafting_boundary_report_v1")
+    assert store_pack_session["format_family"] == "deck_api"
+    assert store_pack_session["match_shape"] == "store_pack_inbox_crafting_boundary_report_only"
+    assert store_pack_session["record_summary"] == "committed_store_pack_inbox_crafting_boundary_metadata_only"
+    assert store_pack_session["parser_coverage"] == {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "inventory_info_reference_entries": 1,
+        "dedicated_store_api_events": 0,
+        "dedicated_pack_inbox_crafting_events": 0,
+        "dedicated_economy_parser_routes": 0,
+    }
+    assert store_pack_session["game_rows"] == {"count": 0, "result_shape": "not_applicable"}
+    assert "report-only metadata" in store_pack_session["known_gaps"][0]
+    assert "store API parsing" in store_pack_session["known_gaps"][0]
+    assert "inbox/reward parsing" in store_pack_session["known_gaps"][0]
+    assert "currency balances" in store_pack_session["known_gaps"][0]
+    assert store_pack_session["report_only_redactions"] == {
+        "raw_log_lines_included": False,
+        "private_paths_included": False,
+        "raw_payloads_included": False,
+        "external_logs_included": False,
+        "decklists_included": False,
+        "private_deck_names_included": False,
+        "private_collection_data_included": False,
+        "private_economy_data_included": False,
+        "currency_balances_included": False,
+        "pack_inventory_included": False,
+        "inbox_contents_included": False,
+        "crafting_choices_included": False,
+    }
     unknown_entry_session = _session_entry(session_ledger, "unknown_entry_drift_report_reference_v1")
     assert unknown_entry_session["format_family"] == "log_runtime"
     assert unknown_entry_session["match_shape"] == "unknown_entry_drift_report_reference_only"
@@ -628,9 +679,9 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
         "total_scenario_families": len(corpus.SCENARIO_FAMILIES),
         "covered_committed": 6,
         "covered_synthetic": 13,
-        "covered_report_only": 4,
+        "covered_report_only": 5,
         "partial": 3,
-        "missing": len(corpus.SCENARIO_FAMILIES) - 32,
+        "missing": len(corpus.SCENARIO_FAMILIES) - 33,
         "deferred": 0,
         "blocked_private_evidence": 0,
         "blocked_external_boundary": 6,
@@ -915,11 +966,18 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     }
     assert _matrix_row(report, "deck_api.store_pack_inbox_or_crafting") == {
         "scenario_family": "deck_api.store_pack_inbox_or_crafting",
-        "coverage_status": "missing",
-        "coverage_basis": ["external_reference_only"],
-        "mythic_edge_entries": [],
+        "coverage_status": "covered_report_only",
+        "coverage_basis": ["fixture_metadata_only"],
+        "mythic_edge_entries": ["store_pack_inbox_crafting_boundary_report_v1"],
         "external_reference_status": "reference_category_not_checked",
-        "notes": [],
+        "notes": [
+            "The store/pack/inbox/crafting row is intentionally report-only and prevents false parity claims "
+            "by documenting why InventoryInfo, StartHook deck snapshot, deck-summary, deck-upsert, event-set "
+            "deck, submit-deck, and submitted-deck-card evidence is not store/pack/inbox/crafting evidence; "
+            "future dedicated coverage remains blocked until Mythic Edge has owned, sanitized, "
+            "parser-supported evidence for a narrower store, pack, inbox, reward, crafting, transaction, or "
+            "economy surface."
+        ],
     }
     assert report["privacy"] == {
         "raw_private_log_committed": False,
