@@ -74,6 +74,50 @@
       }
     },
     {
+      "session_id": "opponent_auto_concede_boundary_report_v1",
+      "title": "Opponent auto-concede boundary report",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/406",
+      "authorized_by_contract": "docs/contracts/parser_corpus_opponent_auto_concede_coverage.md",
+      "scenario_families": [
+        "gameplay_stress.opponent_auto_concede"
+      ],
+      "format_family": "gameplay_stress",
+      "match_shape": "opponent_auto_concede_boundary_report_only",
+      "record_summary": "committed_opponent_auto_concede_boundary_metadata_only",
+      "parser_coverage": {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "normal_game_result_reference_entries": 1,
+        "dedicated_auto_concede_fixtures": 0,
+        "dedicated_no_action_fixtures": 0,
+        "concession_intent_claims": 0,
+        "hidden_action_absence_claims": 0
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Report-only opponent auto-concede boundary metadata does not include a dedicated auto-concede/no-action fixture and does not prove concession intent, hidden action absence, timeout reason, disconnection reason, gameplay advice, analytics truth, AI truth, coaching truth, release readiness, or production behavior."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "opponent_identifiers_included": false,
+        "private_match_context_included": false,
+        "decklists_included": false,
+        "card_choices_included": false,
+        "strategy_notes_included": false
+      }
+    },
+    {
       "session_id": "draft_parser_family_v1",
       "title": "Synthetic draft parser family slice",
       "source_kind": "synthetic_committed_fixture",

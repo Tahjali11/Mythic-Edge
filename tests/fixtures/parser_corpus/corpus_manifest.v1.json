@@ -507,6 +507,44 @@
       ]
     },
     {
+      "entry_id": "opponent_auto_concede_boundary_report_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/406",
+      "authorized_by_contract": "docs/contracts/parser_corpus_opponent_auto_concede_coverage.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "game_result_contract": "docs/contracts/parser_gre_game_result.md",
+        "game_result_ledger_contract": "docs/contracts/player_log_evidence_ledger_tier3_game_results.md",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py"
+      },
+      "scenario_families": [
+        "gameplay_stress.opponent_auto_concede"
+      ],
+      "parser_event_families": [],
+      "parser_claim_families": [
+        "opponent_auto_concede_boundary_report",
+        "normal_game_result_not_auto_concede",
+        "no_action_not_inferred",
+        "concession_intent_not_claimed",
+        "game_end_edge_fixture_required",
+        "gameplay_advice_non_claim"
+      ],
+      "coverage_status": "covered_report_only",
+      "coverage_basis": [
+        "fixture_metadata_only"
+      ],
+      "known_gaps": [
+        "Opponent auto-concede coverage is report-only boundary metadata; Mythic Edge has normal game-result and final-reconciliation evidence, but that evidence does not prove auto-concede behavior, no-action behavior, concession intent, hidden opponent actions, timeout reason, disconnection reason, player mistakes, gameplay advice, analytics truth, AI truth, coaching truth, release readiness, or production behavior."
+      ],
+      "review_notes": [
+        "Opponent auto-concede/no-action coverage is report-only boundary metadata: normal GameResult, local-win, opponent-loss, short-duration, sparse-action, and public-taxonomy evidence do not prove opponent auto-concede or no-action behavior."
+      ]
+    },
+    {
       "entry_id": "detailed_logs_disabled_synthetic_v1",
       "entry_type": "session_ledger_entry",
       "source_kind": "synthetic_committed_fixture",
