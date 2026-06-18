@@ -1153,6 +1153,71 @@
       }
     },
     {
+      "session_id": "phantom_deck_origin_boundary_report_v1",
+      "title": "Phantom deck origin boundary report",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/418",
+      "authorized_by_contract": "docs/contracts/parser_corpus_phantom_deck_origin_coverage.md",
+      "scenario_families": [
+        "drift_debug.phantom_or_deck_origin"
+      ],
+      "format_family": "drift_debug",
+      "match_shape": "phantom_deck_origin_boundary_report_only",
+      "record_summary": "committed_phantom_deck_origin_boundary_metadata_only",
+      "parser_coverage": {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "deck_snapshot_reference_entries": 1,
+        "deck_summary_reference_entries": 1,
+        "deck_upsert_reference_entries": 1,
+        "submitted_deck_reference_entries": 1,
+        "deck_state_boundary_reference_entries": 1,
+        "card_identity_reference_entries": 1,
+        "gameplay_action_reference_entries": 1,
+        "opponent_observation_reference_entries": 1,
+        "diagnostics_reference_entries": 1,
+        "evidence_ledger_reference_entries": 1,
+        "dedicated_phantom_deck_origin_fixtures": 0,
+        "phantom_card_detection_claims": 0,
+        "deck_origin_truth_claims": 0,
+        "hidden_card_inference_claims": 0,
+        "complete_decklist_claims": 0,
+        "archetype_classification_claims": 0,
+        "gameplay_advice_claims": 0,
+        "private_smoke_success_claims": 0
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Report-only phantom/deck-origin boundary metadata does not include a dedicated phantom/deck-origin fixture, phantom-card parser support claim, deck-origin parser support claim, hidden-card truth claim, complete decklist claim, exact deck identity claim, card ownership claim, collection ownership claim, sideboard-delta claim, archetype classification claim, gameplay advice claim, player mistake label claim, parser recovery claim, private smoke success claim, diagnostics readiness, release readiness, production behavior, analytics truth, AI truth, coaching truth, or full corpus parity."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "decklists_included": false,
+        "deck_names_included": false,
+        "deck_ids_included": false,
+        "raw_submitted_deck_payloads_included": false,
+        "card_choices_included": false,
+        "sideboard_choices_included": false,
+        "hidden_card_examples_included": false,
+        "private_smoke_outputs_included": false,
+        "generated_private_runtime_artifacts_included": false,
+        "sqlite_files_included": false,
+        "workbook_exports_included": false,
+        "strategy_notes_included": false,
+        "credentials_tokens_keys_webhooks_included": false
+      }
+    },
+    {
       "session_id": "evidence_ledger_provenance_report_reference_v1",
       "title": "Report-only evidence-ledger provenance scaffold",
       "source_kind": "committed_count_only_report",

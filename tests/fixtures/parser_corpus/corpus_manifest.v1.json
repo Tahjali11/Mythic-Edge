@@ -1147,6 +1147,57 @@
       ]
     },
     {
+      "entry_id": "phantom_deck_origin_boundary_report_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/418",
+      "authorized_by_contract": "docs/contracts/parser_corpus_phantom_deck_origin_coverage.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "start_hook_contract": "docs/contracts/parser_corpus_start_hook_deck_snapshot_coverage.md",
+        "deck_summary_contract": "docs/contracts/parser_corpus_deck_summary_coverage.md",
+        "deck_upsert_contract": "docs/contracts/parser_corpus_deck_upsert_coverage.md",
+        "submitted_deck_contract": "docs/contracts/player_log_evidence_ledger_tier4_submitted_deck_cards.md",
+        "deck_state_boundary_contract": "docs/contracts/player_log_evidence_ledger_tier4_deck_state_boundary.md",
+        "card_identity_contract": "docs/contracts/player_log_evidence_ledger_tier5_card_identity.md",
+        "gameplay_action_contract": "docs/contracts/player_log_evidence_ledger_tier5_gameplay_action.md",
+        "opponent_observation_contract": "docs/contracts/player_log_evidence_ledger_tier5_opponent_card_observation.md",
+        "diagnostics_contract": "docs/contracts/parser_diagnostics_mode.md",
+        "evidence_ledger_contract": "docs/contracts/player_log_evidence_ledger_schema.md",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py"
+      },
+      "scenario_families": [
+        "drift_debug.phantom_or_deck_origin"
+      ],
+      "parser_event_families": [],
+      "parser_claim_families": [
+        "phantom_deck_origin_boundary_report",
+        "start_hook_deck_snapshot_not_deck_origin_truth",
+        "deck_summary_not_deck_origin_truth",
+        "deck_upsert_not_deck_origin_truth",
+        "submitted_deck_not_phantom_truth",
+        "deck_state_boundary_not_deck_origin_truth",
+        "card_identity_not_hidden_card_truth",
+        "gameplay_action_not_deck_origin_truth",
+        "opponent_observation_not_hidden_card_truth",
+        "runtime_active_deck_not_parser_truth",
+        "analytics_ai_coaching_non_claim"
+      ],
+      "coverage_status": "covered_report_only",
+      "coverage_basis": [
+        "fixture_metadata_only"
+      ],
+      "known_gaps": [
+        "Phantom/deck-origin coverage is report-only boundary metadata; Mythic Edge has StartHook deck snapshots, deck-summary boundaries, deck-upsert boundaries, submitted-deck provenance, broad deck-state boundary notes, card identity provenance, gameplay actions, opponent-card observations, diagnostics, log-drift reports, golden replay, feature-equity, evidence-ledger provenance, runtime active-deck surfaces, card catalog enrichment, local decklist references, and public taxonomy context, but they do not prove phantom-card parser support, deck-origin parser support, hidden-card truth, complete decklists, exact deck identity, card ownership, collection ownership, sideboard deltas, archetype classification, gameplay advice, player mistake labels, parser recovery, private smoke success, diagnostics readiness, release readiness, production behavior, analytics truth, AI truth, coaching truth, or full Mythic Edge corpus parity."
+      ],
+      "review_notes": [
+        "Phantom/deck-origin coverage is intentionally report-only: adjacent deck, card identity, gameplay-action, opponent-observation, diagnostics, drift, evidence-ledger, runtime, analytics, AI, coaching, and public taxonomy surfaces are non-claims for phantom-card support or deck-origin truth."
+      ]
+    },
+    {
       "entry_id": "evidence_ledger_provenance_report_reference_v1",
       "entry_type": "session_ledger_entry",
       "source_kind": "committed_count_only_report",

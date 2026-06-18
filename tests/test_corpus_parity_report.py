@@ -493,6 +493,33 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
     assert "tailer/stream rotation signals" in rename_rotation_collision["review_notes"][0]
     assert "recycle/rollback boundaries" in rename_rotation_collision["review_notes"][0]
     assert "do not prove live file-system truth" in rename_rotation_collision["review_notes"][0]
+    phantom_deck_origin = _manifest_entry(manifest, "phantom_deck_origin_boundary_report_v1")
+    assert phantom_deck_origin["coverage_status"] == "covered_report_only"
+    assert phantom_deck_origin["scenario_families"] == ["drift_debug.phantom_or_deck_origin"]
+    assert phantom_deck_origin["parser_event_families"] == []
+    assert phantom_deck_origin["parser_claim_families"] == [
+        "phantom_deck_origin_boundary_report",
+        "start_hook_deck_snapshot_not_deck_origin_truth",
+        "deck_summary_not_deck_origin_truth",
+        "deck_upsert_not_deck_origin_truth",
+        "submitted_deck_not_phantom_truth",
+        "deck_state_boundary_not_deck_origin_truth",
+        "card_identity_not_hidden_card_truth",
+        "gameplay_action_not_deck_origin_truth",
+        "opponent_observation_not_hidden_card_truth",
+        "runtime_active_deck_not_parser_truth",
+        "analytics_ai_coaching_non_claim",
+    ]
+    assert phantom_deck_origin["coverage_basis"] == ["fixture_metadata_only"]
+    assert "report-only boundary metadata" in phantom_deck_origin["known_gaps"][0]
+    assert "do not prove phantom-card parser support" in phantom_deck_origin["known_gaps"][0]
+    assert "deck-origin parser support" in phantom_deck_origin["known_gaps"][0]
+    assert "hidden-card truth" in phantom_deck_origin["known_gaps"][0]
+    assert "complete decklists" in phantom_deck_origin["known_gaps"][0]
+    assert "exact deck identity" in phantom_deck_origin["known_gaps"][0]
+    assert "adjacent deck" in phantom_deck_origin["review_notes"][0]
+    assert "public taxonomy surfaces are non-claims" in phantom_deck_origin["review_notes"][0]
+    assert "phantom-card support or deck-origin truth" in phantom_deck_origin["review_notes"][0]
     evidence_ledger_provenance = _manifest_entry(manifest, "evidence_ledger_provenance_report_reference_v1")
     assert evidence_ledger_provenance["coverage_status"] == "covered_report_only"
     assert evidence_ledger_provenance["scenario_families"] == ["mythic_edge.evidence_ledger_provenance"]
@@ -906,6 +933,63 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
         "card_choices_included": False,
         "credentials_tokens_keys_webhooks_included": False,
     }
+    phantom_deck_origin_session = _session_entry(session_ledger, "phantom_deck_origin_boundary_report_v1")
+    assert phantom_deck_origin_session["format_family"] == "drift_debug"
+    assert phantom_deck_origin_session["match_shape"] == "phantom_deck_origin_boundary_report_only"
+    assert phantom_deck_origin_session["record_summary"] == (
+        "committed_phantom_deck_origin_boundary_metadata_only"
+    )
+    assert phantom_deck_origin_session["parser_coverage"] == {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "deck_snapshot_reference_entries": 1,
+        "deck_summary_reference_entries": 1,
+        "deck_upsert_reference_entries": 1,
+        "submitted_deck_reference_entries": 1,
+        "deck_state_boundary_reference_entries": 1,
+        "card_identity_reference_entries": 1,
+        "gameplay_action_reference_entries": 1,
+        "opponent_observation_reference_entries": 1,
+        "diagnostics_reference_entries": 1,
+        "evidence_ledger_reference_entries": 1,
+        "dedicated_phantom_deck_origin_fixtures": 0,
+        "phantom_card_detection_claims": 0,
+        "deck_origin_truth_claims": 0,
+        "hidden_card_inference_claims": 0,
+        "complete_decklist_claims": 0,
+        "archetype_classification_claims": 0,
+        "gameplay_advice_claims": 0,
+        "private_smoke_success_claims": 0,
+    }
+    assert phantom_deck_origin_session["game_rows"] == {"count": 0, "result_shape": "not_applicable"}
+    assert "does not include a dedicated phantom/deck-origin fixture" in (
+        phantom_deck_origin_session["known_gaps"][0]
+    )
+    assert "phantom-card parser support claim" in phantom_deck_origin_session["known_gaps"][0]
+    assert "deck-origin parser support claim" in phantom_deck_origin_session["known_gaps"][0]
+    assert "hidden-card truth claim" in phantom_deck_origin_session["known_gaps"][0]
+    assert "complete decklist claim" in phantom_deck_origin_session["known_gaps"][0]
+    assert "private smoke success claim" in phantom_deck_origin_session["known_gaps"][0]
+    assert phantom_deck_origin_session["report_only_redactions"] == {
+        "raw_log_lines_included": False,
+        "private_paths_included": False,
+        "raw_payloads_included": False,
+        "external_logs_included": False,
+        "decklists_included": False,
+        "deck_names_included": False,
+        "deck_ids_included": False,
+        "raw_submitted_deck_payloads_included": False,
+        "card_choices_included": False,
+        "sideboard_choices_included": False,
+        "hidden_card_examples_included": False,
+        "private_smoke_outputs_included": False,
+        "generated_private_runtime_artifacts_included": False,
+        "sqlite_files_included": False,
+        "workbook_exports_included": False,
+        "strategy_notes_included": False,
+        "credentials_tokens_keys_webhooks_included": False,
+    }
     evidence_ledger_session = _session_entry(session_ledger, "evidence_ledger_provenance_report_reference_v1")
     assert evidence_ledger_session["format_family"] == "mythic_edge_provenance"
     assert evidence_ledger_session["match_shape"] == "evidence_ledger_report_reference_only"
@@ -1213,9 +1297,9 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
         "total_scenario_families": len(corpus.SCENARIO_FAMILIES),
         "covered_committed": 6,
         "covered_synthetic": 14,
-        "covered_report_only": 12,
+        "covered_report_only": 13,
         "partial": 3,
-        "missing": len(corpus.SCENARIO_FAMILIES) - 41,
+        "missing": len(corpus.SCENARIO_FAMILIES) - 42,
         "deferred": 0,
         "blocked_private_evidence": 1,
         "blocked_external_boundary": 5,
@@ -1403,11 +1487,16 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     }
     assert _matrix_row(report, "drift_debug.phantom_or_deck_origin") == {
         "scenario_family": "drift_debug.phantom_or_deck_origin",
-        "coverage_status": "missing",
-        "coverage_basis": ["external_reference_only"],
-        "mythic_edge_entries": [],
+        "coverage_status": "covered_report_only",
+        "coverage_basis": ["fixture_metadata_only"],
+        "mythic_edge_entries": ["phantom_deck_origin_boundary_report_v1"],
         "external_reference_status": "reference_category_not_checked",
-        "notes": [],
+        "notes": [
+            "Phantom/deck-origin coverage is intentionally report-only: adjacent deck, card identity, "
+            "gameplay-action, opponent-observation, diagnostics, drift, evidence-ledger, runtime, "
+            "analytics, AI, coaching, and public taxonomy surfaces are non-claims for phantom-card "
+            "support or deck-origin truth."
+        ],
     }
     assert _matrix_row(report, "mythic_edge.private_log_report_only_drift") == {
         "scenario_family": "mythic_edge.private_log_report_only_drift",
