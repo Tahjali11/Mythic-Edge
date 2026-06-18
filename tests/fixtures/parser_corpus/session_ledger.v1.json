@@ -1281,6 +1281,69 @@
       }
     },
     {
+      "session_id": "analytics_readiness_labels_boundary_report_v1",
+      "source_entry_id": "analytics_readiness_labels_boundary_report_v1",
+      "title": "Analytics readiness labels boundary report",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/424",
+      "authorized_by_contract": "docs/contracts/parser_corpus_analytics_readiness_labels_coverage.md",
+      "scenario_families": [
+        "mythic_edge.analytics_readiness_labels"
+      ],
+      "format_family": "mythic_edge",
+      "match_shape": "analytics_readiness_labels_boundary_report_only",
+      "record_summary": "committed_analytics_readiness_labels_boundary_metadata_only",
+      "parser_coverage": {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "analytics_schema_contract_reference_entries": 1,
+        "analytics_ingest_contract_reference_entries": 4,
+        "analytics_sql_view_contract_reference_entries": 1,
+        "analytics_replay_validation_contract_reference_entries": 1,
+        "runtime_field_evidence_contract_reference_entries": 1,
+        "tier7_derived_analytics_contract_reference_entries": 1,
+        "private_log_drift_blocked_boundary_reference_entries": 1,
+        "analytics_truth_claims": 0,
+        "statistical_validity_claims": 0,
+        "product_readiness_claims": 0,
+        "release_readiness_claims": 0,
+        "deploy_readiness_claims": 0,
+        "production_readiness_claims": 0,
+        "parser_support_claims": 0,
+        "private_smoke_success_claims": 0,
+        "ai_truth_claims": 0,
+        "coaching_truth_claims": 0,
+        "full_corpus_parity_claims": 0
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Report-only analytics readiness labels boundary metadata includes no analytics correctness certification, no statistical validity evidence, no private analytics dataset, no private smoke output, and no release, deploy, production, AI, coaching, parser-support, private-log, or full-corpus-parity claim."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "private_analytics_datasets_included": false,
+        "private_player_log_evidence_included": false,
+        "private_smoke_outputs_included": false,
+        "generated_private_runtime_artifacts_included": false,
+        "sqlite_files_included": false,
+        "workbook_exports_included": false,
+        "decklists_included": false,
+        "card_choices_included": false,
+        "strategy_notes_included": false,
+        "credentials_tokens_keys_webhooks_included": false
+      }
+    },
+    {
       "session_id": "evidence_ledger_provenance_report_reference_v1",
       "title": "Report-only evidence-ledger provenance scaffold",
       "source_kind": "committed_count_only_report",
