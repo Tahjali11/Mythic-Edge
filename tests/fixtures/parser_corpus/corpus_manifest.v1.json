@@ -476,6 +476,37 @@
       ]
     },
     {
+      "entry_id": "firewall_network_drop_private_evidence_boundary_v1",
+      "entry_type": "local_private_report_summary",
+      "source_kind": "local_private_report_only",
+      "commit_status": "local_report_only",
+      "privacy_class": "local_private_not_committed",
+      "sanitization_status": "requires_review",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/404",
+      "authorized_by_contract": "docs/contracts/parser_corpus_firewall_network_drop_coverage.md",
+      "paths": {},
+      "scenario_families": [
+        "connection.firewall_or_network_drop"
+      ],
+      "parser_event_families": [],
+      "parser_claim_families": [
+        "firewall_network_drop_private_evidence_required",
+        "connection_adjacent_rows_non_claim",
+        "network_reliability_non_claim",
+        "private_artifact_boundary"
+      ],
+      "coverage_status": "blocked_private_evidence",
+      "coverage_basis": [
+        "local_report_only"
+      ],
+      "known_gaps": [
+        "Firewall/network-drop corpus coverage requires future approved private/live evidence or a narrower parser-owned signal; generic connection errors, reconnect metadata, disconnect metadata, public taxonomy, and synthetic text do not prove firewall behavior, Wi-Fi/drop behavior, OS/router/network diagnostics, runtime health, release readiness, analytics truth, AI truth, coaching truth, or production behavior."
+      ],
+      "review_notes": [
+        "Firewall/network-drop coverage is blocked by private/live evidence requirements; adjacent connection error, reconnect, and disconnect corpus rows do not prove firewall/drop behavior, network reliability, private smoke success, release readiness, analytics truth, AI truth, coaching truth, or production behavior."
+      ]
+    },
+    {
       "entry_id": "detailed_logs_disabled_synthetic_v1",
       "entry_type": "session_ledger_entry",
       "source_kind": "synthetic_committed_fixture",
