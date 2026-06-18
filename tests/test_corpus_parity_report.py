@@ -235,6 +235,31 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
     assert "opponent-card observations" in gameplay_action_attribution["review_notes"][0]
     assert "analytics gameplay-action ingest" in gameplay_action_attribution["review_notes"][0]
     assert "do not prove action-attribution stress support" in gameplay_action_attribution["review_notes"][0]
+    gameplay_event_ordering = _manifest_entry(manifest, "gameplay_event_ordering_boundary_report_v1")
+    assert gameplay_event_ordering["coverage_status"] == "covered_report_only"
+    assert gameplay_event_ordering["scenario_families"] == ["gameplay_stress.event_ordering"]
+    assert gameplay_event_ordering["parser_event_families"] == []
+    assert gameplay_event_ordering["parser_claim_families"] == [
+        "gameplay_event_ordering_boundary_report",
+        "parser_timestamps_not_complete_ordering_truth",
+        "router_dispatch_order_not_stress_coverage",
+        "gameplay_action_order_not_event_sequence_truth",
+        "action_attribution_not_event_ordering_truth",
+        "diagnostics_replay_reports_not_parser_truth",
+        "hidden_action_inference_non_claim",
+    ]
+    assert gameplay_event_ordering["coverage_basis"] == ["fixture_metadata_only"]
+    assert "report-only boundary metadata" in gameplay_event_ordering["known_gaps"][0]
+    assert "do not prove event-ordering parser stress support" in gameplay_event_ordering["known_gaps"][0]
+    assert "complete event-sequence truth" in gameplay_event_ordering["known_gaps"][0]
+    assert "causal ordering truth" in gameplay_event_ordering["known_gaps"][0]
+    assert "hidden actions" in gameplay_event_ordering["known_gaps"][0]
+    assert "action-attribution support beyond issue #410" in gameplay_event_ordering["known_gaps"][0]
+    assert "parser timestamps" in gameplay_event_ordering["review_notes"][0]
+    assert "router dispatch order" in gameplay_event_ordering["review_notes"][0]
+    assert "gameplay-action row order" in gameplay_event_ordering["review_notes"][0]
+    assert "action-attribution report-only coverage" in gameplay_event_ordering["review_notes"][0]
+    assert "do not prove complete event-sequence truth" in gameplay_event_ordering["review_notes"][0]
     detailed_logs_disabled = _manifest_entry(manifest, "detailed_logs_disabled_synthetic_v1")
     assert detailed_logs_disabled["coverage_status"] == "covered_synthetic"
     assert detailed_logs_disabled["scenario_families"] == ["log_runtime.detailed_logs_disabled"]
@@ -971,6 +996,64 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
         "private_match_context_included": False,
         "credentials_tokens_keys_webhooks_included": False,
     }
+    gameplay_event_ordering_session = _session_entry(
+        session_ledger,
+        "gameplay_event_ordering_boundary_report_v1",
+    )
+    assert gameplay_event_ordering_session["format_family"] == "gameplay_stress"
+    assert gameplay_event_ordering_session["match_shape"] == (
+        "gameplay_event_ordering_boundary_report_only"
+    )
+    assert gameplay_event_ordering_session["record_summary"] == (
+        "committed_gameplay_event_ordering_boundary_metadata_only"
+    )
+    assert gameplay_event_ordering_session["parser_coverage"] == {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "timestamp_reference_entries": 1,
+        "router_dispatch_reference_entries": 1,
+        "game_state_reference_entries": 1,
+        "gameplay_action_reference_entries": 1,
+        "diagnostics_reference_entries": 1,
+        "golden_replay_reference_entries": 1,
+        "feature_equity_reference_entries": 1,
+        "dedicated_event_ordering_fixtures": 0,
+        "dedicated_action_attribution_fixtures": 0,
+        "hidden_action_claims": 0,
+        "causal_ordering_claims": 0,
+        "complete_sequence_claims": 0,
+    }
+    assert gameplay_event_ordering_session["game_rows"] == {
+        "count": 0,
+        "result_shape": "not_applicable",
+    }
+    assert "does not include a dedicated event-ordering fixture" in (
+        gameplay_event_ordering_session["known_gaps"][0]
+    )
+    assert "complete event-sequence truth" in gameplay_event_ordering_session["known_gaps"][0]
+    assert "causal-ordering claim" in gameplay_event_ordering_session["known_gaps"][0]
+    assert "hidden-action claim" in gameplay_event_ordering_session["known_gaps"][0]
+    assert "action-attribution support beyond issue #410" in (
+        gameplay_event_ordering_session["known_gaps"][0]
+    )
+    assert gameplay_event_ordering_session["report_only_redactions"] == {
+        "raw_log_lines_included": False,
+        "private_paths_included": False,
+        "raw_payloads_included": False,
+        "external_logs_included": False,
+        "private_action_artifacts_included": False,
+        "private_smoke_outputs_included": False,
+        "generated_private_runtime_artifacts_included": False,
+        "decklists_included": False,
+        "deck_names_included": False,
+        "card_choices_included": False,
+        "sideboard_choices_included": False,
+        "strategy_notes_included": False,
+        "opponent_identifiers_included": False,
+        "private_match_context_included": False,
+        "credentials_tokens_keys_webhooks_included": False,
+    }
 
 
 def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None:
@@ -985,9 +1068,9 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
         "total_scenario_families": len(corpus.SCENARIO_FAMILIES),
         "covered_committed": 6,
         "covered_synthetic": 14,
-        "covered_report_only": 9,
+        "covered_report_only": 10,
         "partial": 3,
-        "missing": len(corpus.SCENARIO_FAMILIES) - 38,
+        "missing": len(corpus.SCENARIO_FAMILIES) - 39,
         "deferred": 0,
         "blocked_private_evidence": 1,
         "blocked_external_boundary": 5,
@@ -1303,11 +1386,19 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     }
     assert _matrix_row(report, "gameplay_stress.event_ordering") == {
         "scenario_family": "gameplay_stress.event_ordering",
-        "coverage_status": "missing",
-        "coverage_basis": ["external_reference_only"],
-        "mythic_edge_entries": [],
+        "coverage_status": "covered_report_only",
+        "coverage_basis": ["fixture_metadata_only"],
+        "mythic_edge_entries": ["gameplay_event_ordering_boundary_report_v1"],
         "external_reference_status": "reference_category_not_checked",
-        "notes": [],
+        "notes": [
+            "Gameplay event-ordering coverage is report-only boundary metadata: parser timestamps, "
+            "router dispatch order, gameplay-action row order, action-attribution report-only coverage, "
+            "diagnostics reports, golden replay reports, feature-equity reports, evidence-ledger "
+            "provenance, analytics ingest, and public taxonomy metadata do not prove complete "
+            "event-sequence truth, causal ordering truth, hidden actions, hidden cards, opponent intent, "
+            "player mistakes, gameplay advice, analytics truth, AI truth, coaching truth, release "
+            "readiness, or production behavior."
+        ],
     }
     assert _matrix_row(report, "timer.active_player_timer") == {
         "scenario_family": "timer.active_player_timer",

@@ -224,6 +224,63 @@
       }
     },
     {
+      "session_id": "gameplay_event_ordering_boundary_report_v1",
+      "title": "Gameplay event-ordering boundary report",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/412",
+      "authorized_by_contract": "docs/contracts/parser_corpus_gameplay_event_ordering_coverage.md",
+      "scenario_families": [
+        "gameplay_stress.event_ordering"
+      ],
+      "format_family": "gameplay_stress",
+      "match_shape": "gameplay_event_ordering_boundary_report_only",
+      "record_summary": "committed_gameplay_event_ordering_boundary_metadata_only",
+      "parser_coverage": {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "timestamp_reference_entries": 1,
+        "router_dispatch_reference_entries": 1,
+        "game_state_reference_entries": 1,
+        "gameplay_action_reference_entries": 1,
+        "diagnostics_reference_entries": 1,
+        "golden_replay_reference_entries": 1,
+        "feature_equity_reference_entries": 1,
+        "dedicated_event_ordering_fixtures": 0,
+        "dedicated_action_attribution_fixtures": 0,
+        "hidden_action_claims": 0,
+        "causal_ordering_claims": 0,
+        "complete_sequence_claims": 0
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Report-only gameplay event-ordering boundary metadata does not include a dedicated event-ordering fixture, complete event-sequence truth, causal-ordering claim, hidden-action claim, hidden-card claim, opponent-intent claim, why-an-action-happened claim, action-attribution support beyond issue #410 report-only metadata, player-mistake claim, best-line claim, archetype claim, decklist claim, gameplay advice claim, analytics truth, AI truth, coaching truth, release readiness, or production behavior."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "private_action_artifacts_included": false,
+        "private_smoke_outputs_included": false,
+        "generated_private_runtime_artifacts_included": false,
+        "decklists_included": false,
+        "deck_names_included": false,
+        "card_choices_included": false,
+        "sideboard_choices_included": false,
+        "strategy_notes_included": false,
+        "opponent_identifiers_included": false,
+        "private_match_context_included": false,
+        "credentials_tokens_keys_webhooks_included": false
+      }
+    },
+    {
       "session_id": "draft_parser_family_v1",
       "title": "Synthetic draft parser family slice",
       "source_kind": "synthetic_committed_fixture",
