@@ -109,6 +109,52 @@
       }
     },
     {
+      "session_id": "draft_with_games_boundary_report_v1",
+      "title": "Draft with games boundary report",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/400",
+      "authorized_by_contract": "docs/contracts/parser_corpus_draft_with_games_coverage.md",
+      "scenario_families": [
+        "core_gameplay.draft_with_games"
+      ],
+      "format_family": "limited_draft",
+      "match_shape": "draft_with_games_boundary_report_only",
+      "record_summary": "committed_draft_with_games_boundary_metadata_only",
+      "parser_coverage": {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "draft_only_reference_entries": 1,
+        "draft_parser_family_reference_entries": 1,
+        "completed_draft_game_rows": 0,
+        "game_result_events": 0,
+        "match_result_events": 0,
+        "dedicated_draft_with_games_fixtures": 0
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Draft-with-games boundary coverage records report-only metadata and does not prove completed limited gameplay, game-result evidence, match-result evidence, game rows, match rows, draft deck construction, draft picks as strategy evidence, draft pool truth, decklist truth, sideboard choice truth, hidden-card truth, archetype truth, analytics truth, AI truth, coaching truth, release readiness, or production behavior."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "draft_picks_included": false,
+        "draft_pools_included": false,
+        "decklists_included": false,
+        "private_deck_names_included": false,
+        "card_choices_included": false,
+        "strategy_notes_included": false
+      }
+    },
+    {
       "session_id": "gsm_truncation_marker_synthetic_v1",
       "title": "Synthetic GSM truncation data-loss marker",
       "source_kind": "synthetic_committed_fixture",
