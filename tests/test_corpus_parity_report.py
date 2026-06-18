@@ -188,6 +188,28 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
     assert "hidden opponent actions" in opponent_auto_concede["known_gaps"][0]
     assert "normal GameResult" in opponent_auto_concede["review_notes"][0]
     assert "public-taxonomy evidence do not prove" in opponent_auto_concede["review_notes"][0]
+    companion_large_deck = _manifest_entry(manifest, "companion_large_deck_boundary_report_v1")
+    assert companion_large_deck["coverage_status"] == "covered_report_only"
+    assert companion_large_deck["scenario_families"] == ["gameplay_stress.companion_or_large_deck"]
+    assert companion_large_deck["parser_event_families"] == []
+    assert companion_large_deck["parser_claim_families"] == [
+        "companion_large_deck_boundary_report",
+        "generic_deck_snapshot_not_companion_or_large_deck",
+        "submitted_deck_cards_not_decklist_truth",
+        "card_identity_not_deck_shape_truth",
+        "companion_legality_not_claimed",
+        "decklist_completion_non_claim",
+    ]
+    assert companion_large_deck["coverage_basis"] == ["fixture_metadata_only"]
+    assert "report-only boundary metadata" in companion_large_deck["known_gaps"][0]
+    assert "adjacent deck/card evidence surfaces" in companion_large_deck["known_gaps"][0]
+    assert "do not prove companion presence" in companion_large_deck["known_gaps"][0]
+    assert "large-deck size" in companion_large_deck["known_gaps"][0]
+    assert "complete decklist contents" in companion_large_deck["known_gaps"][0]
+    assert "generic deck snapshots" in companion_large_deck["review_notes"][0]
+    assert "submitted-deck card-content evidence" in companion_large_deck["review_notes"][0]
+    assert "card identity provenance" in companion_large_deck["review_notes"][0]
+    assert "do not prove companion presence" in companion_large_deck["review_notes"][0]
     detailed_logs_disabled = _manifest_entry(manifest, "detailed_logs_disabled_synthetic_v1")
     assert detailed_logs_disabled["coverage_status"] == "covered_synthetic"
     assert detailed_logs_disabled["scenario_families"] == ["log_runtime.detailed_logs_disabled"]
@@ -831,6 +853,46 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
         "card_choices_included": False,
         "strategy_notes_included": False,
     }
+    companion_large_deck_session = _session_entry(session_ledger, "companion_large_deck_boundary_report_v1")
+    assert companion_large_deck_session["format_family"] == "gameplay_stress"
+    assert companion_large_deck_session["match_shape"] == "companion_large_deck_boundary_report_only"
+    assert companion_large_deck_session["record_summary"] == (
+        "committed_companion_large_deck_boundary_metadata_only"
+    )
+    assert companion_large_deck_session["parser_coverage"] == {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "deck_snapshot_reference_entries": 1,
+        "submitted_deck_reference_entries": 1,
+        "card_identity_reference_entries": 1,
+        "dedicated_companion_fixtures": 0,
+        "dedicated_large_deck_fixtures": 0,
+        "companion_legality_claims": 0,
+        "decklist_completion_claims": 0,
+    }
+    assert companion_large_deck_session["game_rows"] == {"count": 0, "result_shape": "not_applicable"}
+    assert "does not include a dedicated companion fixture" in companion_large_deck_session["known_gaps"][0]
+    assert "dedicated large-deck fixture" in companion_large_deck_session["known_gaps"][0]
+    assert "large-deck size claim" in companion_large_deck_session["known_gaps"][0]
+    assert "complete decklist claim" in companion_large_deck_session["known_gaps"][0]
+    assert companion_large_deck_session["report_only_redactions"] == {
+        "raw_log_lines_included": False,
+        "private_paths_included": False,
+        "raw_payloads_included": False,
+        "external_logs_included": False,
+        "private_decklists_included": False,
+        "raw_submitted_deck_payloads_included": False,
+        "deck_names_included": False,
+        "deck_ids_included": False,
+        "sideboard_choices_included": False,
+        "companion_candidates_included": False,
+        "card_choices_included": False,
+        "strategy_notes_included": False,
+        "local_smoke_outputs_included": False,
+        "generated_private_runtime_artifacts_included": False,
+        "credentials_tokens_keys_webhooks_included": False,
+    }
 
 
 def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None:
@@ -845,9 +907,9 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
         "total_scenario_families": len(corpus.SCENARIO_FAMILIES),
         "covered_committed": 6,
         "covered_synthetic": 14,
-        "covered_report_only": 7,
+        "covered_report_only": 8,
         "partial": 3,
-        "missing": len(corpus.SCENARIO_FAMILIES) - 36,
+        "missing": len(corpus.SCENARIO_FAMILIES) - 37,
         "deferred": 0,
         "blocked_private_evidence": 1,
         "blocked_external_boundary": 5,
@@ -1133,11 +1195,18 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     }
     assert _matrix_row(report, "gameplay_stress.companion_or_large_deck") == {
         "scenario_family": "gameplay_stress.companion_or_large_deck",
-        "coverage_status": "missing",
-        "coverage_basis": ["external_reference_only"],
-        "mythic_edge_entries": [],
+        "coverage_status": "covered_report_only",
+        "coverage_basis": ["fixture_metadata_only"],
+        "mythic_edge_entries": ["companion_large_deck_boundary_report_v1"],
         "external_reference_status": "reference_category_not_checked",
-        "notes": [],
+        "notes": [
+            "Companion / large-deck coverage is report-only boundary metadata: generic deck snapshots, "
+            "submitted-deck card-content evidence, StartHook summaries, card identity provenance, and "
+            "public taxonomy metadata do not prove companion presence, companion legality, large-deck "
+            "size, complete decklists, deck identity, hidden-card truth, archetype classification, "
+            "gameplay advice, analytics truth, AI truth, coaching truth, release readiness, or "
+            "production behavior."
+        ],
     }
     assert _matrix_row(report, "gameplay_stress.action_attribution") == {
         "scenario_family": "gameplay_stress.action_attribution",

@@ -545,6 +545,46 @@
       ]
     },
     {
+      "entry_id": "companion_large_deck_boundary_report_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/408",
+      "authorized_by_contract": "docs/contracts/parser_corpus_companion_large_deck_coverage.md",
+      "paths": {
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "start_hook_contract": "docs/contracts/parser_corpus_start_hook_deck_snapshot_coverage.md",
+        "deck_summary_contract": "docs/contracts/parser_corpus_deck_summary_coverage.md",
+        "submitted_deck_contract": "docs/contracts/player_log_evidence_ledger_tier4_submitted_deck_cards.md",
+        "card_identity_contract": "docs/contracts/player_log_evidence_ledger_tier5_card_identity.md",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py"
+      },
+      "scenario_families": [
+        "gameplay_stress.companion_or_large_deck"
+      ],
+      "parser_event_families": [],
+      "parser_claim_families": [
+        "companion_large_deck_boundary_report",
+        "generic_deck_snapshot_not_companion_or_large_deck",
+        "submitted_deck_cards_not_decklist_truth",
+        "card_identity_not_deck_shape_truth",
+        "companion_legality_not_claimed",
+        "decklist_completion_non_claim"
+      ],
+      "coverage_status": "covered_report_only",
+      "coverage_basis": [
+        "fixture_metadata_only"
+      ],
+      "known_gaps": [
+        "Companion / large-deck coverage is report-only boundary metadata; Mythic Edge has adjacent deck/card evidence surfaces, but they do not prove companion presence, companion legality, companion castability, large-deck size, complete decklist contents, deck identity, deck ownership, sideboard truth beyond existing observed lists, hidden-card truth, archetype classification, matchup plans, gameplay advice, analytics truth, AI truth, coaching truth, release readiness, production behavior, or full corpus parity."
+      ],
+      "review_notes": [
+        "Companion / large-deck coverage is report-only boundary metadata: generic deck snapshots, submitted-deck card-content evidence, StartHook summaries, card identity provenance, and public taxonomy metadata do not prove companion presence, companion legality, large-deck size, complete decklists, deck identity, hidden-card truth, archetype classification, gameplay advice, analytics truth, AI truth, coaching truth, release readiness, or production behavior."
+      ]
+    },
+    {
       "entry_id": "detailed_logs_disabled_synthetic_v1",
       "entry_type": "session_ledger_entry",
       "source_kind": "synthetic_committed_fixture",

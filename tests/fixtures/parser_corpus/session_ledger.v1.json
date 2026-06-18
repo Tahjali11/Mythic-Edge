@@ -118,6 +118,58 @@
       }
     },
     {
+      "session_id": "companion_large_deck_boundary_report_v1",
+      "title": "Companion / large-deck boundary report",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/408",
+      "authorized_by_contract": "docs/contracts/parser_corpus_companion_large_deck_coverage.md",
+      "scenario_families": [
+        "gameplay_stress.companion_or_large_deck"
+      ],
+      "format_family": "gameplay_stress",
+      "match_shape": "companion_large_deck_boundary_report_only",
+      "record_summary": "committed_companion_large_deck_boundary_metadata_only",
+      "parser_coverage": {
+        "event_families": {},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "deck_snapshot_reference_entries": 1,
+        "submitted_deck_reference_entries": 1,
+        "card_identity_reference_entries": 1,
+        "dedicated_companion_fixtures": 0,
+        "dedicated_large_deck_fixtures": 0,
+        "companion_legality_claims": 0,
+        "decklist_completion_claims": 0
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Report-only companion / large-deck boundary metadata does not include a dedicated companion fixture, dedicated large-deck fixture, companion legality claim, large-deck size claim, complete decklist claim, deck identity claim, hidden-card claim, archetype claim, gameplay advice claim, analytics truth, AI truth, coaching truth, release readiness, or production behavior."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "private_decklists_included": false,
+        "raw_submitted_deck_payloads_included": false,
+        "deck_names_included": false,
+        "deck_ids_included": false,
+        "sideboard_choices_included": false,
+        "companion_candidates_included": false,
+        "card_choices_included": false,
+        "strategy_notes_included": false,
+        "local_smoke_outputs_included": false,
+        "generated_private_runtime_artifacts_included": false,
+        "credentials_tokens_keys_webhooks_included": false
+      }
+    },
+    {
       "session_id": "draft_parser_family_v1",
       "title": "Synthetic draft parser family slice",
       "source_kind": "synthetic_committed_fixture",
