@@ -5,6 +5,7 @@
 - Issue: https://github.com/Tahjali11/Mythic-Edge/issues/438
 - Parent issue: https://github.com/Tahjali11/Mythic-Edge/issues/434
 - Tracker: https://github.com/Tahjali11/Mythic-Edge/issues/158
+- Follow-up issue: https://github.com/Tahjali11/Mythic-Edge/issues/439
 
 ## Contract
 
@@ -321,6 +322,7 @@ workflow_handoff:
   issue: "https://github.com/Tahjali11/Mythic-Edge/issues/438"
   parent_issue: "https://github.com/Tahjali11/Mythic-Edge/issues/434"
   tracker: "https://github.com/Tahjali11/Mythic-Edge/issues/158"
+  follow_up_issue: "https://github.com/Tahjali11/Mythic-Edge/issues/439"
   completed_thread: "C"
   next_thread: "E"
   contract_artifact: "docs/contracts/parser_corpus_firewall_network_drop_private_evidence_execution.md"
