@@ -1785,6 +1785,37 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
         "blocked_external_boundary": 4,
         "not_applicable": 0,
     }
+    assert report["readiness_metrics"] == {
+        "schema_version": "parser_corpus_readiness_metrics.v1",
+        "classification_complete": True,
+        "parser_behavior_ready": False,
+        "parser_behavior_ready_family_count": 19,
+        "total_scenario_families": len(corpus.SCENARIO_FAMILIES),
+        "committed_parser_behavior_families": 5,
+        "synthetic_parser_behavior_families": 14,
+        "report_only_families": 19,
+        "blocked_families": 6,
+        "blocked_private_evidence_families": 2,
+        "blocked_external_boundary_families": 4,
+        "missing_families": 0,
+        "partial_families": 0,
+        "deferred_families": 0,
+        "pipeline_activation_ready_for_issue_388": False,
+        "pipeline_activation_blockers": [
+            "report_only_families:19",
+            "blocked_private_evidence_families:2",
+            "blocked_external_boundary_families:4",
+        ],
+        "readiness_verdict": "classification_complete_not_behavior_ready",
+        "competitive_core": {
+            "schema_version": "parser_corpus_competitive_core.v1",
+            "status": "classification_complete_not_behavior_ready",
+            "total_families": 16,
+            "parser_behavior_ready_family_count": 8,
+            "report_only_family_count": 5,
+            "blocked_family_count": 3,
+        },
+    }
     assert _matrix_row(report, "core_gameplay.standard_bo1") == {
         "scenario_family": "core_gameplay.standard_bo1",
         "coverage_status": "covered_committed",
@@ -2327,6 +2358,8 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     }
     assert all(value is False for value in report["protected_surfaces"].values())
     assert any("Reports do not decide merge readiness" in item for item in report["limitations"])
+    assert any("coaching truth" in item for item in report["limitations"])
+    assert any("production behavior" in item for item in report["limitations"])
 
 
 def test_private_manifest_metadata_blocks_without_echoing_sensitive_path(tmp_path: Path) -> None:
@@ -2381,10 +2414,16 @@ def test_cli_writes_report_only_when_output_is_explicit(tmp_path: Path, capsys: 
     captured = capsys.readouterr()
     written_report = json.loads(output_path.read_text(encoding="utf-8"))
     assert exit_code == 0
-    assert "Corpus parity report: partial_coverage_map_ready" in captured.out
+    assert (
+        "Corpus parity report: partial_coverage_map_ready "
+        "(45 families; committed=6, synthetic=14, report_only=19, "
+        "blocked=6 [private=2, external=4], missing=0, parser_behavior_ready=no)"
+    ) in captured.out
     assert "Report written: <outside_repo>" in captured.out
     assert written_report["status"] == "partial_coverage_map_ready"
     assert written_report["inputs"]["explicit_inputs_required"] is True
+    assert written_report["readiness_metrics"]["classification_complete"] is True
+    assert written_report["readiness_metrics"]["parser_behavior_ready"] is False
 
 
 def test_cli_requires_manifest_path() -> None:
