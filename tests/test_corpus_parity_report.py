@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections import Counter
 from copy import deepcopy
 from pathlib import Path
 
@@ -1815,7 +1816,42 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
             "report_only_family_count": 5,
             "blocked_family_count": 3,
         },
+        "behavior_applicability": {
+            "schema_version": "parser_corpus_behavior_applicability.v1",
+            "parser_behavior_applicable_family_count": 37,
+            "parser_behavior_applicable_ready_family_count": 19,
+            "parser_behavior_applicable_not_ready_family_count": 18,
+            "parser_behavior_not_applicable_family_count": 8,
+            "parser_behavior_applicable_report_only_family_count": 13,
+            "parser_behavior_applicable_blocked_private_evidence_family_count": 1,
+            "parser_behavior_applicable_blocked_external_boundary_family_count": 4,
+            "parser_behavior_applicability_ready": False,
+            "parser_behavior_applicability_verdict": "applicable_families_not_behavior_ready",
+        },
     }
+    applicability_by_family = {
+        row["scenario_family"]: corpus._behavior_applicability_class(row) for row in report["coverage_matrix"]
+    }
+    assert set(applicability_by_family) == set(corpus.SCENARIO_FAMILIES)
+    assert Counter(applicability_by_family.values()) == {
+        "parser_behavior_applicable_ready": 19,
+        "parser_behavior_applicable_not_ready": 13,
+        "parser_behavior_applicable_blocked_private": 1,
+        "parser_behavior_applicable_blocked_external": 4,
+        "non_behavior_applicability_excluded": 8,
+    }
+    assert [
+        family
+        for family, applicability_class in applicability_by_family.items()
+        if applicability_class == "non_behavior_applicability_excluded"
+    ] == list(corpus.NON_BEHAVIOR_APPLICABILITY_EXCLUDED_FAMILIES)
+    assert applicability_by_family["core_gameplay.draft_with_games"] == "parser_behavior_applicable_not_ready"
+    assert (
+        applicability_by_family["connection.firewall_or_network_drop"]
+        == "parser_behavior_applicable_blocked_private"
+    )
+    assert applicability_by_family["timer.inactivity_timeout"] == "parser_behavior_applicable_blocked_external"
+    assert report["readiness_metrics"]["pipeline_activation_ready_for_issue_388"] is False
     assert _matrix_row(report, "core_gameplay.standard_bo1") == {
         "scenario_family": "core_gameplay.standard_bo1",
         "coverage_status": "covered_committed",
