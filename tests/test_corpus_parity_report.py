@@ -309,6 +309,43 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
     assert "submitted-deck card-content evidence" in companion_large_deck["review_notes"][0]
     assert "card identity provenance" in companion_large_deck["review_notes"][0]
     assert "do not prove companion presence" in companion_large_deck["review_notes"][0]
+    companion_large_deck_synthetic = _manifest_entry(
+        manifest,
+        "companion_large_deck_synthetic_deck_shape_v1",
+    )
+    assert companion_large_deck_synthetic["entry_type"] == "session_ledger_entry"
+    assert companion_large_deck_synthetic["coverage_status"] == "covered_synthetic"
+    assert companion_large_deck_synthetic["scenario_families"] == [
+        "gameplay_stress.companion_or_large_deck"
+    ]
+    assert companion_large_deck_synthetic["parser_event_families"] == [
+        "DeckCollection",
+        "ClientAction",
+    ]
+    assert companion_large_deck_synthetic["parser_claim_families"] == [
+        "synthetic_companion_shape_field_preservation",
+        "synthetic_large_deck_list_shape_preservation",
+        "deck_shape_preservation_not_deck_identity_truth",
+        "companion_legality_non_claim",
+        "decklist_completion_non_claim",
+        "hidden_card_non_claim",
+    ]
+    assert companion_large_deck_synthetic["coverage_basis"] == [
+        "parser_behavior_verified",
+        "fixture_metadata_only",
+    ]
+    assert companion_large_deck_synthetic["paths"] == {
+        "collection_parser_test": "tests/test_collection_parser.py",
+        "client_actions_parser_test": "tests/test_client_actions_parser.py",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py",
+    }
+    assert "companion-shaped field preservation" in companion_large_deck_synthetic["known_gaps"][0]
+    assert "large submitted-list shape preservation" in companion_large_deck_synthetic["known_gaps"][0]
+    assert "does not prove companion presence" in companion_large_deck_synthetic["known_gaps"][0]
+    assert "large-deck legality" in companion_large_deck_synthetic["known_gaps"][0]
+    assert "#408 companion_large_deck_boundary_report_v1 entry remains report-only" in (
+        companion_large_deck_synthetic["review_notes"][0]
+    )
     gameplay_action_attribution = _manifest_entry(manifest, "gameplay_action_attribution_boundary_report_v1")
     assert gameplay_action_attribution["coverage_status"] == "covered_report_only"
     assert gameplay_action_attribution["scenario_families"] == ["gameplay_stress.action_attribution"]
@@ -1803,6 +1840,61 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
         "generated_private_runtime_artifacts_included": False,
         "credentials_tokens_keys_webhooks_included": False,
     }
+    companion_large_deck_synthetic_session = _session_entry(
+        session_ledger,
+        "companion_large_deck_synthetic_deck_shape_v1",
+    )
+    assert companion_large_deck_synthetic_session["format_family"] == "gameplay_stress"
+    assert companion_large_deck_synthetic_session["match_shape"] == (
+        "companion_large_deck_synthetic_deck_shape"
+    )
+    assert companion_large_deck_synthetic_session["record_summary"] == (
+        "committed_synthetic_companion_and_large_deck_shape_parser_tests"
+    )
+    assert companion_large_deck_synthetic_session["parser_coverage"] == {
+        "event_families": {
+            "DeckCollection": 1,
+            "ClientAction": 1,
+        },
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "synthetic_companion_shape_fixtures": 1,
+        "synthetic_large_deck_shape_fixtures": 1,
+        "companion_legality_claims": 0,
+        "companion_castability_claims": 0,
+        "large_deck_legality_claims": 0,
+        "decklist_completion_claims": 0,
+        "deck_identity_claims": 0,
+    }
+    assert companion_large_deck_synthetic_session["game_rows"] == {
+        "count": 0,
+        "result_shape": "not_applicable",
+    }
+    assert "one reduced companion-shaped field preservation path" in (
+        companion_large_deck_synthetic_session["known_gaps"][0]
+    )
+    assert "large-list SubmitDeckResp preservation path only" in (
+        companion_large_deck_synthetic_session["known_gaps"][0]
+    )
+    assert "does not prove companion presence" in companion_large_deck_synthetic_session["known_gaps"][0]
+    assert "complete decklists" in companion_large_deck_synthetic_session["known_gaps"][0]
+    assert companion_large_deck_synthetic_session["report_only_redactions"] == {
+        "raw_log_lines_included": False,
+        "private_paths_included": False,
+        "raw_payloads_included": False,
+        "external_logs_included": False,
+        "private_decklists_included": False,
+        "raw_submitted_deck_payloads_included": False,
+        "deck_names_from_private_logs_included": False,
+        "deck_ids_from_private_logs_included": False,
+        "sideboard_choices_from_private_logs_included": False,
+        "companion_candidates_from_private_logs_included": False,
+        "card_choices_from_private_logs_included": False,
+        "strategy_notes_included": False,
+        "local_smoke_outputs_included": False,
+        "generated_private_runtime_artifacts_included": False,
+        "credentials_tokens_keys_webhooks_included": False,
+    }
     gameplay_action_attribution_session = _session_entry(
         session_ledger,
         "gameplay_action_attribution_boundary_report_v1",
@@ -1927,8 +2019,8 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     assert report["summary"] == {
         "total_scenario_families": len(corpus.SCENARIO_FAMILIES),
         "covered_committed": 6,
-        "covered_synthetic": 16,
-        "covered_report_only": 17,
+        "covered_synthetic": 17,
+        "covered_report_only": 16,
         "partial": 0,
         "missing": 0,
         "deferred": 0,
@@ -1940,11 +2032,11 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
         "schema_version": "parser_corpus_readiness_metrics.v1",
         "classification_complete": True,
         "parser_behavior_ready": False,
-        "parser_behavior_ready_family_count": 21,
+        "parser_behavior_ready_family_count": 22,
         "total_scenario_families": len(corpus.SCENARIO_FAMILIES),
         "committed_parser_behavior_families": 5,
-        "synthetic_parser_behavior_families": 16,
-        "report_only_families": 17,
+        "synthetic_parser_behavior_families": 17,
+        "report_only_families": 16,
         "blocked_families": 6,
         "blocked_private_evidence_families": 2,
         "blocked_external_boundary_families": 4,
@@ -1953,7 +2045,7 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
         "deferred_families": 0,
         "pipeline_activation_ready_for_issue_388": False,
         "pipeline_activation_blockers": [
-            "report_only_families:17",
+            "report_only_families:16",
             "blocked_private_evidence_families:2",
             "blocked_external_boundary_families:4",
         ],
@@ -1962,17 +2054,17 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
             "schema_version": "parser_corpus_competitive_core.v1",
             "status": "classification_complete_not_behavior_ready",
             "total_families": 16,
-            "parser_behavior_ready_family_count": 10,
-            "report_only_family_count": 3,
+            "parser_behavior_ready_family_count": 11,
+            "report_only_family_count": 2,
             "blocked_family_count": 3,
         },
         "behavior_applicability": {
             "schema_version": "parser_corpus_behavior_applicability.v1",
             "parser_behavior_applicable_family_count": 37,
-            "parser_behavior_applicable_ready_family_count": 21,
-            "parser_behavior_applicable_not_ready_family_count": 16,
+            "parser_behavior_applicable_ready_family_count": 22,
+            "parser_behavior_applicable_not_ready_family_count": 15,
             "parser_behavior_not_applicable_family_count": 8,
-            "parser_behavior_applicable_report_only_family_count": 11,
+            "parser_behavior_applicable_report_only_family_count": 10,
             "parser_behavior_applicable_blocked_private_evidence_family_count": 1,
             "parser_behavior_applicable_blocked_external_boundary_family_count": 4,
             "parser_behavior_applicability_ready": False,
@@ -1984,8 +2076,8 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     }
     assert set(applicability_by_family) == set(corpus.SCENARIO_FAMILIES)
     assert Counter(applicability_by_family.values()) == {
-        "parser_behavior_applicable_ready": 21,
-        "parser_behavior_applicable_not_ready": 11,
+        "parser_behavior_applicable_ready": 22,
+        "parser_behavior_applicable_not_ready": 10,
         "parser_behavior_applicable_blocked_private": 1,
         "parser_behavior_applicable_blocked_external": 4,
         "non_behavior_applicability_excluded": 8,
@@ -1997,6 +2089,9 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     ] == list(corpus.NON_BEHAVIOR_APPLICABILITY_EXCLUDED_FAMILIES)
     assert applicability_by_family["core_gameplay.draft_with_games"] == "parser_behavior_applicable_ready"
     assert applicability_by_family["gameplay_stress.opponent_auto_concede"] == (
+        "parser_behavior_applicable_ready"
+    )
+    assert applicability_by_family["gameplay_stress.companion_or_large_deck"] == (
         "parser_behavior_applicable_ready"
     )
     assert (
@@ -2407,9 +2502,12 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     }
     assert _matrix_row(report, "gameplay_stress.companion_or_large_deck") == {
         "scenario_family": "gameplay_stress.companion_or_large_deck",
-        "coverage_status": "covered_report_only",
-        "coverage_basis": ["fixture_metadata_only"],
-        "mythic_edge_entries": ["companion_large_deck_boundary_report_v1"],
+        "coverage_status": "covered_synthetic",
+        "coverage_basis": ["fixture_metadata_only", "parser_behavior_verified"],
+        "mythic_edge_entries": [
+            "companion_large_deck_boundary_report_v1",
+            "companion_large_deck_synthetic_deck_shape_v1",
+        ],
         "external_reference_status": "reference_category_not_checked",
         "notes": [
             "Companion / large-deck coverage is report-only boundary metadata: generic deck snapshots, "
@@ -2417,7 +2515,11 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
             "public taxonomy metadata do not prove companion presence, companion legality, large-deck "
             "size, complete decklists, deck identity, hidden-card truth, archetype classification, "
             "gameplay advice, analytics truth, AI truth, coaching truth, release readiness, or "
-            "production behavior."
+            "production behavior.",
+            "The #408 companion_large_deck_boundary_report_v1 entry remains report-only non-claim "
+            "metadata; this additive synthetic entry proves only existing DeckCollection "
+            "companion-shaped field preservation and ClientAction large-list shape preservation for "
+            "gameplay_stress.companion_or_large_deck.",
         ],
     }
     assert _matrix_row(report, "gameplay_stress.action_attribution") == {
@@ -2614,7 +2716,7 @@ def test_cli_writes_report_only_when_output_is_explicit(tmp_path: Path, capsys: 
     assert exit_code == 0
     assert (
         "Corpus parity report: partial_coverage_map_ready "
-        "(45 families; committed=6, synthetic=16, report_only=17, "
+        "(45 families; committed=6, synthetic=17, report_only=16, "
         "blocked=6 [private=2, external=4], missing=0, parser_behavior_ready=no)"
     ) in captured.out
     assert "Report written: <outside_repo>" in captured.out

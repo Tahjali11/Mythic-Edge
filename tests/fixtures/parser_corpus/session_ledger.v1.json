@@ -220,6 +220,61 @@
       }
     },
     {
+      "session_id": "companion_large_deck_synthetic_deck_shape_v1",
+      "title": "Companion / large-deck synthetic deck-shape parser evidence",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/494",
+      "authorized_by_contract": "docs/contracts/parser_corpus_companion_large_deck_behavior_uplift.md",
+      "scenario_families": [
+        "gameplay_stress.companion_or_large_deck"
+      ],
+      "format_family": "gameplay_stress",
+      "match_shape": "companion_large_deck_synthetic_deck_shape",
+      "record_summary": "committed_synthetic_companion_and_large_deck_shape_parser_tests",
+      "parser_coverage": {
+        "event_families": {
+          "DeckCollection": 1,
+          "ClientAction": 1
+        },
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "synthetic_companion_shape_fixtures": 1,
+        "synthetic_large_deck_shape_fixtures": 1,
+        "companion_legality_claims": 0,
+        "companion_castability_claims": 0,
+        "large_deck_legality_claims": 0,
+        "decklist_completion_claims": 0,
+        "deck_identity_claims": 0
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Synthetic companion / large-deck deck-shape evidence proves one reduced companion-shaped field preservation path and one reduced large-list SubmitDeckResp preservation path only; it does not prove companion presence, companion legality, companion castability, in-game companion availability, large-deck legality, complete decklists, exact deck identity, deck ownership, sideboard choice truth, hidden-card truth, archetype classification, gameplay advice, analytics truth, AI truth, coaching truth, release readiness, production behavior, #388/#381 activation, tracker completion, or full corpus parity."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "private_decklists_included": false,
+        "raw_submitted_deck_payloads_included": false,
+        "deck_names_from_private_logs_included": false,
+        "deck_ids_from_private_logs_included": false,
+        "sideboard_choices_from_private_logs_included": false,
+        "companion_candidates_from_private_logs_included": false,
+        "card_choices_from_private_logs_included": false,
+        "strategy_notes_included": false,
+        "local_smoke_outputs_included": false,
+        "generated_private_runtime_artifacts_included": false,
+        "credentials_tokens_keys_webhooks_included": false
+      }
+    },
+    {
       "session_id": "gameplay_action_attribution_boundary_report_v1",
       "title": "Gameplay action-attribution boundary report",
       "source_kind": "committed_count_only_report",

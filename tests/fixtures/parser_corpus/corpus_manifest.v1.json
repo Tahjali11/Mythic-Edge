@@ -703,6 +703,48 @@
       ]
     },
     {
+      "entry_id": "companion_large_deck_synthetic_deck_shape_v1",
+      "title": "Companion / large-deck synthetic deck-shape parser evidence",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/494",
+      "authorized_by_contract": "docs/contracts/parser_corpus_companion_large_deck_behavior_uplift.md",
+      "paths": {
+        "collection_parser_test": "tests/test_collection_parser.py",
+        "client_actions_parser_test": "tests/test_client_actions_parser.py",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py"
+      },
+      "scenario_families": [
+        "gameplay_stress.companion_or_large_deck"
+      ],
+      "parser_event_families": [
+        "DeckCollection",
+        "ClientAction"
+      ],
+      "parser_claim_families": [
+        "synthetic_companion_shape_field_preservation",
+        "synthetic_large_deck_list_shape_preservation",
+        "deck_shape_preservation_not_deck_identity_truth",
+        "companion_legality_non_claim",
+        "decklist_completion_non_claim",
+        "hidden_card_non_claim"
+      ],
+      "coverage_status": "covered_synthetic",
+      "coverage_basis": [
+        "parser_behavior_verified",
+        "fixture_metadata_only"
+      ],
+      "known_gaps": [
+        "This reduced synthetic evidence proves only companion-shaped field preservation and large submitted-list shape preservation in focused parser tests; it does not prove companion presence, companion legality, companion castability, in-game companion availability, large-deck legality, complete decklists, exact deck identity, deck ownership, sideboard choice truth, hidden-card truth, archetype classification, gameplay advice, analytics truth, AI truth, coaching truth, release readiness, production behavior, #388/#381 activation, tracker completion, or full corpus parity."
+      ],
+      "review_notes": [
+        "The #408 companion_large_deck_boundary_report_v1 entry remains report-only non-claim metadata; this additive synthetic entry proves only existing DeckCollection companion-shaped field preservation and ClientAction large-list shape preservation for gameplay_stress.companion_or_large_deck."
+      ]
+    },
+    {
       "entry_id": "gameplay_action_attribution_boundary_report_v1",
       "entry_type": "session_ledger_entry",
       "source_kind": "committed_count_only_report",
