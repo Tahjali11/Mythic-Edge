@@ -19,6 +19,7 @@ REPORT_OBJECT = "mythic_edge_parser_corpus_compatibility_report"
 REPORT_SCHEMA_VERSION = "parser_corpus_compatibility_report.v1"
 READINESS_METRICS_SCHEMA_VERSION = "parser_corpus_readiness_metrics.v1"
 COMPETITIVE_CORE_SCHEMA_VERSION = "parser_corpus_competitive_core.v1"
+BEHAVIOR_APPLICABILITY_SCHEMA_VERSION = "parser_corpus_behavior_applicability.v1"
 
 CORPUS_ID = "mythic_edge_parser_reliability_corpus_v1"
 SCENARIO_FAMILY_VERSION = "parser_corpus_scenario_family.v1"
@@ -162,6 +163,17 @@ COMPETITIVE_CORE_FAMILIES = (
     "timer.pre_match_idle",
     "timer.inactivity_timeout",
     "drift_debug.gsm_truncation",
+)
+
+NON_BEHAVIOR_APPLICABILITY_EXCLUDED_FAMILIES = (
+    "manifest.metadata",
+    "session.ledger_metadata",
+    "mythic_edge.evidence_ledger_provenance",
+    "mythic_edge.confidence_finality_degradation",
+    "mythic_edge.workbook_row_coverage",
+    "mythic_edge.live_diagnostics",
+    "mythic_edge.private_log_report_only_drift",
+    "mythic_edge.analytics_readiness_labels",
 )
 
 LOCAL_PATH_PREFIX_PATTERN = "|".join(
@@ -571,6 +583,7 @@ def _readiness_metrics(matrix: Sequence[Mapping[str, Any]], summary: Mapping[str
             parser_behavior_ready=parser_behavior_ready,
         ),
         "competitive_core": _competitive_core_metrics(matrix),
+        "behavior_applicability": _behavior_applicability_metrics(matrix),
     }
 
 
@@ -638,6 +651,55 @@ def _competitive_core_metrics(matrix: Sequence[Mapping[str, Any]]) -> dict[str, 
         "report_only_family_count": report_only_count,
         "blocked_family_count": blocked_count,
     }
+
+
+def _behavior_applicability_metrics(matrix: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    class_counts = Counter(_behavior_applicability_class(row) for row in matrix)
+    not_applicable_count = class_counts["non_behavior_applicability_excluded"]
+    applicable_count = len(matrix) - not_applicable_count
+    ready_count = class_counts["parser_behavior_applicable_ready"]
+    not_ready_count = applicable_count - ready_count
+    report_only_count = sum(
+        1
+        for row in matrix
+        if _behavior_applicability_class(row) != "non_behavior_applicability_excluded"
+        and _string(row.get("coverage_status")) == "covered_report_only"
+    )
+    blocked_private_count = class_counts["parser_behavior_applicable_blocked_private"]
+    blocked_external_count = class_counts["parser_behavior_applicable_blocked_external"]
+    applicability_ready = applicable_count > 0 and ready_count == applicable_count
+    return {
+        "schema_version": BEHAVIOR_APPLICABILITY_SCHEMA_VERSION,
+        "parser_behavior_applicable_family_count": applicable_count,
+        "parser_behavior_applicable_ready_family_count": ready_count,
+        "parser_behavior_applicable_not_ready_family_count": not_ready_count,
+        "parser_behavior_not_applicable_family_count": not_applicable_count,
+        "parser_behavior_applicable_report_only_family_count": report_only_count,
+        "parser_behavior_applicable_blocked_private_evidence_family_count": blocked_private_count,
+        "parser_behavior_applicable_blocked_external_boundary_family_count": blocked_external_count,
+        "parser_behavior_applicability_ready": applicability_ready,
+        "parser_behavior_applicability_verdict": _behavior_applicability_verdict(applicability_ready),
+    }
+
+
+def _behavior_applicability_class(row: Mapping[str, Any]) -> str:
+    family = _string(row.get("scenario_family"))
+    if family in NON_BEHAVIOR_APPLICABILITY_EXCLUDED_FAMILIES:
+        return "non_behavior_applicability_excluded"
+    if _is_parser_behavior_ready_row(row):
+        return "parser_behavior_applicable_ready"
+    status = _string(row.get("coverage_status"))
+    if status == "blocked_private_evidence":
+        return "parser_behavior_applicable_blocked_private"
+    if status == "blocked_external_boundary":
+        return "parser_behavior_applicable_blocked_external"
+    return "parser_behavior_applicable_not_ready"
+
+
+def _behavior_applicability_verdict(applicability_ready: bool) -> str:
+    if applicability_ready:
+        return "applicable_families_behavior_ready"
+    return "applicable_families_not_behavior_ready"
 
 
 def _report_status(validation_errors: Sequence[str], summary: Mapping[str, int]) -> str:
