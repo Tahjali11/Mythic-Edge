@@ -621,6 +621,48 @@
       ]
     },
     {
+      "entry_id": "opponent_auto_concede_early_game_end_synthetic_v1",
+      "entry_type": "golden_replay_manifest",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/482",
+      "authorized_by_contract": "docs/contracts/parser_corpus_opponent_auto_concede_behavior_uplift.md",
+      "paths": {
+        "golden_replay_manifest": "tests/fixtures/golden_replay/opponent_auto_concede_early_game_end_synthetic.manifest.json",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py",
+        "golden_replay_test": "tests/test_golden_replay_harness.py"
+      },
+      "scenario_families": [
+        "gameplay_stress.opponent_auto_concede"
+      ],
+      "parser_event_families": [
+        "MatchState",
+        "GameState",
+        "GameResult"
+      ],
+      "parser_claim_families": [
+        "early_game_end_result_flow",
+        "game_result_reason_preservation",
+        "final_reconciliation_result_flow",
+        "opponent_auto_concede_synthetic_boundary",
+        "concession_intent_non_claim",
+        "hidden_action_absence_non_claim"
+      ],
+      "coverage_status": "covered_synthetic",
+      "coverage_basis": [
+        "parser_behavior_verified",
+        "fixture_metadata_only"
+      ],
+      "known_gaps": [
+        "This reduced synthetic fixture proves only a bounded early game-end result path through the normal parser and golden replay flow; it does not prove opponent intent, real auto-concede behavior, no-action truth, timeout cause, disconnect cause, player mistakes, live private Arena behavior, gameplay advice, analytics truth, AI truth, coaching truth, release readiness, production behavior, or full corpus parity."
+      ],
+      "review_notes": [
+        "The #406 opponent_auto_concede_boundary_report_v1 entry remains report-only non-claim metadata; this additive synthetic entry proves only parser-owned early game-end result and reconciliation behavior for gameplay_stress.opponent_auto_concede."
+      ]
+    },
+    {
       "entry_id": "companion_large_deck_boundary_report_v1",
       "entry_type": "session_ledger_entry",
       "source_kind": "committed_count_only_report",

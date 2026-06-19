@@ -1,0 +1,131 @@
+{
+  "object": "mythic_edge_golden_replay_manifest",
+  "schema_version": "parser_golden_replay_manifest.v1",
+  "fixture_id": "opponent_auto_concede_early_game_end_synthetic",
+  "description": "Synthetic early game-end replay with bounded game-result reason preservation and final reconciliation.",
+  "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/48",
+  "coverage_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/482",
+  "authorized_by_contract": "docs/contracts/parser_golden_replay_harness.md",
+  "behavior_uplift_contract": "docs/contracts/parser_corpus_opponent_auto_concede_behavior_uplift.md",
+  "source": {
+    "log_path": "tests/fixtures/opponent_auto_concede_early_game_end_synthetic_slice.log",
+    "source_kind": "synthetic_player_log_slice",
+    "sanitization_status": "synthetic",
+    "source_privacy_class": "sanitized_committable",
+    "raw_private_log_committed": false
+  },
+  "coverage": {
+    "covered_event_families": [
+      "MatchState",
+      "GameState",
+      "GameResult"
+    ],
+    "known_gaps": [],
+    "expected_degradation": [],
+    "expected_truncation_signals": []
+  },
+  "expected": {
+    "router_stats": {
+      "routed": 3,
+      "unknown": 0,
+      "timestamp_missing": 0,
+      "timestamp_parse_failure": 0
+    },
+    "event_family_counts": {
+      "GameResult": 1,
+      "GameState": 2,
+      "MatchState": 1
+    },
+    "event_kind_sequence": [
+      "MatchState",
+      "GameState",
+      "GameState",
+      "GameResult"
+    ],
+    "diagnostics_summary": {
+      "overall_status": "pass",
+      "parser_status": "pass",
+      "routed_entries": 3,
+      "unknown_entries": 0,
+      "truncation_events": 0,
+      "parser_failures": 0
+    },
+    "truncation_and_data_loss": {
+      "truncation_count": 0,
+      "data_loss_events": []
+    },
+    "unknowns_and_degradation": {
+      "unknown_entry_count": 0,
+      "degraded_outputs": [],
+      "unknown_signatures": []
+    },
+    "parser_state": {
+      "match_id": "synthetic-opponent-auto-concede-match-1",
+      "current_game_number": 1,
+      "player_team": 1,
+      "event_id": "Event_Constructed_BestOfOne",
+      "match_win_condition": "MatchWinCondition_SingleGame",
+      "submit_deck_seen": false,
+      "sideboarding_entered": false,
+      "total_games": 1,
+      "game_wins": 1,
+      "game_losses": 0,
+      "games": [
+        {
+          "game_number": 1,
+          "winner_team": 1,
+          "result": "W",
+          "starting_player": 2,
+          "play_draw": "Draw",
+          "mulligans": 0,
+          "turn_count": 1
+        }
+      ]
+    },
+    "final_reconciliation": {
+      "match_winner_team": 1,
+      "match_result_type": "ResultType_WinLoss",
+      "match_result_reason": "ResultReason_Concede",
+      "game_results": [
+        {
+          "game_number": 1,
+          "winner_team": 1,
+          "result": "W"
+        }
+      ]
+    },
+    "parser_owned_rows": {
+      "match_log_row": {
+        "MTGA Match ID": "synthetic-opponent-auto-concede-match-1",
+        "MTGA Event ID": "Event_Constructed_BestOfOne",
+        "MTGA Format": "Standard",
+        "MTGA Queue Type": "Best of 1",
+        "MTGA Submit Deck Seen": "No",
+        "MTGA Sideboard Entered": "No",
+        "Match Win?": "W",
+        "Match Win Flag": 1,
+        "Total Games": 1,
+        "Games Won": 1,
+        "Games Lost": 0,
+        "Game 1 Result": "W",
+        "G1 Mulligans": 0,
+        "G1 Play / Draw": "Draw",
+        "G1 Turn Count": 1
+      },
+      "game_log_rows": [
+        {
+          "MTGA Match ID": "synthetic-opponent-auto-concede-match-1",
+          "MTGA Event ID": "Event_Constructed_BestOfOne",
+          "MTGA Format": "Standard",
+          "MTGA Queue Type": "Best of 1",
+          "Game Number": 1,
+          "Game Result": "W",
+          "Turn Count": 1,
+          "Mulligans": 0,
+          "Play / Draw": "Draw",
+          "Pre / Postboard": "Preboard"
+        }
+      ]
+    }
+  }
+}
