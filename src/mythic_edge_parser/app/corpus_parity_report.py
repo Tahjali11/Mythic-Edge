@@ -17,6 +17,8 @@ SESSION_LEDGER_OBJECT = "mythic_edge_parser_corpus_session_ledger"
 SESSION_LEDGER_SCHEMA_VERSION = "parser_corpus_session_ledger.v1"
 REPORT_OBJECT = "mythic_edge_parser_corpus_compatibility_report"
 REPORT_SCHEMA_VERSION = "parser_corpus_compatibility_report.v1"
+READINESS_METRICS_SCHEMA_VERSION = "parser_corpus_readiness_metrics.v1"
+COMPETITIVE_CORE_SCHEMA_VERSION = "parser_corpus_competitive_core.v1"
 
 CORPUS_ID = "mythic_edge_parser_reliability_corpus_v1"
 SCENARIO_FAMILY_VERSION = "parser_corpus_scenario_family.v1"
@@ -143,6 +145,25 @@ SCENARIO_FAMILIES = (
     "mythic_edge.analytics_readiness_labels",
 )
 
+COMPETITIVE_CORE_FAMILIES = (
+    "core_gameplay.standard_bo1",
+    "core_gameplay.standard_bo3",
+    "core_gameplay.traditional_bo3",
+    "core_gameplay.draft_with_games",
+    "core_gameplay.sealed_matches",
+    "gameplay_stress.mulligan",
+    "gameplay_stress.opponent_auto_concede",
+    "gameplay_stress.conjure",
+    "gameplay_stress.spellbook",
+    "gameplay_stress.companion_or_large_deck",
+    "gameplay_stress.action_attribution",
+    "gameplay_stress.event_ordering",
+    "timer.active_player_timer",
+    "timer.pre_match_idle",
+    "timer.inactivity_timeout",
+    "drift_debug.gsm_truncation",
+)
+
 LOCAL_PATH_PREFIX_PATTERN = "|".join(
     (
         "/" + r"[Uu]sers/",
@@ -190,6 +211,7 @@ def build_corpus_parity_report(
     matrix = _coverage_matrix(taxonomy_families, entries, external_reference=external_reference)
     gaps = _gap_records(matrix)
     summary = _summary(matrix)
+    readiness_metrics = _readiness_metrics(matrix, summary)
     status = _report_status(validation_errors, summary)
     status_reasons = _status_reasons(validation_errors, summary)
 
@@ -208,6 +230,7 @@ def build_corpus_parity_report(
                 "explicit_inputs_required": True,
             },
             "summary": summary,
+            "readiness_metrics": readiness_metrics,
             "coverage_matrix": matrix,
             "gaps": gaps,
             "privacy": _privacy_section(manifest, session_ledger),
@@ -339,11 +362,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         report_path=Path(args.report_path) if args.report_path else None,
     )
     summary = report["summary"]
+    readiness = report["readiness_metrics"]
+    parser_behavior_ready = "yes" if readiness["parser_behavior_ready"] else "no"
     print(
         "Corpus parity report: "
         f"{report['status']} "
-        f"({summary['total_scenario_families']} families, "
-        f"{summary['covered_committed']} committed, {summary['missing']} missing)"
+        f"({summary['total_scenario_families']} families; "
+        f"committed={summary['covered_committed']}, "
+        f"synthetic={summary['covered_synthetic']}, "
+        f"report_only={summary['covered_report_only']}, "
+        f"blocked={readiness['blocked_families']} "
+        f"[private={summary['blocked_private_evidence']}, external={summary['blocked_external_boundary']}], "
+        f"missing={summary['missing']}, "
+        f"parser_behavior_ready={parser_behavior_ready})"
     )
     if args.report_path:
         print(f"Report written: {_safe_repo_path(Path(args.report_path))}")
@@ -508,6 +539,107 @@ def _summary(matrix: Sequence[Mapping[str, Any]]) -> dict[str, int]:
     }
 
 
+def _readiness_metrics(matrix: Sequence[Mapping[str, Any]], summary: Mapping[str, int]) -> dict[str, Any]:
+    committed_parser_behavior = _parser_behavior_family_count(matrix, status="covered_committed")
+    synthetic_parser_behavior = _parser_behavior_family_count(matrix, status="covered_synthetic")
+    parser_behavior_ready_family_count = committed_parser_behavior + synthetic_parser_behavior
+    total_families = summary.get("total_scenario_families", len(matrix))
+    blocked_families = summary.get("blocked_private_evidence", 0) + summary.get("blocked_external_boundary", 0)
+    classification_complete = not (
+        summary.get("missing", 0) or summary.get("partial", 0) or summary.get("deferred", 0)
+    )
+    parser_behavior_ready = parser_behavior_ready_family_count == total_families and total_families > 0
+    return {
+        "schema_version": READINESS_METRICS_SCHEMA_VERSION,
+        "classification_complete": classification_complete,
+        "parser_behavior_ready": parser_behavior_ready,
+        "parser_behavior_ready_family_count": parser_behavior_ready_family_count,
+        "total_scenario_families": total_families,
+        "committed_parser_behavior_families": committed_parser_behavior,
+        "synthetic_parser_behavior_families": synthetic_parser_behavior,
+        "report_only_families": summary.get("covered_report_only", 0),
+        "blocked_families": blocked_families,
+        "blocked_private_evidence_families": summary.get("blocked_private_evidence", 0),
+        "blocked_external_boundary_families": summary.get("blocked_external_boundary", 0),
+        "missing_families": summary.get("missing", 0),
+        "partial_families": summary.get("partial", 0),
+        "deferred_families": summary.get("deferred", 0),
+        "pipeline_activation_ready_for_issue_388": parser_behavior_ready,
+        "pipeline_activation_blockers": _pipeline_activation_blockers(summary),
+        "readiness_verdict": _readiness_verdict(
+            classification_complete=classification_complete,
+            parser_behavior_ready=parser_behavior_ready,
+        ),
+        "competitive_core": _competitive_core_metrics(matrix),
+    }
+
+
+def _parser_behavior_family_count(matrix: Sequence[Mapping[str, Any]], *, status: str) -> int:
+    return sum(
+        1
+        for row in matrix
+        if _is_parser_behavior_ready_row(row) and _string(row.get("coverage_status")) == status
+    )
+
+
+def _is_parser_behavior_ready_row(row: Mapping[str, Any]) -> bool:
+    status = _string(row.get("coverage_status"))
+    return status in {"covered_committed", "covered_synthetic"} and _is_parser_behavior_row(row)
+
+
+def _is_parser_behavior_row(row: Mapping[str, Any]) -> bool:
+    return "parser_behavior_verified" in _string_list(row.get("coverage_basis"))
+
+
+def _pipeline_activation_blockers(summary: Mapping[str, int]) -> list[str]:
+    blocker_fields = (
+        ("covered_report_only", "report_only_families"),
+        ("blocked_private_evidence", "blocked_private_evidence_families"),
+        ("blocked_external_boundary", "blocked_external_boundary_families"),
+        ("missing", "missing_families"),
+        ("partial", "partial_families"),
+        ("deferred", "deferred_families"),
+    )
+    return [f"{label}:{summary.get(field, 0)}" for field, label in blocker_fields if summary.get(field, 0)]
+
+
+def _readiness_verdict(*, classification_complete: bool, parser_behavior_ready: bool) -> str:
+    if parser_behavior_ready:
+        return "parser_behavior_ready"
+    if classification_complete:
+        return "classification_complete_not_behavior_ready"
+    return "not_classified"
+
+
+def _competitive_core_metrics(matrix: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    by_family = {_string(row.get("scenario_family")): row for row in matrix}
+    core_rows = [by_family[family] for family in COMPETITIVE_CORE_FAMILIES if family in by_family]
+    parser_behavior_count = sum(1 for row in core_rows if _is_parser_behavior_ready_row(row))
+    report_only_count = sum(1 for row in core_rows if _string(row.get("coverage_status")) == "covered_report_only")
+    blocked_count = sum(
+        1
+        for row in core_rows
+        if _string(row.get("coverage_status")) in {"blocked_private_evidence", "blocked_external_boundary"}
+    )
+    not_classified_count = sum(
+        1 for row in core_rows if _string(row.get("coverage_status")) in {"missing", "partial", "deferred"}
+    )
+    if parser_behavior_count == len(core_rows) and core_rows:
+        status = "behavior_ready"
+    elif not_classified_count:
+        status = "not_classified"
+    else:
+        status = "classification_complete_not_behavior_ready"
+    return {
+        "schema_version": COMPETITIVE_CORE_SCHEMA_VERSION,
+        "status": status,
+        "total_families": len(core_rows),
+        "parser_behavior_ready_family_count": parser_behavior_count,
+        "report_only_family_count": report_only_count,
+        "blocked_family_count": blocked_count,
+    }
+
+
 def _report_status(validation_errors: Sequence[str], summary: Mapping[str, int]) -> str:
     if validation_errors:
         if any("private" in error or "raw" in error for error in validation_errors):
@@ -571,7 +703,7 @@ def _limitations_section(*, session_ledger_path: Path | None) -> list[str]:
         "External corpus material is used only as category reference, not as imported fixture data.",
         "Missing categories require future scoped issues before fixture expansion.",
         "Reports do not decide merge readiness, deploy readiness, tracker completion, gameplay advice, "
-        "analytics truth, or AI truth.",
+        "analytics truth, AI truth, coaching truth, or production behavior.",
     ]
     if session_ledger_path is None:
         limitations.append("No session ledger input was supplied.")
