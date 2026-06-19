@@ -524,6 +524,40 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
     assert "tailer/stream rotation signals" in rename_rotation_collision["review_notes"][0]
     assert "recycle/rollback boundaries" in rename_rotation_collision["review_notes"][0]
     assert "do not prove live file-system truth" in rename_rotation_collision["review_notes"][0]
+    log_runtime_rotation = _manifest_entry(manifest, "log_runtime_rotation_boundary_report_v1")
+    assert log_runtime_rotation["coverage_status"] == "covered_report_only"
+    assert log_runtime_rotation["scenario_families"] == ["log_runtime.rotation"]
+    assert log_runtime_rotation["parser_event_families"] == []
+    assert log_runtime_rotation["parser_claim_families"] == [
+        "log_runtime_rotation_boundary_report",
+        "tailer_rotation_reference_only",
+        "stream_log_file_rotated_reference_only",
+        "live_watcher_correctness_non_claim",
+        "filesystem_rotation_truth_non_claim",
+        "duplicate_replay_prevention_non_claim",
+        "recycle_or_rollback_non_claim",
+        "private_smoke_non_claim",
+        "readiness_production_non_claim",
+        "analytics_ai_coaching_non_claim",
+    ]
+    assert log_runtime_rotation["coverage_basis"] == ["fixture_metadata_only"]
+    assert "report-only boundary metadata" in log_runtime_rotation["known_gaps"][0]
+    assert "TailBatch.rotated" in log_runtime_rotation["known_gaps"][0]
+    assert "LogFileRotatedEvent" in log_runtime_rotation["known_gaps"][0]
+    assert "live file-system watcher correctness" in log_runtime_rotation["known_gaps"][0]
+    assert "duplicate/replay prevention" in log_runtime_rotation["known_gaps"][0]
+    assert "recycle/rollback truth" in log_runtime_rotation["known_gaps"][0]
+    assert "committed tailer and stream rotation reference surfaces" in (
+        log_runtime_rotation["review_notes"][0]
+    )
+    external_reference = _manifest_entry(manifest, "external_reference_category_boundary")
+    assert external_reference["scenario_families"] == [
+        "timer.inactivity_timeout",
+        "gameplay_stress.conjure",
+        "gameplay_stress.spellbook",
+        "drift_debug.recycle_or_rollback",
+    ]
+    assert "log_runtime.rotation" not in external_reference["scenario_families"]
     phantom_deck_origin = _manifest_entry(manifest, "phantom_deck_origin_boundary_report_v1")
     assert phantom_deck_origin["coverage_status"] == "covered_report_only"
     assert phantom_deck_origin["scenario_families"] == ["drift_debug.phantom_or_deck_origin"]
@@ -1118,6 +1152,53 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
         "card_choices_included": False,
         "credentials_tokens_keys_webhooks_included": False,
     }
+    log_runtime_rotation_session = _session_entry(
+        session_ledger, "log_runtime_rotation_boundary_report_v1"
+    )
+    assert log_runtime_rotation_session["format_family"] == "log_runtime"
+    assert log_runtime_rotation_session["match_shape"] == (
+        "log_runtime_rotation_boundary_report_only"
+    )
+    assert log_runtime_rotation_session["record_summary"] == (
+        "committed_log_runtime_rotation_boundary_metadata_only"
+    )
+    assert log_runtime_rotation_session["parser_coverage"] == {
+        "event_families": {},
+        "tailer_rotation_reference_entries": 1,
+        "stream_rotation_event_reference_entries": 1,
+        "dedicated_live_rotation_fixtures": 0,
+        "private_smoke_success_claims": 0,
+        "live_watcher_correctness_claims": 0,
+        "filesystem_rotation_truth_claims": 0,
+        "duplicate_replay_prevention_claims": 0,
+        "file_identity_tracking_claims": 0,
+        "recycle_or_rollback_claims": 0,
+        "production_support_claims": 0,
+    }
+    assert log_runtime_rotation_session["game_rows"] == {
+        "count": 0,
+        "result_shape": "not_applicable",
+    }
+    assert "does not include a dedicated live rotation fixture" in (
+        log_runtime_rotation_session["known_gaps"][0]
+    )
+    assert "live watcher correctness claim" in log_runtime_rotation_session["known_gaps"][0]
+    assert "filesystem rotation truth claim" in log_runtime_rotation_session["known_gaps"][0]
+    assert "duplicate/replay prevention claim" in log_runtime_rotation_session["known_gaps"][0]
+    assert "recycle/rollback claim" in log_runtime_rotation_session["known_gaps"][0]
+    assert log_runtime_rotation_session["report_only_redactions"] == {
+        "raw_log_lines_included": False,
+        "raw_payloads_included": False,
+        "private_paths_included": False,
+        "private_smoke_outputs_included": False,
+        "generated_private_runtime_artifacts_included": False,
+        "file_hashes_included": False,
+        "file_path_identities_included": False,
+        "external_logs_included": False,
+        "sqlite_files_included": False,
+        "workbook_exports_included": False,
+        "credentials_tokens_keys_webhooks_included": False,
+    }
     phantom_deck_origin_session = _session_entry(session_ledger, "phantom_deck_origin_boundary_report_v1")
     assert phantom_deck_origin_session["format_family"] == "drift_debug"
     assert phantom_deck_origin_session["match_shape"] == "phantom_deck_origin_boundary_report_only"
@@ -1696,12 +1777,12 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
         "total_scenario_families": len(corpus.SCENARIO_FAMILIES),
         "covered_committed": 6,
         "covered_synthetic": 14,
-        "covered_report_only": 18,
+        "covered_report_only": 19,
         "partial": 0,
         "missing": 0,
         "deferred": 0,
         "blocked_private_evidence": 2,
-        "blocked_external_boundary": 5,
+        "blocked_external_boundary": 4,
         "not_applicable": 0,
     }
     assert _matrix_row(report, "core_gameplay.standard_bo1") == {
@@ -1809,12 +1890,16 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     }
     assert _matrix_row(report, "log_runtime.rotation") == {
         "scenario_family": "log_runtime.rotation",
-        "coverage_status": "blocked_external_boundary",
-        "coverage_basis": ["external_reference_only"],
-        "mythic_edge_entries": ["external_reference_category_boundary"],
+        "coverage_status": "covered_report_only",
+        "coverage_basis": ["fixture_metadata_only"],
+        "mythic_edge_entries": ["log_runtime_rotation_boundary_report_v1"],
         "external_reference_status": "reference_category_not_checked",
         "notes": [
-            "Reference categories require future Mythic Edge fixtures or report-only evidence before support claims."
+            "Log-runtime rotation coverage is report-only boundary metadata: committed tailer and stream "
+            "rotation reference surfaces may be named as context, but they do not prove live watcher "
+            "correctness, file-system rotation truth, duplicate/replay prevention, recycle/rollback truth, "
+            "private smoke success, release readiness, production behavior, analytics truth, AI truth, "
+            "coaching truth, or full corpus parity."
         ],
     }
     assert _matrix_row(report, "log_runtime.malformed_or_headerless") == {

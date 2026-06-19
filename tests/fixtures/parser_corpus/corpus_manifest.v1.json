@@ -1180,6 +1180,53 @@
       ]
     },
     {
+      "entry_id": "log_runtime_rotation_boundary_report_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "committed_count_only_report",
+      "commit_status": "committed",
+      "privacy_class": "committed_count_only",
+      "sanitization_status": "not_applicable_count_only",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/444",
+      "authorized_by_contract": "docs/contracts/parser_corpus_log_runtime_rotation_external_boundary.md",
+      "paths": {
+        "tailer_module": "src/mythic_edge_parser/log/tailer.py",
+        "stream_module": "src/mythic_edge_parser/stream.py",
+        "events_module": "src/mythic_edge_parser/events.py",
+        "tailer_test": "tests/test_tailer.py",
+        "stream_integration_test": "tests/test_stream_integration.py",
+        "event_schema_snapshot_test": "tests/test_event_schema_snapshots.py",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py",
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+        "rename_rotation_collision_contract": "docs/contracts/parser_corpus_rename_rotation_collision_coverage.md"
+      },
+      "scenario_families": [
+        "log_runtime.rotation"
+      ],
+      "parser_event_families": [],
+      "parser_claim_families": [
+        "log_runtime_rotation_boundary_report",
+        "tailer_rotation_reference_only",
+        "stream_log_file_rotated_reference_only",
+        "live_watcher_correctness_non_claim",
+        "filesystem_rotation_truth_non_claim",
+        "duplicate_replay_prevention_non_claim",
+        "recycle_or_rollback_non_claim",
+        "private_smoke_non_claim",
+        "readiness_production_non_claim",
+        "analytics_ai_coaching_non_claim"
+      ],
+      "coverage_status": "covered_report_only",
+      "coverage_basis": [
+        "fixture_metadata_only"
+      ],
+      "known_gaps": [
+        "Log-runtime rotation coverage is report-only boundary metadata; Mythic Edge has tailer and stream rotation references around TailBatch.rotated and LogFileRotatedEvent, but they do not prove parser support, live file-system watcher correctness, robust log-rotation resilience, duplicate/replay prevention, file identity tracking, recycle/rollback truth, private smoke success, live Player.log health, release readiness, deploy readiness, production behavior, analytics truth, AI truth, coaching truth, or full Mythic Edge corpus parity."
+      ],
+      "review_notes": [
+        "Log-runtime rotation coverage is report-only boundary metadata: committed tailer and stream rotation reference surfaces may be named as context, but they do not prove live watcher correctness, file-system rotation truth, duplicate/replay prevention, recycle/rollback truth, private smoke success, release readiness, production behavior, analytics truth, AI truth, coaching truth, or full corpus parity."
+      ]
+    },
+    {
       "entry_id": "phantom_deck_origin_boundary_report_v1",
       "entry_type": "session_ledger_entry",
       "source_kind": "committed_count_only_report",
@@ -1550,7 +1597,6 @@
       "authorized_by_contract": "docs/contracts/parser_corpus_parity_expansion.md",
       "paths": {},
       "scenario_families": [
-        "log_runtime.rotation",
         "timer.inactivity_timeout",
         "gameplay_stress.conjure",
         "gameplay_stress.spellbook",
