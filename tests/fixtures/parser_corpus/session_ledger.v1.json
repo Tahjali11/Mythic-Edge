@@ -118,6 +118,56 @@
       }
     },
     {
+      "session_id": "opponent_auto_concede_early_game_end_synthetic_v1",
+      "title": "Opponent auto-concede early game-end synthetic replay",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/482",
+      "authorized_by_contract": "docs/contracts/parser_corpus_opponent_auto_concede_behavior_uplift.md",
+      "scenario_families": [
+        "gameplay_stress.opponent_auto_concede"
+      ],
+      "format_family": "gameplay_stress",
+      "match_shape": "single_game_early_game_end_synthetic",
+      "record_summary": "synthetic_early_game_end_result_summary",
+      "parser_coverage": {
+        "event_families": {
+          "MatchState": 1,
+          "GameState": 2,
+          "GameResult": 1
+        },
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "dedicated_auto_concede_fixtures": 1,
+        "dedicated_no_action_fixtures": 0,
+        "early_game_end_result_fixtures": 1,
+        "concession_intent_claims": 0,
+        "hidden_action_absence_claims": 0,
+        "timeout_reason_claims": 0,
+        "disconnection_reason_claims": 0
+      },
+      "game_rows": {
+        "count": 1,
+        "result_shape": "single_game_result"
+      },
+      "known_gaps": [
+        "Synthetic early game-end coverage proves one reduced parser-owned result and reconciliation path only; it does not prove opponent intent, real auto-concede behavior, no-action truth, timeout reason, disconnection reason, network behavior, player mistakes, gameplay advice, analytics truth, AI truth, coaching truth, release readiness, production behavior, full corpus parity, tracker completion, or #388/#381 activation."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "opponent_identifiers_included": false,
+        "private_match_context_included": false,
+        "decklists_included": false,
+        "card_choices_included": false,
+        "strategy_notes_included": false
+      }
+    },
+    {
       "session_id": "companion_large_deck_boundary_report_v1",
       "title": "Companion / large-deck boundary report",
       "source_kind": "committed_count_only_report",

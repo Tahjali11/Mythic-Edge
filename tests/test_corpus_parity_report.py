@@ -250,6 +250,43 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
     assert "hidden opponent actions" in opponent_auto_concede["known_gaps"][0]
     assert "normal GameResult" in opponent_auto_concede["review_notes"][0]
     assert "public-taxonomy evidence do not prove" in opponent_auto_concede["review_notes"][0]
+    opponent_auto_concede_synthetic = _manifest_entry(
+        manifest,
+        "opponent_auto_concede_early_game_end_synthetic_v1",
+    )
+    assert opponent_auto_concede_synthetic["coverage_status"] == "covered_synthetic"
+    assert opponent_auto_concede_synthetic["scenario_families"] == [
+        "gameplay_stress.opponent_auto_concede"
+    ]
+    assert opponent_auto_concede_synthetic["parser_event_families"] == [
+        "MatchState",
+        "GameState",
+        "GameResult",
+    ]
+    assert opponent_auto_concede_synthetic["parser_claim_families"] == [
+        "early_game_end_result_flow",
+        "game_result_reason_preservation",
+        "final_reconciliation_result_flow",
+        "opponent_auto_concede_synthetic_boundary",
+        "concession_intent_non_claim",
+        "hidden_action_absence_non_claim",
+    ]
+    assert opponent_auto_concede_synthetic["coverage_basis"] == [
+        "parser_behavior_verified",
+        "fixture_metadata_only",
+    ]
+    assert opponent_auto_concede_synthetic["paths"] == {
+        "golden_replay_manifest": (
+            "tests/fixtures/golden_replay/opponent_auto_concede_early_game_end_synthetic.manifest.json"
+        ),
+        "corpus_parity_test": "tests/test_corpus_parity_report.py",
+        "golden_replay_test": "tests/test_golden_replay_harness.py",
+    }
+    assert "bounded early game-end result path" in opponent_auto_concede_synthetic["known_gaps"][0]
+    assert "does not prove opponent intent" in opponent_auto_concede_synthetic["known_gaps"][0]
+    assert "#406 opponent_auto_concede_boundary_report_v1 entry remains report-only" in (
+        opponent_auto_concede_synthetic["review_notes"][0]
+    )
     companion_large_deck = _manifest_entry(manifest, "companion_large_deck_boundary_report_v1")
     assert companion_large_deck["coverage_status"] == "covered_report_only"
     assert companion_large_deck["scenario_families"] == ["gameplay_stress.companion_or_large_deck"]
@@ -1681,6 +1718,51 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
         "card_choices_included": False,
         "strategy_notes_included": False,
     }
+    opponent_auto_concede_synthetic_session = _session_entry(
+        session_ledger,
+        "opponent_auto_concede_early_game_end_synthetic_v1",
+    )
+    assert opponent_auto_concede_synthetic_session["format_family"] == "gameplay_stress"
+    assert opponent_auto_concede_synthetic_session["match_shape"] == "single_game_early_game_end_synthetic"
+    assert opponent_auto_concede_synthetic_session["record_summary"] == (
+        "synthetic_early_game_end_result_summary"
+    )
+    assert opponent_auto_concede_synthetic_session["parser_coverage"] == {
+        "event_families": {
+            "MatchState": 1,
+            "GameState": 2,
+            "GameResult": 1,
+        },
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "dedicated_auto_concede_fixtures": 1,
+        "dedicated_no_action_fixtures": 0,
+        "early_game_end_result_fixtures": 1,
+        "concession_intent_claims": 0,
+        "hidden_action_absence_claims": 0,
+        "timeout_reason_claims": 0,
+        "disconnection_reason_claims": 0,
+    }
+    assert opponent_auto_concede_synthetic_session["game_rows"] == {
+        "count": 1,
+        "result_shape": "single_game_result",
+    }
+    assert "one reduced parser-owned result and reconciliation path" in (
+        opponent_auto_concede_synthetic_session["known_gaps"][0]
+    )
+    assert "does not prove opponent intent" in opponent_auto_concede_synthetic_session["known_gaps"][0]
+    assert "no-action truth" in opponent_auto_concede_synthetic_session["known_gaps"][0]
+    assert opponent_auto_concede_synthetic_session["report_only_redactions"] == {
+        "raw_log_lines_included": False,
+        "private_paths_included": False,
+        "raw_payloads_included": False,
+        "external_logs_included": False,
+        "opponent_identifiers_included": False,
+        "private_match_context_included": False,
+        "decklists_included": False,
+        "card_choices_included": False,
+        "strategy_notes_included": False,
+    }
     companion_large_deck_session = _session_entry(session_ledger, "companion_large_deck_boundary_report_v1")
     assert companion_large_deck_session["format_family"] == "gameplay_stress"
     assert companion_large_deck_session["match_shape"] == "companion_large_deck_boundary_report_only"
@@ -1845,8 +1927,8 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     assert report["summary"] == {
         "total_scenario_families": len(corpus.SCENARIO_FAMILIES),
         "covered_committed": 6,
-        "covered_synthetic": 15,
-        "covered_report_only": 18,
+        "covered_synthetic": 16,
+        "covered_report_only": 17,
         "partial": 0,
         "missing": 0,
         "deferred": 0,
@@ -1858,11 +1940,11 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
         "schema_version": "parser_corpus_readiness_metrics.v1",
         "classification_complete": True,
         "parser_behavior_ready": False,
-        "parser_behavior_ready_family_count": 20,
+        "parser_behavior_ready_family_count": 21,
         "total_scenario_families": len(corpus.SCENARIO_FAMILIES),
         "committed_parser_behavior_families": 5,
-        "synthetic_parser_behavior_families": 15,
-        "report_only_families": 18,
+        "synthetic_parser_behavior_families": 16,
+        "report_only_families": 17,
         "blocked_families": 6,
         "blocked_private_evidence_families": 2,
         "blocked_external_boundary_families": 4,
@@ -1871,7 +1953,7 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
         "deferred_families": 0,
         "pipeline_activation_ready_for_issue_388": False,
         "pipeline_activation_blockers": [
-            "report_only_families:18",
+            "report_only_families:17",
             "blocked_private_evidence_families:2",
             "blocked_external_boundary_families:4",
         ],
@@ -1880,17 +1962,17 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
             "schema_version": "parser_corpus_competitive_core.v1",
             "status": "classification_complete_not_behavior_ready",
             "total_families": 16,
-            "parser_behavior_ready_family_count": 9,
-            "report_only_family_count": 4,
+            "parser_behavior_ready_family_count": 10,
+            "report_only_family_count": 3,
             "blocked_family_count": 3,
         },
         "behavior_applicability": {
             "schema_version": "parser_corpus_behavior_applicability.v1",
             "parser_behavior_applicable_family_count": 37,
-            "parser_behavior_applicable_ready_family_count": 20,
-            "parser_behavior_applicable_not_ready_family_count": 17,
+            "parser_behavior_applicable_ready_family_count": 21,
+            "parser_behavior_applicable_not_ready_family_count": 16,
             "parser_behavior_not_applicable_family_count": 8,
-            "parser_behavior_applicable_report_only_family_count": 12,
+            "parser_behavior_applicable_report_only_family_count": 11,
             "parser_behavior_applicable_blocked_private_evidence_family_count": 1,
             "parser_behavior_applicable_blocked_external_boundary_family_count": 4,
             "parser_behavior_applicability_ready": False,
@@ -1902,8 +1984,8 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     }
     assert set(applicability_by_family) == set(corpus.SCENARIO_FAMILIES)
     assert Counter(applicability_by_family.values()) == {
-        "parser_behavior_applicable_ready": 20,
-        "parser_behavior_applicable_not_ready": 12,
+        "parser_behavior_applicable_ready": 21,
+        "parser_behavior_applicable_not_ready": 11,
         "parser_behavior_applicable_blocked_private": 1,
         "parser_behavior_applicable_blocked_external": 4,
         "non_behavior_applicability_excluded": 8,
@@ -1914,6 +1996,9 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
         if applicability_class == "non_behavior_applicability_excluded"
     ] == list(corpus.NON_BEHAVIOR_APPLICABILITY_EXCLUDED_FAMILIES)
     assert applicability_by_family["core_gameplay.draft_with_games"] == "parser_behavior_applicable_ready"
+    assert applicability_by_family["gameplay_stress.opponent_auto_concede"] == (
+        "parser_behavior_applicable_ready"
+    )
     assert (
         applicability_by_family["connection.firewall_or_network_drop"]
         == "parser_behavior_applicable_blocked_private"
@@ -2284,14 +2369,20 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     }
     assert _matrix_row(report, "gameplay_stress.opponent_auto_concede") == {
         "scenario_family": "gameplay_stress.opponent_auto_concede",
-        "coverage_status": "covered_report_only",
-        "coverage_basis": ["fixture_metadata_only"],
-        "mythic_edge_entries": ["opponent_auto_concede_boundary_report_v1"],
+        "coverage_status": "covered_synthetic",
+        "coverage_basis": ["fixture_metadata_only", "parser_behavior_verified"],
+        "mythic_edge_entries": [
+            "opponent_auto_concede_boundary_report_v1",
+            "opponent_auto_concede_early_game_end_synthetic_v1",
+        ],
         "external_reference_status": "reference_category_not_checked",
         "notes": [
             "Opponent auto-concede/no-action coverage is report-only boundary metadata: normal GameResult, "
             "local-win, opponent-loss, short-duration, sparse-action, and public-taxonomy evidence do not "
-            "prove opponent auto-concede or no-action behavior."
+            "prove opponent auto-concede or no-action behavior.",
+            "The #406 opponent_auto_concede_boundary_report_v1 entry remains report-only non-claim metadata; "
+            "this additive synthetic entry proves only parser-owned early game-end result and reconciliation "
+            "behavior for gameplay_stress.opponent_auto_concede.",
         ],
     }
     assert _matrix_row(report, "gameplay_stress.conjure") == {
@@ -2523,7 +2614,7 @@ def test_cli_writes_report_only_when_output_is_explicit(tmp_path: Path, capsys: 
     assert exit_code == 0
     assert (
         "Corpus parity report: partial_coverage_map_ready "
-        "(45 families; committed=6, synthetic=15, report_only=18, "
+        "(45 families; committed=6, synthetic=16, report_only=17, "
         "blocked=6 [private=2, external=4], missing=0, parser_behavior_ready=no)"
     ) in captured.out
     assert "Report written: <outside_repo>" in captured.out

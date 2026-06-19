@@ -11,12 +11,12 @@
       "DraftComplete": 2,
       "DraftHuman": 1,
       "EventLifecycle": 0,
-      "GameResult": 4,
-      "GameState": 9,
+      "GameResult": 5,
+      "GameState": 11,
       "Inventory": 0,
       "LogFileRotated": 0,
       "MatchConnectionState": 0,
-      "MatchState": 3,
+      "MatchState": 4,
       "Rank": 2,
       "Session": 0,
       "TcpConnectionClose": 0,
@@ -33,12 +33,12 @@
       "DraftComplete": 2,
       "DraftHuman": 1,
       "EventLifecycle": 0,
-      "GameResult": 4,
-      "GameState": 9,
+      "GameResult": 5,
+      "GameState": 11,
       "Inventory": 0,
       "LogFileRotated": 0,
       "MatchConnectionState": 0,
-      "MatchState": 3,
+      "MatchState": 4,
       "Rank": 2,
       "Session": 0,
       "TcpConnectionClose": 0,
@@ -54,30 +54,30 @@
       "connect_resp_events": 0,
       "diff_complete_snapshots": 0,
       "diff_confidence_counts": {
-        "unknown": 9
+        "unknown": 11
       },
-      "diff_degraded_records": 9,
+      "diff_degraded_records": 11,
       "diff_deleted_annotation_ids": 0,
       "diff_deleted_instance_ids": 0,
       "diff_deletion_evidence_present": 0,
       "diff_evidence_status_counts": {
-        "unknown": 9
+        "unknown": 11
       },
       "diff_incremental_updates": 0,
       "diff_previous_state_linked": 0,
-      "diff_previous_state_missing": 9,
+      "diff_previous_state_missing": 11,
       "diff_queued_messages": 0,
-      "diff_review_required": 9,
+      "diff_review_required": 11,
       "diff_source_field_counts": {
-        "gameStateId": 9,
-        "msgId": 9,
-        "type": 9
+        "gameStateId": 11,
+        "msgId": 11,
+        "type": 11
       },
       "diff_value_source_counts": {
-        "unknown": 9
+        "unknown": 11
       },
-      "game_state_events": 9,
-      "game_state_message_events": 9,
+      "game_state_events": 11,
+      "game_state_message_events": 11,
       "queued_game_state_messages": 0,
       "timer_time_unit_counts": {
         "milliseconds": 0,
@@ -91,18 +91,18 @@
     },
     "input_counts": {
       "fixtures_private_rejected": 0,
-      "fixtures_sanitized_committable": 4,
+      "fixtures_sanitized_committable": 5,
       "fixtures_synthetic_committable": 0,
-      "fixtures_total": 4,
-      "manifests_total": 4,
-      "source_files_total": 4
+      "fixtures_total": 5,
+      "manifests_total": 5,
+      "source_files_total": 5
     },
     "parser_claim_counts": {
       "client_action_claims": 3,
-      "final_reconciliation_claims": 4,
-      "game_result_claims": 4,
-      "game_state_claims": 9,
-      "match_lifecycle_claims": 3,
+      "final_reconciliation_claims": 5,
+      "game_result_claims": 5,
+      "game_state_claims": 11,
+      "match_lifecycle_claims": 4,
       "opponent_observation_claims": 0,
       "rank_context_claims": 2
     },
@@ -113,13 +113,13 @@
       "DraftBot:bot_draft_status": 2,
       "DraftComplete:draft_complete_draft": 2,
       "DraftHuman:human_draft_make_pick": 1,
-      "GameResult:game_result": 4,
-      "GameState:game_state_message": 9,
-      "MatchState:match_started": 3,
+      "GameResult:game_result": 5,
+      "GameState:game_state_message": 11,
+      "MatchState:match_started": 4,
       "Rank:rank_snapshot": 2
     },
     "router_stats": {
-      "routed": 22,
+      "routed": 25,
       "timestamp_missing": 0,
       "timestamp_parse_failure": 0,
       "unknown": 0
@@ -132,9 +132,9 @@
       "truncation_events": 0
     },
     "unknowns_and_degradation": {
-      "degraded_parser_outputs": 9,
+      "degraded_parser_outputs": 11,
       "malformed_records": 0,
-      "review_required_outputs": 9,
+      "review_required_outputs": 11,
       "timestamp_missing": 0,
       "timestamp_parse_failure": 0,
       "unknown_entries": 0,
@@ -147,6 +147,7 @@
     "V1 count-only baseline generated from committed golden replay manifests on codex/parser-reliability-intelligence.",
     "Issue #126 adds one synthetic draft parser family fixture to cover DraftBot, DraftHuman, and DraftComplete counts without changing parser behavior.",
     "Issue #479 adds one reduced synthetic draft-with-games fixture to cover draft event evidence plus completed limited game/result flow without changing parser behavior.",
+    "Issue #482 adds one reduced synthetic opponent auto-concede early game-end fixture to cover bounded game-result and final-reconciliation evidence without changing parser behavior.",
     "Positive GameState diff review/degradation counters reflect current fixture payloads missing update-kind evidence; this baseline records coverage shape only."
   ],
   "schema_version": "parser_feature_equity_corpus_ratchet_baseline.v1",
@@ -154,7 +155,8 @@
     "tests/fixtures/golden_replay/bo1_match_win_basic.manifest.json",
     "tests/fixtures/golden_replay/bo3_sideboard_match_loss.manifest.json",
     "tests/fixtures/golden_replay/draft_parser_family.manifest.json",
-    "tests/fixtures/golden_replay/draft_with_games_synthetic.manifest.json"
+    "tests/fixtures/golden_replay/draft_with_games_synthetic.manifest.json",
+    "tests/fixtures/golden_replay/opponent_auto_concede_early_game_end_synthetic.manifest.json"
   ],
   "source_privacy": {
     "privacy_class": "committed_count_only",
