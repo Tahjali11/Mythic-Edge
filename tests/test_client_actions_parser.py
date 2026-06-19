@@ -9,19 +9,23 @@ from mythic_edge_parser.log.entry import EntryHeader, LogEntry
 from mythic_edge_parser.parsers import client_actions
 
 TS = datetime(2026, 5, 8, 5, 45, 19, tzinfo=UTC)
+SYNTHETIC_UNITY_LOGGER_MARKER = "[UnityCrossThreadLogger]"  # test marker
+SYNTHETIC_CLIENT_TO_GRE_MARKER = "ClientToGREMessage"  # test marker
+SYNTHETIC_CLIENT_TO_GRE_UI_LOWERCASE_PREFIX = "ClientToGreuimessage"  # test marker
+SYNTHETIC_CLIENT_TO_GRE_LOWERCASE_PREFIX = "ClientToGremessage"  # test marker
 
 
 def _entry(body: str) -> LogEntry:
     return LogEntry(EntryHeader.UNITY_CROSS_THREAD_LOGGER, body)
 
 
-def _entry_from_envelope(envelope: object, *, prefix_marker: str = "ClientToGREMessage") -> LogEntry:
-    return _entry(f"[UnityCrossThreadLogger]{prefix_marker}\n{json.dumps(envelope)}")
+def _entry_from_envelope(envelope: object, *, prefix_marker: str = SYNTHETIC_CLIENT_TO_GRE_MARKER) -> LogEntry:
+    return _entry(f"{SYNTHETIC_UNITY_LOGGER_MARKER}{prefix_marker}\n{json.dumps(envelope)}")
 
 
 def _gre_envelope(payload: Any, request_id: Any = 1) -> dict[str, Any]:
     envelope: dict[str, Any] = {
-        "clientToMatchServiceMessageType": "ClientToMatchServiceMessageType_ClientToGREMessage",
+        "clientToMatchServiceMessageType": f"ClientToMatchServiceMessageType_{SYNTHETIC_CLIENT_TO_GRE_MARKER}",
     }
     if request_id is not _MISSING:
         envelope["requestId"] = request_id
@@ -44,7 +48,7 @@ _MISSING = object()
 def test_client_actions_parse_ui_message_shape() -> None:
     entry = LogEntry(
         EntryHeader.UNITY_CROSS_THREAD_LOGGER,
-        "[UnityCrossThreadLogger]ClientToGreuimessage\n"
+        f"{SYNTHETIC_UNITY_LOGGER_MARKER}{SYNTHETIC_CLIENT_TO_GRE_UI_LOWERCASE_PREFIX}\n"
         '{"requestId":297,"clientToMatchServiceMessageType":"ClientToMatchServiceMessageType_ClientToGREUIMessage","payload":{"type":"ClientMessageType_UIMessage","systemSeatId":1,"uiMessage":{"seatIds":[2],"onHover":{"objectId":401}}}}',
     )
 
@@ -86,7 +90,7 @@ def test_client_actions_classifies_from_json_enum_when_prefix_casing_differs() -
 def test_client_actions_ui_marker_wins_when_body_contains_both_markers() -> None:
     entry = _entry_from_envelope(
         _ui_envelope({"type": "ClientMessageType_UIMessage"}),
-        prefix_marker="ClientToGREMessage",
+        prefix_marker=SYNTHETIC_CLIENT_TO_GRE_MARKER,
     )
 
     event = client_actions.try_parse(entry, TS)
@@ -98,8 +102,10 @@ def test_client_actions_ui_marker_wins_when_body_contains_both_markers() -> None
 def test_client_actions_parse_generic_message_type() -> None:
     entry = LogEntry(
         EntryHeader.UNITY_CROSS_THREAD_LOGGER,
-        "[UnityCrossThreadLogger]ClientToGremessage\n"
-        '{"requestId":2,"clientToMatchServiceMessageType":"ClientToMatchServiceMessageType_ClientToGREMessage","payload":{"type":"ClientMessageType_ChooseStartingPlayerResp","gameStateId":1,"respId":2}}',
+        f"{SYNTHETIC_UNITY_LOGGER_MARKER}{SYNTHETIC_CLIENT_TO_GRE_LOWERCASE_PREFIX}\n"
+        '{"requestId":2,"clientToMatchServiceMessageType":"ClientToMatchServiceMessageType_ClientTo'
+        'GREMessage","payload":{"type":"ClientMessageType_ChooseStartingPlayerResp","gameStateId":1,'
+        '"respId":2}}',
     )
 
     event = client_actions.try_parse(entry, TS)
@@ -144,8 +150,10 @@ def test_client_actions_generic_fallback_preserves_stringified_raw_payload() -> 
 def test_client_actions_parse_mulligan_response() -> None:
     entry = LogEntry(
         EntryHeader.UNITY_CROSS_THREAD_LOGGER,
-        "[UnityCrossThreadLogger]ClientToGremessage\n"
-        '{"requestId":6,"clientToMatchServiceMessageType":"ClientToMatchServiceMessageType_ClientToGREMessage","payload":{"type":"ClientMessageType_MulliganResp","gameStateId":5,"respId":1,"mulliganResp":{"decision":"MulliganOption_AcceptHand"}}}',
+        f"{SYNTHETIC_UNITY_LOGGER_MARKER}{SYNTHETIC_CLIENT_TO_GRE_LOWERCASE_PREFIX}\n"
+        '{"requestId":6,"clientToMatchServiceMessageType":"ClientToMatchServiceMessageType_ClientTo'
+        'GREMessage","payload":{"type":"ClientMessageType_MulliganResp","gameStateId":5,"respId":1,'
+        '"mulliganResp":{"decision":"MulliganOption_AcceptHand"}}}',
     )
 
     event = client_actions.try_parse(entry, TS)
@@ -200,8 +208,10 @@ def test_client_actions_mulligan_malformed_payload_defaults_to_blank_decision(mu
 def test_client_actions_parse_select_n_response() -> None:
     entry = LogEntry(
         EntryHeader.UNITY_CROSS_THREAD_LOGGER,
-        "[UnityCrossThreadLogger]ClientToGremessage\n"
-        '{"requestId":101,"clientToMatchServiceMessageType":"ClientToMatchServiceMessageType_ClientToGREMessage","payload":{"type":"ClientMessageType_SelectNResp","gameStateId":9,"respId":3,"selectNResp":{"selectedOptionIds":[1,2],"selectedObjectIds":["9","10"]}}}',
+        f"{SYNTHETIC_UNITY_LOGGER_MARKER}{SYNTHETIC_CLIENT_TO_GRE_LOWERCASE_PREFIX}\n"
+        '{"requestId":101,"clientToMatchServiceMessageType":"ClientToMatchServiceMessageType_ClientTo'
+        'GREMessage","payload":{"type":"ClientMessageType_SelectNResp","gameStateId":9,"respId":3,'
+        '"selectNResp":{"selectedOptionIds":[1,2],"selectedObjectIds":["9","10"]}}}',
     )
 
     event = client_actions.try_parse(entry, TS)
@@ -251,8 +261,10 @@ def test_client_actions_select_n_malformed_payload_defaults_to_empty_lists(selec
 def test_client_actions_parse_submit_deck_with_nested_deck_shape() -> None:
     entry = LogEntry(
         EntryHeader.UNITY_CROSS_THREAD_LOGGER,
-        "[UnityCrossThreadLogger]ClientToGremessage\n"
-        '{"requestId":10,"clientToMatchServiceMessageType":"ClientToMatchServiceMessageType_ClientToGREMessage","payload":{"type":"ClientMessageType_SubmitDeckResp","gameStateId":5,"respId":1,"submitDeckResp":{"deck":{"deckCards":[11,12,13],"sideboardCards":[21,22]}}}}',
+        f"{SYNTHETIC_UNITY_LOGGER_MARKER}{SYNTHETIC_CLIENT_TO_GRE_LOWERCASE_PREFIX}\n"
+        '{"requestId":10,"clientToMatchServiceMessageType":"ClientToMatchServiceMessageType_ClientTo'
+        'GREMessage","payload":{"type":"ClientMessageType_SubmitDeckResp","gameStateId":5,"respId":1,'
+        '"submitDeckResp":{"deck":{"deckCards":[11,12,13],"sideboardCards":[21,22]}}}}',
     )
 
     event = client_actions.try_parse(entry, TS)
@@ -307,6 +319,41 @@ def test_client_actions_parse_submit_deck_list_valued_deck_and_sideboard_fallbac
     assert event.payload["sideboard_cards"] == [21, 22]
 
 
+def test_client_actions_submit_deck_preserves_synthetic_large_deck_list_shape() -> None:
+    synthetic_deck_cards = list(range(900000, 900080))
+    synthetic_sideboard_cards = [910001, 910002, 910003]
+    entry = _entry_from_envelope(
+        _gre_envelope(
+            {
+                "type": "ClientMessageType_SubmitDeckResp",
+                "gameStateId": 494,
+                "respId": 8,
+                "submitDeckResp": {
+                    "deckCards": synthetic_deck_cards,
+                    "sideboardCards": synthetic_sideboard_cards,
+                },
+            },
+            request_id=4940,
+        ),
+    )
+
+    event = client_actions.try_parse(entry, TS)
+
+    assert event is not None
+    assert event.kind == "ClientAction"
+    assert event.payload["type"] == "submit_deck_resp"
+    assert len(event.payload["deck_cards"]) == 80
+    assert len(event.payload["deck_cards"]) > 60
+    assert event.payload["deck_cards"] == synthetic_deck_cards
+    assert event.payload["sideboard_cards"] == synthetic_sideboard_cards
+    assert event.payload["game_state_id"] == 494
+    assert event.payload["resp_id"] == 8
+    assert event.payload["request_id"] == 4940
+    assert event.payload["raw_client_action"]["payload"]["submitDeckResp"]["deckCards"] == (
+        synthetic_deck_cards
+    )
+
+
 def test_client_actions_parse_submit_deck_truthy_malformed_direct_source_blocks_nested_fallback() -> None:
     entry = _entry_from_envelope(
         _gre_envelope(
@@ -347,8 +394,9 @@ def test_client_actions_submit_deck_malformed_payload_defaults_to_empty_lists(su
 def test_client_actions_parse_stringified_inner_payload_shape() -> None:
     entry = LogEntry(
         EntryHeader.UNITY_CROSS_THREAD_LOGGER,
-        "[UnityCrossThreadLogger]ClientToGremessage\n"
-        '{"requestId":12,"clientToMatchServiceMessageType":"ClientToMatchServiceMessageType_ClientToGREMessage",'
+        f"{SYNTHETIC_UNITY_LOGGER_MARKER}{SYNTHETIC_CLIENT_TO_GRE_LOWERCASE_PREFIX}\n"
+        '{"requestId":12,"clientToMatchServiceMessageType":"ClientToMatchServiceMessageType_ClientTo'
+        'GREMessage",'
         '"payload":"{\\"type\\":\\"ClientMessageType_ChooseStartingPlayerResp\\",\\"gameStateId\\":1,\\"respId\\":2}"}',
     )
 
@@ -380,9 +428,9 @@ def test_client_actions_gre_missing_or_non_dict_inner_payload_returns_none(paylo
 @pytest.mark.parametrize(
     "body",
     [
-        "[UnityCrossThreadLogger]ClientToGREMessage\nnot-json",
-        "[UnityCrossThreadLogger]ClientToGREMessage\n[1, 2, 3]",
-        "[UnityCrossThreadLogger]ClientToGREMessage\n\"not-a-dict\"",
+        f"{SYNTHETIC_UNITY_LOGGER_MARKER}{SYNTHETIC_CLIENT_TO_GRE_MARKER}\nnot-json",
+        f"{SYNTHETIC_UNITY_LOGGER_MARKER}{SYNTHETIC_CLIENT_TO_GRE_MARKER}\n[1, 2, 3]",
+        f"{SYNTHETIC_UNITY_LOGGER_MARKER}{SYNTHETIC_CLIENT_TO_GRE_MARKER}\n\"not-a-dict\"",
     ],
 )
 def test_client_actions_marker_present_without_dict_json_envelope_returns_none(body: str) -> None:
@@ -392,8 +440,9 @@ def test_client_actions_marker_present_without_dict_json_envelope_returns_none(b
 def test_client_actions_submit_deck_tolerates_malformed_nested_deck_shape() -> None:
     entry = LogEntry(
         EntryHeader.UNITY_CROSS_THREAD_LOGGER,
-        "[UnityCrossThreadLogger]ClientToGremessage\n"
-        '{"requestId":13,"clientToMatchServiceMessageType":"ClientToMatchServiceMessageType_ClientToGREMessage",'
+        f"{SYNTHETIC_UNITY_LOGGER_MARKER}{SYNTHETIC_CLIENT_TO_GRE_LOWERCASE_PREFIX}\n"
+        '{"requestId":13,"clientToMatchServiceMessageType":"ClientToMatchServiceMessageType_ClientTo'
+        'GREMessage",'
         '"payload":{"type":"ClientMessageType_SubmitDeckResp","gameStateId":5,"respId":1,'
         '"submitDeckResp":{"deck":"not-a-dict","sideboard":"still-not-a-dict"}}}',
     )
@@ -446,6 +495,9 @@ def test_client_actions_specialized_payloads_copy_request_context_as_is(inner_pa
 
 
 def test_client_actions_ignore_entries_without_client_message_marker() -> None:
-    entry = LogEntry(EntryHeader.UNITY_CROSS_THREAD_LOGGER, "[UnityCrossThreadLogger]NotAClientMessage\n{}")
+    entry = LogEntry(
+        EntryHeader.UNITY_CROSS_THREAD_LOGGER,
+        f"{SYNTHETIC_UNITY_LOGGER_MARKER}NotAClientMessage\n{{}}",
+    )
 
     assert client_actions.try_parse(entry, TS) is None

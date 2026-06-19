@@ -104,6 +104,32 @@ def test_collection_parse_real_start_hook_shape_emits_deck_collection() -> None:
     assert event.payload["decks"]["deck-1"]["list"]["MainDeck"][0]["cardId"] == 1001
 
 
+def test_collection_parse_preserves_synthetic_companion_shaped_deck_field() -> None:
+    entry = LogEntry(
+        EntryHeader.UNITY_CROSS_THREAD_LOGGER,
+        '<== StartHook(synthetic-companion-shape)\n'
+        '{"PlayerCards":{"900001":1},'
+        '"DeckSummaries":[{"DeckId":"synthetic-companion-shape-1","Name":"synthetic-companion-shape"}],'
+        '"Decks":{"synthetic-companion-shape-1":{'
+        '"MainDeck":[{"cardId":900100,"quantity":4}],'
+        '"Sideboard":[{"cardId":900200,"quantity":1}],'
+        '"Companions":[{"cardId":900300,"quantity":1}]}}}',
+    )
+
+    events = collection.try_parse(entry, TS)
+
+    assert isinstance(events, list)
+    assert [event.kind for event in events] == ["Collection", "DeckCollection"]
+    deck_event = events[1]
+    deck = deck_event.payload["decks"]["synthetic-companion-shape-1"]
+    assert deck["list"]["Companions"] == [{"cardId": 900300, "quantity": 1}]
+    assert deck["list"]["MainDeck"] == [{"cardId": 900100, "quantity": 4}]
+    assert deck["list"]["Sideboard"] == [{"cardId": 900200, "quantity": 1}]
+    assert deck_event.payload["raw_start_hook"]["Decks"]["synthetic-companion-shape-1"][
+        "Companions"
+    ] == [{"cardId": 900300, "quantity": 1}]
+
+
 def test_collection_parse_requires_mapping_player_cards() -> None:
     entry = LogEntry(
         EntryHeader.UNITY_CROSS_THREAD_LOGGER,
