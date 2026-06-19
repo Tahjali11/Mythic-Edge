@@ -67,6 +67,36 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
     assert "intentionally report-only" in draft_with_games_boundary["review_notes"][0]
     assert "synthetic GameState anchor" in draft_with_games_boundary["review_notes"][0]
     assert "not draft-with-games evidence" in draft_with_games_boundary["review_notes"][0]
+    draft_with_games_synthetic = _manifest_entry(manifest, "draft_with_games_synthetic_v1")
+    assert draft_with_games_synthetic["coverage_status"] == "covered_synthetic"
+    assert draft_with_games_synthetic["scenario_families"] == ["core_gameplay.draft_with_games"]
+    assert draft_with_games_synthetic["parser_event_families"] == [
+        "DraftBot",
+        "DraftComplete",
+        "MatchState",
+        "GameState",
+        "GameResult",
+    ]
+    assert draft_with_games_synthetic["parser_claim_families"] == [
+        "draft_event_flow",
+        "draft_complete_signal",
+        "limited_gameplay_result_flow",
+        "draft_with_games_synthetic_boundary",
+        "draft_privacy_boundary",
+    ]
+    assert draft_with_games_synthetic["coverage_basis"] == [
+        "parser_behavior_verified",
+        "fixture_metadata_only",
+    ]
+    assert draft_with_games_synthetic["paths"] == {
+        "golden_replay_manifest": "tests/fixtures/golden_replay/draft_with_games_synthetic.manifest.json",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py",
+        "golden_replay_test": "tests/test_golden_replay_harness.py",
+    }
+    assert "single synthetic completed draft-with-games path" in draft_with_games_synthetic["known_gaps"][0]
+    assert "#400 draft_with_games_boundary_report_v1 entry remains report-only" in (
+        draft_with_games_synthetic["review_notes"][0]
+    )
     manifest_metadata_boundary = _manifest_entry(manifest, "parser_corpus_manifest_metadata_boundary_v1")
     assert manifest_metadata_boundary["entry_type"] == "session_ledger_entry"
     assert manifest_metadata_boundary["source_kind"] == "committed_count_only_report"
@@ -1580,6 +1610,44 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
         "card_choices_included": False,
         "strategy_notes_included": False,
     }
+    draft_with_games_synthetic_session = _session_entry(session_ledger, "draft_with_games_synthetic_v1")
+    assert draft_with_games_synthetic_session["format_family"] == "limited_draft"
+    assert draft_with_games_synthetic_session["match_shape"] == "draft_with_games_single_game_synthetic"
+    assert draft_with_games_synthetic_session["record_summary"] == "synthetic_completed_draft_with_games_summary"
+    assert draft_with_games_synthetic_session["parser_coverage"] == {
+        "event_families": {
+            "DraftBot": 1,
+            "DraftComplete": 1,
+            "MatchState": 1,
+            "GameState": 2,
+            "GameResult": 1,
+        },
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "dedicated_draft_with_games_fixtures": 1,
+        "completed_draft_game_rows": 1,
+        "game_result_events": 1,
+        "match_result_events": 1,
+    }
+    assert draft_with_games_synthetic_session["game_rows"] == {
+        "count": 1,
+        "result_shape": "single_game_result",
+    }
+    assert "one reduced synthetic draft event plus limited game/result path" in (
+        draft_with_games_synthetic_session["known_gaps"][0]
+    )
+    assert draft_with_games_synthetic_session["report_only_redactions"] == {
+        "raw_log_lines_included": False,
+        "private_paths_included": False,
+        "raw_payloads_included": False,
+        "external_logs_included": False,
+        "draft_picks_included": False,
+        "draft_pools_included": False,
+        "decklists_included": False,
+        "private_deck_names_included": False,
+        "card_choices_included": False,
+        "strategy_notes_included": False,
+    }
     opponent_auto_concede_session = _session_entry(session_ledger, "opponent_auto_concede_boundary_report_v1")
     assert opponent_auto_concede_session["format_family"] == "gameplay_stress"
     assert opponent_auto_concede_session["match_shape"] == "opponent_auto_concede_boundary_report_only"
@@ -1777,8 +1845,8 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     assert report["summary"] == {
         "total_scenario_families": len(corpus.SCENARIO_FAMILIES),
         "covered_committed": 6,
-        "covered_synthetic": 14,
-        "covered_report_only": 19,
+        "covered_synthetic": 15,
+        "covered_report_only": 18,
         "partial": 0,
         "missing": 0,
         "deferred": 0,
@@ -1790,11 +1858,11 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
         "schema_version": "parser_corpus_readiness_metrics.v1",
         "classification_complete": True,
         "parser_behavior_ready": False,
-        "parser_behavior_ready_family_count": 19,
+        "parser_behavior_ready_family_count": 20,
         "total_scenario_families": len(corpus.SCENARIO_FAMILIES),
         "committed_parser_behavior_families": 5,
-        "synthetic_parser_behavior_families": 14,
-        "report_only_families": 19,
+        "synthetic_parser_behavior_families": 15,
+        "report_only_families": 18,
         "blocked_families": 6,
         "blocked_private_evidence_families": 2,
         "blocked_external_boundary_families": 4,
@@ -1803,7 +1871,7 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
         "deferred_families": 0,
         "pipeline_activation_ready_for_issue_388": False,
         "pipeline_activation_blockers": [
-            "report_only_families:19",
+            "report_only_families:18",
             "blocked_private_evidence_families:2",
             "blocked_external_boundary_families:4",
         ],
@@ -1812,17 +1880,17 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
             "schema_version": "parser_corpus_competitive_core.v1",
             "status": "classification_complete_not_behavior_ready",
             "total_families": 16,
-            "parser_behavior_ready_family_count": 8,
-            "report_only_family_count": 5,
+            "parser_behavior_ready_family_count": 9,
+            "report_only_family_count": 4,
             "blocked_family_count": 3,
         },
         "behavior_applicability": {
             "schema_version": "parser_corpus_behavior_applicability.v1",
             "parser_behavior_applicable_family_count": 37,
-            "parser_behavior_applicable_ready_family_count": 19,
-            "parser_behavior_applicable_not_ready_family_count": 18,
+            "parser_behavior_applicable_ready_family_count": 20,
+            "parser_behavior_applicable_not_ready_family_count": 17,
             "parser_behavior_not_applicable_family_count": 8,
-            "parser_behavior_applicable_report_only_family_count": 13,
+            "parser_behavior_applicable_report_only_family_count": 12,
             "parser_behavior_applicable_blocked_private_evidence_family_count": 1,
             "parser_behavior_applicable_blocked_external_boundary_family_count": 4,
             "parser_behavior_applicability_ready": False,
@@ -1834,8 +1902,8 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     }
     assert set(applicability_by_family) == set(corpus.SCENARIO_FAMILIES)
     assert Counter(applicability_by_family.values()) == {
-        "parser_behavior_applicable_ready": 19,
-        "parser_behavior_applicable_not_ready": 13,
+        "parser_behavior_applicable_ready": 20,
+        "parser_behavior_applicable_not_ready": 12,
         "parser_behavior_applicable_blocked_private": 1,
         "parser_behavior_applicable_blocked_external": 4,
         "non_behavior_applicability_excluded": 8,
@@ -1845,7 +1913,7 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
         for family, applicability_class in applicability_by_family.items()
         if applicability_class == "non_behavior_applicability_excluded"
     ] == list(corpus.NON_BEHAVIOR_APPLICABILITY_EXCLUDED_FAMILIES)
-    assert applicability_by_family["core_gameplay.draft_with_games"] == "parser_behavior_applicable_not_ready"
+    assert applicability_by_family["core_gameplay.draft_with_games"] == "parser_behavior_applicable_ready"
     assert (
         applicability_by_family["connection.firewall_or_network_drop"]
         == "parser_behavior_applicable_blocked_private"
@@ -1870,11 +1938,14 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     }
     assert _matrix_row(report, "core_gameplay.draft_with_games") == {
         "scenario_family": "core_gameplay.draft_with_games",
-        "coverage_status": "covered_report_only",
-        "coverage_basis": ["fixture_metadata_only"],
-        "mythic_edge_entries": ["draft_with_games_boundary_report_v1"],
+        "coverage_status": "covered_synthetic",
+        "coverage_basis": ["fixture_metadata_only", "parser_behavior_verified"],
+        "mythic_edge_entries": ["draft_with_games_boundary_report_v1", "draft_with_games_synthetic_v1"],
         "external_reference_status": "reference_category_not_checked",
         "notes": [
+            "The #400 draft_with_games_boundary_report_v1 entry remains report-only non-claim metadata; "
+            "this additive synthetic entry is the only parser-behavior evidence for "
+            "core_gameplay.draft_with_games in this lane.",
             "The draft-with-games row is intentionally report-only and prevents false parity claims by "
             "documenting why the current draft-only fixture and synthetic GameState anchor are not "
             "draft-with-games evidence; future dedicated coverage remains blocked until Mythic Edge has "
@@ -2452,7 +2523,7 @@ def test_cli_writes_report_only_when_output_is_explicit(tmp_path: Path, capsys: 
     assert exit_code == 0
     assert (
         "Corpus parity report: partial_coverage_map_ready "
-        "(45 families; committed=6, synthetic=14, report_only=19, "
+        "(45 families; committed=6, synthetic=15, report_only=18, "
         "blocked=6 [private=2, external=4], missing=0, parser_behavior_ready=no)"
     ) in captured.out
     assert "Report written: <outside_repo>" in captured.out

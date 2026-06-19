@@ -11,6 +11,7 @@ FIXTURE_DIR = Path("tests/fixtures/golden_replay")
 BO1_MANIFEST = FIXTURE_DIR / "bo1_match_win_basic.manifest.json"
 BO3_MANIFEST = FIXTURE_DIR / "bo3_sideboard_match_loss.manifest.json"
 DRAFT_MANIFEST = FIXTURE_DIR / "draft_parser_family.manifest.json"
+DRAFT_WITH_GAMES_MANIFEST = FIXTURE_DIR / "draft_with_games_synthetic.manifest.json"
 
 
 def _manifest_payload(path: Path = BO1_MANIFEST) -> dict:
@@ -24,14 +25,16 @@ def _write_manifest(tmp_path: Path, payload: dict) -> Path:
 
 
 def test_committed_golden_manifests_replay_through_normal_parser_path() -> None:
-    report = golden_replay.build_golden_replay_report([BO1_MANIFEST, BO3_MANIFEST, DRAFT_MANIFEST])
+    report = golden_replay.build_golden_replay_report(
+        [BO1_MANIFEST, BO3_MANIFEST, DRAFT_MANIFEST, DRAFT_WITH_GAMES_MANIFEST]
+    )
 
     assert report["object"] == "mythic_edge_golden_replay_report"
     assert report["schema_version"] == "parser_golden_replay_report.v1"
     assert report["suite_status"] == "pass"
     assert report["summary"] == {
-        "manifests_total": 3,
-        "pass": 3,
+        "manifests_total": 4,
+        "pass": 4,
         "degraded": 0,
         "review": 0,
         "diff": 0,
@@ -43,6 +46,7 @@ def test_committed_golden_manifests_replay_through_normal_parser_path() -> None:
         "bo1_match_win_basic",
         "bo3_sideboard_match_loss",
         "draft_parser_family",
+        "draft_with_games_synthetic",
     ]
     assert report["evidence_ledger_review"]["status"] == "not_supplied"
     assert report["evidence_ledger_review"]["status_affects_parent"] is False
@@ -72,6 +76,49 @@ def test_draft_parser_family_manifest_records_draft_coverage_without_degradation
     }
     assert report["results"][0]["comparisons"]["event_family_counts"] == "pass"
     assert report["results"][0]["degradation"] == []
+
+
+def test_draft_with_games_manifest_records_completed_limited_gameplay_without_degradation() -> None:
+    manifest = _manifest_payload(DRAFT_WITH_GAMES_MANIFEST)
+    report = golden_replay.build_golden_replay_report([DRAFT_WITH_GAMES_MANIFEST])
+
+    assert report["suite_status"] == "pass"
+    assert report["summary"] == {
+        "manifests_total": 1,
+        "pass": 1,
+        "degraded": 0,
+        "review": 0,
+        "diff": 0,
+        "fail": 0,
+        "fixtures_with_truncation": 0,
+        "fixtures_with_data_loss": 0,
+    }
+    result = report["results"][0]
+    assert result["fixture_id"] == "draft_with_games_synthetic"
+    assert set(result["comparisons"].values()) == {"pass"}
+    assert result["degradation"] == []
+    assert manifest["coverage"]["covered_event_families"] == [
+        "DraftBot",
+        "DraftComplete",
+        "MatchState",
+        "GameState",
+        "GameResult",
+    ]
+    assert manifest["expected"]["event_family_counts"] == {
+        "DraftBot": 1,
+        "DraftComplete": 1,
+        "GameResult": 1,
+        "GameState": 2,
+        "MatchState": 1,
+    }
+    assert manifest["expected"]["final_reconciliation"] == {
+        "match_winner_team": 1,
+        "match_result_type": "ResultType_WinLoss",
+        "match_result_reason": "ResultReason_Normal",
+        "game_results": [{"game_number": 1, "winner_team": 1, "result": "W"}],
+    }
+    assert manifest["expected"]["parser_owned_rows"]["match_log_row"]["MTGA Format"] == "Limited"
+    assert len(manifest["expected"]["parser_owned_rows"]["game_log_rows"]) == 1
 
 
 def test_run_golden_replay_reports_reduced_expected_manifest_diffs(tmp_path: Path) -> None:
@@ -173,9 +220,9 @@ def test_cli_accepts_manifest_directory_and_writes_explicit_local_report(tmp_pat
     captured = capsys.readouterr()
     report = json.loads(out_path.read_text(encoding="utf-8"))
     assert exit_code == 0
-    assert "Golden replay: pass (3 manifests, 3 pass, 0 degraded, 0 review, 0 diff, 0 fail)" in captured.out
+    assert "Golden replay: pass (4 manifests, 4 pass, 0 degraded, 0 review, 0 diff, 0 fail)" in captured.out
     assert report["suite_status"] == "pass"
-    assert report["summary"]["manifests_total"] == 3
+    assert report["summary"]["manifests_total"] == 4
 
 
 def test_cli_returns_nonzero_for_review_status(tmp_path: Path, capsys) -> None:

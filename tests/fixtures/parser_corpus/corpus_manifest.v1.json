@@ -163,6 +163,49 @@
       ]
     },
     {
+      "entry_id": "draft_with_games_synthetic_v1",
+      "entry_type": "golden_replay_manifest",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/479",
+      "authorized_by_contract": "docs/contracts/parser_corpus_draft_with_games_behavior_uplift.md",
+      "paths": {
+        "golden_replay_manifest": "tests/fixtures/golden_replay/draft_with_games_synthetic.manifest.json",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py",
+        "golden_replay_test": "tests/test_golden_replay_harness.py"
+      },
+      "scenario_families": [
+        "core_gameplay.draft_with_games"
+      ],
+      "parser_event_families": [
+        "DraftBot",
+        "DraftComplete",
+        "MatchState",
+        "GameState",
+        "GameResult"
+      ],
+      "parser_claim_families": [
+        "draft_event_flow",
+        "draft_complete_signal",
+        "limited_gameplay_result_flow",
+        "draft_with_games_synthetic_boundary",
+        "draft_privacy_boundary"
+      ],
+      "coverage_status": "covered_synthetic",
+      "coverage_basis": [
+        "parser_behavior_verified",
+        "fixture_metadata_only"
+      ],
+      "known_gaps": [
+        "This reduced synthetic fixture proves only a single synthetic completed draft-with-games path through the normal parser and golden replay flow; it does not prove all Arena draft queues, BO3 draft, sideboarding, deck construction, draft pick quality, draft pools, decklists, archetypes, analytics truth, AI truth, coaching truth, release readiness, or production behavior."
+      ],
+      "review_notes": [
+        "The #400 draft_with_games_boundary_report_v1 entry remains report-only non-claim metadata; this additive synthetic entry is the only parser-behavior evidence for core_gameplay.draft_with_games in this lane."
+      ]
+    },
+    {
       "entry_id": "parser_corpus_manifest_metadata_boundary_v1",
       "entry_type": "session_ledger_entry",
       "source_kind": "committed_count_only_report",

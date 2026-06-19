@@ -38,11 +38,13 @@ def test_committed_corpus_matches_initial_count_only_baseline() -> None:
             "tests/fixtures/golden_replay/bo1_match_win_basic.manifest.json",
             "tests/fixtures/golden_replay/bo3_sideboard_match_loss.manifest.json",
             "tests/fixtures/golden_replay/draft_parser_family.manifest.json",
+            "tests/fixtures/golden_replay/draft_with_games_synthetic.manifest.json",
         ],
-        "manifest_count": 3,
-        "source_file_count": 3,
+        "manifest_count": 4,
+        "source_file_count": 4,
         "source_file_paths": [
             "tests/fixtures/draft_parser_family_slice.log",
+            "tests/fixtures/draft_with_games_synthetic_slice.log",
             "tests/fixtures/parser_regression_bo3_slice.log",
             "tests/fixtures/parser_regression_match_slice.log",
         ],
@@ -54,21 +56,25 @@ def test_committed_corpus_matches_initial_count_only_baseline() -> None:
     assert report["comparison"]["count_diffs"] == []
     assert set(report["comparison"]["matching_sections"]) == set(ratchet.COUNT_SECTIONS)
     assert report["observed"]["router_stats"] == {
-        "routed": 17,
+        "routed": 22,
         "unknown": 0,
         "timestamp_missing": 0,
         "timestamp_parse_failure": 0,
     }
-    assert report["observed"]["event_family_counts"]["DraftBot"] == 1
+    assert report["observed"]["event_family_counts"]["DraftBot"] == 2
     assert report["observed"]["event_family_counts"]["DraftHuman"] == 1
-    assert report["observed"]["event_family_counts"]["DraftComplete"] == 1
-    assert report["observed"]["event_family_counts"]["GameState"] == 7
+    assert report["observed"]["event_family_counts"]["DraftComplete"] == 2
+    assert report["observed"]["event_family_counts"]["GameResult"] == 4
+    assert report["observed"]["event_family_counts"]["GameState"] == 9
+    assert report["observed"]["event_family_counts"]["MatchState"] == 3
     assert report["observed"]["event_family_counts"]["Truncation"] == 0
-    assert report["observed"]["payload_type_counts"]["DraftBot:bot_draft_status"] == 1
+    assert report["observed"]["payload_type_counts"]["DraftBot:bot_draft_status"] == 2
     assert report["observed"]["payload_type_counts"]["DraftHuman:human_draft_make_pick"] == 1
-    assert report["observed"]["payload_type_counts"]["DraftComplete:draft_complete_draft"] == 1
-    assert report["observed"]["payload_type_counts"]["GameState:game_state_message"] == 7
-    assert report["observed"]["game_state_evidence_counts"]["diff_review_required"] == 7
+    assert report["observed"]["payload_type_counts"]["DraftComplete:draft_complete_draft"] == 2
+    assert report["observed"]["payload_type_counts"]["GameResult:game_result"] == 4
+    assert report["observed"]["payload_type_counts"]["GameState:game_state_message"] == 9
+    assert report["observed"]["payload_type_counts"]["MatchState:match_started"] == 3
+    assert report["observed"]["game_state_evidence_counts"]["diff_review_required"] == 9
     assert report["privacy"] == {
         "forbidden_content_findings": [],
         "local_absolute_paths_redacted": True,
@@ -111,8 +117,8 @@ def test_baseline_count_mismatch_is_report_only_diff(tmp_path: Path, capsys) -> 
     assert {
         "section": "router_stats",
         "key": "routed",
-        "expected": 18,
-        "observed": 17,
+        "expected": 23,
+        "observed": 22,
         "delta": -1,
         "policy": "exact",
     } in report["comparison"]["count_diffs"]

@@ -362,6 +362,56 @@
       }
     },
     {
+      "session_id": "draft_with_games_synthetic_v1",
+      "title": "Draft with games synthetic replay",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/479",
+      "authorized_by_contract": "docs/contracts/parser_corpus_draft_with_games_behavior_uplift.md",
+      "scenario_families": [
+        "core_gameplay.draft_with_games"
+      ],
+      "format_family": "limited_draft",
+      "match_shape": "draft_with_games_single_game_synthetic",
+      "record_summary": "synthetic_completed_draft_with_games_summary",
+      "parser_coverage": {
+        "event_families": {
+          "DraftBot": 1,
+          "DraftComplete": 1,
+          "MatchState": 1,
+          "GameState": 2,
+          "GameResult": 1
+        },
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "dedicated_draft_with_games_fixtures": 1,
+        "completed_draft_game_rows": 1,
+        "game_result_events": 1,
+        "match_result_events": 1
+      },
+      "game_rows": {
+        "count": 1,
+        "result_shape": "single_game_result"
+      },
+      "known_gaps": [
+        "Synthetic completed draft-with-games coverage proves one reduced synthetic draft event plus limited game/result path only; it does not prove live private draft behavior, all Arena draft queues, BO3 draft, sideboarding, deck construction, draft picks as strategy evidence, draft pool truth, decklist truth, archetype truth, analytics truth, AI truth, coaching truth, release readiness, or production behavior."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "draft_picks_included": false,
+        "draft_pools_included": false,
+        "decklists_included": false,
+        "private_deck_names_included": false,
+        "card_choices_included": false,
+        "strategy_notes_included": false
+      }
+    },
+    {
       "session_id": "gsm_truncation_marker_synthetic_v1",
       "title": "Synthetic GSM truncation data-loss marker",
       "source_kind": "synthetic_committed_fixture",
