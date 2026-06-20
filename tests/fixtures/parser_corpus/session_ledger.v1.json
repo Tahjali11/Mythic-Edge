@@ -329,6 +329,65 @@
       }
     },
     {
+      "session_id": "gameplay_action_attribution_synthetic_action_facts_v1",
+      "title": "Gameplay action-attribution synthetic action-fact parser evidence",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/496",
+      "authorized_by_contract": "docs/contracts/parser_corpus_gameplay_action_attribution_behavior_uplift.md",
+      "scenario_families": [
+        "gameplay_stress.action_attribution"
+      ],
+      "format_family": "gameplay_stress",
+      "match_shape": "gameplay_action_attribution_synthetic_action_facts",
+      "record_summary": "committed_synthetic_action_fact_parser_tests",
+      "parser_coverage": {
+        "event_families": {
+          "GameState": 1
+        },
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "synthetic_action_fact_fixtures": 1,
+        "gameplay_action_entries_asserted": 2,
+        "local_actor_relation_assertions": 1,
+        "opponent_actor_relation_assertions": 1,
+        "raw_action_type_assertions": 2,
+        "zone_movement_assertions": 2,
+        "card_identity_hint_assertions": 2,
+        "hidden_action_claims": 0,
+        "hidden_card_claims": 0,
+        "causal_intent_claims": 0,
+        "event_ordering_claims": 0,
+        "player_mistake_claims": 0
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Reduced synthetic action-attribution evidence proves local and opponent action-fact preservation only; it does not include causal action truth, hidden-action truth, hidden-card truth, opponent intent, complete event ordering, action absence, player mistakes, best-line truth, archetype classification, decklist truth, gameplay advice, analytics truth, AI truth, coaching truth, release readiness, production behavior, #388/#381 activation, tracker completion, or full corpus parity."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "private_action_artifacts_included": false,
+        "private_smoke_outputs_included": false,
+        "generated_private_runtime_artifacts_included": false,
+        "decklists_included": false,
+        "deck_names_included": false,
+        "card_choices_included": false,
+        "sideboard_choices_included": false,
+        "strategy_notes_included": false,
+        "opponent_identifiers_included": false,
+        "private_match_context_included": false,
+        "credentials_tokens_keys_webhooks_included": false
+      }
+    },
+    {
       "session_id": "gameplay_event_ordering_boundary_report_v1",
       "title": "Gameplay event-ordering boundary report",
       "source_kind": "committed_count_only_report",

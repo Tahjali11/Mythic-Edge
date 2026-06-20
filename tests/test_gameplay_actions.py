@@ -554,6 +554,181 @@ def test_gameplay_actions_classify_partial_limbo_rows_and_carry_turn_context(tmp
     assert "You played Forest from hand to battlefield" in markdown
 
 
+def test_gameplay_actions_preserve_reduced_action_attribution_facts(tmp_path, monkeypatch) -> None:
+    _reset_gameplay_state()
+    status_root = _patch_gameplay_paths(tmp_path, monkeypatch)
+    gameplay_actions.bootstrap_gameplay_actions()
+
+    state._CONTEXT.update(
+        {
+            "current_match_id": "match-action-attribution",
+            "current_game_number": 1,
+            "current_player_team": 1,
+        }
+    )
+
+    initial_event = GameStateEvent(
+        EventMetadata(datetime(2026, 5, 8, 18, 0, 0, tzinfo=UTC), b"synthetic-action-a"),
+        {
+            "game_state_id": 100,
+            "identity": {
+                "match_id": "match-action-attribution",
+                "game_number": 1,
+                "turn_number": 4,
+                "active_player_seat_id": 1,
+                "phase": "Phase_Main1",
+                "step": "Step_None",
+                "stage": "GameStage_Play",
+            },
+            "system_seat_ids": [1],
+            "zones": [
+                {"zoneId": 31, "type": "ZoneType_Hand", "ownerSeatId": 1, "objectInstanceIds": [101]},
+                {"zoneId": 32, "type": "ZoneType_Hand", "ownerSeatId": 2, "objectInstanceIds": [201]},
+                {"zoneId": 51, "type": "ZoneType_Stack", "objectInstanceIds": []},
+            ],
+            "game_objects": [
+                {
+                    "instanceId": 101,
+                    "grpId": 1101,
+                    "zoneId": 31,
+                    "type": "GameObjectType_Card",
+                    "ownerSeatId": 1,
+                    "controllerSeatId": 1,
+                    "cardTypes": ["CardType_Instant"],
+                },
+                {
+                    "instanceId": 201,
+                    "grpId": 2202,
+                    "zoneId": 32,
+                    "type": "GameObjectType_Card",
+                    "ownerSeatId": 2,
+                    "controllerSeatId": 2,
+                    "cardTypes": ["CardType_Sorcery"],
+                },
+            ],
+            "annotations": [],
+            "actions": [],
+        },
+    )
+    local_cast_event = GameStateEvent(
+        EventMetadata(datetime(2026, 5, 8, 18, 0, 5, tzinfo=UTC), b"synthetic-action-b"),
+        {
+            "game_state_id": 101,
+            "identity": {
+                "match_id": "match-action-attribution",
+                "game_number": 1,
+                "turn_number": 4,
+                "active_player_seat_id": 1,
+                "phase": "Phase_Main1",
+                "step": "Step_None",
+                "stage": "GameStage_Play",
+            },
+            "system_seat_ids": [1],
+            "zones": [
+                {"zoneId": 31, "type": "ZoneType_Hand", "ownerSeatId": 1, "objectInstanceIds": []},
+                {"zoneId": 32, "type": "ZoneType_Hand", "ownerSeatId": 2, "objectInstanceIds": [201]},
+                {"zoneId": 51, "type": "ZoneType_Stack", "objectInstanceIds": [101]},
+            ],
+            "game_objects": [
+                {
+                    "instanceId": 101,
+                    "grpId": 1101,
+                    "zoneId": 51,
+                    "type": "GameObjectType_Card",
+                    "ownerSeatId": 1,
+                    "controllerSeatId": 1,
+                    "cardTypes": ["CardType_Instant"],
+                },
+                {
+                    "instanceId": 201,
+                    "grpId": 2202,
+                    "zoneId": 32,
+                    "type": "GameObjectType_Card",
+                    "ownerSeatId": 2,
+                    "controllerSeatId": 2,
+                    "cardTypes": ["CardType_Sorcery"],
+                },
+            ],
+            "annotations": [],
+            "actions": [{"seatId": 1, "action": {"actionType": "ActionType_Cast", "instanceId": 101}}],
+        },
+    )
+    opponent_cast_event = GameStateEvent(
+        EventMetadata(datetime(2026, 5, 8, 18, 0, 9, tzinfo=UTC), b"synthetic-action-c"),
+        {
+            "game_state_id": 102,
+            "identity": {
+                "match_id": "match-action-attribution",
+                "game_number": 1,
+                "turn_number": 4,
+                "active_player_seat_id": 2,
+                "phase": "Phase_Main1",
+                "step": "Step_None",
+                "stage": "GameStage_Play",
+            },
+            "system_seat_ids": [1],
+            "zones": [
+                {"zoneId": 31, "type": "ZoneType_Hand", "ownerSeatId": 1, "objectInstanceIds": []},
+                {"zoneId": 32, "type": "ZoneType_Hand", "ownerSeatId": 2, "objectInstanceIds": []},
+                {"zoneId": 51, "type": "ZoneType_Stack", "objectInstanceIds": [101, 201]},
+            ],
+            "game_objects": [
+                {
+                    "instanceId": 101,
+                    "grpId": 1101,
+                    "zoneId": 51,
+                    "type": "GameObjectType_Card",
+                    "ownerSeatId": 1,
+                    "controllerSeatId": 1,
+                    "cardTypes": ["CardType_Instant"],
+                },
+                {
+                    "instanceId": 201,
+                    "grpId": 2202,
+                    "zoneId": 51,
+                    "type": "GameObjectType_Card",
+                    "ownerSeatId": 2,
+                    "controllerSeatId": 2,
+                    "cardTypes": ["CardType_Sorcery"],
+                },
+            ],
+            "annotations": [],
+            "actions": [{"seatId": 2, "action": {"actionType": "ActionType_Cast", "instanceId": 201}}],
+        },
+    )
+
+    gameplay_actions.observe_event(initial_event)
+    gameplay_actions.observe_event(local_cast_event)
+    gameplay_actions.observe_event(opponent_cast_event)
+
+    payload = json.loads((status_root / "active_match_actions_latest.json").read_text(encoding="utf-8"))
+    entries = payload["entries"]
+
+    assert payload["match_id"] == "match-action-attribution"
+    assert payload["total_entries"] == 2
+    assert [entry["action_type"] for entry in entries] == ["spell_cast", "spell_cast"]
+    assert [entry["actor_relation"] for entry in entries] == ["local", "opponent"]
+    assert [entry["game_state_id"] for entry in entries] == [101, 102]
+    assert [entry["game_number"] for entry in entries] == [1, 1]
+    assert [entry["turn_number"] for entry in entries] == [4, 4]
+    assert [entry["timestamp"] for entry in entries] == [
+        "2026-05-08T18:00:05+00:00",
+        "2026-05-08T18:00:09+00:00",
+    ]
+    assert [entry["instance_id"] for entry in entries] == [101, 201]
+    assert [entry["grp_id"] for entry in entries] == [1101, 2202]
+    assert [entry["observed_grp_id"] for entry in entries] == [1101, 2202]
+    assert [entry["identity_hint_source"] for entry in entries] == ["direct_grp_id", "direct_grp_id"]
+    assert [entry["from_zone_type"] for entry in entries] == ["ZoneType_Hand", "ZoneType_Hand"]
+    assert [entry["to_zone_type"] for entry in entries] == ["ZoneType_Stack", "ZoneType_Stack"]
+    assert [entry["raw_action_types"] for entry in entries] == [
+        ["ActionType_Cast@seat1"],
+        ["ActionType_Cast@seat2"],
+    ]
+    assert list((status_root / "actions").glob("*.json"))
+    assert not (tmp_path / "active_match_actions_latest.json").exists()
+
+
 def test_gameplay_actions_classify_play_land_from_annotation_chain(tmp_path, monkeypatch) -> None:
     _reset_gameplay_state()
     status_root = tmp_path / "status"
