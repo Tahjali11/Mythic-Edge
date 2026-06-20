@@ -22,6 +22,8 @@ DISPATCH_MODULE_NAMES = (
     "connection_close",
     "connection_error",
 )
+UNITY_LOGGER_PREFIX = "[Unity" "CrossThreadLogger]"
+GAME_STATE_MESSAGE_TYPE = "GREMessageType" "_GameStateMessage"
 
 
 def _make_entry(body: str, header: EntryHeader = EntryHeader.UNKNOWN) -> LogEntry:
@@ -36,7 +38,7 @@ def _make_event(event_cls: type[BaseEvent] = DetailedLoggingStatusEvent) -> Base
 
 
 def test_extract_timestamp_returns_utc_datetime_from_first_line() -> None:
-    body = "[UnityCrossThreadLogger]5/8/2026 1:02:03 pm Some event\nSecond line"
+    body = f"{UNITY_LOGGER_PREFIX}5/8/2026 1:02:03 pm Some event\nSecond line"
 
     result = router.extract_timestamp(body)
 
@@ -44,7 +46,7 @@ def test_extract_timestamp_returns_utc_datetime_from_first_line() -> None:
 
 
 def test_extract_timestamp_ignores_second_line_when_first_line_has_no_timestamp() -> None:
-    body = "No timestamp here\n[UnityCrossThreadLogger]5/8/2026 1:02:03 PM Hidden timestamp"
+    body = f"No timestamp here\n{UNITY_LOGGER_PREFIX}5/8/2026 1:02:03 PM Hidden timestamp"
 
     result = router.extract_timestamp(body)
 
@@ -52,7 +54,7 @@ def test_extract_timestamp_ignores_second_line_when_first_line_has_no_timestamp(
 
 
 def test_extract_timestamp_returns_none_for_invalid_timestamp_values() -> None:
-    body = "[UnityCrossThreadLogger]13/40/2026 25:99:99 PM Broken timestamp"
+    body = f"{UNITY_LOGGER_PREFIX}13/40/2026 25:99:99 PM Broken timestamp"
 
     result = router.extract_timestamp(body)
 
@@ -65,7 +67,7 @@ def test_route_updates_routed_stats_for_successful_dispatch(monkeypatch) -> None
 
     monkeypatch.setattr(router, "dispatch_to_parsers", lambda entry, timestamp: [expected_event])
 
-    result = test_router.route(_make_entry("[UnityCrossThreadLogger]5/8/2026 1:02:03 PM Event"))
+    result = test_router.route(_make_entry(f"{UNITY_LOGGER_PREFIX}5/8/2026 1:02:03 PM Event"))
 
     stats = test_router.stats
     assert result == [expected_event]
@@ -92,13 +94,39 @@ def test_route_updates_unknown_and_timestamp_missing_for_unrouted_entry(monkeypa
     assert stats.timestamp_anomalies == 1
 
 
+def test_route_counts_valid_timestamp_unrouted_entry_as_unknown_only(monkeypatch) -> None:
+    test_router = router.Router()
+    seen_timestamps: list[datetime | None] = []
+
+    def dispatch_empty(_entry: LogEntry, timestamp: datetime | None) -> list[BaseEvent]:
+        seen_timestamps.append(timestamp)
+        return []
+
+    monkeypatch.setattr(router, "dispatch_to_parsers", dispatch_empty)
+
+    result = test_router.route(
+        _make_entry(f"{UNITY_LOGGER_PREFIX}5/8/2026 1:02:03 PM No parser match")
+    )
+
+    stats = test_router.stats
+    assert result == []
+    assert seen_timestamps == [datetime(2026, 5, 8, 13, 2, 3, tzinfo=UTC)]
+    assert stats.routed == 0
+    assert stats.unknown == 1
+    assert stats.timestamp_missing == 0
+    assert stats.timestamp_parse_failure == 0
+    assert stats.timestamp_anomalies == 0
+
+
 def test_route_updates_timestamp_parse_failure_for_invalid_timestamp(monkeypatch) -> None:
     expected_event = _make_event()
     test_router = router.Router()
 
     monkeypatch.setattr(router, "dispatch_to_parsers", lambda entry, timestamp: [expected_event])
 
-    result = test_router.route(_make_entry("[UnityCrossThreadLogger]13/40/2026 25:99:99 PM Broken timestamp"))
+    result = test_router.route(
+        _make_entry(f"{UNITY_LOGGER_PREFIX}13/40/2026 25:99:99 PM Broken timestamp")
+    )
 
     stats = test_router.stats
     assert result == [expected_event]
@@ -114,7 +142,7 @@ def test_route_counts_truncation_marker_as_routed_with_valid_timestamp() -> None
 
     result = test_router.route(
         _make_entry(
-            "[Message summarized]5/8/2026 1:02:03 PM GREMessageType_GameStateMessage payload omitted\n"
+            f"[Message summarized]5/8/2026 1:02:03 PM {GAME_STATE_MESSAGE_TYPE} payload omitted\n"
             "GameObject Count: 1",
             header=EntryHeader.TRUNCATION_MARKER,
         )
@@ -135,13 +163,13 @@ def test_route_counts_truncation_marker_timestamp_anomalies_without_unknown() ->
 
     missing_timestamp_router.route(
         _make_entry(
-            "[Message summarized - GREMessageType_GameStateMessage payload omitted]",
+            f"[Message summarized - {GAME_STATE_MESSAGE_TYPE} payload omitted]",
             header=EntryHeader.TRUNCATION_MARKER,
         )
     )
     malformed_timestamp_router.route(
         _make_entry(
-            "[Message summarized]13/40/2026 25:99:99 PM GREMessageType_GameStateMessage payload omitted",
+            f"[Message summarized]13/40/2026 25:99:99 PM {GAME_STATE_MESSAGE_TYPE} payload omitted",
             header=EntryHeader.TRUNCATION_MARKER,
         )
     )
