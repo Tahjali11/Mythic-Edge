@@ -1349,6 +1349,51 @@
       ]
     },
     {
+      "entry_id": "missing_message_type_synthetic_fallback_defaults_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/500",
+      "authorized_by_contract": "docs/contracts/parser_corpus_missing_message_type_behavior_uplift.md",
+      "paths": {
+        "client_actions_test": "tests/test_client_actions_parser.py",
+        "gre_dispatch_test": "tests/test_client_actions_parser.py",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py"
+      },
+      "scenario_families": [
+        "drift_debug.missing_message_type"
+      ],
+      "parser_event_families": [
+        "ClientAction",
+        "GameState"
+      ],
+      "parser_claim_families": [
+        "synthetic_missing_message_type_fallback_defaults",
+        "client_action_missing_type_generic_fallback",
+        "client_action_blank_type_generic_fallback",
+        "gre_game_state_missing_type_default_preservation",
+        "raw_payload_preservation",
+        "missing_message_type_synthetic_boundary",
+        "message_recovery_non_claim",
+        "game_state_reconstruction_non_claim",
+        "unknown_future_message_support_non_claim",
+        "unknown_entry_support_non_claim"
+      ],
+      "coverage_status": "covered_synthetic",
+      "coverage_basis": [
+        "parser_behavior_verified",
+        "fixture_metadata_only"
+      ],
+      "known_gaps": [
+        "Reduced synthetic missing-message-type evidence proves only existing client-action fallback and GRE GameState default preservation for owned synthetic payloads; it does not prove parser message recovery, hidden payload truth, GameState reconstruction, unknown future MTGA message support, generic unknown-entry support, parser resilience truth, live private Player.log drift health, diagnostics readiness, analytics truth, AI truth, coaching truth, private smoke success, release readiness, production behavior, #388/#381 activation, tracker completion, or full corpus parity."
+      ],
+      "review_notes": [
+        "The #414 missing_message_type_boundary_report_v1 entry remains report-only non-claim metadata; this additive synthetic entry proves only generic client-action empty message_type fallback with raw_client_action preservation and GRE GameState default message_type preservation with GameState source preservation. The log_runtime.unknown_entry row remains report-only adjacent context, and #498 event-ordering evidence remains unchanged."
+      ]
+    },
+    {
       "entry_id": "rename_rotation_collision_boundary_report_v1",
       "entry_type": "session_ledger_entry",
       "source_kind": "committed_count_only_report",

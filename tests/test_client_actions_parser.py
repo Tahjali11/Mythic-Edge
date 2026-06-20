@@ -4,15 +4,16 @@ from typing import Any
 
 import pytest
 
-from mythic_edge_parser.events import PerformanceClass
+from mythic_edge_parser.events import GameStateEvent, PerformanceClass
 from mythic_edge_parser.log.entry import EntryHeader, LogEntry
-from mythic_edge_parser.parsers import client_actions
+from mythic_edge_parser.parsers import client_actions, gre
 
 TS = datetime(2026, 5, 8, 5, 45, 19, tzinfo=UTC)
 SYNTHETIC_UNITY_LOGGER_MARKER = "[UnityCrossThreadLogger]"  # test marker
 SYNTHETIC_CLIENT_TO_GRE_MARKER = "ClientToGREMessage"  # test marker
 SYNTHETIC_CLIENT_TO_GRE_UI_LOWERCASE_PREFIX = "ClientToGreuimessage"  # test marker
 SYNTHETIC_CLIENT_TO_GRE_LOWERCASE_PREFIX = "ClientToGremessage"  # test marker
+SYNTHETIC_GRE_GAME_STATE_MESSAGE_TYPE = "GREMessageType_GameStateMessage"  # synthetic test marker
 
 
 def _entry(body: str) -> LogEntry:
@@ -133,6 +134,74 @@ def test_client_actions_generic_fallback_allows_missing_or_blank_message_type(in
     assert event.payload["type"] == "generic_client_action"
     assert event.payload["message_type"] == ""
     assert event.payload["raw_client_action"]["payload"] == inner_payload
+
+
+def test_client_actions_missing_message_type_behavior_packet_preserves_raw_fallbacks() -> None:
+    inner_payloads = [
+        {"gameStateId": 91, "respId": 1, "syntheticMissingType": True},
+        {"type": "   ", "gameStateId": 92, "respId": 2, "syntheticBlankType": True},
+    ]
+
+    for inner_payload in inner_payloads:
+        envelope = _gre_envelope(inner_payload, request_id=f"req-{inner_payload['respId']}")
+        event = client_actions.try_parse(_entry_from_envelope(envelope), TS)
+
+        assert event is not None
+        assert event.kind == "ClientAction"
+        assert event.performance_class == PerformanceClass.INTERACTIVE_DISPATCH
+        assert event.payload["type"] == "generic_client_action"
+        assert event.payload["message_type"] == ""
+        assert event.payload["raw_client_action"] == envelope
+        assert event.payload["raw_client_action"]["payload"] == inner_payload
+
+
+def test_gre_missing_message_type_behavior_packet_uses_default_and_preserves_raw() -> None:
+    message = {
+        "msgId": 77,
+        "gameStateId": 901,
+        "systemSeatIds": [1, 2],
+        "gameStateMessage": {
+            "gameInfo": {
+                "matchID": "synthetic-missing-message-type",
+                "gameNumber": 1,
+                "stage": "GameStage_Play",
+                "matchState": "MatchState_GameInProgress",
+            },
+            "turnInfo": {
+                "turnNumber": 2,
+                "activePlayer": 1,
+                "phase": "Phase_Main1",
+                "step": "Step_PreCombatMain",
+            },
+            "players": [{"systemSeatNumber": 1}, {"systemSeatNumber": 2}],
+            "zones": [{"zoneId": 31, "type": "ZoneType_Hand"}],
+            "gameObjects": [{"instanceId": 101, "grpId": 1001}],
+            "annotations": [],
+            "persistentAnnotations": [],
+            "timers": [],
+            "actions": [],
+        },
+    }
+    body = f"{SYNTHETIC_UNITY_LOGGER_MARKER}synthetic greToClientEvent test marker\n" + json.dumps(
+        {"greToClientEvent": {"greToClientMessages": [message]}},
+        separators=(",", ":"),
+    )
+    entry = LogEntry(EntryHeader.UNITY_CROSS_THREAD_LOGGER, body)
+
+    events = gre.try_parse(entry, TS)
+
+    assert len(events) == 1
+    event = events[0]
+    assert isinstance(event, GameStateEvent)
+    assert event.performance_class == PerformanceClass.INTERACTIVE_DISPATCH
+    assert event.metadata.timestamp is TS
+    assert event.metadata.raw_bytes == body.encode()
+    assert event.payload["type"] == "game_state_message"
+    assert event.payload["message_type"] == SYNTHETIC_GRE_GAME_STATE_MESSAGE_TYPE
+    assert event.payload["game_state_id"] == 901
+    assert event.payload["identity"]["match_id"] == "synthetic-missing-message-type"
+    assert "type" not in event.payload["raw_game_state"]
+    assert event.payload["raw_game_state"] == message
 
 
 def test_client_actions_generic_fallback_preserves_stringified_raw_payload() -> None:

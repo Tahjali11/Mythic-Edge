@@ -673,6 +673,51 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
     assert "GSM truncation coverage" in missing_message_type["review_notes"][0]
     assert "generic client-action fallback" in missing_message_type["review_notes"][0]
     assert "do not prove parser message recovery" in missing_message_type["review_notes"][0]
+    missing_message_type_synthetic = _manifest_entry(
+        manifest,
+        "missing_message_type_synthetic_fallback_defaults_v1",
+    )
+    assert missing_message_type_synthetic["entry_type"] == "session_ledger_entry"
+    assert missing_message_type_synthetic["coverage_status"] == "covered_synthetic"
+    assert missing_message_type_synthetic["scenario_families"] == [
+        "drift_debug.missing_message_type"
+    ]
+    assert missing_message_type_synthetic["parser_event_families"] == ["ClientAction", "GameState"]
+    assert missing_message_type_synthetic["parser_claim_families"] == [
+        "synthetic_missing_message_type_fallback_defaults",
+        "client_action_missing_type_generic_fallback",
+        "client_action_blank_type_generic_fallback",
+        "gre_game_state_missing_type_default_preservation",
+        "raw_payload_preservation",
+        "missing_message_type_synthetic_boundary",
+        "message_recovery_non_claim",
+        "game_state_reconstruction_non_claim",
+        "unknown_future_message_support_non_claim",
+        "unknown_entry_support_non_claim",
+    ]
+    assert missing_message_type_synthetic["coverage_basis"] == [
+        "parser_behavior_verified",
+        "fixture_metadata_only",
+    ]
+    assert missing_message_type_synthetic["paths"] == {
+        "client_actions_test": "tests/test_client_actions_parser.py",
+        "gre_dispatch_test": "tests/test_client_actions_parser.py",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py",
+    }
+    assert "client-action fallback" in missing_message_type_synthetic["known_gaps"][0]
+    assert "GRE GameState default preservation" in missing_message_type_synthetic["known_gaps"][0]
+    assert "parser message recovery" in missing_message_type_synthetic["known_gaps"][0]
+    assert "generic unknown-entry support" in missing_message_type_synthetic["known_gaps"][0]
+    assert "#388/#381 activation" in missing_message_type_synthetic["known_gaps"][0]
+    assert "#414 missing_message_type_boundary_report_v1 entry remains report-only" in (
+        missing_message_type_synthetic["review_notes"][0]
+    )
+    assert "log_runtime.unknown_entry row remains report-only adjacent context" in (
+        missing_message_type_synthetic["review_notes"][0]
+    )
+    assert "#498 event-ordering evidence remains unchanged" in (
+        missing_message_type_synthetic["review_notes"][0]
+    )
     rename_rotation_collision = _manifest_entry(
         manifest,
         "rename_rotation_collision_boundary_report_v1",
@@ -1269,6 +1314,62 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
     assert "GameState reconstruction claim" in missing_message_type_session["known_gaps"][0]
     assert "unknown future MTGA message support claim" in missing_message_type_session["known_gaps"][0]
     assert missing_message_type_session["report_only_redactions"] == {
+        "raw_log_lines_included": False,
+        "private_paths_included": False,
+        "raw_payloads_included": False,
+        "external_logs_included": False,
+        "message_bodies_included": False,
+        "private_smoke_outputs_included": False,
+        "generated_private_runtime_artifacts_included": False,
+        "sqlite_files_included": False,
+        "workbook_exports_included": False,
+        "decklists_included": False,
+        "card_choices_included": False,
+        "strategy_notes_included": False,
+        "credentials_tokens_keys_webhooks_included": False,
+    }
+    missing_message_type_synthetic_session = _session_entry(
+        session_ledger,
+        "missing_message_type_synthetic_fallback_defaults_v1",
+    )
+    assert missing_message_type_synthetic_session["format_family"] == "drift_debug"
+    assert missing_message_type_synthetic_session["match_shape"] == (
+        "missing_message_type_synthetic_fallback_defaults"
+    )
+    assert missing_message_type_synthetic_session["record_summary"] == (
+        "committed_synthetic_missing_message_type_parser_tests"
+    )
+    assert missing_message_type_synthetic_session["parser_coverage"] == {
+        "event_families": {"ClientAction": 2, "GameState": 1},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "synthetic_client_action_payloads": 2,
+        "synthetic_game_state_messages": 1,
+        "missing_inner_type_fallbacks": 1,
+        "blank_inner_type_fallbacks": 1,
+        "generic_client_action_events_asserted": 2,
+        "empty_message_type_assertions": 2,
+        "raw_client_action_preservation_assertions": 2,
+        "gre_game_state_missing_top_level_type_messages": 1,
+        "game_state_default_message_type_assertions": 1,
+        "game_state_source_preservation_assertions": 1,
+        "message_recovery_claims": 0,
+        "game_state_reconstruction_claims": 0,
+        "unknown_future_message_support_claims": 0,
+        "generic_unknown_entry_support_claims": 0,
+        "parser_resilience_claims": 0,
+    }
+    assert missing_message_type_synthetic_session["game_rows"] == {
+        "count": 0,
+        "result_shape": "not_applicable",
+    }
+    assert "client-action fallback" in missing_message_type_synthetic_session["known_gaps"][0]
+    assert "GRE GameState default preservation" in (
+        missing_message_type_synthetic_session["known_gaps"][0]
+    )
+    assert "parser message recovery" in missing_message_type_synthetic_session["known_gaps"][0]
+    assert "generic unknown-entry support" in missing_message_type_synthetic_session["known_gaps"][0]
+    assert missing_message_type_synthetic_session["report_only_redactions"] == {
         "raw_log_lines_included": False,
         "private_paths_included": False,
         "raw_payloads_included": False,
@@ -2206,8 +2307,8 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     assert report["summary"] == {
         "total_scenario_families": len(corpus.SCENARIO_FAMILIES),
         "covered_committed": 6,
-        "covered_synthetic": 19,
-        "covered_report_only": 14,
+        "covered_synthetic": 20,
+        "covered_report_only": 13,
         "partial": 0,
         "missing": 0,
         "deferred": 0,
@@ -2219,11 +2320,11 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
         "schema_version": "parser_corpus_readiness_metrics.v1",
         "classification_complete": True,
         "parser_behavior_ready": False,
-        "parser_behavior_ready_family_count": 24,
+        "parser_behavior_ready_family_count": 25,
         "total_scenario_families": len(corpus.SCENARIO_FAMILIES),
         "committed_parser_behavior_families": 5,
-        "synthetic_parser_behavior_families": 19,
-        "report_only_families": 14,
+        "synthetic_parser_behavior_families": 20,
+        "report_only_families": 13,
         "blocked_families": 6,
         "blocked_private_evidence_families": 2,
         "blocked_external_boundary_families": 4,
@@ -2232,7 +2333,7 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
         "deferred_families": 0,
         "pipeline_activation_ready_for_issue_388": False,
         "pipeline_activation_blockers": [
-            "report_only_families:14",
+            "report_only_families:13",
             "blocked_private_evidence_families:2",
             "blocked_external_boundary_families:4",
         ],
@@ -2248,10 +2349,10 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
         "behavior_applicability": {
             "schema_version": "parser_corpus_behavior_applicability.v1",
             "parser_behavior_applicable_family_count": 37,
-            "parser_behavior_applicable_ready_family_count": 24,
-            "parser_behavior_applicable_not_ready_family_count": 13,
+            "parser_behavior_applicable_ready_family_count": 25,
+            "parser_behavior_applicable_not_ready_family_count": 12,
             "parser_behavior_not_applicable_family_count": 8,
-            "parser_behavior_applicable_report_only_family_count": 8,
+            "parser_behavior_applicable_report_only_family_count": 7,
             "parser_behavior_applicable_blocked_private_evidence_family_count": 1,
             "parser_behavior_applicable_blocked_external_boundary_family_count": 4,
             "parser_behavior_applicability_ready": False,
@@ -2263,8 +2364,8 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     }
     assert set(applicability_by_family) == set(corpus.SCENARIO_FAMILIES)
     assert Counter(applicability_by_family.values()) == {
-        "parser_behavior_applicable_ready": 24,
-        "parser_behavior_applicable_not_ready": 8,
+        "parser_behavior_applicable_ready": 25,
+        "parser_behavior_applicable_not_ready": 7,
         "parser_behavior_applicable_blocked_private": 1,
         "parser_behavior_applicable_blocked_external": 4,
         "non_behavior_applicability_excluded": 8,
@@ -2286,6 +2387,9 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
         == "parser_behavior_applicable_blocked_private"
     )
     assert applicability_by_family["timer.inactivity_timeout"] == "parser_behavior_applicable_blocked_external"
+    assert applicability_by_family["drift_debug.missing_message_type"] == (
+        "parser_behavior_applicable_ready"
+    )
     assert report["readiness_metrics"]["pipeline_activation_ready_for_issue_388"] is False
     assert _matrix_row(report, "core_gameplay.standard_bo1") == {
         "scenario_family": "core_gameplay.standard_bo1",
@@ -2448,9 +2552,12 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     }
     assert _matrix_row(report, "drift_debug.missing_message_type") == {
         "scenario_family": "drift_debug.missing_message_type",
-        "coverage_status": "covered_report_only",
-        "coverage_basis": ["fixture_metadata_only"],
-        "mythic_edge_entries": ["missing_message_type_boundary_report_v1"],
+        "coverage_status": "covered_synthetic",
+        "coverage_basis": ["fixture_metadata_only", "parser_behavior_verified"],
+        "mythic_edge_entries": [
+            "missing_message_type_boundary_report_v1",
+            "missing_message_type_synthetic_fallback_defaults_v1",
+        ],
         "external_reference_status": "reference_category_not_checked",
         "notes": [
             "Missing-message-type coverage is report-only boundary metadata: unknown-entry drift reporting, "
@@ -2458,7 +2565,12 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
             "GameState parsing, diagnostics, golden replay, feature-equity behavior, evidence-ledger "
             "provenance, and public taxonomy metadata do not prove parser message recovery, hidden payload "
             "truth, GameState reconstruction, unknown future MTGA message support, release readiness, "
-            "production behavior, analytics truth, AI truth, coaching truth, or full corpus parity."
+            "production behavior, analytics truth, AI truth, coaching truth, or full corpus parity.",
+            "The #414 missing_message_type_boundary_report_v1 entry remains report-only non-claim metadata; "
+            "this additive synthetic entry proves only generic client-action empty message_type fallback with "
+            "raw_client_action preservation and GRE GameState default message_type preservation with "
+            "GameState source preservation. The log_runtime.unknown_entry row remains report-only adjacent "
+            "context, and #498 event-ordering evidence remains unchanged.",
         ],
     }
     assert _matrix_row(report, "drift_debug.rename_or_rotation_collision") == {
@@ -2917,7 +3029,7 @@ def test_cli_writes_report_only_when_output_is_explicit(tmp_path: Path, capsys: 
     assert exit_code == 0
     assert (
         "Corpus parity report: partial_coverage_map_ready "
-        "(45 families; committed=6, synthetic=19, report_only=14, "
+        "(45 families; committed=6, synthetic=20, report_only=13, "
         "blocked=6 [private=2, external=4], missing=0, parser_behavior_ready=no)"
     ) in captured.out
     assert "Report written: <outside_repo>" in captured.out

@@ -1369,6 +1369,67 @@
       }
     },
     {
+      "session_id": "missing_message_type_synthetic_fallback_defaults_v1",
+      "title": "Missing message type synthetic fallback and default-preservation evidence",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/500",
+      "authorized_by_contract": "docs/contracts/parser_corpus_missing_message_type_behavior_uplift.md",
+      "scenario_families": [
+        "drift_debug.missing_message_type"
+      ],
+      "format_family": "drift_debug",
+      "match_shape": "missing_message_type_synthetic_fallback_defaults",
+      "record_summary": "committed_synthetic_missing_message_type_parser_tests",
+      "parser_coverage": {
+        "event_families": {
+          "ClientAction": 2,
+          "GameState": 1
+        },
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "synthetic_client_action_payloads": 2,
+        "synthetic_game_state_messages": 1,
+        "missing_inner_type_fallbacks": 1,
+        "blank_inner_type_fallbacks": 1,
+        "generic_client_action_events_asserted": 2,
+        "empty_message_type_assertions": 2,
+        "raw_client_action_preservation_assertions": 2,
+        "gre_game_state_missing_top_level_type_messages": 1,
+        "game_state_default_message_type_assertions": 1,
+        "game_state_source_preservation_assertions": 1,
+        "message_recovery_claims": 0,
+        "game_state_reconstruction_claims": 0,
+        "unknown_future_message_support_claims": 0,
+        "generic_unknown_entry_support_claims": 0,
+        "parser_resilience_claims": 0
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Reduced synthetic missing-message-type evidence proves only existing client-action fallback and GRE GameState default preservation for owned synthetic payloads; it does not prove parser message recovery, hidden payload truth, GameState reconstruction, unknown future MTGA message support, generic unknown-entry support, parser resilience truth, live private Player.log drift health, diagnostics readiness, analytics truth, AI truth, coaching truth, private smoke success, release readiness, production behavior, #388/#381 activation, tracker completion, or full corpus parity."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "private_paths_included": false,
+        "raw_payloads_included": false,
+        "external_logs_included": false,
+        "message_bodies_included": false,
+        "private_smoke_outputs_included": false,
+        "generated_private_runtime_artifacts_included": false,
+        "sqlite_files_included": false,
+        "workbook_exports_included": false,
+        "decklists_included": false,
+        "card_choices_included": false,
+        "strategy_notes_included": false,
+        "credentials_tokens_keys_webhooks_included": false
+      }
+    },
+    {
       "session_id": "rename_rotation_collision_boundary_report_v1",
       "title": "Rename rotation collision boundary report",
       "source_kind": "committed_count_only_report",
