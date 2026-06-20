@@ -1315,6 +1315,64 @@
       }
     },
     {
+      "session_id": "unknown_entry_synthetic_router_drift_diagnostics_v1",
+      "title": "Unknown-entry synthetic router drift diagnostics packet",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/504",
+      "authorized_by_contract": "docs/contracts/parser_corpus_unknown_entry_behavior_readiness.md",
+      "scenario_families": [
+        "log_runtime.unknown_entry"
+      ],
+      "format_family": "log_runtime",
+      "match_shape": "unknown_entry_synthetic_router_drift_diagnostics",
+      "record_summary": "synthetic_unknown_entry_accounting_review_reduced_packet",
+      "parser_coverage": {
+        "event_families": {},
+        "synthetic_valid_timestamp_unrouted_entries": 1,
+        "router_unknown_count_assertions": 1,
+        "router_no_event_assertions": 1,
+        "router_routed_count_assertions": 1,
+        "router_timestamp_anomaly_nonclaims": 1,
+        "drift_unknown_count_review_assertions": 1,
+        "drift_unknown_signature_review_sample_assertions": 1,
+        "drift_unmatched_api_review_sample_assertions": 1,
+        "diagnostics_unknown_review_status_assertions": 1,
+        "diagnostics_unknown_redaction_assertions": 1,
+        "evidence_ledger_tier6_unknown_entry_count_entries": 1,
+        "parser_support_claims": 0,
+        "trusted_parser_input_claims": 0,
+        "new_parser_event_kind_claims": 0,
+        "automatic_parser_gap_issue_claims": 0,
+        "automatic_drift_issue_claims": 0,
+        "live_drift_health_claims": 0,
+        "diagnostics_readiness_claims": 0,
+        "production_support_claims": 0
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Reduced synthetic unknown-entry evidence proves only existing router unknown-count accounting, no-event behavior for one valid-timestamp unrouted synthetic entry, drift unknown-count review samples, diagnostics review/redaction behavior, and Tier 6 unknown-entry-count provenance; it does not include parser support for unknown semantic content, unknown future MTGA message support, trusted parser input, new parser event kinds, automatic parser-gap issue creation, automatic drift issue creation, live private Player.log drift health, diagnostics readiness, private smoke success, release readiness, deploy readiness, production behavior, analytics truth, AI truth, coaching truth, #388/#381 activation, tracker completion, or full corpus parity."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "raw_payloads_included": false,
+        "private_paths_included": false,
+        "private_smoke_outputs_included": false,
+        "generated_private_runtime_artifacts_included": false,
+        "unknown_signature_values_included": false,
+        "unmatched_api_values_included": false,
+        "external_logs_included": false,
+        "sqlite_files_included": false,
+        "workbook_exports_included": false,
+        "credentials_tokens_keys_webhooks_included": false
+      }
+    },
+    {
       "session_id": "missing_message_type_boundary_report_v1",
       "title": "Missing message type boundary report",
       "source_kind": "committed_count_only_report",

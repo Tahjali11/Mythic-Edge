@@ -650,6 +650,57 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
     assert "does not mean the parser understood the unknown entries" in unknown_entry["review_notes"][0]
     assert "parser support for unknown semantic content" in unknown_entry["known_gaps"][0]
     assert "live private Player.log drift health" in unknown_entry["known_gaps"][0]
+    unknown_entry_synthetic = _manifest_entry(
+        manifest,
+        "unknown_entry_synthetic_router_drift_diagnostics_v1",
+    )
+    assert unknown_entry_synthetic["entry_type"] == "session_ledger_entry"
+    assert unknown_entry_synthetic["coverage_status"] == "covered_synthetic"
+    assert unknown_entry_synthetic["scenario_families"] == ["log_runtime.unknown_entry"]
+    assert unknown_entry_synthetic["parser_event_families"] == []
+    assert unknown_entry_synthetic["parser_claim_families"] == [
+        "synthetic_router_unknown_count",
+        "synthetic_router_no_event_for_unknown_entry",
+        "synthetic_drift_unknown_count_review",
+        "synthetic_drift_unknown_signature_review_samples",
+        "synthetic_drift_unmatched_api_review_samples",
+        "synthetic_diagnostics_unknown_entries_review_status",
+        "synthetic_diagnostics_unknown_redaction_boundary",
+        "evidence_ledger_tier6_unknown_entry_count_boundary",
+        "unknown_entry_synthetic_boundary",
+        "unknown_semantic_content_non_claim",
+        "automatic_parser_gap_creation_non_claim",
+        "trusted_parser_input_non_claim",
+        "live_drift_health_non_claim",
+        "readiness_production_non_claim",
+        "analytics_ai_coaching_non_claim",
+    ]
+    assert unknown_entry_synthetic["coverage_basis"] == [
+        "parser_behavior_verified",
+        "diagnostics_only",
+        "evidence_ledger_only",
+        "fixture_metadata_only",
+    ]
+    assert unknown_entry_synthetic["paths"] == {
+        "router_test": "tests/test_router_unit.py",
+        "drift_sensor_test": "tests/test_log_drift_sensor.py",
+        "diagnostics_test": "tests/test_parser_diagnostics_mode.py",
+        "evidence_ledger_test": "tests/test_evidence_ledger.py",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py",
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+    }
+    assert "router unknown-count accounting" in unknown_entry_synthetic["known_gaps"][0]
+    assert "no-event behavior" in unknown_entry_synthetic["known_gaps"][0]
+    assert "parser support for unknown semantic content" in unknown_entry_synthetic["known_gaps"][0]
+    assert "trusted parser input" in unknown_entry_synthetic["known_gaps"][0]
+    assert "new parser event kinds" in unknown_entry_synthetic["known_gaps"][0]
+    assert "#388/#381 activation" in unknown_entry_synthetic["known_gaps"][0]
+    assert "#377 unknown_entry_drift_report_reference_v1 entry remains report-only" in (
+        unknown_entry_synthetic["review_notes"][0]
+    )
+    assert "drift_debug.missing_message_type" in unknown_entry_synthetic["review_notes"][0]
+    assert "log_runtime.rotation" in unknown_entry_synthetic["review_notes"][0]
+    assert "private-log drift evidence" in unknown_entry_synthetic["review_notes"][0]
     missing_message_type = _manifest_entry(manifest, "missing_message_type_boundary_report_v1")
     assert missing_message_type["coverage_status"] == "covered_report_only"
     assert missing_message_type["scenario_families"] == ["drift_debug.missing_message_type"]
@@ -712,7 +763,7 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
     assert "#414 missing_message_type_boundary_report_v1 entry remains report-only" in (
         missing_message_type_synthetic["review_notes"][0]
     )
-    assert "log_runtime.unknown_entry row remains report-only adjacent context" in (
+    assert "log_runtime.unknown_entry row remains separate adjacent context" in (
         missing_message_type_synthetic["review_notes"][0]
     )
     assert "#498 event-ordering evidence remains unchanged" in (
@@ -1336,6 +1387,63 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
         "raw_payloads_included": False,
         "external_logs_included": False,
         "decklists_included": False,
+    }
+    unknown_entry_synthetic_session = _session_entry(
+        session_ledger, "unknown_entry_synthetic_router_drift_diagnostics_v1"
+    )
+    assert unknown_entry_synthetic_session["format_family"] == "log_runtime"
+    assert unknown_entry_synthetic_session["match_shape"] == (
+        "unknown_entry_synthetic_router_drift_diagnostics"
+    )
+    assert unknown_entry_synthetic_session["record_summary"] == (
+        "synthetic_unknown_entry_accounting_review_reduced_packet"
+    )
+    assert unknown_entry_synthetic_session["parser_coverage"] == {
+        "event_families": {},
+        "synthetic_valid_timestamp_unrouted_entries": 1,
+        "router_unknown_count_assertions": 1,
+        "router_no_event_assertions": 1,
+        "router_routed_count_assertions": 1,
+        "router_timestamp_anomaly_nonclaims": 1,
+        "drift_unknown_count_review_assertions": 1,
+        "drift_unknown_signature_review_sample_assertions": 1,
+        "drift_unmatched_api_review_sample_assertions": 1,
+        "diagnostics_unknown_review_status_assertions": 1,
+        "diagnostics_unknown_redaction_assertions": 1,
+        "evidence_ledger_tier6_unknown_entry_count_entries": 1,
+        "parser_support_claims": 0,
+        "trusted_parser_input_claims": 0,
+        "new_parser_event_kind_claims": 0,
+        "automatic_parser_gap_issue_claims": 0,
+        "automatic_drift_issue_claims": 0,
+        "live_drift_health_claims": 0,
+        "diagnostics_readiness_claims": 0,
+        "production_support_claims": 0,
+    }
+    assert unknown_entry_synthetic_session["game_rows"] == {
+        "count": 0,
+        "result_shape": "not_applicable",
+    }
+    assert "router unknown-count accounting" in unknown_entry_synthetic_session["known_gaps"][0]
+    assert "parser support for unknown semantic content" in (
+        unknown_entry_synthetic_session["known_gaps"][0]
+    )
+    assert "trusted parser input" in unknown_entry_synthetic_session["known_gaps"][0]
+    assert "new parser event kinds" in unknown_entry_synthetic_session["known_gaps"][0]
+    assert "automatic parser-gap issue creation" in unknown_entry_synthetic_session["known_gaps"][0]
+    assert "live private Player.log drift health" in unknown_entry_synthetic_session["known_gaps"][0]
+    assert unknown_entry_synthetic_session["report_only_redactions"] == {
+        "raw_log_lines_included": False,
+        "raw_payloads_included": False,
+        "private_paths_included": False,
+        "private_smoke_outputs_included": False,
+        "generated_private_runtime_artifacts_included": False,
+        "unknown_signature_values_included": False,
+        "unmatched_api_values_included": False,
+        "external_logs_included": False,
+        "sqlite_files_included": False,
+        "workbook_exports_included": False,
+        "credentials_tokens_keys_webhooks_included": False,
     }
     missing_message_type_session = _session_entry(session_ledger, "missing_message_type_boundary_report_v1")
     assert missing_message_type_session["format_family"] == "drift_debug"
@@ -2416,8 +2524,8 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     assert report["summary"] == {
         "total_scenario_families": len(corpus.SCENARIO_FAMILIES),
         "covered_committed": 6,
-        "covered_synthetic": 21,
-        "covered_report_only": 12,
+        "covered_synthetic": 22,
+        "covered_report_only": 11,
         "partial": 0,
         "missing": 0,
         "deferred": 0,
@@ -2429,11 +2537,11 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
         "schema_version": "parser_corpus_readiness_metrics.v1",
         "classification_complete": True,
         "parser_behavior_ready": False,
-        "parser_behavior_ready_family_count": 26,
+        "parser_behavior_ready_family_count": 27,
         "total_scenario_families": len(corpus.SCENARIO_FAMILIES),
         "committed_parser_behavior_families": 5,
-        "synthetic_parser_behavior_families": 21,
-        "report_only_families": 12,
+        "synthetic_parser_behavior_families": 22,
+        "report_only_families": 11,
         "blocked_families": 6,
         "blocked_private_evidence_families": 2,
         "blocked_external_boundary_families": 4,
@@ -2442,7 +2550,7 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
         "deferred_families": 0,
         "pipeline_activation_ready_for_issue_388": False,
         "pipeline_activation_blockers": [
-            "report_only_families:12",
+            "report_only_families:11",
             "blocked_private_evidence_families:2",
             "blocked_external_boundary_families:4",
         ],
@@ -2458,10 +2566,10 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
         "behavior_applicability": {
             "schema_version": "parser_corpus_behavior_applicability.v1",
             "parser_behavior_applicable_family_count": 37,
-            "parser_behavior_applicable_ready_family_count": 26,
-            "parser_behavior_applicable_not_ready_family_count": 11,
+            "parser_behavior_applicable_ready_family_count": 27,
+            "parser_behavior_applicable_not_ready_family_count": 10,
             "parser_behavior_not_applicable_family_count": 8,
-            "parser_behavior_applicable_report_only_family_count": 6,
+            "parser_behavior_applicable_report_only_family_count": 5,
             "parser_behavior_applicable_blocked_private_evidence_family_count": 1,
             "parser_behavior_applicable_blocked_external_boundary_family_count": 4,
             "parser_behavior_applicability_ready": False,
@@ -2473,8 +2581,8 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     }
     assert set(applicability_by_family) == set(corpus.SCENARIO_FAMILIES)
     assert Counter(applicability_by_family.values()) == {
-        "parser_behavior_applicable_ready": 26,
-        "parser_behavior_applicable_not_ready": 6,
+        "parser_behavior_applicable_ready": 27,
+        "parser_behavior_applicable_not_ready": 5,
         "parser_behavior_applicable_blocked_private": 1,
         "parser_behavior_applicable_blocked_external": 4,
         "non_behavior_applicability_excluded": 8,
@@ -2500,6 +2608,7 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
         "parser_behavior_applicable_ready"
     )
     assert applicability_by_family["log_runtime.rotation"] == "parser_behavior_applicable_ready"
+    assert applicability_by_family["log_runtime.unknown_entry"] == "parser_behavior_applicable_ready"
     assert report["readiness_metrics"]["pipeline_activation_ready_for_issue_388"] is False
     assert _matrix_row(report, "core_gameplay.standard_bo1") == {
         "scenario_family": "core_gameplay.standard_bo1",
@@ -2658,14 +2767,28 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     }
     assert _matrix_row(report, "log_runtime.unknown_entry") == {
         "scenario_family": "log_runtime.unknown_entry",
-        "coverage_status": "covered_report_only",
-        "coverage_basis": ["diagnostics_only", "evidence_ledger_only", "fixture_metadata_only"],
-        "mythic_edge_entries": ["unknown_entry_drift_report_reference_v1"],
+        "coverage_status": "covered_synthetic",
+        "coverage_basis": [
+            "diagnostics_only",
+            "evidence_ledger_only",
+            "fixture_metadata_only",
+            "parser_behavior_verified",
+        ],
+        "mythic_edge_entries": [
+            "unknown_entry_drift_report_reference_v1",
+            "unknown_entry_synthetic_router_drift_diagnostics_v1",
+        ],
         "external_reference_status": "reference_category_not_checked",
         "notes": [
+            "The #377 unknown_entry_drift_report_reference_v1 entry remains report-only non-claim metadata; "
+            "this additive synthetic entry cites focused router, drift, diagnostics, and evidence-ledger "
+            "tests for the reduced unknown-entry accounting/review packet only. "
+            "drift_debug.missing_message_type, log_runtime.rotation, "
+            "drift_debug.rename_or_rotation_collision, and private-log drift evidence remain separate "
+            "adjacent rows and are not reinterpreted as unknown-entry behavior-readiness support.",
             "Unknown-entry coverage proves that existing drift/diagnostics reports can surface unknown counts "
             "and review samples from a committed normalized report reference; it does not mean the parser "
-            "understood the unknown entries."
+            "understood the unknown entries.",
         ],
     }
     assert _matrix_row(report, "drift_debug.missing_message_type") == {
@@ -2687,7 +2810,7 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
             "The #414 missing_message_type_boundary_report_v1 entry remains report-only non-claim metadata; "
             "this additive synthetic entry proves only generic client-action empty message_type fallback with "
             "raw_client_action preservation and GRE GameState default message_type preservation with "
-            "GameState source preservation. The log_runtime.unknown_entry row remains report-only adjacent "
+            "GameState source preservation. The log_runtime.unknown_entry row remains separate adjacent "
             "context, and #498 event-ordering evidence remains unchanged.",
         ],
     }
@@ -3147,7 +3270,7 @@ def test_cli_writes_report_only_when_output_is_explicit(tmp_path: Path, capsys: 
     assert exit_code == 0
     assert (
         "Corpus parity report: partial_coverage_map_ready "
-        "(45 families; committed=6, synthetic=21, report_only=12, "
+        "(45 families; committed=6, synthetic=22, report_only=11, "
         "blocked=6 [private=2, external=4], missing=0, parser_behavior_ready=no)"
     ) in captured.out
     assert "Report written: <outside_repo>" in captured.out
