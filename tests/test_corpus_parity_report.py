@@ -774,6 +774,59 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
     assert "committed tailer and stream rotation reference surfaces" in (
         log_runtime_rotation["review_notes"][0]
     )
+    log_runtime_rotation_synthetic = _manifest_entry(
+        manifest,
+        "log_runtime_rotation_synthetic_tailer_stream_v1",
+    )
+    assert log_runtime_rotation_synthetic["entry_type"] == "session_ledger_entry"
+    assert log_runtime_rotation_synthetic["coverage_status"] == "covered_synthetic"
+    assert log_runtime_rotation_synthetic["scenario_families"] == ["log_runtime.rotation"]
+    assert log_runtime_rotation_synthetic["parser_event_families"] == ["LogFileRotated"]
+    assert log_runtime_rotation_synthetic["parser_claim_families"] == [
+        "synthetic_tailer_size_shrink_rotation_flag",
+        "synthetic_tailer_replacement_content_from_start",
+        "synthetic_stream_log_file_rotated_event_publication",
+        "synthetic_stream_rotation_path_sanitization",
+        "log_file_rotated_event_schema_snapshot",
+        "log_runtime_rotation_synthetic_boundary",
+        "live_watcher_correctness_non_claim",
+        "filesystem_rotation_truth_non_claim",
+        "duplicate_replay_prevention_non_claim",
+        "recycle_or_rollback_non_claim",
+        "private_smoke_non_claim",
+        "readiness_production_non_claim",
+        "analytics_ai_coaching_non_claim",
+    ]
+    assert log_runtime_rotation_synthetic["coverage_basis"] == [
+        "parser_behavior_verified",
+        "fixture_metadata_only",
+    ]
+    assert log_runtime_rotation_synthetic["paths"] == {
+        "tailer_test": "tests/test_tailer.py",
+        "stream_integration_test": "tests/test_stream_integration.py",
+        "event_schema_snapshot_test": "tests/test_event_schema_snapshots.py",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py",
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json",
+    }
+    assert "FileTailer size-shrink rotation detection" in (
+        log_runtime_rotation_synthetic["known_gaps"][0]
+    )
+    assert "sanitized MtgaEventStream LogFileRotatedEvent publication" in (
+        log_runtime_rotation_synthetic["known_gaps"][0]
+    )
+    assert "live file-system watcher correctness" in (
+        log_runtime_rotation_synthetic["known_gaps"][0]
+    )
+    assert "duplicate/replay prevention" in log_runtime_rotation_synthetic["known_gaps"][0]
+    assert "#388/#381 activation" in log_runtime_rotation_synthetic["known_gaps"][0]
+    assert "#444 log_runtime_rotation_boundary_report_v1 entry remains report-only" in (
+        log_runtime_rotation_synthetic["review_notes"][0]
+    )
+    assert "drift_debug.rename_or_rotation_collision" in (
+        log_runtime_rotation_synthetic["review_notes"][0]
+    )
+    assert "drift_debug.recycle_or_rollback" in log_runtime_rotation_synthetic["review_notes"][0]
+    assert "log_runtime.unknown_entry" in log_runtime_rotation_synthetic["review_notes"][0]
     external_reference = _manifest_entry(manifest, "external_reference_category_boundary")
     assert external_reference["scenario_families"] == [
         "timer.inactivity_timeout",
@@ -1474,6 +1527,62 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
         "generated_private_runtime_artifacts_included": False,
         "file_hashes_included": False,
         "file_path_identities_included": False,
+        "external_logs_included": False,
+        "sqlite_files_included": False,
+        "workbook_exports_included": False,
+        "credentials_tokens_keys_webhooks_included": False,
+    }
+    log_runtime_rotation_synthetic_session = _session_entry(
+        session_ledger, "log_runtime_rotation_synthetic_tailer_stream_v1"
+    )
+    assert log_runtime_rotation_synthetic_session["format_family"] == "log_runtime"
+    assert log_runtime_rotation_synthetic_session["match_shape"] == (
+        "log_runtime_rotation_synthetic_tailer_stream"
+    )
+    assert log_runtime_rotation_synthetic_session["record_summary"] == (
+        "synthetic_tailer_stream_rotation_behavior_reduced_packet"
+    )
+    assert log_runtime_rotation_synthetic_session["parser_coverage"] == {
+        "event_families": {
+            "LogFileRotated": 1,
+        },
+        "synthetic_tailer_size_shrink_cases": 1,
+        "replacement_content_from_start_assertions": 1,
+        "synthetic_rotated_tail_batches": 1,
+        "stream_rotation_event_publication_assertions": 1,
+        "stream_rotation_path_sanitization_assertions": 1,
+        "event_schema_snapshot_assertions": 1,
+        "dedicated_live_rotation_fixtures": 0,
+        "private_smoke_success_claims": 0,
+        "live_watcher_correctness_claims": 0,
+        "filesystem_rotation_truth_claims": 0,
+        "duplicate_replay_prevention_claims": 0,
+        "file_identity_tracking_claims": 0,
+        "recycle_or_rollback_claims": 0,
+        "production_support_claims": 0,
+        "parser_support_claims": 0,
+    }
+    assert log_runtime_rotation_synthetic_session["game_rows"] == {
+        "count": 0,
+        "result_shape": "not_applicable",
+    }
+    assert "FileTailer size-shrink rotation detection" in (
+        log_runtime_rotation_synthetic_session["known_gaps"][0]
+    )
+    assert "live watcher correctness" in log_runtime_rotation_synthetic_session["known_gaps"][0]
+    assert "filesystem rotation truth" in log_runtime_rotation_synthetic_session["known_gaps"][0]
+    assert "duplicate/replay prevention" in log_runtime_rotation_synthetic_session["known_gaps"][0]
+    assert "recycle/rollback truth" in log_runtime_rotation_synthetic_session["known_gaps"][0]
+    assert log_runtime_rotation_synthetic_session["report_only_redactions"] == {
+        "raw_log_lines_included": False,
+        "raw_payloads_included": False,
+        "private_paths_included": False,
+        "private_smoke_outputs_included": False,
+        "generated_private_runtime_artifacts_included": False,
+        "file_hashes_included": False,
+        "file_path_identities_included": False,
+        "exact_offsets_included": False,
+        "exact_file_sizes_included": False,
         "external_logs_included": False,
         "sqlite_files_included": False,
         "workbook_exports_included": False,
@@ -2307,8 +2416,8 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     assert report["summary"] == {
         "total_scenario_families": len(corpus.SCENARIO_FAMILIES),
         "covered_committed": 6,
-        "covered_synthetic": 20,
-        "covered_report_only": 13,
+        "covered_synthetic": 21,
+        "covered_report_only": 12,
         "partial": 0,
         "missing": 0,
         "deferred": 0,
@@ -2320,11 +2429,11 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
         "schema_version": "parser_corpus_readiness_metrics.v1",
         "classification_complete": True,
         "parser_behavior_ready": False,
-        "parser_behavior_ready_family_count": 25,
+        "parser_behavior_ready_family_count": 26,
         "total_scenario_families": len(corpus.SCENARIO_FAMILIES),
         "committed_parser_behavior_families": 5,
-        "synthetic_parser_behavior_families": 20,
-        "report_only_families": 13,
+        "synthetic_parser_behavior_families": 21,
+        "report_only_families": 12,
         "blocked_families": 6,
         "blocked_private_evidence_families": 2,
         "blocked_external_boundary_families": 4,
@@ -2333,7 +2442,7 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
         "deferred_families": 0,
         "pipeline_activation_ready_for_issue_388": False,
         "pipeline_activation_blockers": [
-            "report_only_families:13",
+            "report_only_families:12",
             "blocked_private_evidence_families:2",
             "blocked_external_boundary_families:4",
         ],
@@ -2349,10 +2458,10 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
         "behavior_applicability": {
             "schema_version": "parser_corpus_behavior_applicability.v1",
             "parser_behavior_applicable_family_count": 37,
-            "parser_behavior_applicable_ready_family_count": 25,
-            "parser_behavior_applicable_not_ready_family_count": 12,
+            "parser_behavior_applicable_ready_family_count": 26,
+            "parser_behavior_applicable_not_ready_family_count": 11,
             "parser_behavior_not_applicable_family_count": 8,
-            "parser_behavior_applicable_report_only_family_count": 7,
+            "parser_behavior_applicable_report_only_family_count": 6,
             "parser_behavior_applicable_blocked_private_evidence_family_count": 1,
             "parser_behavior_applicable_blocked_external_boundary_family_count": 4,
             "parser_behavior_applicability_ready": False,
@@ -2364,8 +2473,8 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     }
     assert set(applicability_by_family) == set(corpus.SCENARIO_FAMILIES)
     assert Counter(applicability_by_family.values()) == {
-        "parser_behavior_applicable_ready": 25,
-        "parser_behavior_applicable_not_ready": 7,
+        "parser_behavior_applicable_ready": 26,
+        "parser_behavior_applicable_not_ready": 6,
         "parser_behavior_applicable_blocked_private": 1,
         "parser_behavior_applicable_blocked_external": 4,
         "non_behavior_applicability_excluded": 8,
@@ -2390,6 +2499,7 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     assert applicability_by_family["drift_debug.missing_message_type"] == (
         "parser_behavior_applicable_ready"
     )
+    assert applicability_by_family["log_runtime.rotation"] == "parser_behavior_applicable_ready"
     assert report["readiness_metrics"]["pipeline_activation_ready_for_issue_388"] is False
     assert _matrix_row(report, "core_gameplay.standard_bo1") == {
         "scenario_family": "core_gameplay.standard_bo1",
@@ -2499,16 +2609,24 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     }
     assert _matrix_row(report, "log_runtime.rotation") == {
         "scenario_family": "log_runtime.rotation",
-        "coverage_status": "covered_report_only",
-        "coverage_basis": ["fixture_metadata_only"],
-        "mythic_edge_entries": ["log_runtime_rotation_boundary_report_v1"],
+        "coverage_status": "covered_synthetic",
+        "coverage_basis": ["fixture_metadata_only", "parser_behavior_verified"],
+        "mythic_edge_entries": [
+            "log_runtime_rotation_boundary_report_v1",
+            "log_runtime_rotation_synthetic_tailer_stream_v1",
+        ],
         "external_reference_status": "reference_category_not_checked",
         "notes": [
             "Log-runtime rotation coverage is report-only boundary metadata: committed tailer and stream "
             "rotation reference surfaces may be named as context, but they do not prove live watcher "
             "correctness, file-system rotation truth, duplicate/replay prevention, recycle/rollback truth, "
             "private smoke success, release readiness, production behavior, analytics truth, AI truth, "
-            "coaching truth, or full corpus parity."
+            "coaching truth, or full corpus parity.",
+            "The #444 log_runtime_rotation_boundary_report_v1 entry remains report-only non-claim metadata; "
+            "this additive synthetic entry cites focused tailer, stream, and event schema snapshot tests for "
+            "the reduced synthetic behavior packet only. drift_debug.rename_or_rotation_collision, "
+            "drift_debug.recycle_or_rollback, and log_runtime.unknown_entry remain separate adjacent rows "
+            "and are not reinterpreted as rotation behavior-readiness support.",
         ],
     }
     assert _matrix_row(report, "log_runtime.malformed_or_headerless") == {
@@ -3029,7 +3147,7 @@ def test_cli_writes_report_only_when_output_is_explicit(tmp_path: Path, capsys: 
     assert exit_code == 0
     assert (
         "Corpus parity report: partial_coverage_map_ready "
-        "(45 families; committed=6, synthetic=20, report_only=13, "
+        "(45 families; committed=6, synthetic=21, report_only=12, "
         "blocked=6 [private=2, external=4], missing=0, parser_behavior_ready=no)"
     ) in captured.out
     assert "Report written: <outside_repo>" in captured.out

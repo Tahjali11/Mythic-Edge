@@ -1537,6 +1537,64 @@
       }
     },
     {
+      "session_id": "log_runtime_rotation_synthetic_tailer_stream_v1",
+      "title": "Log runtime rotation synthetic tailer stream packet",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/502",
+      "authorized_by_contract": "docs/contracts/parser_corpus_log_runtime_rotation_behavior_readiness.md",
+      "scenario_families": [
+        "log_runtime.rotation"
+      ],
+      "format_family": "log_runtime",
+      "match_shape": "log_runtime_rotation_synthetic_tailer_stream",
+      "record_summary": "synthetic_tailer_stream_rotation_behavior_reduced_packet",
+      "parser_coverage": {
+        "event_families": {
+          "LogFileRotated": 1
+        },
+        "synthetic_tailer_size_shrink_cases": 1,
+        "replacement_content_from_start_assertions": 1,
+        "synthetic_rotated_tail_batches": 1,
+        "stream_rotation_event_publication_assertions": 1,
+        "stream_rotation_path_sanitization_assertions": 1,
+        "event_schema_snapshot_assertions": 1,
+        "dedicated_live_rotation_fixtures": 0,
+        "private_smoke_success_claims": 0,
+        "live_watcher_correctness_claims": 0,
+        "filesystem_rotation_truth_claims": 0,
+        "duplicate_replay_prevention_claims": 0,
+        "file_identity_tracking_claims": 0,
+        "recycle_or_rollback_claims": 0,
+        "production_support_claims": 0,
+        "parser_support_claims": 0
+      },
+      "game_rows": {
+        "count": 0,
+        "result_shape": "not_applicable"
+      },
+      "known_gaps": [
+        "Reduced synthetic log-runtime rotation evidence proves only existing FileTailer size-shrink rotation detection, replacement-content reading from the beginning, sanitized MtgaEventStream LogFileRotatedEvent publication, and event schema compatibility for repo-owned synthetic temp-file and fake-tailer tests; it does not include live watcher correctness, filesystem rotation truth, duplicate/replay prevention, file identity tracking, recycle/rollback truth, private smoke success, parser support, release readiness, deploy readiness, production behavior, analytics truth, AI truth, coaching truth, #388/#381 activation, tracker completion, or full corpus parity."
+      ],
+      "report_only_redactions": {
+        "raw_log_lines_included": false,
+        "raw_payloads_included": false,
+        "private_paths_included": false,
+        "private_smoke_outputs_included": false,
+        "generated_private_runtime_artifacts_included": false,
+        "file_hashes_included": false,
+        "file_path_identities_included": false,
+        "exact_offsets_included": false,
+        "exact_file_sizes_included": false,
+        "external_logs_included": false,
+        "sqlite_files_included": false,
+        "workbook_exports_included": false,
+        "credentials_tokens_keys_webhooks_included": false
+      }
+    },
+    {
       "session_id": "phantom_deck_origin_boundary_report_v1",
       "title": "Phantom deck origin boundary report",
       "source_kind": "committed_count_only_report",

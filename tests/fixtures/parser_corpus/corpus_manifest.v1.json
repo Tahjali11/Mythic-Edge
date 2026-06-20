@@ -1486,6 +1486,55 @@
       ]
     },
     {
+      "entry_id": "log_runtime_rotation_synthetic_tailer_stream_v1",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/502",
+      "authorized_by_contract": "docs/contracts/parser_corpus_log_runtime_rotation_behavior_readiness.md",
+      "paths": {
+        "tailer_test": "tests/test_tailer.py",
+        "stream_integration_test": "tests/test_stream_integration.py",
+        "event_schema_snapshot_test": "tests/test_event_schema_snapshots.py",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py",
+        "session_ledger": "tests/fixtures/parser_corpus/session_ledger.v1.json"
+      },
+      "scenario_families": [
+        "log_runtime.rotation"
+      ],
+      "parser_event_families": [
+        "LogFileRotated"
+      ],
+      "parser_claim_families": [
+        "synthetic_tailer_size_shrink_rotation_flag",
+        "synthetic_tailer_replacement_content_from_start",
+        "synthetic_stream_log_file_rotated_event_publication",
+        "synthetic_stream_rotation_path_sanitization",
+        "log_file_rotated_event_schema_snapshot",
+        "log_runtime_rotation_synthetic_boundary",
+        "live_watcher_correctness_non_claim",
+        "filesystem_rotation_truth_non_claim",
+        "duplicate_replay_prevention_non_claim",
+        "recycle_or_rollback_non_claim",
+        "private_smoke_non_claim",
+        "readiness_production_non_claim",
+        "analytics_ai_coaching_non_claim"
+      ],
+      "coverage_status": "covered_synthetic",
+      "coverage_basis": [
+        "parser_behavior_verified",
+        "fixture_metadata_only"
+      ],
+      "known_gaps": [
+        "Reduced synthetic log-runtime rotation evidence proves only existing FileTailer size-shrink rotation detection, replacement-content reading from the beginning, sanitized MtgaEventStream LogFileRotatedEvent publication, and event schema compatibility for repo-owned synthetic temp-file and fake-tailer tests; it does not prove live file-system watcher correctness, robust log-rotation resilience, file identity tracking, duplicate/replay prevention, recycle/rollback truth, private smoke success, parser support, live Player.log health, release readiness, deploy readiness, production behavior, analytics truth, AI truth, coaching truth, #388/#381 activation, tracker completion, or full corpus parity."
+      ],
+      "review_notes": [
+        "The #444 log_runtime_rotation_boundary_report_v1 entry remains report-only non-claim metadata; this additive synthetic entry cites focused tailer, stream, and event schema snapshot tests for the reduced synthetic behavior packet only. drift_debug.rename_or_rotation_collision, drift_debug.recycle_or_rollback, and log_runtime.unknown_entry remain separate adjacent rows and are not reinterpreted as rotation behavior-readiness support."
+      ]
+    },
+    {
       "entry_id": "phantom_deck_origin_boundary_report_v1",
       "entry_type": "session_ledger_entry",
       "source_kind": "committed_count_only_report",
