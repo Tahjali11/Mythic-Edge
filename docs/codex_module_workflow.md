@@ -144,6 +144,20 @@ Every thread that expects the workflow to continue must produce:
 
 Use `docs/templates/workflow_handoff.md` for the handoff shape.
 
+Future-facing public handoffs must include `repository` and `repository_url`
+so a continuing Codex thread can verify it is operating in the correct
+checkout before mutation. Use `base_branch` for the branch work starts from or
+compares against, `target_branch` for the branch future PR or deployer work
+targets, and `branch` for the current working branch when useful. Local
+absolute worktree paths belong only in generated local prompts as an
+`Operating repo/worktree:` hint outside public `workflow_handoff` blocks.
+
+If the local checkout remote cannot be verified against `repository_url`, or
+if a sibling repository is requested without an
+`allowed_read_only_references` entry, hard stop before reading beyond approved
+reference scope, editing, staging, committing, pushing, cleaning, stashing,
+resetting, deleting, or otherwise mutating repository content.
+
 Use `docs/templates/constitution_feedback_packet.md` for raw constitution
 feedback packets. Raw packets default to pasteable output or GitHub issue
 comments; repo storage requires an explicit feedback-round issue and contract.

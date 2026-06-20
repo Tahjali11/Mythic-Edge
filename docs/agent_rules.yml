@@ -614,6 +614,33 @@ handoff_schema:
     - pasteable_next_thread_prompt
     - workflow_handoff
 
+workflow_handoff_schema:
+  required:
+    - repository
+    - repository_url
+    - issue
+    - tracker
+    - completed_thread
+    - next_thread
+    - source_artifact
+    - target_artifact
+    - risk_tier
+    - base_branch
+    - target_branch
+    - branch
+    - validation
+    - stop_conditions
+  optional:
+    - internal_project_area
+    - truth_owner
+    - bridge_code_status
+    - allowed_read_only_references
+    - freshness
+  public_path_rule: Do not include local absolute paths in public workflow_handoff blocks.
+  local_prompt_rule: Generated local prompts may include Operating repo/worktree outside public workflow_handoff blocks.
+  mismatch_behavior: Hard stop before repository mutation when the local checkout remote cannot be verified against repository_url.
+  sibling_reference_rule: Sibling repositories are read-only unless explicitly listed in allowed_read_only_references or routed through their own repo-scoped handoff.
+
 current_status_schema:
   repo_status:
     branch: string

@@ -116,6 +116,8 @@ def _workflow_handoff_template() -> str:
 
 ```yaml
 workflow_handoff:
+  repository: ""
+  repository_url: ""
   issue: ""
   tracker: ""
   completed_thread: ""
@@ -123,6 +125,8 @@ workflow_handoff:
   source_artifact: ""
   target_artifact: ""
   risk_tier: ""
+  base_branch: ""
+  target_branch: ""
   branch: ""
   validation:
     - ""
@@ -389,6 +393,22 @@ def test_workflow_handoff_template_missing_key_is_error(tmp_path: Path) -> None:
     assert any(finding.category_id == "handoff_schema_mismatch" for finding in result.errors)
 
 
+def test_workflow_handoff_template_missing_repository_identity_is_error(tmp_path: Path) -> None:
+    _write_minimal_repo(tmp_path)
+    _write(
+        tmp_path / "docs/templates/workflow_handoff.md",
+        _workflow_handoff_template().replace('  repository_url: ""\n', ""),
+    )
+
+    result = checker.run_check(tmp_path)
+
+    assert any(
+        finding.category_id == "handoff_schema_mismatch"
+        and "repository_url" in finding.reason
+        for finding in result.errors
+    )
+
+
 def test_issue_template_missing_required_field_is_error(tmp_path: Path) -> None:
     _write_minimal_repo(tmp_path)
     _write(
@@ -399,6 +419,22 @@ def test_issue_template_missing_required_field_is_error(tmp_path: Path) -> None:
     result = checker.run_check(tmp_path)
 
     assert any(finding.category_id == "prompt_schema_mismatch" for finding in result.errors)
+
+
+def test_issue_template_missing_repository_identity_is_error(tmp_path: Path) -> None:
+    _write_minimal_repo(tmp_path)
+    _write(
+        tmp_path / ".github/ISSUE_TEMPLATE/module_workflow.yml",
+        _issue_template_text().replace("    id: repository_url\n", ""),
+    )
+
+    result = checker.run_check(tmp_path)
+
+    assert any(
+        finding.category_id == "prompt_schema_mismatch"
+        and "repository_url" in finding.reason
+        for finding in result.errors
+    )
 
 
 def test_adr_status_and_index_mismatch_are_errors(tmp_path: Path) -> None:

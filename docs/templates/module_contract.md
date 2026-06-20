@@ -119,6 +119,8 @@ Pasteable prompt:
 
 ```yaml
 workflow_handoff:
+  repository: ""
+  repository_url: ""
   issue: ""
   tracker: ""
   completed_thread: "B"
@@ -126,6 +128,8 @@ workflow_handoff:
   source_artifact: ""
   target_artifact: ""
   risk_tier: ""
+  base_branch: ""
+  target_branch: ""
   branch: ""
   validation:
     - ""

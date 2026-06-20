@@ -72,6 +72,8 @@ CANONICAL_ROLES: dict[str, tuple[str, tuple[str, ...]]] = {
 
 NORMAL_PATH = ("A", "B", "C", "E", "F", "G")
 HANDOFF_BLOCK_KEYS = (
+    "repository",
+    "repository_url",
     "issue",
     "tracker",
     "completed_thread",
@@ -79,14 +81,20 @@ HANDOFF_BLOCK_KEYS = (
     "source_artifact",
     "target_artifact",
     "risk_tier",
+    "base_branch",
+    "target_branch",
     "branch",
     "validation",
     "stop_conditions",
 )
 VALID_NEXT_THREADS = ("A", "B", "C", "D", "E", "F", "G", "none")
 ISSUE_TEMPLATE_IDS = (
+    "repository",
+    "repository_url",
     "source_artifacts",
     "target_artifact",
+    "base_branch",
+    "target_branch",
     "branch",
     "protected_surfaces",
     "validation",

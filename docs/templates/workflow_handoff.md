@@ -13,10 +13,23 @@ Plain-English next step.
 Use the Mythic Edge agent constitution. Act as Codex <role-id>: <role-name> for <issue-or-artifact>. Read <source-artifact> and produce <target-artifact>. <role-specific constraint>.
 ```
 
+Generated local prompts may add this machine-local hint outside public
+`workflow_handoff` blocks:
+
+```text
+Operating repo/worktree:
+`<local path supplied privately for this machine>`
+```
+
+Do not copy local absolute paths into public GitHub issues, PR bodies,
+committed templates, committed docs, or machine-readable handoff blocks.
+
 ## Machine-Readable Handoff
 
 ```yaml
 workflow_handoff:
+  repository: "Tahjali11/Mythic-Edge"
+  repository_url: "https://github.com/Tahjali11/Mythic-Edge"
   issue: "#"
   tracker: ""
   completed_thread: ""
@@ -24,10 +37,16 @@ workflow_handoff:
   source_artifact: ""
   target_artifact: ""
   risk_tier: ""
+  base_branch: ""
+  target_branch: ""
   branch: ""
   internal_project_area: ""
   truth_owner: ""
   bridge_code_status: ""
+  allowed_read_only_references:
+    - repository: ""
+      repository_url: ""
+      purpose: ""
   freshness:
     current_branch: ""
     intended_branch: ""
@@ -59,6 +78,23 @@ The `internal_project_area`, `truth_owner`, and `bridge_code_status` keys are
 optional routing metadata. Leave them empty or omit them when the source
 artifact predates ADR-0006 vocabulary.
 
+Use `repository` and `repository_url` to identify the public GitHub repository
+that owns the handoff. Continuing threads must normalize the local checkout
+remote before mutation and hard stop if it does not match `repository_url`.
+Strip trailing slashes and a trailing `.git` suffix when comparing. Treat
+equivalent GitHub SSH remotes as matching only after converting them to the
+same public HTTPS URL.
+
+Use `base_branch` for the branch the work starts from or compares against,
+`target_branch` for the branch future PR or deployer work should target, and
+`branch` for the current working branch when useful. Preserve `branch` for
+compatibility, but do not rely on it when base and target differ.
+
+Use `allowed_read_only_references` only when a sibling repository may be
+inspected as reference context. It authorizes read-only inspection and summary,
+not edits, staging, commits, pushes, cleanup, generated artifacts, or lifecycle
+changes in that sibling repository.
+
 The `freshness` block is recommended for continuing implementation, review,
 submission, and deployer handoffs when branch state, issue state, worktrees, or
 artifact lifecycle may have changed. Older handoffs without `freshness` remain
@@ -66,3 +102,10 @@ valid historical artifacts, but continuing threads should verify freshness live
 before editing or submitting work. See
 `docs/contracts/workflow_freshness_guard.md` for the advisory verdict and route
 vocabulary.
+
+If repository identity is missing, ambiguous, or mismatched, stop before
+reading beyond approved reference scope, editing, staging, committing, pushing,
+cleaning, stashing, resetting, deleting, or otherwise mutating repository
+content. Report the expected repository, expected `repository_url`, observed
+safe remotes, current branch, and the user action needed to provide the correct
+checkout or repo-scoped handoff.

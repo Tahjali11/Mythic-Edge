@@ -25,6 +25,22 @@ body:
         - `docs/templates/workflow_handoff.md`
         - `docs/templates/current_status.md`
   - type: input
+    id: repository
+    attributes:
+      label: Repository
+      description: GitHub owner/name slug for the repository that owns this issue.
+      placeholder: Tahjali11/Mythic-Edge
+    validations:
+      required: true
+  - type: input
+    id: repository_url
+    attributes:
+      label: Repository URL
+      description: Public HTTPS URL for the repository that owns this issue. Do not include local worktree paths.
+      placeholder: https://github.com/Tahjali11/Mythic-Edge
+    validations:
+      required: true
+  - type: input
     id: tracker
     attributes:
       label: Tracker issue
@@ -132,10 +148,26 @@ body:
     validations:
       required: false
   - type: input
+    id: base_branch
+    attributes:
+      label: Base branch
+      description: Branch the work should start from or compare against.
+      placeholder: main
+    validations:
+      required: false
+  - type: input
+    id: target_branch
+    attributes:
+      label: Target branch
+      description: Branch future PR or deployer work should target.
+      placeholder: main
+    validations:
+      required: false
+  - type: input
     id: branch
     attributes:
-      label: Expected branch
-      description: Branch or base branch expected for follow-up work.
+      label: Working branch
+      description: Current or expected working branch, when different from base/target.
       placeholder: codex/parser-module-audit-suite
     validations:
       required: false
