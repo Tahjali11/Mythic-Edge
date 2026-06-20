@@ -870,6 +870,50 @@
       ]
     },
     {
+      "entry_id": "gameplay_event_ordering_synthetic_sequence_v1",
+      "title": "Gameplay event-ordering synthetic sequence parser evidence",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/498",
+      "authorized_by_contract": "docs/contracts/parser_corpus_gameplay_event_ordering_behavior_uplift.md",
+      "paths": {
+        "gameplay_actions_test": "tests/test_gameplay_actions.py",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py"
+      },
+      "scenario_families": [
+        "gameplay_stress.event_ordering"
+      ],
+      "parser_event_families": [
+        "GameState"
+      ],
+      "parser_claim_families": [
+        "synthetic_parser_observed_sequence_preservation",
+        "game_state_id_sequence_preservation",
+        "timestamp_context_sequence_preservation",
+        "gameplay_action_entry_order_preservation",
+        "event_ordering_synthetic_boundary",
+        "complete_event_sequence_non_claim",
+        "causal_ordering_non_claim",
+        "hidden_action_non_claim",
+        "hidden_card_non_claim",
+        "action_absence_non_claim"
+      ],
+      "coverage_status": "covered_synthetic",
+      "coverage_basis": [
+        "parser_behavior_verified",
+        "fixture_metadata_only"
+      ],
+      "known_gaps": [
+        "This reduced synthetic evidence proves only existing GameState to gameplay_actions.py parser-observed sequence preservation for a bounded synthetic path; it does not prove complete event-sequence truth, causal ordering truth, hidden-action truth, hidden-card truth, opponent intent, action absence, player mistakes, best-line truth, archetype classification, decklist truth, gameplay advice, analytics truth, AI truth, coaching truth, release readiness, production behavior, #388/#381 activation, tracker completion, or full corpus parity."
+      ],
+      "review_notes": [
+        "The #412 gameplay_event_ordering_boundary_report_v1 entry remains report-only non-claim metadata; this additive synthetic entry proves only expected game_state_id, timestamp, and gameplay-action entry order preservation for gameplay_stress.event_ordering. The #496 gameplay_action_attribution_synthetic_action_facts_v1 entry remains action-fact evidence only."
+      ]
+    },
+    {
       "entry_id": "detailed_logs_disabled_synthetic_v1",
       "entry_type": "session_ledger_entry",
       "source_kind": "synthetic_committed_fixture",

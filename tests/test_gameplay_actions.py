@@ -729,6 +729,163 @@ def test_gameplay_actions_preserve_reduced_action_attribution_facts(tmp_path, mo
     assert not (tmp_path / "active_match_actions_latest.json").exists()
 
 
+def test_gameplay_actions_preserve_reduced_event_ordering_sequence(tmp_path, monkeypatch) -> None:
+    _reset_gameplay_state()
+    status_root = _patch_gameplay_paths(tmp_path, monkeypatch)
+    gameplay_actions.bootstrap_gameplay_actions()
+
+    state._CONTEXT.update(
+        {
+            "current_match_id": "match-event-ordering",
+            "current_game_number": 1,
+            "current_player_team": 1,
+        }
+    )
+
+    def card(instance_id, grp_id, zone_id, owner_seat_id, controller_seat_id, card_type):
+        return {
+            "instanceId": instance_id,
+            "grpId": grp_id,
+            "zoneId": zone_id,
+            "type": "GameObjectType_Card",
+            "ownerSeatId": owner_seat_id,
+            "controllerSeatId": controller_seat_id,
+            "cardTypes": [card_type],
+        }
+
+    def game_state_event(game_state_id, second, active_player_seat_id, zones, game_objects, actions):
+        return GameStateEvent(
+            EventMetadata(
+                datetime(2026, 5, 8, 18, 10, second, tzinfo=UTC),
+                f"synthetic-order-{game_state_id}".encode("utf-8"),
+            ),
+            {
+                "game_state_id": game_state_id,
+                "identity": {
+                    "match_id": "match-event-ordering",
+                    "game_number": 1,
+                    "turn_number": 5,
+                    "active_player_seat_id": active_player_seat_id,
+                    "phase": "Phase_Main1",
+                    "step": "Step_None",
+                    "stage": "GameStage_Play",
+                },
+                "system_seat_ids": [1],
+                "zones": zones,
+                "game_objects": game_objects,
+                "annotations": [],
+                "actions": actions,
+            },
+        )
+
+    events = [
+        game_state_event(
+            210,
+            0,
+            1,
+            [
+                {"zoneId": 31, "type": "ZoneType_Hand", "ownerSeatId": 1, "objectInstanceIds": [301, 302]},
+                {"zoneId": 32, "type": "ZoneType_Hand", "ownerSeatId": 2, "objectInstanceIds": [401]},
+                {"zoneId": 41, "type": "ZoneType_Battlefield", "objectInstanceIds": []},
+                {"zoneId": 51, "type": "ZoneType_Stack", "objectInstanceIds": []},
+            ],
+            [
+                card(301, 3101, 31, 1, 1, "CardType_Instant"),
+                card(302, 3102, 31, 1, 1, "CardType_Land"),
+                card(401, 4201, 32, 2, 2, "CardType_Sorcery"),
+            ],
+            [],
+        ),
+        game_state_event(
+            211,
+            5,
+            1,
+            [
+                {"zoneId": 31, "type": "ZoneType_Hand", "ownerSeatId": 1, "objectInstanceIds": [302]},
+                {"zoneId": 32, "type": "ZoneType_Hand", "ownerSeatId": 2, "objectInstanceIds": [401]},
+                {"zoneId": 41, "type": "ZoneType_Battlefield", "objectInstanceIds": []},
+                {"zoneId": 51, "type": "ZoneType_Stack", "objectInstanceIds": [301]},
+            ],
+            [
+                card(301, 3101, 51, 1, 1, "CardType_Instant"),
+                card(302, 3102, 31, 1, 1, "CardType_Land"),
+                card(401, 4201, 32, 2, 2, "CardType_Sorcery"),
+            ],
+            [{"seatId": 1, "action": {"actionType": "ActionType_Cast", "instanceId": 301}}],
+        ),
+        game_state_event(
+            212,
+            9,
+            2,
+            [
+                {"zoneId": 31, "type": "ZoneType_Hand", "ownerSeatId": 1, "objectInstanceIds": [302]},
+                {"zoneId": 32, "type": "ZoneType_Hand", "ownerSeatId": 2, "objectInstanceIds": []},
+                {"zoneId": 41, "type": "ZoneType_Battlefield", "objectInstanceIds": []},
+                {"zoneId": 51, "type": "ZoneType_Stack", "objectInstanceIds": [301, 401]},
+            ],
+            [
+                card(301, 3101, 51, 1, 1, "CardType_Instant"),
+                card(302, 3102, 31, 1, 1, "CardType_Land"),
+                card(401, 4201, 51, 2, 2, "CardType_Sorcery"),
+            ],
+            [{"seatId": 2, "action": {"actionType": "ActionType_Cast", "instanceId": 401}}],
+        ),
+        game_state_event(
+            213,
+            13,
+            1,
+            [
+                {"zoneId": 31, "type": "ZoneType_Hand", "ownerSeatId": 1, "objectInstanceIds": []},
+                {"zoneId": 32, "type": "ZoneType_Hand", "ownerSeatId": 2, "objectInstanceIds": []},
+                {"zoneId": 41, "type": "ZoneType_Battlefield", "objectInstanceIds": [302]},
+                {"zoneId": 51, "type": "ZoneType_Stack", "objectInstanceIds": [301, 401]},
+            ],
+            [
+                card(301, 3101, 51, 1, 1, "CardType_Instant"),
+                card(302, 3102, 41, 1, 1, "CardType_Land"),
+                card(401, 4201, 51, 2, 2, "CardType_Sorcery"),
+            ],
+            [{"seatId": 1, "action": {"actionType": "ActionType_Play", "instanceId": 302}}],
+        ),
+    ]
+
+    assert [event.payload["game_state_id"] for event in events] == [210, 211, 212, 213]
+    for event in events:
+        gameplay_actions.observe_event(event)
+
+    payload = json.loads((status_root / "active_match_actions_latest.json").read_text(encoding="utf-8"))
+    entries = payload["entries"]
+
+    assert payload["match_id"] == "match-event-ordering"
+    assert payload["total_entries"] == 3
+    assert [entry["game_state_id"] for entry in entries] == [211, 212, 213]
+    assert [entry["timestamp"] for entry in entries] == [
+        "2026-05-08T18:10:05+00:00",
+        "2026-05-08T18:10:09+00:00",
+        "2026-05-08T18:10:13+00:00",
+    ]
+    assert [entry["action_type"] for entry in entries] == ["spell_cast", "spell_cast", "land_played"]
+    assert [entry["actor_relation"] for entry in entries] == ["local", "opponent", "local"]
+    assert [entry["instance_id"] for entry in entries] == [301, 401, 302]
+    assert [entry["grp_id"] for entry in entries] == [3101, 4201, 3102]
+    assert [entry["from_zone_type"] for entry in entries] == [
+        "ZoneType_Hand",
+        "ZoneType_Hand",
+        "ZoneType_Hand",
+    ]
+    assert [entry["to_zone_type"] for entry in entries] == [
+        "ZoneType_Stack",
+        "ZoneType_Stack",
+        "ZoneType_Battlefield",
+    ]
+    assert [entry["raw_action_types"] for entry in entries] == [
+        ["ActionType_Cast@seat1"],
+        ["ActionType_Cast@seat2"],
+        ["ActionType_Play@seat1"],
+    ]
+    assert not (tmp_path / "active_match_actions_latest.json").exists()
+
+
 def test_gameplay_actions_classify_play_land_from_annotation_chain(tmp_path, monkeypatch) -> None:
     _reset_gameplay_state()
     status_root = tmp_path / "status"
