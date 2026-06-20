@@ -20,6 +20,7 @@ REPORT_SCHEMA_VERSION = "parser_corpus_compatibility_report.v1"
 READINESS_METRICS_SCHEMA_VERSION = "parser_corpus_readiness_metrics.v1"
 COMPETITIVE_CORE_SCHEMA_VERSION = "parser_corpus_competitive_core.v1"
 BEHAVIOR_APPLICABILITY_SCHEMA_VERSION = "parser_corpus_behavior_applicability.v1"
+EVIDENCE_PIPELINE_PLANNING_SCHEMA_VERSION = "parser_evidence_pipeline_planning.v1"
 
 CORPUS_ID = "mythic_edge_parser_reliability_corpus_v1"
 SCENARIO_FAMILY_VERSION = "parser_corpus_scenario_family.v1"
@@ -584,6 +585,12 @@ def _readiness_metrics(matrix: Sequence[Mapping[str, Any]], summary: Mapping[str
         ),
         "competitive_core": _competitive_core_metrics(matrix),
         "behavior_applicability": _behavior_applicability_metrics(matrix),
+        "evidence_pipeline_planning": _evidence_pipeline_planning_metrics(
+            matrix,
+            summary,
+            classification_complete=classification_complete,
+            strict_parser_behavior_gate_ready=parser_behavior_ready,
+        ),
     }
 
 
@@ -700,6 +707,75 @@ def _behavior_applicability_verdict(applicability_ready: bool) -> str:
     if applicability_ready:
         return "applicable_families_behavior_ready"
     return "applicable_families_not_behavior_ready"
+
+
+def _evidence_pipeline_planning_metrics(
+    matrix: Sequence[Mapping[str, Any]],
+    summary: Mapping[str, int],
+    *,
+    classification_complete: bool,
+    strict_parser_behavior_gate_ready: bool,
+) -> dict[str, Any]:
+    report_only_with_rationale = _family_count_with_rationale(matrix, status="covered_report_only")
+    blocked_private_with_rationale = _family_count_with_rationale(matrix, status="blocked_private_evidence")
+    blocked_external_with_rationale = _family_count_with_rationale(matrix, status="blocked_external_boundary")
+    report_preconditions_ready = (
+        classification_complete
+        and summary.get("missing", 0) == 0
+        and summary.get("partial", 0) == 0
+        and summary.get("deferred", 0) == 0
+        and report_only_with_rationale == summary.get("covered_report_only", 0)
+        and blocked_private_with_rationale == summary.get("blocked_private_evidence", 0)
+        and blocked_external_with_rationale == summary.get("blocked_external_boundary", 0)
+    )
+    return {
+        "schema_version": EVIDENCE_PIPELINE_PLANNING_SCHEMA_VERSION,
+        "report_preconditions_ready_for_issue_388": report_preconditions_ready,
+        "evidence_pipeline_planning_ready_for_issue_388": False,
+        "readiness_verdict": _evidence_pipeline_planning_verdict(report_preconditions_ready),
+        "classification_complete": classification_complete,
+        "missing_families": summary.get("missing", 0),
+        "partial_families": summary.get("partial", 0),
+        "deferred_families": summary.get("deferred", 0),
+        "strict_parser_behavior_gate_ready": strict_parser_behavior_gate_ready,
+        "strict_gate": "pipeline_activation_ready_for_issue_388",
+        "report_only_families_with_rationale": report_only_with_rationale,
+        "blocked_private_evidence_families_with_rationale": blocked_private_with_rationale,
+        "blocked_external_boundary_families_with_rationale": blocked_external_with_rationale,
+        "lifecycle_approval_required": True,
+        "tracker_158_closeout_required": True,
+        "tracker_388_body_update_required": True,
+        "user_approval_required_to_start_issue_381": True,
+        "allowed_scope": "evidence_pipeline_tooling_planning_only",
+        "non_claims": [
+            "parser_behavior_ready",
+            "strict_pipeline_activation_ready",
+            "fixture_promotion_ready",
+            "private_smoke_success",
+            "release_readiness",
+            "production_readiness",
+            "analytics_truth",
+            "ai_truth",
+            "coaching_truth",
+            "full_parser_regression_parity",
+        ],
+    }
+
+
+def _family_count_with_rationale(matrix: Sequence[Mapping[str, Any]], *, status: str) -> int:
+    return sum(
+        1
+        for row in matrix
+        if _string(row.get("coverage_status")) == status
+        and bool(_string_list(row.get("notes")))
+        and bool(_string_list(row.get("mythic_edge_entries")))
+    )
+
+
+def _evidence_pipeline_planning_verdict(report_preconditions_ready: bool) -> str:
+    if report_preconditions_ready:
+        return "report_preconditions_ready_lifecycle_approval_pending"
+    return "report_preconditions_not_ready"
 
 
 def _report_status(validation_errors: Sequence[str], summary: Mapping[str, int]) -> str:
