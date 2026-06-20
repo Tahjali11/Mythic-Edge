@@ -785,6 +785,49 @@
       ]
     },
     {
+      "entry_id": "gameplay_action_attribution_synthetic_action_facts_v1",
+      "title": "Gameplay action-attribution synthetic action-fact parser evidence",
+      "entry_type": "session_ledger_entry",
+      "source_kind": "synthetic_committed_fixture",
+      "commit_status": "committed",
+      "privacy_class": "synthetic_committable",
+      "sanitization_status": "synthetic",
+      "linked_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/496",
+      "authorized_by_contract": "docs/contracts/parser_corpus_gameplay_action_attribution_behavior_uplift.md",
+      "paths": {
+        "gameplay_actions_test": "tests/test_gameplay_actions.py",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py"
+      },
+      "scenario_families": [
+        "gameplay_stress.action_attribution"
+      ],
+      "parser_event_families": [
+        "GameState"
+      ],
+      "parser_claim_families": [
+        "synthetic_action_fact_extraction",
+        "actor_relation_preservation",
+        "zone_movement_attribution",
+        "raw_action_type_preservation",
+        "card_identity_hint_preservation",
+        "action_attribution_synthetic_boundary",
+        "causal_truth_non_claim",
+        "hidden_action_non_claim",
+        "event_ordering_non_claim"
+      ],
+      "coverage_status": "covered_synthetic",
+      "coverage_basis": [
+        "parser_behavior_verified",
+        "fixture_metadata_only"
+      ],
+      "known_gaps": [
+        "This reduced synthetic evidence proves only existing GameState to gameplay_actions.py preservation of bounded local and opponent action facts; it does not prove causal action truth, hidden actions, hidden cards, opponent intent, why an action happened, complete event ordering, action absence, player mistakes, best-line truth, archetype classification, decklist truth, gameplay advice, analytics truth, AI truth, coaching truth, release readiness, production behavior, #388/#381 activation, tracker completion, or full corpus parity."
+      ],
+      "review_notes": [
+        "The #410 gameplay_action_attribution_boundary_report_v1 entry remains report-only non-claim metadata; this additive synthetic entry proves only existing action type, actor relation, timing context, zone movement, raw action label, and card identity hint preservation for gameplay_stress.action_attribution."
+      ]
+    },
+    {
       "entry_id": "gameplay_event_ordering_boundary_report_v1",
       "entry_type": "session_ledger_entry",
       "source_kind": "committed_count_only_report",

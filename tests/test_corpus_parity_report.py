@@ -371,6 +371,42 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
     assert "opponent-card observations" in gameplay_action_attribution["review_notes"][0]
     assert "analytics gameplay-action ingest" in gameplay_action_attribution["review_notes"][0]
     assert "do not prove action-attribution stress support" in gameplay_action_attribution["review_notes"][0]
+    gameplay_action_attribution_synthetic = _manifest_entry(
+        manifest,
+        "gameplay_action_attribution_synthetic_action_facts_v1",
+    )
+    assert gameplay_action_attribution_synthetic["entry_type"] == "session_ledger_entry"
+    assert gameplay_action_attribution_synthetic["coverage_status"] == "covered_synthetic"
+    assert gameplay_action_attribution_synthetic["scenario_families"] == [
+        "gameplay_stress.action_attribution"
+    ]
+    assert gameplay_action_attribution_synthetic["parser_event_families"] == ["GameState"]
+    assert gameplay_action_attribution_synthetic["parser_claim_families"] == [
+        "synthetic_action_fact_extraction",
+        "actor_relation_preservation",
+        "zone_movement_attribution",
+        "raw_action_type_preservation",
+        "card_identity_hint_preservation",
+        "action_attribution_synthetic_boundary",
+        "causal_truth_non_claim",
+        "hidden_action_non_claim",
+        "event_ordering_non_claim",
+    ]
+    assert gameplay_action_attribution_synthetic["coverage_basis"] == [
+        "parser_behavior_verified",
+        "fixture_metadata_only",
+    ]
+    assert gameplay_action_attribution_synthetic["paths"] == {
+        "gameplay_actions_test": "tests/test_gameplay_actions.py",
+        "corpus_parity_test": "tests/test_corpus_parity_report.py",
+    }
+    assert "bounded local and opponent action facts" in gameplay_action_attribution_synthetic["known_gaps"][0]
+    assert "does not prove causal action truth" in gameplay_action_attribution_synthetic["known_gaps"][0]
+    assert "complete event ordering" in gameplay_action_attribution_synthetic["known_gaps"][0]
+    assert "#388/#381 activation" in gameplay_action_attribution_synthetic["known_gaps"][0]
+    assert "#410 gameplay_action_attribution_boundary_report_v1 entry remains report-only" in (
+        gameplay_action_attribution_synthetic["review_notes"][0]
+    )
     gameplay_event_ordering = _manifest_entry(manifest, "gameplay_event_ordering_boundary_report_v1")
     assert gameplay_event_ordering["coverage_status"] == "covered_report_only"
     assert gameplay_event_ordering["scenario_families"] == ["gameplay_stress.event_ordering"]
@@ -1948,6 +1984,61 @@ def test_committed_manifest_and_session_ledger_validate_cleanly() -> None:
         "private_match_context_included": False,
         "credentials_tokens_keys_webhooks_included": False,
     }
+    gameplay_action_attribution_synthetic_session = _session_entry(
+        session_ledger,
+        "gameplay_action_attribution_synthetic_action_facts_v1",
+    )
+    assert gameplay_action_attribution_synthetic_session["format_family"] == "gameplay_stress"
+    assert gameplay_action_attribution_synthetic_session["match_shape"] == (
+        "gameplay_action_attribution_synthetic_action_facts"
+    )
+    assert gameplay_action_attribution_synthetic_session["record_summary"] == (
+        "committed_synthetic_action_fact_parser_tests"
+    )
+    assert gameplay_action_attribution_synthetic_session["parser_coverage"] == {
+        "event_families": {"GameState": 1},
+        "unknown_entries": 0,
+        "truncation_count": 0,
+        "synthetic_action_fact_fixtures": 1,
+        "gameplay_action_entries_asserted": 2,
+        "local_actor_relation_assertions": 1,
+        "opponent_actor_relation_assertions": 1,
+        "raw_action_type_assertions": 2,
+        "zone_movement_assertions": 2,
+        "card_identity_hint_assertions": 2,
+        "hidden_action_claims": 0,
+        "hidden_card_claims": 0,
+        "causal_intent_claims": 0,
+        "event_ordering_claims": 0,
+        "player_mistake_claims": 0,
+    }
+    assert gameplay_action_attribution_synthetic_session["game_rows"] == {
+        "count": 0,
+        "result_shape": "not_applicable",
+    }
+    assert "local and opponent action-fact preservation only" in (
+        gameplay_action_attribution_synthetic_session["known_gaps"][0]
+    )
+    assert "hidden-action truth" in gameplay_action_attribution_synthetic_session["known_gaps"][0]
+    assert "complete event ordering" in gameplay_action_attribution_synthetic_session["known_gaps"][0]
+    assert "player mistakes" in gameplay_action_attribution_synthetic_session["known_gaps"][0]
+    assert gameplay_action_attribution_synthetic_session["report_only_redactions"] == {
+        "raw_log_lines_included": False,
+        "private_paths_included": False,
+        "raw_payloads_included": False,
+        "external_logs_included": False,
+        "private_action_artifacts_included": False,
+        "private_smoke_outputs_included": False,
+        "generated_private_runtime_artifacts_included": False,
+        "decklists_included": False,
+        "deck_names_included": False,
+        "card_choices_included": False,
+        "sideboard_choices_included": False,
+        "strategy_notes_included": False,
+        "opponent_identifiers_included": False,
+        "private_match_context_included": False,
+        "credentials_tokens_keys_webhooks_included": False,
+    }
     gameplay_event_ordering_session = _session_entry(
         session_ledger,
         "gameplay_event_ordering_boundary_report_v1",
@@ -2019,8 +2110,8 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     assert report["summary"] == {
         "total_scenario_families": len(corpus.SCENARIO_FAMILIES),
         "covered_committed": 6,
-        "covered_synthetic": 17,
-        "covered_report_only": 16,
+        "covered_synthetic": 18,
+        "covered_report_only": 15,
         "partial": 0,
         "missing": 0,
         "deferred": 0,
@@ -2032,11 +2123,11 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
         "schema_version": "parser_corpus_readiness_metrics.v1",
         "classification_complete": True,
         "parser_behavior_ready": False,
-        "parser_behavior_ready_family_count": 22,
+        "parser_behavior_ready_family_count": 23,
         "total_scenario_families": len(corpus.SCENARIO_FAMILIES),
         "committed_parser_behavior_families": 5,
-        "synthetic_parser_behavior_families": 17,
-        "report_only_families": 16,
+        "synthetic_parser_behavior_families": 18,
+        "report_only_families": 15,
         "blocked_families": 6,
         "blocked_private_evidence_families": 2,
         "blocked_external_boundary_families": 4,
@@ -2045,7 +2136,7 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
         "deferred_families": 0,
         "pipeline_activation_ready_for_issue_388": False,
         "pipeline_activation_blockers": [
-            "report_only_families:16",
+            "report_only_families:15",
             "blocked_private_evidence_families:2",
             "blocked_external_boundary_families:4",
         ],
@@ -2054,17 +2145,17 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
             "schema_version": "parser_corpus_competitive_core.v1",
             "status": "classification_complete_not_behavior_ready",
             "total_families": 16,
-            "parser_behavior_ready_family_count": 11,
-            "report_only_family_count": 2,
+            "parser_behavior_ready_family_count": 12,
+            "report_only_family_count": 1,
             "blocked_family_count": 3,
         },
         "behavior_applicability": {
             "schema_version": "parser_corpus_behavior_applicability.v1",
             "parser_behavior_applicable_family_count": 37,
-            "parser_behavior_applicable_ready_family_count": 22,
-            "parser_behavior_applicable_not_ready_family_count": 15,
+            "parser_behavior_applicable_ready_family_count": 23,
+            "parser_behavior_applicable_not_ready_family_count": 14,
             "parser_behavior_not_applicable_family_count": 8,
-            "parser_behavior_applicable_report_only_family_count": 10,
+            "parser_behavior_applicable_report_only_family_count": 9,
             "parser_behavior_applicable_blocked_private_evidence_family_count": 1,
             "parser_behavior_applicable_blocked_external_boundary_family_count": 4,
             "parser_behavior_applicability_ready": False,
@@ -2076,8 +2167,8 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     }
     assert set(applicability_by_family) == set(corpus.SCENARIO_FAMILIES)
     assert Counter(applicability_by_family.values()) == {
-        "parser_behavior_applicable_ready": 22,
-        "parser_behavior_applicable_not_ready": 10,
+        "parser_behavior_applicable_ready": 23,
+        "parser_behavior_applicable_not_ready": 9,
         "parser_behavior_applicable_blocked_private": 1,
         "parser_behavior_applicable_blocked_external": 4,
         "non_behavior_applicability_excluded": 8,
@@ -2524,9 +2615,12 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     }
     assert _matrix_row(report, "gameplay_stress.action_attribution") == {
         "scenario_family": "gameplay_stress.action_attribution",
-        "coverage_status": "covered_report_only",
-        "coverage_basis": ["fixture_metadata_only"],
-        "mythic_edge_entries": ["gameplay_action_attribution_boundary_report_v1"],
+        "coverage_status": "covered_synthetic",
+        "coverage_basis": ["fixture_metadata_only", "parser_behavior_verified"],
+        "mythic_edge_entries": [
+            "gameplay_action_attribution_boundary_report_v1",
+            "gameplay_action_attribution_synthetic_action_facts_v1",
+        ],
         "external_reference_status": "reference_category_not_checked",
         "notes": [
             "Gameplay action-attribution coverage is report-only boundary metadata: gameplay-action "
@@ -2534,7 +2628,11 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
             "ingest, evidence-ledger provenance, and public taxonomy metadata do not prove "
             "action-attribution stress support, causal truth, hidden actions, hidden cards, opponent "
             "intent, event ordering, player mistakes, gameplay advice, analytics truth, AI truth, "
-            "coaching truth, release readiness, or production behavior."
+            "coaching truth, release readiness, or production behavior.",
+            "The #410 gameplay_action_attribution_boundary_report_v1 entry remains report-only non-claim "
+            "metadata; this additive synthetic entry proves only existing action type, actor relation, "
+            "timing context, zone movement, raw action label, and card identity hint preservation for "
+            "gameplay_stress.action_attribution.",
         ],
     }
     assert _matrix_row(report, "gameplay_stress.event_ordering") == {
@@ -2716,7 +2814,7 @@ def test_cli_writes_report_only_when_output_is_explicit(tmp_path: Path, capsys: 
     assert exit_code == 0
     assert (
         "Corpus parity report: partial_coverage_map_ready "
-        "(45 families; committed=6, synthetic=17, report_only=16, "
+        "(45 families; committed=6, synthetic=18, report_only=15, "
         "blocked=6 [private=2, external=4], missing=0, parser_behavior_ready=no)"
     ) in captured.out
     assert "Report written: <outside_repo>" in captured.out
