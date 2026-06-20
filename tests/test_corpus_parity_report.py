@@ -2575,6 +2575,38 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
             "parser_behavior_applicability_ready": False,
             "parser_behavior_applicability_verdict": "applicable_families_not_behavior_ready",
         },
+        "evidence_pipeline_planning": {
+            "schema_version": "parser_evidence_pipeline_planning.v1",
+            "report_preconditions_ready_for_issue_388": True,
+            "evidence_pipeline_planning_ready_for_issue_388": False,
+            "readiness_verdict": "report_preconditions_ready_lifecycle_approval_pending",
+            "classification_complete": True,
+            "missing_families": 0,
+            "partial_families": 0,
+            "deferred_families": 0,
+            "strict_parser_behavior_gate_ready": False,
+            "strict_gate": "pipeline_activation_ready_for_issue_388",
+            "report_only_families_with_rationale": 11,
+            "blocked_private_evidence_families_with_rationale": 2,
+            "blocked_external_boundary_families_with_rationale": 4,
+            "lifecycle_approval_required": True,
+            "tracker_158_closeout_required": True,
+            "tracker_388_body_update_required": True,
+            "user_approval_required_to_start_issue_381": True,
+            "allowed_scope": "evidence_pipeline_tooling_planning_only",
+            "non_claims": [
+                "parser_behavior_ready",
+                "strict_pipeline_activation_ready",
+                "fixture_promotion_ready",
+                "private_smoke_success",
+                "release_readiness",
+                "production_readiness",
+                "analytics_truth",
+                "ai_truth",
+                "coaching_truth",
+                "full_parser_regression_parity",
+            ],
+        },
     }
     applicability_by_family = {
         row["scenario_family"]: corpus._behavior_applicability_class(row) for row in report["coverage_matrix"]
@@ -2610,6 +2642,12 @@ def test_build_report_maps_corpus_coverage_without_parser_truth_claims() -> None
     assert applicability_by_family["log_runtime.rotation"] == "parser_behavior_applicable_ready"
     assert applicability_by_family["log_runtime.unknown_entry"] == "parser_behavior_applicable_ready"
     assert report["readiness_metrics"]["pipeline_activation_ready_for_issue_388"] is False
+    planning_metrics = report["readiness_metrics"]["evidence_pipeline_planning"]
+    assert planning_metrics["report_preconditions_ready_for_issue_388"] is True
+    assert planning_metrics["evidence_pipeline_planning_ready_for_issue_388"] is False
+    assert planning_metrics["strict_parser_behavior_gate_ready"] is False
+    assert planning_metrics["allowed_scope"] == "evidence_pipeline_tooling_planning_only"
+    assert planning_metrics["user_approval_required_to_start_issue_381"] is True
     assert _matrix_row(report, "core_gameplay.standard_bo1") == {
         "scenario_family": "core_gameplay.standard_bo1",
         "coverage_status": "covered_committed",
