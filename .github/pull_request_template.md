@@ -107,6 +107,8 @@ and contract.
 
 ```yaml
 workflow_handoff:
+  repository: ""
+  repository_url: ""
   issue: ""
   tracker: ""
   completed_thread: "F"
@@ -114,6 +116,8 @@ workflow_handoff:
   source_artifact: ""
   target_artifact: "draft_pull_request"
   risk_tier: ""
+  base_branch: ""
+  target_branch: ""
   branch: ""
   validation:
     - ""
