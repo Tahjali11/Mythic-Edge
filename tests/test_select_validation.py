@@ -190,6 +190,14 @@ def test_selector_changes_select_selector_tests() -> None:
     assert commands["select_validation_tests"] == "python3 -m pytest -q tests/test_select_validation.py"
 
 
+def test_mapping_constants_are_loaded_through_selector_entrypoint() -> None:
+    assert (
+        "tools/select_validation.py",
+        "python3 -m pytest -q tests/test_select_validation.py",
+    ) in selector.FOCUSED_TEST_MAPPINGS
+    assert "parser_surface" in selector.PROTECTED_CATEGORY_GROUPS
+
+
 def test_hardening_report_generator_changes_select_focused_tests() -> None:
     result = selector.run_selector_for_paths(
         ["tools/generate_hardening_report.py", "tests/test_hardening_report_generator.py"],
