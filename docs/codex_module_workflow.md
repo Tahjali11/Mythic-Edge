@@ -17,6 +17,31 @@ wrappers for the next thread.
 
 Architecture Decision Records (ADRs) under `docs/decisions/` record durable cross-project decisions that future issues, contracts, reviews, and PRs should cite when relevant. ADRs do not replace issue-scoped contracts and do not authorize protected-surface changes by implication.
 
+## Start / Intake Gate
+
+Before activating non-trivial work, verify the repository active slot. Mythic
+Edge repositories default to one active issue or lane at a time.
+
+The active slot is owned by the repository, not by a local worktree. GitHub
+issues, PRs, branch heads, merge commits, current contracts, accepted ADRs,
+and repo governance docs outrank local status indexes, stale prompts, parked
+notes, local Codex skills, chat memory, and worktree names.
+
+A second active lane may start only with a named, scoped, expiring exception.
+The exception record should name the repository, active issue or lane, blocked
+active issue or PR if applicable, reason, allowed scope, authorization source,
+record location, and expiration condition.
+
+Allowed exception names are `security_hotfix`, `privacy_or_raw_log_leak`,
+`data_loss_or_corruption`, `ci_blocking_all_work`,
+`dependency_security_update`, `blocked_lane_unblocker`,
+`repo_bootstrap_or_split`, and `explicit_user_override`.
+
+A tracker-selected next lane is queued work, not active work, until the user or
+a current workflow artifact starts it or assigns it the active slot. Parked or
+deferred work leaves the active slot only when no active PR and no current
+implementation, review, submission, deployment, or closeout work is expected.
+
 ## Source Of Truth
 
 The parser and state layer own MTGA event interpretation and normalized
