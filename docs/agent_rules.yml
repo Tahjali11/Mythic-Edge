@@ -142,6 +142,7 @@ protected_surfaces:
     - issue_lifecycle
     - pr_lifecycle
     - tracker_hygiene
+    - active_lane_activation
     - branch_policy
     - validation_gates
 
@@ -526,6 +527,75 @@ issue_lifecycle:
     - validation_or_ci_result
     - tracker_status_or_next_queue_item
 
+lane_activation_policy:
+  source_adr: docs/decisions/ADR-0008-repo-wip-1-lane-activation-policy.md
+  source_issue: https://github.com/Tahjali11/Mythic-Edge/issues/543
+  default: one_active_issue_or_lane_per_repository
+  active_slot_owner: repository_not_local_worktree
+  authority_over_local_evidence:
+    - current_user_instruction
+    - github_issue_state
+    - github_pr_state
+    - branch_heads
+    - merge_commits
+    - current_contracts
+    - accepted_adrs
+    - repo_governance_docs
+  local_evidence_not_authority:
+    - local_worktree_names
+    - local_status_indexes
+    - stale_prompts
+    - parked_notes
+    - local_codex_skills
+    - handoffs_without_current_state_verification
+    - chat_memory
+  lane_status_values:
+    - active
+    - parked
+    - deferred
+    - tracker_selected_next_lane
+    - blocked_no_current_work
+    - blocked_current_work_expected
+    - cancelled
+    - complete
+  named_exceptions:
+    - security_hotfix
+    - privacy_or_raw_log_leak
+    - data_loss_or_corruption
+    - ci_blocking_all_work
+    - dependency_security_update
+    - blocked_lane_unblocker
+    - repo_bootstrap_or_split
+    - explicit_user_override
+  exception_required_fields:
+    - exception_name
+    - repository
+    - active_issue_or_lane
+    - blocked_active_issue_or_pr
+    - reason
+    - allowed_scope
+    - expiration_condition
+    - authorized_by
+    - recorded_in
+  clearing_conditions:
+    - source_issue_closed_after_merge_or_deployer_closeout
+    - source_pr_merged_and_completion_evidence_recorded
+    - source_pr_closed_and_issue_cancelled_parked_deferred_or_reassigned
+    - lane_explicitly_parked_or_deferred_with_no_current_work
+    - lane_blocked_awaiting_external_or_user_evidence_and_current_work_paused
+    - narrow_blocked_lane_unblocker_exception_recorded
+    - user_explicitly_cancels_reassigns_or_overrides_active_slot
+    - repo_bootstrap_or_split_expiration_condition_reached
+    - stale_worktree_classified_as_local_cleanup_only
+  tracker_selected_next_lane_rule: queued_not_active_until_started_or_assigned
+  active_pr_rule: open_pr_keeps_source_lane_active_until_merged_closed_parked_or_deferred
+  sibling_repo_rule: read_only_until_repo_scoped_handoff_or_explicit_user_authorization
+  error_behavior:
+    missing_repository_identity: hard_stop_before_mutation
+    remote_mismatch: hard_stop_before_mutation
+    ambiguous_parked_or_deferred_status: treat_as_active_until_current_authority_records_otherwise
+    existing_active_lane_without_exception: route_to_A_or_B_or_ask_for_explicit_override
+
 pr_lifecycle:
   default_state: draft
   module_audit_base: codex/parser-module-audit-suite
@@ -636,10 +706,24 @@ workflow_handoff_schema:
     - bridge_code_status
     - allowed_read_only_references
     - freshness
+    - lane_activation
   public_path_rule: Do not include local absolute paths in public workflow_handoff blocks.
   local_prompt_rule: Generated local prompts may include Operating repo/worktree outside public workflow_handoff blocks.
   mismatch_behavior: Hard stop before repository mutation when the local checkout remote cannot be verified against repository_url.
   sibling_reference_rule: Sibling repositories are read-only unless explicitly listed in allowed_read_only_references or routed through their own repo-scoped handoff.
+  lane_activation_schema:
+    repo: string
+    active_issue_or_lane: string
+    lane_status: string
+    tracker_selected_next_lane: string
+    exception:
+      name: string
+      blocked_active_issue_or_pr: string
+      reason: string
+      allowed_scope: string
+      expiration_condition: string
+      authorized_by: string
+      recorded_in: string
 
 current_status_schema:
   repo_status:

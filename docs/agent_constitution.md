@@ -377,6 +377,30 @@ Expected workflow:
 
 ## Workflow Gates
 
+Before starting non-trivial repo work, identify the repository active slot.
+Mythic Edge repositories default to one active issue or lane at a time.
+
+The active slot is repo scoped, not worktree scoped. Current user
+instructions, GitHub issue state, PR state, branch heads, merge commits,
+current contracts, accepted ADRs, and repo governance docs outrank local
+workflow indexes, parked notes, stale prompts, local Codex skills, chat
+memory, and local worktree names.
+
+A second active lane may start only when a named exception is recorded with
+repository, active issue or lane, reason, allowed scope, authorization source,
+record location, and expiration condition. Valid exception names are
+`security_hotfix`, `privacy_or_raw_log_leak`, `data_loss_or_corruption`,
+`ci_blocking_all_work`, `dependency_security_update`,
+`blocked_lane_unblocker`, `repo_bootstrap_or_split`, and
+`explicit_user_override`.
+
+Parked or deferred issues do not count as active WIP only when that status is
+explicitly recorded and no active PR, implementation, review, submission,
+deployment, or closeout work is expected. A tracker-selected next lane is
+queued work, not the active lane, until a user or current workflow artifact
+starts it or explicitly assigns it the active slot. An active PR normally keeps
+the source lane active until merged, closed, or explicitly parked or deferred.
+
 Thinker work must happen before module contract work for medium-risk or
 high-risk changes.
 

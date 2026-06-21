@@ -13,6 +13,33 @@ Link to the originating request or GitHub issue.
 
 Link to the tracker issue, if any.
 
+## Lane Activation
+
+Name the repo active slot and whether this issue is active, parked, deferred,
+or only tracker-selected next work.
+
+```yaml
+lane_activation:
+  repo: "Tahjali11/Mythic-Edge"
+  active_issue_or_lane: ""
+  lane_status: ""
+  tracker_selected_next_lane: ""
+  exception:
+    name: ""
+    blocked_active_issue_or_pr: ""
+    reason: ""
+    allowed_scope: ""
+    expiration_condition: ""
+    authorized_by: ""
+    recorded_in: ""
+```
+
+Use an exception only for a named, scoped, expiring second lane. Valid
+exception names are `security_hotfix`, `privacy_or_raw_log_leak`,
+`data_loss_or_corruption`, `ci_blocking_all_work`,
+`dependency_security_update`, `blocked_lane_unblocker`,
+`repo_bootstrap_or_split`, and `explicit_user_override`.
+
 ## What The Code Is Supposed To Do
 
 Describe the intended behavior in plain English.
@@ -133,6 +160,19 @@ workflow_handoff:
   base_branch: ""
   target_branch: ""
   branch: ""
+  lane_activation:
+    repo: ""
+    active_issue_or_lane: ""
+    lane_status: ""
+    tracker_selected_next_lane: ""
+    exception:
+      name: ""
+      blocked_active_issue_or_pr: ""
+      reason: ""
+      allowed_scope: ""
+      expiration_condition: ""
+      authorized_by: ""
+      recorded_in: ""
   validation:
     - ""
   stop_conditions:

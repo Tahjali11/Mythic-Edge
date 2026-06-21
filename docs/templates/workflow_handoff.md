@@ -43,6 +43,19 @@ workflow_handoff:
   internal_project_area: ""
   truth_owner: ""
   bridge_code_status: ""
+  lane_activation:
+    repo: "Tahjali11/Mythic-Edge"
+    active_issue_or_lane: ""
+    lane_status: ""
+    tracker_selected_next_lane: ""
+    exception:
+      name: ""
+      blocked_active_issue_or_pr: ""
+      reason: ""
+      allowed_scope: ""
+      expiration_condition: ""
+      authorized_by: ""
+      recorded_in: ""
   allowed_read_only_references:
     - repository: ""
       repository_url: ""
@@ -77,6 +90,13 @@ constitution-tracking issues. Leave it empty when no tracker exists.
 The `internal_project_area`, `truth_owner`, and `bridge_code_status` keys are
 optional routing metadata. Leave them empty or omit them when the source
 artifact predates ADR-0006 vocabulary.
+
+The `lane_activation` block is optional routing metadata for the repo WIP-1
+policy. Use it to record the repo active slot, whether the lane is active,
+parked, deferred, tracker-selected, blocked, cancelled, or complete, and any
+named exception that allows a second active lane. Exception records should name
+scope and expiration; local worktree names or local status indexes are not
+enough by themselves.
 
 Use `repository` and `repository_url` to identify the public GitHub repository
 that owns the handoff. Continuing threads must normalize the local checkout

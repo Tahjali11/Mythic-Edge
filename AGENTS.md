@@ -29,6 +29,14 @@ constitution feedback packets. It proposes amendments, consolidations, and
 watch-list items, but it does not directly rewrite authority docs, merge PRs,
 or replace the normal A-G module workflow.
 
+Before starting non-trivial work, verify the repository active lane. Mythic
+Edge repositories default to one active issue or lane at a time. A second lane
+requires a named, scoped, expiring exception recorded in current repo authority
+such as a user instruction, issue, contract, PR, tracker comment, handoff, or
+ADR. Local worktrees, stale prompts, local status indexes, local skills, and
+chat memory are evidence only; they do not override current GitHub and repo
+governance.
+
 ## Non-Negotiables
 
 - Never commit secrets, webhook URLs, API keys, tokens, credentials, local MTGA
