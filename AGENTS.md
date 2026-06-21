@@ -54,6 +54,13 @@ or replace the normal A-G module workflow.
 - Do not merge PRs unless acting as Codex G with explicit user approval and all
   deployer gates satisfied.
 
+## Wizards Policy And Fair-Play Boundary
+
+Codex must not decide legal compliance for Mythic Edge. If work touches Wizards
+policy, MTG Arena fair play, Wizards IP, hidden information, client internals,
+automation, cloud/shared data, commercial features, or public user data, Codex
+must stop and route the issue to the human owner before implementation.
+
 ## Truth Model
 
 Truth ownership flows downward:
