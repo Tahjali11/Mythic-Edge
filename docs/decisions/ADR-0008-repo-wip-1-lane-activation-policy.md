@@ -1,6 +1,6 @@
 # ADR-0008: Repo WIP-1 Lane Activation Policy
 
-Status: Proposed
+Status: Accepted
 
 Date: 2026-06-21
 
@@ -17,7 +17,7 @@ Related issues:
 
 Related PRs:
 
-- TBD
+- https://github.com/Tahjali11/Mythic-Edge/pull/544
 
 Related contracts, handoffs, or review reports:
 
@@ -165,11 +165,16 @@ generated artifacts, private artifacts, or local-only files.
 
 ## Validation Or Review Evidence
 
-This ADR adoption slice is docs-only. Runtime tests are not required because no
-runtime code changed.
+This ADR adoption slice was docs-only. Runtime tests were not required because
+no runtime code changed.
 
 Expected implementation validation is recorded in
 `docs/implementation_handoffs/repo_wip_1_lane_activation_policy_comparison.md`.
+
+PR #544 merged the WIP-1 governance package into `main` at merge commit
+`d330c7d43564065bbf5b6b8d5878189c988e20f7`. Issue #543 was closed after
+Codex G recorded the deployment evidence. This status update records that
+accepted lifecycle state without changing the policy decision.
 
 ## Supersedes
 
@@ -181,8 +186,8 @@ None.
 
 ## Follow-Ups
 
-- Review this proposed ADR through the normal Codex E, F, and G path before
-  treating it as accepted durable precedent.
+- Treat ADR-0008 as accepted durable precedent for future Mythic Edge
+  repo-lane activation work.
 - Consider a later inventory pass for currently open lanes after adoption.
 - Consider future sibling-repo adoption issues only after this repo policy is
   reviewed and merged.
