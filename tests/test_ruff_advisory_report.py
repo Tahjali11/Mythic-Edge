@@ -35,6 +35,13 @@ def _finding(
     return payload
 
 
+def _write_checkout_markers(checkout: Path) -> None:
+    checkout.mkdir(parents=True, exist_ok=True)
+    (checkout / "pyproject.toml").write_text("[tool.ruff]\n", encoding="utf-8")
+    (checkout / "AGENTS.md").write_text("# Synthetic checkout\n", encoding="utf-8")
+    (checkout / ".git").write_text("gitdir: synthetic\n", encoding="utf-8")
+
+
 def test_build_report_classifies_exact_zero_and_nonzero_rule_codes() -> None:
     report = reporter.build_report(
         [
@@ -79,11 +86,143 @@ def test_unsupported_rule_record_fails_closed() -> None:
         reporter.build_report([{"code": "S", "filename": "tools/example.py", "message": "bad"}])
 
 
-def test_local_absolute_path_is_rejected() -> None:
-    private_filename = str(Path.home() / "project" / "src" / "example.py")
+def test_absolute_ruff_filename_under_measured_checkout_is_normalized(tmp_path: Path) -> None:
+    checkout = tmp_path / "checkout"
+    _write_checkout_markers(checkout)
+    source_file = checkout / "src" / "package" / "example.py"
+    source_file.parent.mkdir(parents=True)
+    source_file.write_text("print('synthetic')\n", encoding="utf-8")
+
+    report = reporter.build_report(
+        [_finding("F401", str(source_file))],
+        measured_checkout_root=checkout,
+    )
+
+    summary = report["rule_summaries"][0]
+    rendered = reporter.render_json(report)
+
+    assert summary["affected_paths"] == ["src/package/example.py"]
+    assert str(source_file) not in rendered
+    assert str(checkout) not in rendered
+
+
+def test_absolute_ruff_filename_outside_measured_checkout_is_rejected(tmp_path: Path) -> None:
+    checkout = tmp_path / "checkout"
+    _write_checkout_markers(checkout)
+    outside_file = tmp_path / "outside" / "src" / "example.py"
+    outside_file.parent.mkdir(parents=True)
+    outside_file.write_text("print('synthetic')\n", encoding="utf-8")
+
+    with pytest.raises(reporter.RuffAdvisoryError, match="measurement_blocked_path_outside_checkout"):
+        reporter.build_report([_finding("F401", str(outside_file))], measured_checkout_root=checkout)
+
+
+def test_double_slash_unc_like_ruff_filename_is_rejected(tmp_path: Path) -> None:
+    checkout = tmp_path / "checkout"
+    _write_checkout_markers(checkout)
+
+    for filename in (
+        "//server/share/src/example.py",
+        "\\\\server\\share\\src\\example.py",
+    ):
+        with pytest.raises(
+            reporter.RuffAdvisoryError,
+            match="measurement_blocked_path_normalization_unsupported",
+        ):
+            reporter.build_report(
+                [_finding("F401", filename)],
+                measured_checkout_root=checkout,
+            )
+
+
+def test_uri_scheme_like_ruff_filename_is_rejected_without_echo(tmp_path: Path) -> None:
+    checkout = tmp_path / "checkout"
+    _write_checkout_markers(checkout)
+
+    for scheme in ("https", "smb"):
+        for separator in ("://", ":/"):
+            unsafe_filename = scheme + separator + "example.invalid/src/example.py"
+            with pytest.raises(
+                reporter.RuffAdvisoryError,
+                match="measurement_blocked_path_normalization_unsupported",
+            ) as exc_info:
+                reporter.build_report(
+                    [_finding("F401", unsafe_filename)],
+                    measured_checkout_root=checkout,
+                )
+
+            assert unsafe_filename not in str(exc_info.value)
+
+
+def test_single_colon_uri_scheme_like_ruff_filename_is_rejected_without_echo(
+    tmp_path: Path,
+) -> None:
+    checkout = tmp_path / "checkout"
+    _write_checkout_markers(checkout)
+    unsafe_filename = "https" + ":/" + "example.invalid/src/example.py"
+
+    with pytest.raises(
+        reporter.RuffAdvisoryError,
+        match="measurement_blocked_path_normalization_unsupported",
+    ) as exc_info:
+        reporter.build_report(
+            [_finding("F401", unsafe_filename)],
+            measured_checkout_root=checkout,
+        )
+
+    assert unsafe_filename not in str(exc_info.value)
+
+
+def test_windows_drive_like_absolute_filename_is_not_treated_as_uri() -> None:
+    assert not reporter._is_uri_scheme_path("C:/workspace/Mythic-Edge/src/example.py")
+    assert not reporter._is_uri_scheme_path("C:\\workspace\\Mythic-Edge\\src\\example.py")
+
+
+def test_too_broad_measured_checkout_root_is_rejected(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    checkout = workspace / "checkout"
+    _write_checkout_markers(checkout)
+    sibling_file = workspace / "private-sibling" / "src" / "example.py"
+    sibling_file.parent.mkdir(parents=True)
+    sibling_file.write_text("print('synthetic')\n", encoding="utf-8")
+
+    with pytest.raises(reporter.RuffAdvisoryError, match="measurement_blocked_path_normalization_unsupported"):
+        reporter.build_report(
+            [_finding("F401", str(sibling_file))],
+            measured_checkout_root=workspace,
+        )
+
+
+def test_generated_private_ruff_filename_under_checkout_is_rejected(tmp_path: Path) -> None:
+    checkout = tmp_path / "checkout"
+    _write_checkout_markers(checkout)
+    generated_file = checkout / "_review_" / "quality" / "example.py"
+    generated_file.parent.mkdir(parents=True)
+    generated_file.write_text("print('synthetic')\n", encoding="utf-8")
 
     with pytest.raises(reporter.RuffAdvisoryError, match="measurement_blocked_local_path_leak"):
-        reporter.build_report([_finding("F401", private_filename)])
+        reporter.build_report([_finding("F401", str(generated_file))], measured_checkout_root=checkout)
+
+
+def test_local_path_and_private_marker_messages_are_not_emitted(tmp_path: Path) -> None:
+    checkout = tmp_path / "checkout"
+    _write_checkout_markers(checkout)
+    source_file = checkout / "src" / "example.py"
+    source_file.parent.mkdir(parents=True)
+    source_file.write_text("print('synthetic')\n", encoding="utf-8")
+    marker = "Player" + ".log"
+    private_message = f"Synthetic advisory references {source_file} and {marker}."
+
+    report = reporter.build_report(
+        [_finding("F401", str(source_file), private_message)],
+        measured_checkout_root=checkout,
+    )
+    rendered = reporter.render_json(report)
+
+    assert report["rule_summaries"][0]["affected_paths"] == ["src/example.py"]
+    assert private_message not in rendered
+    assert str(source_file) not in rendered
+    assert marker not in rendered
 
 
 def test_secret_like_output_is_rejected() -> None:
@@ -93,11 +232,28 @@ def test_secret_like_output_is_rejected() -> None:
         reporter.build_report([_finding("S105", "tools/example.py", secret_text)])
 
 
-def test_private_marker_output_is_rejected() -> None:
-    marker = "Player" + ".log"
+def test_raw_source_or_fix_edit_messages_fail_closed_without_echo() -> None:
+    raw_source_message = "Synthetic diagnostic:\n" + "def synthetic_example():\n    return 1"
+    fix_edit_message = "Synthetic diagnostic:\n" + "diff --git a/src/example.py b/src/example.py"
 
-    with pytest.raises(reporter.RuffAdvisoryError, match="measurement_blocked_private_marker"):
-        reporter.build_report([_finding("S101", "tools/example.py", marker)])
+    for message in (raw_source_message, fix_edit_message):
+        with pytest.raises(
+            reporter.RuffAdvisoryError,
+            match="measurement_blocked_raw_source_snippet_public",
+        ) as exc_info:
+            reporter.build_report([_finding("S101", "tools/example.py", message)])
+
+        assert "synthetic_example" not in str(exc_info.value)
+        assert "diff --git" not in str(exc_info.value)
+
+
+def test_readiness_claim_message_fails_closed_without_echo() -> None:
+    message = "Synthetic diagnostic says release readiness approved."
+
+    with pytest.raises(reporter.RuffAdvisoryError, match="measurement_blocked_raw_output_public") as exc_info:
+        reporter.build_report([_finding("S101", "tools/example.py", message)])
+
+    assert message not in str(exc_info.value)
 
 
 def test_metadata_local_path_output_is_rejected() -> None:
@@ -221,6 +377,63 @@ def test_secret_key_assignment_forms_are_rejected() -> None:
             reporter.build_report([_finding("S105", "tools/example.py", secret_text)])
 
 
+def test_quoted_secret_like_field_shapes_are_rejected_without_echo() -> None:
+    token_value = "A" * 24
+    webhook_value = "https://example.invalid/hook/" + token_value
+    secret_texts = (
+        '"' + "api_" + "key" + '": "' + token_value + '"',
+        '"' + "api " + "key" + '": "' + token_value + '"',
+        '"' + "api" + "Key" + '": "' + token_value + '"',
+        '"' + "access_" + "token" + '": "' + token_value + '"',
+        '"' + "client_" + "secret" + '": "' + token_value + '"',
+        '"' + "web" + "hook_url" + '": "' + webhook_value + '"',
+    )
+
+    for secret_text in secret_texts:
+        with pytest.raises(
+            reporter.RuffAdvisoryError,
+            match="measurement_blocked_secret_like_output",
+        ) as metadata_exc:
+            reporter.build_report([], metadata=reporter.ReportMetadata(commands=(secret_text,)))
+
+        with pytest.raises(
+            reporter.RuffAdvisoryError,
+            match="measurement_blocked_secret_like_output",
+        ) as finding_exc:
+            reporter.build_report([_finding("S105", "tools/example.py", secret_text)])
+
+        assert token_value not in str(metadata_exc.value)
+        assert token_value not in str(finding_exc.value)
+        assert webhook_value not in str(metadata_exc.value)
+        assert webhook_value not in str(finding_exc.value)
+        assert secret_text not in str(metadata_exc.value)
+        assert secret_text not in str(finding_exc.value)
+
+
+def test_raw_record_secret_like_fields_are_rejected_without_echo() -> None:
+    token_value = "A" * 24
+    cases = (
+        {"api_" + "key": "synthetic-redacted"},
+        {"api" + "Key": "synthetic-redacted"},
+        {"access_" + "token": token_value},
+        {"client_" + "secret": token_value},
+        {"nested": {"web" + "hook_url": "https://example.invalid/hook/" + token_value}},
+    )
+
+    for extra_fields in cases:
+        record = _finding("S105", "tools/example.py", "Synthetic advisory finding.")
+        record.update(extra_fields)
+
+        with pytest.raises(
+            reporter.RuffAdvisoryError,
+            match="measurement_blocked_secret_like_output",
+        ) as exc_info:
+            reporter.build_report([record])
+
+        assert token_value not in str(exc_info.value)
+        assert "synthetic-redacted" not in str(exc_info.value)
+
+
 def test_aws_style_access_key_shapes_are_rejected() -> None:
     key_suffix = "A" * 16
     secret_texts = (
@@ -279,6 +492,129 @@ def test_cli_reads_file_and_outputs_deterministic_json(tmp_path: Path) -> None:
     assert report["totals"]["triggered_rule_codes"] == 1
     assert report["totals"]["zero_baseline_rule_codes"] == 1
     assert "not CI readiness" in report["non_claims"]
+
+
+def test_cli_normalizes_absolute_ruff_filename_without_echoing_checkout_root(tmp_path: Path) -> None:
+    checkout = tmp_path / "checkout"
+    _write_checkout_markers(checkout)
+    source_file = checkout / "tools" / "example.py"
+    source_file.parent.mkdir(parents=True)
+    source_file.write_text("print('synthetic')\n", encoding="utf-8")
+    ruff_json = tmp_path / "ruff.json"
+    ruff_json.write_text(json.dumps([_finding("F401", str(source_file))]), encoding="utf-8")
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(MODULE_PATH),
+            "--input",
+            str(ruff_json),
+            "--measured-checkout-root",
+            str(checkout),
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+    )
+
+    report = json.loads(completed.stdout)
+
+    assert report["rule_summaries"][0]["affected_paths"] == ["tools/example.py"]
+    assert str(source_file) not in completed.stdout
+    assert str(checkout) not in completed.stdout
+
+
+def test_cli_rejects_double_slash_unc_like_filename_without_echoing_path(
+    tmp_path: Path,
+) -> None:
+    checkout = tmp_path / "checkout"
+    _write_checkout_markers(checkout)
+    unsafe_filename = "//server/share/src/private_example.py"
+    ruff_json = tmp_path / "ruff.json"
+    ruff_json.write_text(json.dumps([_finding("F401", unsafe_filename)]), encoding="utf-8")
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(MODULE_PATH),
+            "--input",
+            str(ruff_json),
+            "--measured-checkout-root",
+            str(checkout),
+        ],
+        text=True,
+        capture_output=True,
+    )
+
+    assert completed.returncode == 2
+    assert "measurement_blocked_path_normalization_unsupported" in completed.stderr
+    assert unsafe_filename not in completed.stderr
+    assert "server/share" not in completed.stderr
+
+
+def test_cli_rejects_uri_scheme_like_filename_without_echoing_path(tmp_path: Path) -> None:
+    checkout = tmp_path / "checkout"
+    _write_checkout_markers(checkout)
+
+    for scheme in ("https", "smb"):
+        for separator in ("://", ":/"):
+            unsafe_filename = scheme + separator + "example.invalid/src/example.py"
+            ruff_json = tmp_path / f"{scheme}-{len(separator)}-ruff.json"
+            ruff_json.write_text(json.dumps([_finding("F401", unsafe_filename)]), encoding="utf-8")
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(MODULE_PATH),
+                    "--input",
+                    str(ruff_json),
+                    "--measured-checkout-root",
+                    str(checkout),
+                ],
+                text=True,
+                capture_output=True,
+            )
+
+            assert completed.returncode == 2
+            assert "measurement_blocked_path_normalization_unsupported" in completed.stderr
+            assert unsafe_filename not in completed.stderr
+            assert "example.invalid" not in completed.stderr
+
+
+def test_cli_does_not_emit_diagnostic_message_text(tmp_path: Path) -> None:
+    checkout = tmp_path / "checkout"
+    _write_checkout_markers(checkout)
+    source_file = checkout / "tools" / "example.py"
+    source_file.parent.mkdir(parents=True)
+    source_file.write_text("print('synthetic')\n", encoding="utf-8")
+    marker = "Player" + ".log"
+    diagnostic_message = f"Synthetic advisory references {source_file} and {marker}."
+    ruff_json = tmp_path / "ruff.json"
+    ruff_json.write_text(
+        json.dumps([_finding("F401", str(source_file), diagnostic_message)]),
+        encoding="utf-8",
+    )
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(MODULE_PATH),
+            "--input",
+            str(ruff_json),
+            "--measured-checkout-root",
+            str(checkout),
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+    )
+    report = json.loads(completed.stdout)
+
+    assert report["rule_summaries"][0]["affected_paths"] == ["tools/example.py"]
+    assert diagnostic_message not in completed.stdout
+    assert diagnostic_message not in completed.stderr
+    assert str(source_file) not in completed.stdout
+    assert marker not in completed.stdout
 
 
 def test_cli_exits_two_for_broad_family_candidate(tmp_path: Path) -> None:
