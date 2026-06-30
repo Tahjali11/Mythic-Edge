@@ -7,6 +7,7 @@ import json
 import re
 import sys
 from dataclasses import dataclass
+from os import PathLike
 from pathlib import Path
 from typing import Any
 
@@ -59,6 +60,7 @@ NON_CLAIMS = (
 RULE_CODE_RE = re.compile(r"^[A-Z]+[0-9]+$")
 RULE_FAMILY_RE = re.compile(r"^[A-Z]+")
 WINDOWS_LOCAL_PATH_RE = re.compile(r"(?i)^[A-Za-z]:[\\/]")
+URI_SCHEME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]{1,}:/+")
 SECRET_RE = re.compile(
     r"(?i)("
     r"\bAuthorization\s*:\s*(?:Bearer|Basic|Token)\s+[\"']?[A-Za-z0-9._~+/=-]{12,}|"
@@ -85,6 +87,51 @@ SECRET_RE = re.compile(
     r"xox[baprs]-[A-Za-z0-9-]{20,}"
     r")"
 )
+SECRET_FIELD_NAME_RE = re.compile(
+    r"(?i)^("
+    r"api[_-]?key|"
+    r"access[_-]?token|"
+    r"refresh[_-]?token|"
+    r"id[_-]?token|"
+    r"auth[_-]?token|"
+    r"oauth[_-]?token|"
+    r"token|"
+    r"secret|"
+    r"secret[_ -]?key|"
+    r"credentials?|"
+    r"client[_-]?secret|"
+    r"password|"
+    r"webhook[_ -]?url"
+    r")$"
+)
+QUOTED_SECRET_FIELD_ASSIGNMENT_RE = re.compile(
+    r"(?i)[\"']?"
+    r"(?:api[_ -]?key|access[_-]?token|refresh[_-]?token|id[_-]?token|"
+    r"auth[_-]?token|oauth[_-]?token|token|secret|secret[_ -]?key|"
+    r"credentials?|client[_-]?secret|password|webhook[_ -]?url)"
+    r"[\"']?\s*(?::=|=>|[:=])\s*[\"']?\S{8,}"
+)
+RAW_SOURCE_OR_FIX_MESSAGE_RE = re.compile(
+    r"(?im)("
+    r"^diff --git\b|"
+    r"^@@\s|"
+    r"^\s*[+-]\s*(?:def |class |import |from |return\b|if\b|for\b|while\b|"
+    r"raise\b|print\(|[A-Za-z_][A-Za-z0-9_]*\s*=)|"
+    r"^\s*(?:def |class |import |from .+ import |return\b|if .+:|for .+:|"
+    r"while .+:|raise\b|print\(|[A-Za-z_][A-Za-z0-9_]*\s*=)|"
+    r"\b(?:autofix diff|fix edit|edit preview|source patch)\b"
+    r")"
+)
+RAW_PRIVATE_PAYLOAD_RE = re.compile(
+    r"(?is)\b(?:raw_log_payload|private_payload|workbook export|sqlite row|runtime artifact)\b"
+)
+OVERCLAIM_TEXT_RE = re.compile(
+    r"(?i)\b("
+    r"ci ready|ci readiness|blocking ready|blocking readiness|parser truth|"
+    r"security assurance|privacy assurance|release readiness|deploy readiness|"
+    r"production readiness|analytics truth|ai truth|coaching truth"
+    r")\b"
+)
 PRIVATE_MARKERS = (
     "Player" + ".log",
     "UTC" + "_Log",
@@ -95,6 +142,8 @@ PRIVATE_MARKERS = (
     "private strategy note",
 )
 AUTOFIX_FLAGS = ("--fix", "--unsafe-fixes", "--fix-only")
+GENERATED_PRIVATE_PATH_PREFIXES = ("_review_", "data/")
+MEASURED_CHECKOUT_ROOT_MARKERS = ("pyproject.toml", "AGENTS.md", ".git")
 
 
 class RuffAdvisoryError(ValueError):
@@ -116,7 +165,6 @@ class ReportMetadata:
 class Finding:
     rule_code: str
     filename: str
-    message: str
     fix_applicability: str
 
 
@@ -137,11 +185,13 @@ def build_report(
     *,
     metadata: ReportMetadata | None = None,
     candidate_rule_codes: tuple[str, ...] = (),
+    measured_checkout_root: str | PathLike[str] | None = None,
 ) -> dict[str, Any]:
     report_metadata = metadata or ReportMetadata()
     report_metadata = validate_metadata(report_metadata)
     exact_candidate_codes = normalize_candidate_rule_codes(candidate_rule_codes)
-    findings = tuple(_parse_finding(record) for record in ruff_records)
+    checkout_root = _resolve_measured_checkout_root(measured_checkout_root)
+    findings = tuple(_parse_finding(record, measured_checkout_root=checkout_root) for record in ruff_records)
 
     summaries = _build_rule_summaries(findings, exact_candidate_codes)
     zero_candidates = tuple(item for item in summaries if item["disposition"] == "zero_baseline_candidate")
@@ -237,20 +287,24 @@ def rule_family(rule_code: str) -> str:
     return match.group(0)
 
 
-def _parse_finding(record: dict[str, Any]) -> Finding:
+def _parse_finding(record: dict[str, Any], *, measured_checkout_root: Path) -> Finding:
+    _reject_secret_like_payload(record)
+
     rule_code = _require_string(record, "code").upper()
     if not is_exact_rule_code(rule_code):
         raise RuffAdvisoryError("unsupported_rule_record")
 
-    filename = normalize_repo_path(_require_string(record, "filename"))
+    filename = normalize_diagnostic_filename(
+        _require_string(record, "filename"),
+        measured_checkout_root=measured_checkout_root,
+    )
     message = _require_string(record, "message")
     _reject_forbidden_text(filename)
-    _reject_forbidden_text(message)
+    _validate_unemitted_diagnostic_message(message)
 
     return Finding(
         rule_code=rule_code,
         filename=filename,
-        message=message,
         fix_applicability=_fix_applicability(record.get("fix")),
     )
 
@@ -276,12 +330,117 @@ def normalize_repo_path(path: str) -> str:
     return "/".join(parts)
 
 
+def normalize_diagnostic_filename(path: str, *, measured_checkout_root: Path) -> str:
+    text = path.strip()
+    if not text:
+        raise RuffAdvisoryError("unsupported_rule_record")
+    if _is_uri_scheme_path(text):
+        raise RuffAdvisoryError("measurement_blocked_path_normalization_unsupported")
+    if _is_unc_or_double_slash_path(text):
+        raise RuffAdvisoryError("measurement_blocked_path_normalization_unsupported")
+    if _is_absolute_path_text(text):
+        repo_path = _normalize_absolute_diagnostic_filename(text, measured_checkout_root=measured_checkout_root)
+    else:
+        repo_path = normalize_repo_path(text)
+    _reject_forbidden_repo_path(repo_path)
+    _reject_forbidden_text(repo_path)
+    return repo_path
+
+
+def _resolve_measured_checkout_root(root: str | PathLike[str] | None) -> Path:
+    try:
+        if root is None:
+            checkout_root = Path.cwd().resolve(strict=False)
+        else:
+            checkout_root = Path(root).expanduser().resolve(strict=False)
+    except (OSError, RuntimeError) as exc:
+        raise RuffAdvisoryError("measurement_blocked_path_normalization_unsupported") from exc
+    _validate_measured_checkout_root(checkout_root)
+    return checkout_root
+
+
+def _validate_measured_checkout_root(root: Path) -> None:
+    if not root.is_absolute():
+        raise RuffAdvisoryError("measurement_blocked_path_normalization_unsupported")
+    if not all((root / marker).exists() for marker in MEASURED_CHECKOUT_ROOT_MARKERS):
+        raise RuffAdvisoryError("measurement_blocked_path_normalization_unsupported")
+
+
+def _is_absolute_path_text(path: str) -> bool:
+    text = path.replace("\\", "/")
+    return (text.startswith("/") and not text.startswith("//")) or bool(WINDOWS_LOCAL_PATH_RE.match(path))
+
+
+def _is_unc_or_double_slash_path(path: str) -> bool:
+    return path.replace("\\", "/").startswith("//")
+
+
+def _is_uri_scheme_path(path: str) -> bool:
+    return bool(URI_SCHEME_RE.match(path))
+
+
+def _normalize_absolute_diagnostic_filename(path: str, *, measured_checkout_root: Path) -> str:
+    if WINDOWS_LOCAL_PATH_RE.match(path) and not WINDOWS_LOCAL_PATH_RE.match(str(measured_checkout_root)):
+        raise RuffAdvisoryError("measurement_blocked_path_normalization_unsupported")
+    absolute_path = Path(path).expanduser()
+    if not absolute_path.is_absolute():
+        raise RuffAdvisoryError("measurement_blocked_path_normalization_unsupported")
+    try:
+        relative_path = absolute_path.resolve(strict=False).relative_to(measured_checkout_root)
+    except ValueError as exc:
+        raise RuffAdvisoryError("measurement_blocked_path_outside_checkout") from exc
+    except (OSError, RuntimeError) as exc:
+        raise RuffAdvisoryError("measurement_blocked_path_normalization_unsupported") from exc
+    return normalize_repo_path(relative_path.as_posix())
+
+
+def _reject_forbidden_repo_path(path: str) -> None:
+    if path.startswith("/") or path.startswith("../") or path == ".." or path.startswith("file://"):
+        raise RuffAdvisoryError("measurement_blocked_path_normalization_unsupported")
+    if WINDOWS_LOCAL_PATH_RE.match(path):
+        raise RuffAdvisoryError("measurement_blocked_path_normalization_unsupported")
+    if any(path == prefix.rstrip("/") or path.startswith(prefix) for prefix in GENERATED_PRIVATE_PATH_PREFIXES):
+        raise RuffAdvisoryError("measurement_blocked_local_path_leak")
+
+
 def _reject_forbidden_text(text: str) -> None:
-    if SECRET_RE.search(text):
-        raise RuffAdvisoryError("measurement_blocked_secret_like_output")
+    _reject_secret_like_text(text)
     lowered = text.lower()
     if any(marker.lower() in lowered for marker in PRIVATE_MARKERS):
         raise RuffAdvisoryError("measurement_blocked_private_marker")
+
+
+def _reject_secret_like_text(text: str) -> None:
+    if SECRET_RE.search(text) or QUOTED_SECRET_FIELD_ASSIGNMENT_RE.search(text):
+        raise RuffAdvisoryError("measurement_blocked_secret_like_output")
+
+
+def _reject_secret_like_payload(value: Any) -> None:
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if isinstance(key, str) and _is_secret_like_field_name(key):
+                raise RuffAdvisoryError("measurement_blocked_secret_like_output")
+            _reject_secret_like_payload(item)
+    elif isinstance(value, list):
+        for item in value:
+            _reject_secret_like_payload(item)
+    elif isinstance(value, str):
+        _reject_secret_like_text(value)
+
+
+def _is_secret_like_field_name(value: str) -> bool:
+    field_name = value.strip().strip("\"'").replace("-", "_").replace(" ", "_")
+    return bool(SECRET_FIELD_NAME_RE.match(field_name))
+
+
+def _validate_unemitted_diagnostic_message(message: str) -> None:
+    _reject_secret_like_text(message)
+    if RAW_SOURCE_OR_FIX_MESSAGE_RE.search(message):
+        raise RuffAdvisoryError("measurement_blocked_raw_source_snippet_public")
+    if RAW_PRIVATE_PAYLOAD_RE.search(message):
+        raise RuffAdvisoryError("measurement_blocked_raw_output_public")
+    if OVERCLAIM_TEXT_RE.search(message):
+        raise RuffAdvisoryError("measurement_blocked_raw_output_public")
 
 
 def _reject_local_path_text(text: str) -> None:
@@ -300,13 +459,14 @@ def _is_local_path_token(token: str) -> bool:
         return False
     if cleaned.startswith(("http://", "https://")):
         return False
+    normalized = cleaned.replace("\\", "/")
+    if normalized.startswith("//"):
+        return True
     if cleaned.startswith("file://"):
         return True
     if "=" in cleaned:
         return _is_local_path_token(cleaned.rsplit("=", 1)[1])
-    return bool(WINDOWS_LOCAL_PATH_RE.match(cleaned)) or (
-        cleaned.startswith("/") and not cleaned.startswith("//")
-    )
+    return bool(WINDOWS_LOCAL_PATH_RE.match(cleaned)) or normalized.startswith("/")
 
 
 def _fix_applicability(fix: Any) -> str:
@@ -499,6 +659,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--ruff-version", default="unknown")
     parser.add_argument("--scan-scope", nargs="+", default=list(DEFAULT_SCAN_SCOPE))
     parser.add_argument("--command", action="append", help="Advisory Ruff command that produced the input.")
+    parser.add_argument(
+        "--measured-checkout-root",
+        type=Path,
+        default=None,
+        help="Measured checkout root used only to normalize Ruff diagnostic filenames.",
+    )
     return parser
 
 
@@ -518,7 +684,12 @@ def main(argv: list[str] | None = None) -> int:
             commands=tuple(args.command or ()) or (DEFAULT_COMMAND,),
         )
         records = load_ruff_json(_read_text(args.input))
-        report = build_report(records, metadata=metadata, candidate_rule_codes=rule_codes)
+        report = build_report(
+            records,
+            metadata=metadata,
+            candidate_rule_codes=rule_codes,
+            measured_checkout_root=args.measured_checkout_root,
+        )
     except (OSError, json.JSONDecodeError, RuffAdvisoryError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2

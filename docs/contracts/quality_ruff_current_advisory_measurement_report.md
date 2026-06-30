@@ -24,6 +24,7 @@ production readiness, analytics truth, AI truth, or coaching truth.
 - Repository: `Tahjali11/Mythic-Edge`
 - Repository URL: `https://github.com/Tahjali11/Mythic-Edge`
 - Issue: https://github.com/Tahjali11/Mythic-Edge/issues/582
+- Clarification issue: https://github.com/Tahjali11/Mythic-Edge/issues/584
 - Tracker: https://github.com/Tahjali11/Mythic-Edge/issues/567
 - Project roadmap: https://github.com/Tahjali11/Mythic-Edge/issues/568
 - Previous issue: https://github.com/Tahjali11/Mythic-Edge/issues/578
@@ -83,6 +84,7 @@ pipeline_activation_ready_for_issue_388: false
 - `docs/agent_threads/module_contract.md`
 - `docs/templates/module_contract.md`
 - Issue #582
+- Issue #584
 - Tracker #567
 - Roadmap #568
 - Previous issue #578
@@ -96,6 +98,8 @@ pipeline_activation_ready_for_issue_388: false
 - `.github/workflows/repo-checks.yml`
 - `tools/run_repo_checks.ps1`
 - related quality coverage contracts as boundary references
+- `docs/implementation_handoffs/quality_ruff_current_advisory_measurement_report.md`
+  as the #584 Codex C blocker handoff
 
 No private Player.log, UTC_Log, app-data, live MTGA data, network data,
 workbook export, SQLite database, generated runtime artifact, private report,
@@ -216,6 +220,21 @@ The fourth bad value is using stale tracker-only counts from #567 as current
 measurement evidence. The current report must name the exact branch/ref,
 commit, Ruff version, scan scope, and command used.
 
+The fifth bad value is treating Ruff-emitted absolute filenames as either
+automatically public-safe or automatically impossible to process. Ruff may
+emit native local absolute filenames in JSON diagnostics. Those filenames may
+be normalized only when they are proven to live under the measured clean
+checkout root. Any filename outside the measured checkout, any unresolved
+absolute path, and any local path in public output remains a stop condition.
+
+The sixth bad value is treating raw Ruff diagnostic `message` fields as public
+summary fields. Ruff messages are untrusted diagnostic text. They may include
+local path wording, private-marker vocabulary, source-like snippets, or
+implementation details even when the sanitized report does not need message
+text. Public reports must not echo raw messages. They may only ignore,
+redact, or symbolically classify message fields under the message-handling
+boundary below.
+
 ## Scope Decision
 
 Selected scope:
@@ -236,6 +255,8 @@ This contract authorizes only contract language for:
 - future preflight checks before current all-rules Ruff measurement;
 - a report-only advisory command boundary;
 - raw Ruff JSON temporary handling;
+- a narrow Ruff-native filename normalization boundary;
+- a narrow raw diagnostic-message handling boundary;
 - sanitized report artifact shape and path pattern;
 - helper usage with `tools/generate_ruff_advisory_report.py`;
 - stop conditions for malformed, stale, private, local, secret-like, autofix,
@@ -283,7 +304,8 @@ A future Codex C measurement pass may run only after all of these are true:
    output path outside ignored `_review_*/`.
 9. The raw Ruff JSON is treated as temporary local evidence and remains
    uncommitted.
-10. The helper accepts the raw JSON and emits the expected sanitized schema.
+10. The helper accepts the raw JSON and emits the expected sanitized schema,
+    including repo-relative filenames only.
 11. The sanitized report passes secret/private/local-path scans.
 12. The sanitized report says advisory only and includes non-claims.
 
@@ -360,11 +382,117 @@ authorizes writing a sanitized report artifact. If a report is authorized, the
 committed file must be helper output or a reduced wrapper around helper output,
 not raw Ruff output.
 
+### Ruff-Native Filename Normalization
+
+Ruff JSON diagnostics may contain native absolute filenames for files under
+the measured checkout. A future helper or pre-helper step may normalize those
+diagnostic filenames to repo-relative paths only when all of these are true:
+
+1. The measurement target commit was verified immediately before the scan.
+2. The measured checkout root is known from the clean dedicated worktree used
+   for measurement.
+3. Each absolute diagnostic filename resolves under that measured checkout
+   root after symlink and `..` normalization.
+4. The normalized path is repo-relative, uses forward slashes, and does not
+   start with `/`, a drive prefix, `file://`, `..`, `_review_`, `data/`, or a
+   generated/private artifact directory.
+5. The raw absolute filename is not copied to stdout, committed reports,
+   implementation handoffs, issue comments, PR bodies, tracker comments, or
+   public docs.
+6. The normalized path still passes private-marker and secret-pattern scans.
+
+This exception applies only to Ruff diagnostic filename fields. It does not
+apply to:
+
+- command metadata;
+- scan-scope metadata;
+- rule messages;
+- source snippets;
+- fix edits;
+- raw JSON records pasted into docs;
+- private markers;
+- secret-like values;
+- paths outside the measured checkout;
+- generated local evidence paths;
+- runtime artifact paths.
+
+If any diagnostic filename cannot be normalized within the measured checkout,
+the helper must fail closed. Allowed failure statuses:
+
+- `measurement_blocked_path_outside_checkout`
+- `measurement_blocked_path_normalization_unsupported`
+- `measurement_blocked_local_path_leak`
+
+The sanitized report must contain only repo-relative paths. It must not
+contain local absolute paths even when they were accepted as temporary raw
+input.
+
+### Ruff Diagnostic Message Handling
+
+Ruff JSON diagnostics may contain a `message` field. The sanitized report does
+not require raw diagnostic messages, and raw messages must not become public
+summary text.
+
+A future helper may handle diagnostic `message` fields in one of these bounded
+ways:
+
+- ignore the message entirely when rule code, repo-relative filename, fix
+  metadata, and aggregate counts are sufficient;
+- store only symbolic message-handling labels, such as
+  `message_not_emitted`, `message_redacted`, `message_symbolic_only`, or
+  `message_review_required`;
+- use message text only as temporary local input to decide whether a record
+  must fail closed, without copying the raw message to stdout, committed
+  reports, implementation handoffs, issue comments, PR bodies, tracker
+  comments, or public docs.
+
+Allowed symbolic classifications are public-safe labels only. They must not
+include substrings, hashes intended for lookup, raw path values, source text,
+fix text, private-marker values, secret-like values, log payloads, or quoted
+message fragments.
+
+Raw message content that contains local path wording or private-marker
+vocabulary does not automatically block a sanitized report when all of these
+are true:
+
+1. the raw message is not emitted;
+2. no human-readable message-derived text is emitted;
+3. no path from the message is normalized, promoted, or copied into public
+   output;
+4. any retained message signal is reduced to symbolic labels or aggregate
+   counts only;
+5. the final public artifact passes secret/private/local-path/protected-surface
+   scans.
+
+The helper must still fail closed if a diagnostic message contains, requires
+emitting, or is transformed into any of these forbidden outputs:
+
+- secret-like values, credentials, tokens, API keys, webhook URLs, or auth
+  headers;
+- raw source snippets, copied source lines, source patches, fix edits, autofix
+  diffs, or edit previews;
+- unsafe paths, including paths outside the measured checkout, unnormalizable
+  paths, URI/scheme-like paths, UNC/double-slash paths, `_review_*/`, `data/`,
+  generated/private artifact paths, or local absolute paths in public output;
+- raw log content, raw private payloads, Player.log/UTC_Log contents, workbook
+  exports, SQLite rows, runtime artifacts, or private reports;
+- text implying CI readiness, blocking readiness, parser truth, security
+  assurance, privacy assurance, release readiness, deploy readiness,
+  production readiness, analytics truth, AI truth, or coaching truth.
+
+If a diagnostic message is needed for public human-readable explanation, the
+future helper must fail closed instead of emitting it. The report may say only
+that message text was omitted, redacted, or reduced to symbolic classification.
+
 ## Raw Output Handling
 
 Raw Ruff JSON must be stored only as temporary, local, uncommitted evidence.
 It may preserve Ruff's native diagnostic fields so the helper can classify
 findings, but those native records must not become the committed report.
+Raw Ruff JSON may contain Ruff-native absolute diagnostic filenames only under
+the normalization boundary above. Raw Ruff JSON may contain diagnostic
+messages only as temporary local input under the message-handling boundary
+above.
 
 Allowed temporary path pattern:
 
@@ -440,6 +568,19 @@ or any output implying CI readiness, parser truth, security assurance, privacy
 assurance, release readiness, deploy readiness, production readiness,
 analytics truth, AI truth, or coaching truth.
 
+If the helper records diagnostic-message handling, it may emit only bounded
+symbolic fields such as:
+
+```json
+{
+  "diagnostic_message_policy": "not_emitted",
+  "message_signal": "symbolic_only"
+}
+```
+
+These example values are illustrative, not required schema fields. They do not
+authorize raw message output.
+
 If a future implementation handoff needs examples, examples must be synthetic
 and reduced. They must not paste raw Ruff records, source snippets, raw command
 output, local absolute paths, generated artifacts, or private markers.
@@ -456,6 +597,8 @@ Allowed report statuses for a future measurement handoff:
 - `measurement_blocked_malformed_json`
 - `measurement_blocked_input_unreadable`
 - `measurement_blocked_local_path_leak`
+- `measurement_blocked_path_outside_checkout`
+- `measurement_blocked_path_normalization_unsupported`
 - `measurement_blocked_private_marker`
 - `measurement_blocked_secret_like_output`
 - `measurement_blocked_stale_commit`
@@ -530,8 +673,15 @@ Future measurement must stop without report adoption when:
 - the command uses `--fix`, `--fix-only`, or `--unsafe-fixes`;
 - the command changes CI or Ruff config;
 - raw Ruff JSON is malformed;
-- raw Ruff JSON contains local absolute paths, private markers, or secret-like
-  output;
+- raw Ruff JSON contains local absolute paths outside Ruff diagnostic filename
+  fields;
+- any Ruff diagnostic filename is absolute and cannot be normalized to a
+  repo-relative path under the measured checkout;
+- raw Ruff JSON contains secret-like output in any field;
+- raw Ruff JSON contains private markers outside un-emitted diagnostic message
+  fields handled under the message-handling boundary;
+- raw diagnostic messages require public emission or contain forbidden content
+  under the message-handling boundary;
 - raw output would need to be committed to proceed;
 - helper input is unreadable;
 - helper output is malformed;
@@ -634,6 +784,7 @@ A future Codex C measurement pass, if separately authorized, should validate:
 
 - exact branch/ref and commit;
 - clean worktree before measurement;
+- measured checkout root used for any diagnostic filename normalization;
 - Ruff version;
 - advisory command includes `--select ALL`, `--exit-zero`, and
   `--output-format json`;
@@ -642,6 +793,10 @@ A future Codex C measurement pass, if separately authorized, should validate:
 - helper output uses `quality_ruff_advisory_report.v1`;
 - helper output validates as JSON;
 - helper output contains required metadata and non-claims;
+- helper output contains repo-relative paths only;
+- helper output contains no raw diagnostic messages;
+- any diagnostic-message handling is either ignored, redacted, or symbolic
+  only;
 - local-path, private-marker, secret-pattern, source-patch, and autofix-diff
   scans pass over any public artifact;
 - raw JSON is not staged;
@@ -658,10 +813,14 @@ A future Codex C measurement pass, if separately authorized, should validate:
 - The contract defines raw Ruff JSON temporary handling.
 - The contract defines the sanitized report artifact path pattern, if a later
   execution issue authorizes committing one.
+- The contract defines that raw diagnostic messages are not public summary
+  fields and may only be ignored, redacted, or symbolically classified when
+  they are not emitted.
 - The contract defines stop conditions for malformed Ruff output, command
-  failure, helper rejection, local-path leakage, private markers, secret-like
-  output, raw log references, autofix flags, unsupported records, stale commit
-  or branch metadata, and overclaims.
+  failure, helper rejection, local-path leakage, unnormalizable Ruff
+  diagnostic filenames, private markers, secret-like output, raw log
+  references, autofix flags, unsupported records, stale commit or branch
+  metadata, and overclaims.
 - The contract defines exact-code zero-baseline candidate semantics, triggered
   rule advisory classification, and protected-surface review-required
   classification.
@@ -695,7 +854,8 @@ This contract does not claim:
 
 This contract does not authorize:
 
-- code implementation;
+- code implementation outside the bounded helper/test filename-normalization
+  and message-handling fixes described for issue #584;
 - PR creation;
 - tracker closure;
 - issue closure;
@@ -715,20 +875,65 @@ This contract does not authorize:
 - workbook, webhook, Apps Script, analytics, AI, coaching, release, deploy, or
   production behavior changes.
 
+## Issue #584 Clarification Decision
+
+Selected decision for issue #584:
+
+```yaml
+contract_clarification: "allow_bounded_ruff_filename_and_message_sanitization"
+filename_normalization_allowed_only_for: "Ruff diagnostic filename fields under the measured checkout"
+message_handling_allowed_only_for: "unemitted Ruff diagnostic message fields"
+public_output_must_use: "repo_relative_paths_only"
+raw_messages_may_be: "ignored_redacted_or_symbolically_classified_only"
+raw_messages_must_not_be_emitted: true
+paths_outside_checkout_fail_closed: true
+secrets_raw_snippets_fix_edits_unsafe_paths_raw_logs_and_overclaims_fail_closed: true
+raw_json_remains_local_uncommitted: true
+sanitized_report_created_by_this_clarification: false
+measurement_rerun_authorized_by_this_clarification: false
+ci_change_authorized: false
+ruff_blocking_promotion_authorized: false
+ruff_autofix_authorized: false
+```
+
+Rationale: Codex C established that Ruff `0.15.12` may emit absolute
+diagnostic filenames as native JSON behavior. The safety boundary should block
+public leakage, not make current measurement impossible when every diagnostic
+filename is provably inside the measured clean checkout and can be reduced to a
+repo-relative path before any public artifact is created.
+
+Codex C also established that Ruff diagnostic messages may contain local-path
+or private-marker wording even when the helper does not emit diagnostic
+messages. The public-safety boundary should block unsafe public output, not
+require public reports to parse or publish unneeded raw diagnostic messages.
+Messages that are not emitted may therefore be ignored, redacted, or reduced
+to symbolic labels, while secrets, raw source snippets, fix edits, unsafe
+paths in public output, raw logs, private payloads, and readiness/truth/
+assurance claims still fail closed.
+
 ## Recommended Next Role
 
-Recommended next role: Codex E review.
+Recommended next role for issue #584: Codex D.
 
-Codex C execution is not recommended for issue #582 until this contract is
-reviewed and a later handoff explicitly authorizes
-`ruff_measurement_execution_authorized: true`.
+For issue #584, this clarification should route to Codex D or Codex C only for
+the smallest helper/test update needed to preserve Ruff-native diagnostic
+filename normalization and apply the new diagnostic-message handling boundary.
+It does not authorize rerunning the measurement or adopting a sanitized report
+until a later handoff explicitly preserves
+`ruff_measurement_execution_authorized: true` and
+`report_artifact_creation_authorized: true`.
 
-## Pasteable Codex E Prompt
+Because Codex C already found a concrete helper blocker and stopped correctly,
+Codex D is the narrower route for the helper/test fix. Codex D should not
+rerun the all-rules measurement unless a later prompt explicitly authorizes
+that execution again.
+
+## Pasteable Codex D Prompt
 
 ```text
 Use the Mythic Edge workflow rules.
 
-Act as Codex E: Module Reviewer for issue #582.
+Act as Codex D: Module Fixer for issue #584.
 
 Repository:
 Tahjali11/Mythic-Edge
@@ -737,7 +942,7 @@ Repository URL:
 https://github.com/Tahjali11/Mythic-Edge
 
 Issue:
-https://github.com/Tahjali11/Mythic-Edge/issues/582
+https://github.com/Tahjali11/Mythic-Edge/issues/584
 
 Tracker:
 https://github.com/Tahjali11/Mythic-Edge/issues/567
@@ -746,40 +951,64 @@ Project roadmap:
 https://github.com/Tahjali11/Mythic-Edge/issues/568
 
 Previous issue:
-https://github.com/Tahjali11/Mythic-Edge/issues/578
+https://github.com/Tahjali11/Mythic-Edge/issues/582
 
 Previous PR:
-https://github.com/Tahjali11/Mythic-Edge/pull/581
+https://github.com/Tahjali11/Mythic-Edge/pull/583
 
 Previous merge commit:
-f6d29b3eac8c63f6ee797246f4023a749abaa361
+97f7d9ced74410d03fe4b94ba9f6dc3257bc6a5f
 
 Contract:
 docs/contracts/quality_ruff_current_advisory_measurement_report.md
 
-Review goal:
-Review the Ruff current advisory measurement report contract. Lead with
-findings, if any. Confirm that it defines a future report-only measurement
-boundary using the #578 helper without authorizing measurement execution,
-report creation, CI changes, blocking promotion, autofix, parser behavior
-changes, #388/#381 activation, readiness claims, assurance claims, or truth
-claims.
+Implementation handoff:
+docs/implementation_handoffs/quality_ruff_current_advisory_measurement_report.md
 
-Suggested validation:
-- printf '%s\n' docs/contracts/quality_ruff_current_advisory_measurement_report.md | python3 tools/check_secret_patterns.py --base origin/main --paths-from-stdin
-- printf '%s\n' docs/contracts/quality_ruff_current_advisory_measurement_report.md | python3 tools/check_protected_surfaces.py --base origin/main --paths-from-stdin
+Blocker:
+Codex C and D addressed the bounded Ruff diagnostic filename-normalization
+blocker. The current remaining blocker is diagnostic message content:
+Ruff messages include local-path or private-marker wording, the helper does not
+emit messages, and the contract now clarifies that un-emitted messages may be
+ignored, redacted, or symbolically classified while unsafe public output still
+fails closed.
+
+Goal:
+Implement the smallest helper/test fix allowed by the clarified contract:
+keep Ruff-native diagnostic filename fields repo-relative, and update
+diagnostic message handling so raw messages are never emitted but may be
+ignored, redacted, or reduced to symbolic labels when the public report does
+not need message text. Continue to reject secrets, raw source snippets, fix
+edits, unsafe paths in public output, raw logs/private payloads, autofix
+output, and readiness/truth/assurance claims.
+
+Allowed scope:
+- `tools/generate_ruff_advisory_report.py`
+- `tests/test_ruff_advisory_report.py`
+- `docs/implementation_handoffs/quality_ruff_current_advisory_measurement_report.md`
+  if a D handoff update is needed
+
+Do not rerun the all-rules Ruff measurement unless a later prompt explicitly
+authorizes it again. Do not create or commit a sanitized measurement report in
+this D pass unless a later prompt explicitly authorizes report artifact
+creation.
+
+Run:
+- PYTHONDONTWRITEBYTECODE=1 python3 -m pytest -q tests/test_ruff_advisory_report.py
+- python3 -m ruff check src tests tools --no-cache
+- printf '%s\n' tools/generate_ruff_advisory_report.py tests/test_ruff_advisory_report.py | python3 tools/check_secret_patterns.py --base origin/main --paths-from-stdin
+- printf '%s\n' tools/generate_ruff_advisory_report.py tests/test_ruff_advisory_report.py | python3 tools/check_protected_surfaces.py --base origin/main --paths-from-stdin
 - git diff --check
-- git diff --check --no-index /dev/null docs/contracts/quality_ruff_current_advisory_measurement_report.md
 
-Do not run the all-rules Ruff measurement.
-Do not implement code.
 Do not open a PR.
 Do not change CI.
 Do not enable blocking Ruff rules.
 Do not run autofix.
-Do not claim parser truth, security/privacy assurance, release readiness,
-deploy readiness, production readiness, analytics truth, AI truth, or coaching
-truth.
+Do not change parser behavior, promote fixtures, change corpus status, or
+activate #388/#381.
+Do not claim CI readiness, parser truth, corpus readiness, security/privacy
+assurance, release readiness, deploy readiness, production readiness, analytics
+truth, AI truth, or coaching truth.
 ```
 
 ## Workflow Handoff
@@ -788,24 +1017,28 @@ truth.
 workflow_handoff:
   repository: "Tahjali11/Mythic-Edge"
   repository_url: "https://github.com/Tahjali11/Mythic-Edge"
-  issue: "https://github.com/Tahjali11/Mythic-Edge/issues/582"
+  issue: "https://github.com/Tahjali11/Mythic-Edge/issues/584"
   tracker: "https://github.com/Tahjali11/Mythic-Edge/issues/567"
   project_roadmap: "https://github.com/Tahjali11/Mythic-Edge/issues/568"
-  previous_issue: "https://github.com/Tahjali11/Mythic-Edge/issues/578"
-  previous_pr: "https://github.com/Tahjali11/Mythic-Edge/pull/581"
-  previous_merge_commit: "f6d29b3eac8c63f6ee797246f4023a749abaa361"
+  previous_issue: "https://github.com/Tahjali11/Mythic-Edge/issues/582"
+  previous_pr: "https://github.com/Tahjali11/Mythic-Edge/pull/583"
+  previous_merge_commit: "97f7d9ced74410d03fe4b94ba9f6dc3257bc6a5f"
   completed_thread: "B"
-  next_thread: "E"
-  verdict: "ruff_current_advisory_measurement_report_contract_ready_for_review"
+  next_thread: "D"
+  verdict: "ruff_measurement_message_handling_contract_clarified_ready_for_helper_fix"
   risk_tier: "High"
   base_branch: "main"
   target_branch: "main"
-  branch: "codex/quality-ruff-current-advisory-measurement-report-582"
+  branch: "codex/quality-ruff-current-advisory-measurement-584"
   target_artifact: "docs/contracts/quality_ruff_current_advisory_measurement_report.md"
+  implementation_handoff: "docs/implementation_handoffs/quality_ruff_current_advisory_measurement_report.md"
+  sanitized_report_created: false
+  raw_ruff_json_committed: false
   ci_change_authorized: false
   ruff_blocking_promotion_authorized: false
   ruff_autofix_authorized: false
   ruff_measurement_execution_authorized: false
+  report_artifact_creation_authorized: false
   parser_behavior_change_authorized: false
   parser_behavior_ready: false
   pipeline_activation_ready_for_issue_388: false
@@ -816,7 +1049,6 @@ workflow_handoff:
     - "git diff --check --no-index /dev/null docs/contracts/quality_ruff_current_advisory_measurement_report.md"
   stop_conditions:
     - "Do not run the all-rules Ruff measurement."
-    - "Do not implement code."
     - "Do not open a PR."
     - "Do not change CI or GitHub Actions."
     - "Do not edit pyproject.toml Ruff rule selection."
