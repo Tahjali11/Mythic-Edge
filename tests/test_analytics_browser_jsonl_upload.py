@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import sqlite3
 from pathlib import Path
@@ -9,7 +10,11 @@ import pytest
 from fastapi.testclient import TestClient
 
 from mythic_edge_parser.local_app import import_jobs
-from mythic_edge_parser.local_app.backend import create_app
+from mythic_edge_parser.local_app.backend import (
+    _BrowserJsonlUploadReadError,
+    _build_browser_jsonl_upload_files,
+    create_app,
+)
 from mythic_edge_parser.local_app.import_jobs import (
     BROWSER_JSONL_UPLOAD_SOURCE_MODE,
     MANUAL_JSONL_IMPORT_SCHEMA_VERSION,
@@ -129,6 +134,71 @@ def _raw_jsonl_artifacts(root: Path) -> list[Path]:
     if not root.exists():
         return []
     return sorted(root.rglob("*.jsonl"))
+
+
+class _RecordingUpload:
+    def __init__(self, content: bytes, *, filename: str = "events.jsonl") -> None:
+        self._content = content
+        self._offset = 0
+        self.filename = filename
+        self.content_type = "application/jsonl"
+        self.read_sizes: list[int] = []
+        self.bytes_served = 0
+
+    async def read(self, size: int = -1) -> bytes:
+        self.read_sizes.append(size)
+        if size < 0:
+            size = len(self._content) - self._offset
+        chunk = self._content[self._offset : self._offset + size]
+        self._offset += len(chunk)
+        self.bytes_served += len(chunk)
+        return chunk
+
+
+def test_upload_builder_rejects_too_many_files_before_content_reads(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(import_jobs, "MAX_BROWSER_JSONL_UPLOAD_FILES", 1)
+    first = _RecordingUpload(b'{"kind": "Rank"}\n')
+    second = _RecordingUpload(b'{"kind": "Rank"}\n')
+
+    with pytest.raises(_BrowserJsonlUploadReadError) as exc_info:
+        asyncio.run(_build_browser_jsonl_upload_files([first, second]))
+
+    assert exc_info.value.error_code == "upload_files_too_many"
+    assert first.read_sizes == []
+    assert second.read_sizes == []
+
+
+def test_upload_builder_stops_single_oversized_file_before_full_read(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(import_jobs, "MAX_BROWSER_JSONL_UPLOAD_FILE_BYTES", 8)
+    monkeypatch.setattr(import_jobs, "MAX_BROWSER_JSONL_UPLOAD_TOTAL_BYTES", 1024)
+    upload = _RecordingUpload(b"x" * 100)
+
+    with pytest.raises(_BrowserJsonlUploadReadError) as exc_info:
+        asyncio.run(_build_browser_jsonl_upload_files([upload]))
+
+    assert exc_info.value.error_code == "upload_file_too_large"
+    assert upload.bytes_served == 9
+    assert upload.bytes_served < len(upload._content)
+    assert upload.read_sizes == [9]
+
+
+def test_upload_builder_stops_aggregate_oversized_batch_before_remaining_reads(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(import_jobs, "MAX_BROWSER_JSONL_UPLOAD_FILE_BYTES", 1024)
+    monkeypatch.setattr(import_jobs, "MAX_BROWSER_JSONL_UPLOAD_TOTAL_BYTES", 20)
+    first = _RecordingUpload(b"a" * 15, filename="a_events.jsonl")
+    second = _RecordingUpload(b"b" * 15, filename="b_events.jsonl")
+    third = _RecordingUpload(b"c" * 15, filename="c_events.jsonl")
+
+    with pytest.raises(_BrowserJsonlUploadReadError) as exc_info:
+        asyncio.run(_build_browser_jsonl_upload_files([first, second, third]))
+
+    assert exc_info.value.error_code == "upload_total_size_too_large"
+    assert first.bytes_served == 15
+    assert second.bytes_served == 6
+    assert second.bytes_served < len(second._content)
+    assert third.read_sizes == []
 
 
 def test_browser_jsonl_upload_imports_multiple_files_as_one_sanitized_job(tmp_path: Path) -> None:
