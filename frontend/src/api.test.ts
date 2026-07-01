@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   fetchAnalyticsDashboardModules,
@@ -25,6 +25,7 @@ import {
   MatchJournalApiError,
   ManualImportApiError,
   previewErrorReport,
+  resetLocalRequestGuardForTests,
   SetupStatusApiError,
   submitErrorReport,
   submitMatchJournalDisplayCorrection,
@@ -99,7 +100,15 @@ import {
   type SetupStatusResponse
 } from "./types";
 
+const REQUEST_GUARD_PATH = "/api/app/request-guard";
+const REQUEST_GUARD_HEADER = "X-Mythic-Edge-Local-Request-Guard";
+const REQUEST_GUARD_TOKEN = "synthetic-local-request-guard";
+
 describe("api helpers", () => {
+  beforeEach(() => {
+    resetLocalRequestGuardForTests();
+  });
+
   it("accepts empty and loopback API base URLs only", () => {
     expect(getApiBaseUrl("")).toBe("");
     expect(getApiBaseUrl("http://127.0.0.1:8000")).toBe("http://127.0.0.1:8000");
@@ -168,7 +177,7 @@ describe("api helpers", () => {
 
   it("submits sanitized error reports through the local backend route", async () => {
     const payload = buildErrorReportSubmissionPayload();
-    const fetchImpl = vi.fn(async () => jsonResponse(payload)) as unknown as typeof fetch;
+    const fetchImpl = guardedJsonFetch(payload);
 
     await expect(
       submitErrorReport(
@@ -184,16 +193,23 @@ describe("api helpers", () => {
         fetchImpl
       )
     ).resolves.toEqual(payload);
-    expect(fetchImpl).toHaveBeenCalledWith("/api/feedback/error-report/submit", {
+    expect(fetchImpl).toHaveBeenNthCalledWith(1, REQUEST_GUARD_PATH, {
+      headers: { Accept: "application/json" }
+    });
+    expect(fetchImpl).toHaveBeenNthCalledWith(2, "/api/feedback/error-report/submit", {
       method: "POST",
-      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        [REQUEST_GUARD_HEADER]: REQUEST_GUARD_TOKEN
+      },
       body: expect.stringContaining('"report_type":"bug"')
     });
   });
 
   it("accepts ready error-report previews when external submission is enabled", async () => {
     const payload = buildErrorReportPreviewPayload({ external_submission_enabled: true });
-    const fetchImpl = vi.fn(async () => jsonResponse(payload)) as unknown as typeof fetch;
+    const fetchImpl = guardedJsonFetch(payload);
 
     await expect(
       previewErrorReport(
@@ -209,9 +225,16 @@ describe("api helpers", () => {
         fetchImpl
       )
     ).resolves.toEqual(payload);
-    expect(fetchImpl).toHaveBeenCalledWith("/api/feedback/error-report/preview", {
+    expect(fetchImpl).toHaveBeenNthCalledWith(1, REQUEST_GUARD_PATH, {
+      headers: { Accept: "application/json" }
+    });
+    expect(fetchImpl).toHaveBeenNthCalledWith(2, "/api/feedback/error-report/preview", {
       method: "POST",
-      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        [REQUEST_GUARD_HEADER]: REQUEST_GUARD_TOKEN
+      },
       body: expect.stringContaining('"report_type":"bug"')
     });
   });
@@ -584,7 +607,7 @@ describe("api helpers", () => {
 
   it("posts Match Journal cockpit mutations only to /api/journal routes", async () => {
     const payload = buildMatchJournalPayload({ result: { service_result: { action: "completed" } } });
-    const fetchImpl = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => jsonResponse(payload));
+    const fetchImpl = guardedJsonFetch(payload);
     const context = { parser_match_id: "match:history:1", parser_game_id: "match:history:1:g1", game_number: 1 };
 
     await submitMatchJournalNote(
@@ -613,15 +636,22 @@ describe("api helpers", () => {
       fetchImpl as unknown as typeof fetch
     );
 
-    expect(fetchImpl.mock.calls.map((call) => String(call[0]))).toEqual([
+    const fetchCalls = (
+      fetchImpl as unknown as { mock: { calls: Array<[RequestInfo | URL, RequestInit | undefined]> } }
+    ).mock.calls;
+    expect(fetchCalls.map((call) => String(call[0]))).toEqual([
+      REQUEST_GUARD_PATH,
       "/api/journal/notes",
       "/api/journal/opponent-labels",
       "/api/journal/review-flags",
       "/api/journal/experiment-label",
       "/api/journal/display-corrections"
     ]);
-    for (const [path] of fetchImpl.mock.calls) {
+    for (const [path, init] of fetchCalls) {
       expect(String(path)).not.toMatch(/^\/journal/);
+      if (String(path) !== REQUEST_GUARD_PATH) {
+        expect((init as RequestInit).headers).toMatchObject({ [REQUEST_GUARD_HEADER]: REQUEST_GUARD_TOKEN });
+      }
     }
   });
 
@@ -956,27 +986,41 @@ describe("api helpers", () => {
 
   it("submits manual JSONL import requests without exposing raw payloads in errors", async () => {
     const payload = buildManualImportJob();
-    const fetchImpl = vi.fn(async () => jsonResponse(payload)) as unknown as typeof fetch;
+    const fetchImpl = guardedJsonFetch(payload);
 
     await expect(
       submitManualJsonlImport({ source_path: "Z:\\synthetic\\events_v1.jsonl" }, fetchImpl)
     ).resolves.toEqual(payload);
-    expect(fetchImpl).toHaveBeenCalledWith("/api/imports/jsonl", {
+    expect(fetchImpl).toHaveBeenNthCalledWith(1, REQUEST_GUARD_PATH, {
+      headers: { Accept: "application/json" }
+    });
+    expect(fetchImpl).toHaveBeenNthCalledWith(2, "/api/imports/jsonl", {
       method: "POST",
-      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        [REQUEST_GUARD_HEADER]: REQUEST_GUARD_TOKEN
+      },
       body: JSON.stringify({ source_path: "Z:\\synthetic\\events_v1.jsonl" })
     });
   });
 
   it("submits explicit batch import requests with source_paths", async () => {
     const payload = buildManualImportJob();
-    const fetchImpl = vi.fn(async () => jsonResponse(payload)) as unknown as typeof fetch;
+    const fetchImpl = guardedJsonFetch(payload);
     const sourcePaths = ["Z:\\synthetic\\a_events.jsonl", "Z:\\synthetic\\b_events.jsonl"];
 
     await expect(submitManualJsonlImport({ source_paths: sourcePaths }, fetchImpl)).resolves.toEqual(payload);
-    expect(fetchImpl).toHaveBeenCalledWith("/api/imports/jsonl", {
+    expect(fetchImpl).toHaveBeenNthCalledWith(1, REQUEST_GUARD_PATH, {
+      headers: { Accept: "application/json" }
+    });
+    expect(fetchImpl).toHaveBeenNthCalledWith(2, "/api/imports/jsonl", {
       method: "POST",
-      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+        [REQUEST_GUARD_HEADER]: REQUEST_GUARD_TOKEN
+      },
       body: JSON.stringify({ source_paths: sourcePaths })
     });
   });
@@ -986,8 +1030,11 @@ describe("api helpers", () => {
     const firstFile = new File(['{"kind":"MatchState"}\n'], "a_events.jsonl", { type: "application/jsonl" });
     const secondFile = new File(['{"kind":"GameResult"}\n'], "b_events.jsonl", { type: "application/jsonl" });
     const fetchImpl = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(_input).endsWith(REQUEST_GUARD_PATH)) {
+        return jsonResponse(buildRequestGuardPayload());
+      }
       expect(init?.method).toBe("POST");
-      expect(init?.headers).toEqual({ Accept: "application/json" });
+      expect(init?.headers).toEqual({ Accept: "application/json", [REQUEST_GUARD_HEADER]: REQUEST_GUARD_TOKEN });
       expect(init?.body).toBeInstanceOf(FormData);
 
       const formData = init?.body as FormData;
@@ -1009,11 +1056,12 @@ describe("api helpers", () => {
         fetchImpl
       )
     ).resolves.toEqual(payload);
-    expect(fetchImpl).toHaveBeenCalledWith(
+    expect(fetchImpl).toHaveBeenNthCalledWith(
+      2,
       "/api/imports/jsonl/upload",
       expect.objectContaining({
         method: "POST",
-        headers: { Accept: "application/json" },
+        headers: { Accept: "application/json", [REQUEST_GUARD_HEADER]: REQUEST_GUARD_TOKEN },
         body: expect.any(FormData)
       })
     );
@@ -1030,42 +1078,46 @@ describe("api helpers", () => {
   });
 
   it("rejects malformed manual import job responses safely", async () => {
-    const missingFieldsFetch = vi.fn(async () =>
-      jsonResponse({ object: MANUAL_IMPORT_JOB_OBJECT })
-    ) as unknown as typeof fetch;
+    const missingFieldsFetch = guardedJsonFetch({ object: MANUAL_IMPORT_JOB_OBJECT });
     await expect(
       submitManualJsonlImport({ source_path: "Z:\\synthetic\\events_v1.jsonl" }, missingFieldsFetch)
     ).rejects.toMatchObject({ code: "malformed_response" });
 
-    const wrongSchemaFetch = vi.fn(async () =>
-      jsonResponse({ ...buildManualImportJob(), schema_version: "future.schema" })
-    ) as unknown as typeof fetch;
+    const wrongSchemaFetch = guardedJsonFetch({ ...buildManualImportJob(), schema_version: "future.schema" });
     await expect(
       submitManualJsonlImport({ source_path: "Z:\\synthetic\\events_v1.jsonl" }, wrongSchemaFetch)
     ).rejects.toMatchObject({ code: "incompatible_response" });
 
-    const missingQualityFetch = vi.fn(async () =>
-      jsonResponse({
-        ...buildManualImportJob(),
-        adapter: { ...buildManualImportJob().adapter, quality: undefined }
-      })
-    ) as unknown as typeof fetch;
+    const missingQualityFetch = guardedJsonFetch({
+      ...buildManualImportJob(),
+      adapter: { ...buildManualImportJob().adapter, quality: undefined }
+    });
     await expect(
       submitManualJsonlImport({ source_path: "Z:\\synthetic\\events_v1.jsonl" }, missingQualityFetch)
     ).rejects.toMatchObject({ code: "malformed_response" });
 
-    const wrongQualitySchemaFetch = vi.fn(async () =>
-      jsonResponse({
-        ...buildManualImportJob(),
-        adapter: {
-          ...buildManualImportJob().adapter,
-          quality: { ...buildImportQuality(), schema_version: "future.quality" }
-        }
-      })
-    ) as unknown as typeof fetch;
+    const wrongQualitySchemaFetch = guardedJsonFetch({
+      ...buildManualImportJob(),
+      adapter: {
+        ...buildManualImportJob().adapter,
+        quality: { ...buildImportQuality(), schema_version: "future.quality" }
+      }
+    });
     await expect(
       submitManualJsonlImport({ source_path: "Z:\\synthetic\\events_v1.jsonl" }, wrongQualitySchemaFetch)
     ).rejects.toMatchObject({ code: "incompatible_response" });
+  });
+
+  it("blocks mutating helpers when the local request guard is unavailable", async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse({ status: "unavailable" }, { status: 503 })) as unknown as typeof fetch;
+
+    await expect(
+      submitManualJsonlImport({ source_path: "Z:\\synthetic\\events_v1.jsonl" }, fetchImpl)
+    ).rejects.toBeInstanceOf(ManualImportApiError);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(fetchImpl).toHaveBeenCalledWith(REQUEST_GUARD_PATH, {
+      headers: { Accept: "application/json" }
+    });
   });
 
   it("maps manual import backend and unsafe API base failures", async () => {
@@ -1085,6 +1137,29 @@ function jsonResponse(payload: unknown, init: ResponseInit = {}): Response {
     statusText: init.statusText,
     headers: { "Content-Type": "application/json", ...init.headers }
   });
+}
+
+function guardedJsonFetch(payload: unknown, init: ResponseInit = {}): typeof fetch {
+  return vi.fn(async (input: RequestInfo | URL) => {
+    if (String(input).endsWith(REQUEST_GUARD_PATH)) {
+      return jsonResponse(buildRequestGuardPayload());
+    }
+    return jsonResponse(payload, init);
+  }) as unknown as typeof fetch;
+}
+
+function buildRequestGuardPayload(): Record<string, unknown> {
+  const payload: Record<string, unknown> = {
+    object: "mythic_edge_local_request_guard",
+    schema_version: 1,
+    status: "available",
+    header_name: REQUEST_GUARD_HEADER,
+    expires_on_backend_restart: true,
+    warnings: [],
+    errors: []
+  };
+  payload["token"] = REQUEST_GUARD_TOKEN;
+  return payload;
 }
 
 function buildSetupStatusPayload(): SetupStatusResponse {

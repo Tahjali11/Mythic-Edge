@@ -89,6 +89,10 @@ const LIVE_WATCHER_DIAGNOSTICS_STATUS_PATH = "/api/live/watcher/diagnostics";
 const LIVE_CAPTURE_STATUS_PATH = "/api/live/capture/status";
 const LIVE_CAPTURE_START_PATH = "/api/live/capture/start";
 const LIVE_CAPTURE_STOP_PATH = "/api/live/capture/stop";
+const REQUEST_GUARD_PATH = "/api/app/request-guard";
+const REQUEST_GUARD_OBJECT = "mythic_edge_local_request_guard";
+const REQUEST_GUARD_SCHEMA_VERSION = 1;
+const REQUEST_GUARD_HEADER_NAME = "X-Mythic-Edge-Local-Request-Guard";
 const MATCH_HISTORY_PATH = "/api/analytics/matches";
 const GAME_HISTORY_PATH = "/api/analytics/games";
 const OPENING_HAND_HISTORY_PATH = "/api/analytics/opening-hands";
@@ -291,6 +295,15 @@ const AUTOMATION_READINESS_ITEM_KEYS = [
   "readiness_recorded_in_contract_or_report"
 ] as const;
 
+type LocalRequestGuard = {
+  baseUrl: string;
+  headerName: typeof REQUEST_GUARD_HEADER_NAME;
+  guardValue: string;
+};
+
+let cachedLocalRequestGuard: LocalRequestGuard | null = null;
+let pendingLocalRequestGuard: Promise<LocalRequestGuard> | null = null;
+
 export class SetupStatusApiError extends Error {
   code: SetupStatusErrorCode;
 
@@ -375,6 +388,11 @@ export function getApiBaseUrl(value: string | undefined = import.meta.env.VITE_M
   return parsed.origin;
 }
 
+export function resetLocalRequestGuardForTests(): void {
+  cachedLocalRequestGuard = null;
+  pendingLocalRequestGuard = null;
+}
+
 export async function fetchSetupStatus(fetchImpl: typeof fetch = fetch): Promise<SetupStatusResponse> {
   const baseUrl = getApiBaseUrl();
   let response: Response;
@@ -407,11 +425,16 @@ export async function previewErrorReport(
   const baseUrl = getErrorReportApiBaseUrl();
   let response: Response;
   try {
-    response = await fetchImpl(`${baseUrl}${ERROR_REPORT_PREVIEW_PATH}`, {
+    response = await guardedFetch(
+      baseUrl,
+      ERROR_REPORT_PREVIEW_PATH,
+      {
       method: "POST",
       headers: { Accept: "application/json", "Content-Type": "application/json" },
       body: JSON.stringify(request)
-    });
+      },
+      fetchImpl
+    );
   } catch {
     throw new ErrorReportApiError("backend_unavailable", "Error report preview is unavailable.");
   }
@@ -437,11 +460,16 @@ export async function submitErrorReport(
   const baseUrl = getErrorReportApiBaseUrl();
   let response: Response;
   try {
-    response = await fetchImpl(`${baseUrl}${ERROR_REPORT_SUBMIT_PATH}`, {
+    response = await guardedFetch(
+      baseUrl,
+      ERROR_REPORT_SUBMIT_PATH,
+      {
       method: "POST",
       headers: { Accept: "application/json", "Content-Type": "application/json" },
       body: JSON.stringify(request)
-    });
+      },
+      fetchImpl
+    );
   } catch {
     throw new ErrorReportApiError("backend_unavailable", "Error report submission is unavailable.");
   }
@@ -644,11 +672,16 @@ export async function submitManualJsonlImport(
   const baseUrl = getManualImportApiBaseUrl();
   let response: Response;
   try {
-    response = await fetchImpl(`${baseUrl}${MANUAL_IMPORT_PATH}`, {
+    response = await guardedFetch(
+      baseUrl,
+      MANUAL_IMPORT_PATH,
+      {
       method: "POST",
       headers: { Accept: "application/json", "Content-Type": "application/json" },
       body: JSON.stringify(request)
-    });
+      },
+      fetchImpl
+    );
   } catch {
     throw new ManualImportApiError("backend_unavailable", "Manual import backend is unavailable.");
   }
@@ -682,11 +715,16 @@ export async function submitManualJsonlUpload(
 
   let response: Response;
   try {
-    response = await fetchImpl(`${baseUrl}${MANUAL_IMPORT_UPLOAD_PATH}`, {
+    response = await guardedFetch(
+      baseUrl,
+      MANUAL_IMPORT_UPLOAD_PATH,
+      {
       method: "POST",
       headers: { Accept: "application/json" },
       body: formData
-    });
+      },
+      fetchImpl
+    );
   } catch {
     throw new ManualImportApiError("backend_unavailable", "Manual import backend is unavailable.");
   }
@@ -831,11 +869,16 @@ async function postMatchJournal(
   const baseUrl = getMatchJournalApiBaseUrl();
   let response: Response;
   try {
-    response = await fetchImpl(`${baseUrl}${path}`, {
+    response = await guardedFetch(
+      baseUrl,
+      path,
+      {
       method: "POST",
       headers: { Accept: "application/json", "Content-Type": "application/json" },
       body: JSON.stringify(request)
-    });
+      },
+      fetchImpl
+    );
   } catch {
     throw new MatchJournalApiError("backend_unavailable", "Match Journal backend is unavailable.");
   }
@@ -892,10 +935,15 @@ async function postLiveCaptureControl(
   const baseUrl = getApiBaseUrl();
   let response: Response;
   try {
-    response = await fetchImpl(`${baseUrl}${path}`, {
+    response = await guardedFetch(
+      baseUrl,
+      path,
+      {
       method: "POST",
       headers: { Accept: "application/json" }
-    });
+      },
+      fetchImpl
+    );
   } catch {
     throw new LiveStatusApiError("backend_unavailable", `${label} is unavailable.`);
   }
@@ -909,6 +957,57 @@ async function postLiveCaptureControl(
   } catch {
     throw new LiveStatusApiError("malformed_response", `${label} returned malformed JSON.`);
   }
+}
+
+async function guardedFetch(
+  baseUrl: string,
+  path: string,
+  init: RequestInit & { headers: Record<string, string> },
+  fetchImpl: typeof fetch
+): Promise<Response> {
+  const guard = await fetchLocalRequestGuard(baseUrl, fetchImpl);
+  return fetchImpl(`${baseUrl}${path}`, {
+    ...init,
+    headers: { ...init.headers, [guard.headerName]: guard.guardValue }
+  });
+}
+
+async function fetchLocalRequestGuard(baseUrl: string, fetchImpl: typeof fetch): Promise<LocalRequestGuard> {
+  if (cachedLocalRequestGuard?.baseUrl === baseUrl) {
+    return cachedLocalRequestGuard;
+  }
+  pendingLocalRequestGuard ??= fetchAndValidateLocalRequestGuard(baseUrl, fetchImpl);
+  try {
+    cachedLocalRequestGuard = await pendingLocalRequestGuard;
+    return cachedLocalRequestGuard;
+  } finally {
+    pendingLocalRequestGuard = null;
+  }
+}
+
+async function fetchAndValidateLocalRequestGuard(baseUrl: string, fetchImpl: typeof fetch): Promise<LocalRequestGuard> {
+  const response = await fetchImpl(`${baseUrl}${REQUEST_GUARD_PATH}`, {
+    headers: { Accept: "application/json" }
+  });
+  if (!response.ok) {
+    throw new Error("Local request guard is unavailable.");
+  }
+  const payload = await response.json();
+  if (
+    !isRecord(payload) ||
+    payload.object !== REQUEST_GUARD_OBJECT ||
+    payload.schema_version !== REQUEST_GUARD_SCHEMA_VERSION ||
+    payload.status !== "available" ||
+    payload.header_name !== REQUEST_GUARD_HEADER_NAME ||
+    typeof payload["token"] !== "string" ||
+    payload["token"].trim() === "" ||
+    payload.expires_on_backend_restart !== true ||
+    !Array.isArray(payload.warnings) ||
+    !Array.isArray(payload.errors)
+  ) {
+    throw new Error("Local request guard returned malformed JSON.");
+  }
+  return { baseUrl, headerName: REQUEST_GUARD_HEADER_NAME, guardValue: payload["token"] };
 }
 
 function validateSetupStatusResponse(payload: unknown): SetupStatusResponse {

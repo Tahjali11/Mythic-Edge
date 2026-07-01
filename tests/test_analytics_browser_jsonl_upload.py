@@ -15,6 +15,7 @@ from mythic_edge_parser.local_app.import_jobs import (
     MANUAL_JSONL_IMPORT_SCHEMA_VERSION,
     clear_import_jobs_for_tests,
 )
+from tests.local_app_request_guard_helpers import guarded_client
 
 
 @pytest.fixture(autouse=True)
@@ -23,7 +24,7 @@ def _clear_jobs() -> None:
 
 
 def _client(app_data_root: Path) -> TestClient:
-    return TestClient(create_app(app_data_root=app_data_root))
+    return guarded_client(create_app(app_data_root=app_data_root))
 
 
 def _jsonl_bytes(records: list[dict[str, Any] | str]) -> bytes:

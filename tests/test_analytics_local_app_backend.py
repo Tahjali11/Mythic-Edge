@@ -8,10 +8,17 @@ import time
 from pathlib import Path
 
 import pytest
+from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
 from mythic_edge_parser.local_app import live_watcher_diagnostics
-from mythic_edge_parser.local_app.backend import create_app
+from mythic_edge_parser.local_app.backend import (
+    GUARDED_MUTATING_API_ROUTES,
+    LOCAL_REQUEST_GUARD_HEADER,
+    create_app,
+    require_local_request_guard,
+)
+from tests.local_app_request_guard_helpers import guarded_client, request_guard_headers
 
 EXPECTED_PROCESS_PRECONDITION_KEYS = [
     "player_log_ready",
@@ -26,7 +33,7 @@ EXPECTED_PROCESS_PRECONDITION_KEYS = [
 
 
 def _client(app_data_root) -> TestClient:
-    return TestClient(create_app(app_data_root=app_data_root))
+    return guarded_client(create_app(app_data_root=app_data_root))
 
 
 class _FakeErrorReportSubmitter:
@@ -61,7 +68,7 @@ class _FakeErrorReportSubmitter:
 
 
 def _client_with_error_report_submitter(app_data_root, submitter: _FakeErrorReportSubmitter) -> TestClient:
-    return TestClient(create_app(app_data_root=app_data_root, error_report_submitter=submitter))
+    return guarded_client(create_app(app_data_root=app_data_root, error_report_submitter=submitter))
 
 
 def _preconditions_by_key(payload: dict[str, object]) -> dict[str, dict[str, object]]:
@@ -120,6 +127,7 @@ def test_read_only_endpoint_inventory_and_no_wildcard_cors(tmp_path) -> None:
         "/api/app/setup-status",
         "/api/app/config",
         "/api/app/paths",
+        "/api/app/request-guard",
         "/api/analytics/database/status",
         "/api/live/player-log/status",
         "/api/live/watcher/status",
@@ -151,6 +159,83 @@ def test_read_only_endpoint_inventory_and_no_wildcard_cors(tmp_path) -> None:
     assert response.headers.get("access-control-allow-origin") != "*"
 
 
+def test_request_guard_bootstrap_returns_process_local_metadata_without_private_artifacts(tmp_path) -> None:
+    client = TestClient(create_app(app_data_root=tmp_path / "app-data"), base_url="http://127.0.0.1:8000")
+
+    response = client.get("/api/app/request-guard", headers={"Origin": "http://127.0.0.1:5173"})
+    payload = response.json()
+    encoded = json.dumps(payload, sort_keys=True)
+
+    assert response.status_code == 200
+    assert payload["object"] == "mythic_edge_local_request_guard"
+    assert payload["schema_version"] == 1
+    assert payload["status"] == "available"
+    assert payload["header_name"] == LOCAL_REQUEST_GUARD_HEADER
+    assert isinstance(payload["token"], str)
+    assert len(payload["token"]) >= 22
+    assert payload["expires_on_backend_restart"] is True
+    assert payload["warnings"] == []
+    assert payload["errors"] == []
+    assert str(tmp_path) not in encoded
+    assert "Player.log" not in encoded
+
+
+def test_mutating_api_routes_require_local_request_guard_before_route_behavior(tmp_path) -> None:
+    app_root = tmp_path / "app-data"
+    submitter = _FakeErrorReportSubmitter()
+    client = TestClient(
+        create_app(app_data_root=app_root, error_report_submitter=submitter),
+        base_url="http://127.0.0.1:8000",
+    )
+    post_api_routes = {
+        route.path
+        for route in client.app.routes
+        if isinstance(route, APIRoute) and route.path.startswith("/api/") and "POST" in route.methods
+    }
+
+    assert post_api_routes == GUARDED_MUTATING_API_ROUTES
+    for route in client.app.routes:
+        if isinstance(route, APIRoute) and route.path in GUARDED_MUTATING_API_ROUTES and "POST" in route.methods:
+            assert any(dependency.call is require_local_request_guard for dependency in route.dependant.dependencies)
+
+    for route in sorted(GUARDED_MUTATING_API_ROUTES):
+        missing = client.post(route)
+        blank = client.post(route, headers={LOCAL_REQUEST_GUARD_HEADER: "   "})
+        invalid = client.post(route, headers={LOCAL_REQUEST_GUARD_HEADER: "invalid-local-guard"})
+
+        assert missing.status_code == 401
+        assert missing.json()["detail"] == {"error": "local_request_guard_missing"}
+        assert blank.status_code == 401
+        assert blank.json()["detail"] == {"error": "local_request_guard_missing"}
+        assert invalid.status_code == 403
+        assert invalid.json()["detail"] == {"error": "local_request_guard_invalid"}
+
+    assert submitter.created == []
+    assert not app_root.exists()
+
+
+def test_request_guard_rejects_disallowed_origin_and_host_without_token_echo(tmp_path) -> None:
+    client = TestClient(create_app(app_data_root=tmp_path / "app-data"), base_url="http://127.0.0.1:8000")
+    headers = request_guard_headers(client)
+    guard_value = headers[LOCAL_REQUEST_GUARD_HEADER]
+
+    origin_response = client.post(
+        "/api/live/capture/start",
+        headers={**headers, "Origin": "http://example.invalid"},
+    )
+    host_response = client.post(
+        "/api/live/capture/start",
+        headers={**headers, "Host": "example.invalid"},
+    )
+    encoded = json.dumps({"origin": origin_response.json(), "host": host_response.json()}, sort_keys=True)
+
+    assert origin_response.status_code == 403
+    assert origin_response.json()["detail"] == {"error": "local_request_origin_not_allowed"}
+    assert host_response.status_code == 403
+    assert host_response.json()["detail"] == {"error": "local_request_host_not_allowed"}
+    assert guard_value not in encoded
+
+
 def test_backend_allows_only_explicit_loopback_frontend_cors(tmp_path) -> None:
     client = _client(tmp_path / "app-data")
 
@@ -160,7 +245,7 @@ def test_backend_allows_only_explicit_loopback_frontend_cors(tmp_path) -> None:
         headers={
             "Origin": "http://127.0.0.1:5173",
             "Access-Control-Request-Method": "POST",
-            "Access-Control-Request-Headers": "content-type",
+            "Access-Control-Request-Headers": f"content-type,{LOCAL_REQUEST_GUARD_HEADER.lower()}",
         },
     )
     disallowed = client.get("/api/health", headers={"Origin": "http://example.invalid"})
@@ -168,11 +253,12 @@ def test_backend_allows_only_explicit_loopback_frontend_cors(tmp_path) -> None:
     assert allowed.headers.get("access-control-allow-origin") == "http://127.0.0.1:5173"
     assert preflight.headers.get("access-control-allow-origin") == "http://127.0.0.1:5173"
     assert "POST" in preflight.headers.get("access-control-allow-methods", "")
+    assert LOCAL_REQUEST_GUARD_HEADER.lower() in preflight.headers.get("access-control-allow-headers", "").lower()
     assert disallowed.headers.get("access-control-allow-origin") is None
 
 
 def test_backend_cors_uses_local_frontend_origin_from_launcher_env(tmp_path) -> None:
-    client = TestClient(
+    client = guarded_client(
         create_app(
             app_data_root=tmp_path / "app-data",
             env={"MYTHIC_EDGE_LOCAL_APP_FRONTEND_ORIGIN": "http://127.0.0.1:5180"},
@@ -185,7 +271,7 @@ def test_backend_cors_uses_local_frontend_origin_from_launcher_env(tmp_path) -> 
 
 
 def test_backend_ignores_non_loopback_frontend_origin_env(tmp_path) -> None:
-    client = TestClient(
+    client = guarded_client(
         create_app(
             app_data_root=tmp_path / "app-data",
             env={"MYTHIC_EDGE_LOCAL_APP_FRONTEND_ORIGIN": "https://example.invalid"},
@@ -201,7 +287,7 @@ def test_backend_uses_launcher_app_data_root_env_for_status_and_writes(tmp_path)
     launcher_root = tmp_path / "launcher-app-data"
     local_app_data = tmp_path / "local-app-data"
     default_root = local_app_data / "MythicEdgeDev"
-    client = TestClient(
+    client = guarded_client(
         create_app(
             env={
                 "LOCALAPPDATA": str(local_app_data),

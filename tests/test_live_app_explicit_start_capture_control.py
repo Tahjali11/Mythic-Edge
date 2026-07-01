@@ -17,6 +17,7 @@ from mythic_edge_parser.local_app.live_capture_control import (
     LIVE_CAPTURE_STATE_FILENAME,
 )
 from mythic_edge_parser.local_app.paths import build_local_app_paths
+from tests.local_app_request_guard_helpers import guarded_client
 
 
 class _FakeSupervisor:
@@ -98,7 +99,7 @@ class _FakeSubscriber:
 
 
 def _client(app_data_root: Path) -> TestClient:
-    return TestClient(create_app(app_data_root=app_data_root))
+    return guarded_client(create_app(app_data_root=app_data_root))
 
 
 def _configure_player_log(app_root: Path, player_log_path: Path) -> None:

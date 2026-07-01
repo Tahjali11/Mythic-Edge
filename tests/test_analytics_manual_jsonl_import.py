@@ -18,6 +18,7 @@ from mythic_edge_parser.local_app.import_jobs import (
     MAX_LEGACY_JSONL_BATCH_FILES,
     clear_import_jobs_for_tests,
 )
+from tests.local_app_request_guard_helpers import guarded_client
 
 
 @pytest.fixture(autouse=True)
@@ -26,7 +27,7 @@ def _clear_jobs() -> None:
 
 
 def _client(app_data_root: Path) -> TestClient:
-    return TestClient(create_app(app_data_root=app_data_root))
+    return guarded_client(create_app(app_data_root=app_data_root))
 
 
 def _write_jsonl(path: Path, records: list[dict[str, Any] | str]) -> None:
