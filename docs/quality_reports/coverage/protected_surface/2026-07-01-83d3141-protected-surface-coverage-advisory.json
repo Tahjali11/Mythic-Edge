@@ -1,0 +1,869 @@
+{
+  "advisory_only": true,
+  "branch_coverage_enforcement_authorized": false,
+  "branch_coverage_status": "advisory_only",
+  "ci_change_authorized": false,
+  "contract_ref": "docs/contracts/quality_protected_surface_coverage_floor_readiness.md",
+  "coverage_command": "py -m pytest -q tests --cov=src/mythic_edge_parser --cov-report=term-missing --cov-report=xml:<local-ignored-coverage-xml>",
+  "coverage_source": "src/mythic_edge_parser",
+  "coverage_xml_status": "parsed",
+  "global_branch_coverage_percent": 74.8,
+  "global_line_coverage_percent": 87.55,
+  "global_line_floor_increase_authorized": false,
+  "global_line_floor_percent": 85.0,
+  "global_line_floor_status": "passed",
+  "groups": [
+    {
+      "coverage_scope_status": "measured",
+      "files": [
+        {
+          "branch_coverage_percent": 100.0,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 100.0,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/events.py"
+        }
+      ],
+      "group_id": "parser_event_classes",
+      "internal_project_area": "Parser",
+      "protected_category_id": "parser_event_classes"
+    },
+    {
+      "coverage_scope_status": "measured",
+      "files": [
+        {
+          "branch_coverage_percent": 76.42,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 90.45,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/app/models.py"
+        },
+        {
+          "branch_coverage_percent": 77.42,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 90.21,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/app/state.py"
+        }
+      ],
+      "group_id": "parser_state_final_reconciliation",
+      "internal_project_area": "Parser",
+      "protected_category_id": "parser_state_final_reconciliation"
+    },
+    {
+      "coverage_scope_status": "measured",
+      "files": [
+        {
+          "branch_coverage_percent": 84.15,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 94.41,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/app/extractors.py"
+        }
+      ],
+      "group_id": "extractor_behavior",
+      "internal_project_area": "Parser",
+      "protected_category_id": "extractor_behavior"
+    },
+    {
+      "coverage_scope_status": "measured",
+      "files": [
+        {
+          "branch_coverage_percent": 72.34,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 90.6,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/app/gameplay_actions.py"
+        },
+        {
+          "branch_coverage_percent": 77.42,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 90.21,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/app/state.py"
+        },
+        {
+          "branch_coverage_percent": 72.03,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 83.08,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/app/transforms.py"
+        },
+        {
+          "branch_coverage_percent": 100.0,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 100.0,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/parsers/__init__.py"
+        },
+        {
+          "branch_coverage_percent": 100.0,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 100.0,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/parsers/api_common.py"
+        },
+        {
+          "branch_coverage_percent": 100.0,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 100.0,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/parsers/client_actions.py"
+        },
+        {
+          "branch_coverage_percent": 100.0,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 100.0,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/parsers/collection.py"
+        },
+        {
+          "branch_coverage_percent": 100.0,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 100.0,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/parsers/connection_close.py"
+        },
+        {
+          "branch_coverage_percent": 87.5,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 94.79,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/parsers/connection_error.py"
+        },
+        {
+          "branch_coverage_percent": 100.0,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 100.0,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/parsers/connection_state.py"
+        },
+        {
+          "branch_coverage_percent": 100.0,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 100.0,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/parsers/draft_bot.py"
+        },
+        {
+          "branch_coverage_percent": 100.0,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 100.0,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/parsers/draft_complete.py"
+        },
+        {
+          "branch_coverage_percent": 92.31,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 96.49,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/parsers/draft_human.py"
+        },
+        {
+          "branch_coverage_percent": 100.0,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 100.0,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/parsers/event_lifecycle.py"
+        },
+        {
+          "branch_coverage_percent": 96.15,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 98.39,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/parsers/gre/__init__.py"
+        },
+        {
+          "branch_coverage_percent": 87.31,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 94.53,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/parsers/gre/annotations.py"
+        },
+        {
+          "branch_coverage_percent": 100.0,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 100.0,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/parsers/gre/connect_resp.py"
+        },
+        {
+          "branch_coverage_percent": 95.45,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 98.08,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/parsers/gre/game_result.py"
+        },
+        {
+          "branch_coverage_percent": 100.0,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 100.0,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/parsers/gre/game_state.py"
+        },
+        {
+          "branch_coverage_percent": 91.25,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 95.24,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/parsers/gre/game_state_diff.py"
+        },
+        {
+          "branch_coverage_percent": 89.33,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 95.13,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/parsers/gre/timers.py"
+        },
+        {
+          "branch_coverage_percent": 100.0,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 100.0,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/parsers/gre/turn_info.py"
+        },
+        {
+          "branch_coverage_percent": 100.0,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 100.0,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/parsers/inventory.py"
+        },
+        {
+          "branch_coverage_percent": 100.0,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 100.0,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/parsers/match_state.py"
+        },
+        {
+          "branch_coverage_percent": 50.0,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 85.71,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/parsers/metadata.py"
+        },
+        {
+          "branch_coverage_percent": 100.0,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 100.0,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/parsers/rank.py"
+        },
+        {
+          "branch_coverage_percent": 100.0,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 100.0,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/parsers/session.py"
+        },
+        {
+          "branch_coverage_percent": 100.0,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 95.92,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/parsers/truncation.py"
+        }
+      ],
+      "group_id": "match_game_identity",
+      "internal_project_area": "Parser",
+      "protected_category_id": "match_game_identity"
+    },
+    {
+      "coverage_scope_status": "measured",
+      "files": [
+        {
+          "branch_coverage_percent": 91.67,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 96.95,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/app/sheet_exports.py"
+        },
+        {
+          "branch_coverage_percent": 100.0,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 100.0,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/app/sheet_schema.py"
+        },
+        {
+          "branch_coverage_percent": 72.03,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 83.08,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/app/transforms.py"
+        }
+      ],
+      "group_id": "workbook_schema_and_exports",
+      "internal_project_area": "Workbook / Transport",
+      "protected_category_id": "workbook_schema"
+    },
+    {
+      "coverage_scope_status": "measured",
+      "files": [
+        {
+          "branch_coverage_percent": 75.0,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 91.46,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/app/outputs.py"
+        },
+        {
+          "branch_coverage_percent": 46.88,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 76.65,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/app/runner.py"
+        },
+        {
+          "branch_coverage_percent": 72.03,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 83.08,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/app/transforms.py"
+        }
+      ],
+      "group_id": "webhook_payload_and_transport",
+      "internal_project_area": "Workbook / Transport",
+      "protected_category_id": "webhook_payload_shape"
+    },
+    {
+      "coverage_scope_status": "measured",
+      "files": [
+        {
+          "branch_coverage_percent": 100.0,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 100.0,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/app/config.py"
+        }
+      ],
+      "group_id": "environment_runtime_python_paths",
+      "internal_project_area": "Parser",
+      "protected_category_id": "environment_runtime_paths"
+    },
+    {
+      "coverage_scope_status": "measured",
+      "files": [
+        {
+          "branch_coverage_percent": 72.39,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 88.24,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/app/analytics_ingest.py"
+        },
+        {
+          "branch_coverage_percent": 78.57,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 87.34,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/app/analytics_json_ingest.py"
+        },
+        {
+          "branch_coverage_percent": 75.4,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 90.8,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/app/analytics_legacy_jsonl_adapter.py"
+        },
+        {
+          "branch_coverage_percent": 82.61,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 91.54,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/app/analytics_migration_loader.py"
+        },
+        {
+          "branch_coverage_percent": 23.81,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 45.19,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/app/analytics_sidecar.py"
+        }
+      ],
+      "group_id": "analytics_schema_and_ingest",
+      "internal_project_area": "Analytics",
+      "protected_category_id": "protected_adjacent_analytics_area"
+    },
+    {
+      "coverage_scope_status": "measured",
+      "files": [
+        {
+          "branch_coverage_percent": 100.0,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 100.0,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/local_app/__init__.py"
+        },
+        {
+          "branch_coverage_percent": 77.5,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 92.17,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/local_app/analytics_dashboard.py"
+        },
+        {
+          "branch_coverage_percent": 85.87,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 95.44,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/local_app/analytics_history.py"
+        },
+        {
+          "branch_coverage_percent": 66.67,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 90.7,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/local_app/analytics_refresh_state.py"
+        },
+        {
+          "branch_coverage_percent": 84.09,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 96.19,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/local_app/backend.py"
+        },
+        {
+          "branch_coverage_percent": 79.41,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 89.22,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/local_app/config.py"
+        },
+        {
+          "branch_coverage_percent": 77.94,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 91.27,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/local_app/error_reports.py"
+        },
+        {
+          "branch_coverage_percent": 80.92,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 90.76,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/local_app/import_jobs.py"
+        },
+        {
+          "branch_coverage_percent": 71.92,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 82.83,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/local_app/live_capture_control.py"
+        },
+        {
+          "branch_coverage_percent": 67.86,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 85.39,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/local_app/live_watcher_diagnostics.py"
+        },
+        {
+          "branch_coverage_percent": 66.67,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 85.59,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/local_app/live_watcher_process.py"
+        },
+        {
+          "branch_coverage_percent": 68.45,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 81.15,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/local_app/match_journal_cockpit.py"
+        },
+        {
+          "branch_coverage_percent": 60.0,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 80.19,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/local_app/match_journal_runtime.py"
+        },
+        {
+          "branch_coverage_percent": 71.43,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 96.23,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/local_app/mtga_process_lifecycle.py"
+        },
+        {
+          "branch_coverage_percent": 70.0,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 90.91,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/local_app/paths.py"
+        },
+        {
+          "branch_coverage_percent": 70.59,
+          "branch_coverage_status": "advisory_only",
+          "coverage_status": "measured",
+          "line_coverage_percent": 86.16,
+          "notes": [
+            "Branch coverage is advisory-only and has no threshold."
+          ],
+          "path": "src/mythic_edge_parser/local_app/setup_status.py"
+        }
+      ],
+      "group_id": "local_app_security_and_artifact_safety",
+      "internal_project_area": "Local App / UI",
+      "protected_category_id": "protected_adjacent_local_app_area"
+    },
+    {
+      "coverage_scope_status": "not_applicable_current_coverage_scope",
+      "files": [
+        {
+          "branch_coverage_percent": null,
+          "branch_coverage_status": "advisory_unavailable",
+          "coverage_status": "not_applicable_current_coverage_scope",
+          "line_coverage_percent": null,
+          "notes": [
+            "Apps Script is outside the current Python coverage source."
+          ],
+          "path": "tools/google_apps_script/Code.gs"
+        }
+      ],
+      "group_id": "apps_script_behavior",
+      "internal_project_area": "Workbook / Transport",
+      "protected_category_id": "apps_script_behavior"
+    },
+    {
+      "coverage_scope_status": "not_applicable_current_coverage_scope",
+      "files": [
+        {
+          "branch_coverage_percent": null,
+          "branch_coverage_status": "advisory_unavailable",
+          "coverage_status": "not_applicable_current_coverage_scope",
+          "line_coverage_percent": null,
+          "notes": [
+            "Governance docs are not executable Python coverage targets."
+          ],
+          "path": "AGENTS.md"
+        },
+        {
+          "branch_coverage_percent": null,
+          "branch_coverage_status": "advisory_unavailable",
+          "coverage_status": "not_applicable_current_coverage_scope",
+          "line_coverage_percent": null,
+          "notes": [
+            "Governance docs are not executable Python coverage targets."
+          ],
+          "path": "docs/agent_constitution.md"
+        },
+        {
+          "branch_coverage_percent": null,
+          "branch_coverage_status": "advisory_unavailable",
+          "coverage_status": "not_applicable_current_coverage_scope",
+          "line_coverage_percent": null,
+          "notes": [
+            "Governance docs are not executable Python coverage targets."
+          ],
+          "path": "docs/agent_rules.yml"
+        },
+        {
+          "branch_coverage_percent": null,
+          "branch_coverage_status": "advisory_unavailable",
+          "coverage_status": "not_applicable_current_coverage_scope",
+          "line_coverage_percent": null,
+          "notes": [
+            "Governance docs are not executable Python coverage targets."
+          ],
+          "path": "docs/codex_module_workflow.md"
+        }
+      ],
+      "group_id": "workflow_authority_docs",
+      "internal_project_area": "Quality / Governance",
+      "protected_category_id": "workflow_authority_docs"
+    },
+    {
+      "coverage_scope_status": "not_applicable_current_coverage_scope",
+      "files": [
+        {
+          "branch_coverage_percent": null,
+          "branch_coverage_status": "advisory_unavailable",
+          "coverage_status": "not_applicable_current_coverage_scope",
+          "line_coverage_percent": null,
+          "notes": [
+            "GitHub workflow YAML is outside the current Python coverage source."
+          ],
+          "path": ".github/workflows/repo-checks.yml"
+        }
+      ],
+      "group_id": "workflow_ci_yaml",
+      "internal_project_area": "Quality / Governance",
+      "protected_category_id": "environment_runtime_paths"
+    },
+    {
+      "coverage_scope_status": "not_applicable_current_coverage_scope",
+      "files": [
+        {
+          "branch_coverage_percent": null,
+          "branch_coverage_status": "advisory_unavailable",
+          "coverage_status": "not_applicable_current_coverage_scope",
+          "line_coverage_percent": null,
+          "notes": [
+            "Quality tools are outside the current coverage source."
+          ],
+          "path": "tools/check_protected_surfaces.py"
+        },
+        {
+          "branch_coverage_percent": null,
+          "branch_coverage_status": "advisory_unavailable",
+          "coverage_status": "not_applicable_current_coverage_scope",
+          "line_coverage_percent": null,
+          "notes": [
+            "Quality tools are outside the current coverage source."
+          ],
+          "path": "tools/check_secret_patterns.py"
+        }
+      ],
+      "group_id": "local_artifact_checker_tools",
+      "internal_project_area": "Quality / Governance",
+      "protected_category_id": "local_artifact_safety_tooling"
+    },
+    {
+      "coverage_scope_status": "not_applicable_current_coverage_scope",
+      "files": [
+        {
+          "branch_coverage_percent": null,
+          "branch_coverage_status": "advisory_unavailable",
+          "coverage_status": "not_applicable_current_coverage_scope",
+          "line_coverage_percent": null,
+          "notes": [
+            "Local/generated/private artifacts are not coverage targets."
+          ],
+          "path": "_review_"
+        },
+        {
+          "branch_coverage_percent": null,
+          "branch_coverage_status": "advisory_unavailable",
+          "coverage_status": "not_applicable_current_coverage_scope",
+          "line_coverage_percent": null,
+          "notes": [
+            "Local/generated/private artifacts are not coverage targets."
+          ],
+          "path": "data"
+        },
+        {
+          "branch_coverage_percent": null,
+          "branch_coverage_status": "advisory_unavailable",
+          "coverage_status": "not_applicable_current_coverage_scope",
+          "line_coverage_percent": null,
+          "notes": [
+            "Local/generated/private artifacts are not coverage targets."
+          ],
+          "path": "frontend/dist"
+        }
+      ],
+      "group_id": "forbidden_local_artifact_paths",
+      "internal_project_area": "Generated / Local Artifacts",
+      "protected_category_id": "local_artifact_surfaces"
+    }
+  ],
+  "issue": "https://github.com/Tahjali11/Mythic-Edge/issues/605",
+  "measured_commit": "83d3141e953913233e3457b910c2c83ff25d44aa",
+  "measured_ref": "codex/protected-surface-coverage-readiness-566",
+  "next_recommended_role": "Codex E: Module Reviewer / contract-test thread",
+  "non_claims": [
+    "advisory measurement only",
+    "not a protected-surface coverage gate",
+    "not CI enforcement",
+    "not branch coverage enforcement",
+    "not parser truth",
+    "not parser correctness proof",
+    "not protected-surface authorization",
+    "not security assurance",
+    "not privacy assurance",
+    "not release readiness",
+    "not deploy readiness",
+    "not production readiness",
+    "not analytics truth",
+    "not AI truth",
+    "not coaching truth"
+  ],
+  "object": "mythic_edge_quality_protected_surface_coverage_advisory",
+  "overall_status": "passed_advisory",
+  "protected_surface_floor_authorized": false,
+  "protected_surface_floor_status": "not_authorized",
+  "raw_artifacts_committed": false,
+  "repository": "Tahjali11/Mythic-Edge",
+  "repository_url": "https://github.com/Tahjali11/Mythic-Edge",
+  "schema_version": "protected_surface_coverage_advisory.v1",
+  "tracker": "https://github.com/Tahjali11/Mythic-Edge/issues/566"
+}

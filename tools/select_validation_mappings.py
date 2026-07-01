@@ -24,6 +24,14 @@ FOCUSED_TEST_MAPPINGS: tuple[tuple[str, str], ...] = (
     ("tests/test_check_secret_patterns.py", "python3 -m pytest -q tests/test_check_secret_patterns.py"),
     ("tools/check_coverage_floor.py", "python3 -m pytest -q tests/test_check_coverage_floor.py"),
     ("tests/test_check_coverage_floor.py", "python3 -m pytest -q tests/test_check_coverage_floor.py"),
+    (
+        "tools/generate_protected_surface_coverage_report.py",
+        "python3 -m pytest -q tests/test_protected_surface_coverage_report.py",
+    ),
+    (
+        "tests/test_protected_surface_coverage_report.py",
+        "python3 -m pytest -q tests/test_protected_surface_coverage_report.py",
+    ),
     ("tools/check_protected_surfaces.py", "python3 -m pytest -q tests/test_check_protected_surfaces.py"),
     ("tests/test_check_protected_surfaces.py", "python3 -m pytest -q tests/test_check_protected_surfaces.py"),
     ("tools/check_surface_authorization.py", "python3 -m pytest -q tests/test_check_surface_authorization.py"),
