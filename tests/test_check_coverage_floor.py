@@ -1,0 +1,79 @@
+from __future__ import annotations
+
+import importlib.util
+import sys
+from pathlib import Path
+
+MODULE_PATH = Path(__file__).resolve().parents[1] / "tools" / "check_coverage_floor.py"
+SPEC = importlib.util.spec_from_file_location("check_coverage_floor", MODULE_PATH)
+assert SPEC is not None
+checker = importlib.util.module_from_spec(SPEC)
+sys.modules[SPEC.name] = checker
+assert SPEC.loader is not None
+SPEC.loader.exec_module(checker)
+
+
+def _write_xml(path: Path, *, line_rate: str = "0.8755", branch_rate: str = "0.7480") -> Path:
+    path.write_text(
+        f'<?xml version="1.0" ?><coverage line-rate="{line_rate}" branch-rate="{branch_rate}"></coverage>\n',
+        encoding="utf-8",
+    )
+    return path
+
+
+def test_line_floor_passes_and_branch_is_advisory(tmp_path: Path) -> None:
+    xml_path = _write_xml(tmp_path / "coverage.xml")
+
+    result = checker.evaluate_coverage_floor(xml_path, line_floor=85, command_label="repo checks")
+
+    assert result.exit_code == 0
+    assert result.line_percent == 87.55
+    assert result.branch_percent == 74.8
+    assert "Global Python line coverage is 87.55% (floor 85.00%)." in result.message
+    assert "Branch coverage is 74.80% and advisory-only; it did not affect this result." in result.message
+
+
+def test_line_floor_failure_uses_contract_message(tmp_path: Path) -> None:
+    xml_path = _write_xml(tmp_path / "coverage.xml", line_rate="0.8499", branch_rate="0.9900")
+
+    result = checker.evaluate_coverage_floor(xml_path, line_floor=85, command_label="repo checks")
+
+    assert result.exit_code == 1
+    assert "below Mythic Edge's accepted 85.00% floor" in result.message
+    assert "Measured line coverage: 84.99%." in result.message
+    assert "Branch coverage is 99.00% and advisory-only; it did not cause this failure." in result.message
+    assert "Failed command: repo checks." in result.message
+    assert "Do not commit raw coverage artifacts." in result.message
+
+
+def test_missing_xml_fails_without_echoing_path(tmp_path: Path) -> None:
+    xml_path = tmp_path / "private" / "coverage.xml"
+
+    result = checker.evaluate_coverage_floor(xml_path, line_floor=85)
+
+    assert result.exit_code == 2
+    assert str(xml_path) not in result.message
+    assert "Coverage XML is missing." in result.message
+
+
+def test_malformed_xml_fails_without_echoing_parser_details(tmp_path: Path) -> None:
+    xml_path = tmp_path / "coverage.xml"
+    xml_path.write_text("<coverage", encoding="utf-8")
+
+    result = checker.evaluate_coverage_floor(xml_path, line_floor=85)
+
+    assert result.exit_code == 2
+    assert str(xml_path) not in result.message
+    assert "malformed or unreadable" in result.message
+
+
+def test_missing_branch_rate_remains_advisory(tmp_path: Path) -> None:
+    xml_path = tmp_path / "coverage.xml"
+    xml_path.write_text('<?xml version="1.0" ?><coverage line-rate="0.8500"></coverage>\n', encoding="utf-8")
+
+    result = checker.evaluate_coverage_floor(xml_path, line_floor=85)
+
+    assert result.exit_code == 0
+    assert result.line_percent == 85.0
+    assert result.branch_percent is None
+    assert "Branch coverage is advisory-only and did not affect this result." in result.message
