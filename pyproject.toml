@@ -75,4 +75,15 @@ target-version = "py311"
 line-length = 120
 
 [tool.ruff.lint]
-select = ["E", "F", "I"]
+select = [
+  "E",
+  "F",
+  "I",
+  "DTZ002",
+  "DTZ003",
+  "DTZ004",
+  "DTZ006",
+  "DTZ011",
+  "DTZ012",
+  "DTZ901",
+]
