@@ -28,6 +28,14 @@ FOCUSED_TEST_MAPPINGS: tuple[tuple[str, str], ...] = (
     ("tests/test_check_protected_surfaces.py", "python3 -m pytest -q tests/test_check_protected_surfaces.py"),
     ("tools/check_surface_authorization.py", "python3 -m pytest -q tests/test_check_surface_authorization.py"),
     ("tests/test_check_surface_authorization.py", "python3 -m pytest -q tests/test_check_surface_authorization.py"),
+    (
+        "tools/generate_cwe_profile_advisory_report.py",
+        "python3 -m pytest -q tests/test_cwe_profile_advisory_report.py",
+    ),
+    (
+        "tests/test_cwe_profile_advisory_report.py",
+        "python3 -m pytest -q tests/test_cwe_profile_advisory_report.py",
+    ),
     ("tools/dev_app/dev_app_launcher.py", "python3 -m pytest -q tests/test_analytics_dev_app_launcher.py"),
     ("tools/dev_app/start_mythic_edge_dev_app.ps1", "python3 -m pytest -q tests/test_analytics_dev_app_launcher.py"),
     ("tests/test_analytics_dev_app_launcher.py", "python3 -m pytest -q tests/test_analytics_dev_app_launcher.py"),
