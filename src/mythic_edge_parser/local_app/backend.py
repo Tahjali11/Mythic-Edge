@@ -11,6 +11,7 @@ from fastapi import Body, Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.datastructures import UploadFile
 
+from . import import_jobs
 from .analytics_dashboard import build_analytics_dashboard_modules
 from .analytics_history import (
     build_game1_postboard_split_review,
@@ -78,6 +79,13 @@ HISTORY_QUERY_PARAM_INVALID = "analytics_history_query_parameter_invalid"
 HISTORY_QUERY_PARAM_NOT_ALLOWED = "analytics_history_query_parameter_not_allowed"
 DASHBOARD_QUERY_PARAM_NOT_ALLOWED = "analytics_dashboard_query_parameter_not_allowed"
 REFRESH_STATE_QUERY_PARAM_NOT_ALLOWED = "analytics_refresh_state_query_parameter_not_allowed"
+_BROWSER_JSONL_UPLOAD_READ_CHUNK_BYTES = 64 * 1024
+
+
+class _BrowserJsonlUploadReadError(ValueError):
+    def __init__(self, error_code: str) -> None:
+        super().__init__(error_code)
+        self.error_code = error_code
 
 
 def create_app(
@@ -276,43 +284,36 @@ def create_app(
     @app.post("/api/imports/jsonl/upload", dependencies=guarded_mutation_dependencies)
     async def import_jsonl_upload(request: Request) -> dict[str, object]:
         form = await request.form()
-        form_files = list(form.getlist("files"))
-        raw_source_artifact_labels = form.getlist("source_artifact_label")
-        raw_source_artifact_label = raw_source_artifact_labels[-1] if raw_source_artifact_labels else None
-        source_artifact_label = raw_source_artifact_label if isinstance(raw_source_artifact_label, str) else None
-
         upload_files: list[UploadFile] = []
-        for value in form_files:
-            if not isinstance(value, UploadFile):
-                for upload_file in upload_files:
-                    await upload_file.close()
-                await form.close()
+        try:
+            form_files = list(form.getlist("files"))
+            raw_source_artifact_labels = form.getlist("source_artifact_label")
+            raw_source_artifact_label = raw_source_artifact_labels[-1] if raw_source_artifact_labels else None
+            source_artifact_label = raw_source_artifact_label if isinstance(raw_source_artifact_label, str) else None
+
+            for value in form_files:
+                if not isinstance(value, UploadFile):
+                    return reject_browser_jsonl_upload_import(
+                        "upload_file_invalid",
+                        files_selected=len(form_files),
+                        app_data_root=resolved_app_data_root,
+                    )
+                upload_files.append(value)
+
+            if raw_source_artifact_label is not None and not isinstance(raw_source_artifact_label, str):
                 return reject_browser_jsonl_upload_import(
-                    "upload_file_invalid",
+                    "source_artifact_label_invalid",
                     files_selected=len(form_files),
                     app_data_root=resolved_app_data_root,
                 )
-            upload_files.append(value)
 
-        if raw_source_artifact_label is not None and not isinstance(raw_source_artifact_label, str):
-            for upload_file in upload_files:
-                await upload_file.close()
-            await form.close()
-            return reject_browser_jsonl_upload_import(
-                "source_artifact_label_invalid",
-                files_selected=len(form_files),
-                app_data_root=resolved_app_data_root,
-            )
-
-        uploads: list[BrowserJsonlUploadFile] = []
-        try:
-            for upload_file in upload_files:
-                uploads.append(
-                    BrowserJsonlUploadFile(
-                        filename=upload_file.filename or "",
-                        content_bytes=await upload_file.read(),
-                        content_type=upload_file.content_type or "",
-                    )
+            try:
+                uploads = await _build_browser_jsonl_upload_files(upload_files)
+            except _BrowserJsonlUploadReadError as exc:
+                return reject_browser_jsonl_upload_import(
+                    exc.error_code,
+                    files_selected=len(form_files),
+                    app_data_root=resolved_app_data_root,
                 )
         finally:
             for upload_file in upload_files:
@@ -333,6 +334,53 @@ def create_app(
         return job
 
     return app
+
+
+async def _build_browser_jsonl_upload_files(upload_files: Sequence[UploadFile]) -> list[BrowserJsonlUploadFile]:
+    if not upload_files:
+        raise _BrowserJsonlUploadReadError("upload_files_required")
+    if len(upload_files) > import_jobs.MAX_BROWSER_JSONL_UPLOAD_FILES:
+        raise _BrowserJsonlUploadReadError("upload_files_too_many")
+
+    uploads: list[BrowserJsonlUploadFile] = []
+    total_size = 0
+    for upload_file in upload_files:
+        content_bytes = await _read_browser_jsonl_upload_file(upload_file, accepted_total_bytes=total_size)
+        total_size += len(content_bytes)
+        uploads.append(
+            BrowserJsonlUploadFile(
+                filename=upload_file.filename or "",
+                content_bytes=content_bytes,
+                content_type=upload_file.content_type or "",
+            )
+        )
+    return uploads
+
+
+async def _read_browser_jsonl_upload_file(upload_file: UploadFile, *, accepted_total_bytes: int) -> bytes:
+    chunks: list[bytes] = []
+    file_size = 0
+    while True:
+        file_budget_remaining = import_jobs.MAX_BROWSER_JSONL_UPLOAD_FILE_BYTES - file_size
+        total_budget_remaining = import_jobs.MAX_BROWSER_JSONL_UPLOAD_TOTAL_BYTES - accepted_total_bytes - file_size
+        read_size = min(
+            _BROWSER_JSONL_UPLOAD_READ_CHUNK_BYTES,
+            max(1, file_budget_remaining + 1),
+            max(1, total_budget_remaining + 1),
+        )
+        chunk = await upload_file.read(read_size)
+        if not chunk:
+            return b"".join(chunks)
+
+        next_file_size = file_size + len(chunk)
+        next_total_size = accepted_total_bytes + next_file_size
+        if next_file_size > import_jobs.MAX_BROWSER_JSONL_UPLOAD_FILE_BYTES:
+            raise _BrowserJsonlUploadReadError("upload_file_too_large")
+        if next_total_size > import_jobs.MAX_BROWSER_JSONL_UPLOAD_TOTAL_BYTES:
+            raise _BrowserJsonlUploadReadError("upload_total_size_too_large")
+
+        chunks.append(chunk)
+        file_size = next_file_size
 
 
 def _reject_unknown_history_query_params(request: Request) -> None:
