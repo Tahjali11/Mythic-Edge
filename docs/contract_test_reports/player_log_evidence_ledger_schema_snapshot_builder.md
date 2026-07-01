@@ -20,7 +20,7 @@ https://github.com/Tahjali11/Mythic-Edge/issues/11
 Branch/worktree:
 
 - `codex/player-log-evidence-ledger-schema-snapshot-builder`
-- `/Users/tahjblow/Documents/New project/Mythic-Edge-issue-175`
+- `/Users/<redacted>/Documents/New project/Mythic-Edge-issue-175`
 
 Changed/untracked files reviewed:
 

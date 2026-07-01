@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Python reimplementation of the core Mythic Edge MTG Arena log parser architecture"
 readme = "README.md"
 requires-python = ">=3.11"
-authors = [{name = "OpenAI"}]
+authors = [{name = "Tahj Blow"}]
 license = "Apache-2.0"
 dependencies = [
   "beautifulsoup4>=4.14,<5",

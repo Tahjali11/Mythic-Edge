@@ -8,13 +8,14 @@ from typing import Any
 import requests
 
 from mythic_edge_parser import MtgaEventStream
+from mythic_edge_parser.app.config import DEFAULT_MTGA_PLAYER_LOG
 
 DEFAULT_PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 LOG_PATH = Path(
     os.environ.get(
         "MTGA_PLAYER_LOG",
-        r"C:\Users\Tahj Blow\AppData\LocalLow\Wizards Of The Coast\MTGA\Player.log",
+        str(DEFAULT_MTGA_PLAYER_LOG),
     )
 )
 

@@ -251,7 +251,7 @@ Failure:
 ```text
 tests/test_runner.py::test_startup_status_fields_sanitize_paths_and_webhook
 assert payload["log_path"] == "Player.log"
-actual: "C:\\Users\\Tahj Blow\\AppData\\LocalLow\\Wizards Of The Coast\\MTGA\\Player.log"
+actual: "C:\\Users\\<redacted>\\AppData\\LocalLow\\Wizards Of The Coast\\MTGA\\Player.log"
 ```
 
 This full-suite failure is outside issue #34. It touches runner startup

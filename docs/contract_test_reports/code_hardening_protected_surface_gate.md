@@ -24,7 +24,7 @@ https://github.com/Tahjali11/Mythic-Edge/issues/33
 Branch/worktree: `codex/code-hardening-suite`
 
 Worktree path:
-`/Users/tahjblow/Documents/New project/Mythic-Edge-code-hardening-suite`
+`/Users/<redacted>/Documents/New project/Mythic-Edge-code-hardening-suite`
 
 Implementation handoff:
 `docs/implementation_handoffs/code_hardening_protected_surface_gate_comparison.md`
@@ -118,7 +118,7 @@ Full-suite failure:
 ```text
 tests/test_runner.py::test_startup_status_fields_sanitize_paths_and_webhook
 assert payload["log_path"] == "Player.log"
-actual: "C:\\Users\\Tahj Blow\\AppData\\LocalLow\\Wizards Of The Coast\\MTGA\\Player.log"
+actual: "C:\\Users\\<redacted>\\AppData\\LocalLow\\Wizards Of The Coast\\MTGA\\Player.log"
 ```
 
 The full-suite failure is the known unrelated runner path-display failure. It
@@ -232,7 +232,7 @@ https://github.com/Tahjali11/Mythic-Edge/issues/33
 
 Branch/worktree:
 codex/code-hardening-suite
-/Users/tahjblow/Documents/New project/Mythic-Edge-code-hardening-suite
+/Users/<redacted>/Documents/New project/Mythic-Edge-code-hardening-suite
 
 Use:
 - docs/contracts/code_hardening_protected_surface_gate.md

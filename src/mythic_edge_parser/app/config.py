@@ -1,15 +1,24 @@
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 
 _TRUE_ENV_VALUES = frozenset({"1", "true", "yes", "y"})
 _PRIMARY_ENV_PREFIX = "MYTHICEDGE_"
 _LEGACY_ENV_PREFIX = "MANASIGHT_"
 
-DEFAULT_MTGA_PLAYER_LOG = Path(
-    r"C:\Users\Tahj Blow\AppData\LocalLow\Wizards Of The Coast\MTGA\Player.log"
-)
+def _default_mtga_player_log(*, home: Path | None = None, platform: str | None = None) -> Path:
+    home_path = home or Path.home()
+    platform_name = platform or sys.platform
+    if platform_name == "win32":
+        return home_path / "AppData" / "LocalLow" / "Wizards Of The Coast" / "MTGA" / "Player.log"
+    if platform_name == "darwin":
+        return home_path / "Library" / "Logs" / "Wizards Of The Coast" / "MTGA" / "Player.log"
+    return home_path / ".local" / "share" / "Wizards Of The Coast" / "MTGA" / "Player.log"
+
+
+DEFAULT_MTGA_PLAYER_LOG = _default_mtga_player_log()
 DEFAULT_PROJECT_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_WEBHOOK_URL = ""
 
