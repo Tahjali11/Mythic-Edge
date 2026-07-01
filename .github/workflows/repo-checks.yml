@@ -26,8 +26,29 @@ jobs:
           py -m pip install --upgrade pip
           py -m pip install -e .[dev]
 
-      - name: Run tests
-        run: py -m pytest -q tests
+      - name: Run tests with global line coverage floor
+        shell: pwsh
+        run: |
+          $coverageRunId = "repo-checks"
+          $coverageRoot = "_review_/quality_coverage_global_line_floor/$coverageRunId"
+          $coverageXml = "$coverageRoot/coverage.xml"
+          $env:COVERAGE_FILE = "$coverageRoot/.coverage"
+          py -m pytest -q tests `
+            --cov=src/mythic_edge_parser `
+            --cov-report=term-missing `
+            --cov-report="xml:$coverageXml"
+          $testExit = $LASTEXITCODE
+          if ($testExit -ne 0) {
+            Remove-Item Env:\COVERAGE_FILE -ErrorAction SilentlyContinue
+            exit $testExit
+          }
+          py tools/check_coverage_floor.py `
+            --coverage-xml $coverageXml `
+            --line-floor 85 `
+            --command-label "GitHub Actions repo checks"
+          $coverageExit = $LASTEXITCODE
+          Remove-Item Env:\COVERAGE_FILE -ErrorAction SilentlyContinue
+          exit $coverageExit
 
       - name: Run protected surface gate
         if: github.event_name == 'pull_request'
