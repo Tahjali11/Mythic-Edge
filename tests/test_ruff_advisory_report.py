@@ -225,6 +225,61 @@ def test_local_path_and_private_marker_messages_are_not_emitted(tmp_path: Path) 
     assert marker not in rendered
 
 
+def test_private_marker_diagnostic_filename_is_counted_and_omitted(tmp_path: Path) -> None:
+    checkout = tmp_path / "checkout"
+    _write_checkout_markers(checkout)
+    marker = "Player" + ".log"
+    source_file = checkout / "tests" / marker / "private_marker_case.py"
+    source_file.parent.mkdir(parents=True)
+    source_file.write_text("print('synthetic')\n", encoding="utf-8")
+
+    report = reporter.build_report(
+        [_finding("F401", str(source_file))],
+        measured_checkout_root=checkout,
+    )
+    summary = report["rule_summaries"][0]
+    rendered = reporter.render_json(report)
+
+    assert report["totals"]["findings"] == 1
+    assert summary["rule_code"] == "F401"
+    assert summary["count"] == 1
+    assert summary["affected_file_count"] == 1
+    assert summary["affected_paths"] == []
+    assert summary["omitted_affected_path_count"] == 1
+    assert summary["path_handling_policy"] == "symbolic_private_marker_filename_omission"
+    assert summary["path_omission_reason"] == "path_omitted_private_marker_filename"
+    assert summary["path_scope_buckets"] == ["tests"]
+    assert summary["protected_surface_impact"] == "private_artifact_or_secret_surface"
+    assert summary["disposition"] == "protected_surface_review_required"
+    assert str(source_file) not in rendered
+    assert str(checkout) not in rendered
+    assert marker not in rendered
+    assert source_file.name not in rendered
+
+
+def test_private_marker_diagnostic_filename_outside_scan_scope_fails_closed_without_echo(
+    tmp_path: Path,
+) -> None:
+    checkout = tmp_path / "checkout"
+    _write_checkout_markers(checkout)
+    marker = "Player" + ".log"
+    source_file = checkout / "docs" / marker / "example.py"
+    source_file.parent.mkdir(parents=True)
+    source_file.write_text("synthetic\n", encoding="utf-8")
+
+    with pytest.raises(
+        reporter.RuffAdvisoryError,
+        match="measurement_blocked_private_marker",
+    ) as exc_info:
+        reporter.build_report(
+            [_finding("F401", str(source_file))],
+            measured_checkout_root=checkout,
+        )
+
+    assert str(source_file) not in str(exc_info.value)
+    assert marker not in str(exc_info.value)
+
+
 def test_secret_like_output_is_rejected() -> None:
     secret_text = "api_" + "key=" + ("A" * 24)
 
@@ -245,6 +300,21 @@ def test_raw_source_or_fix_edit_messages_fail_closed_without_echo() -> None:
 
         assert "synthetic_example" not in str(exc_info.value)
         assert "diff --git" not in str(exc_info.value)
+
+
+def test_natural_language_diagnostic_messages_are_ignored_without_echo() -> None:
+    messages = (
+        "Return the condition directly.",
+        "Use a public collection import instead.",
+        "Use a named class declaration instead.",
+    )
+
+    for message in messages:
+        report = reporter.build_report([_finding("SIM103", "tools/example.py", message)])
+        rendered = reporter.render_json(report)
+
+        assert report["totals"]["findings"] == 1
+        assert message not in rendered
 
 
 def test_readiness_claim_message_fails_closed_without_echo() -> None:
