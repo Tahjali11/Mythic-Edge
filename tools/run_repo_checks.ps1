@@ -35,4 +35,4 @@ if ($Coverage) {
     Invoke-Checked "Running test suite..." py -m pytest -q tests
 }
 
-Invoke-Checked "Running lint checks..." py -m ruff check src tests
+Invoke-Checked "Running lint checks..." py -m ruff check src tests tools
