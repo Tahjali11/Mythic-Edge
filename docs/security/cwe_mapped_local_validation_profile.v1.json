@@ -1,0 +1,352 @@
+{
+  "schema_version": "1",
+  "profile_id": "mythic_edge.security.cwe_mapped_local_validation_profile",
+  "repository": "Tahjali11/Mythic-Edge",
+  "repository_url": "https://github.com/Tahjali11/Mythic-Edge",
+  "contract_ref": "docs/contracts/security_cwe_mapped_local_validation_profile.md",
+  "source_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/590",
+  "implementation_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/597",
+  "parent_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/330",
+  "generated_at_policy": "manual_or_test_only",
+  "profile_status": "advisory_profile",
+  "profile_manifest_implementation_authorized": true,
+  "ci_change_authorized": false,
+  "enforcement_authorized": false,
+  "codeql_alert_mutation_authorized": false,
+  "parser_behavior_change_authorized": false,
+  "security_assurance_claimed": false,
+  "privacy_assurance_claimed": false,
+  "non_claims": [
+    "not formal CWE compliance",
+    "not security assurance",
+    "not privacy assurance",
+    "not release readiness",
+    "not deploy readiness",
+    "not production readiness",
+    "not parser truth",
+    "not CodeQL alert lifecycle authority"
+  ],
+  "families": [
+    {
+      "family_id": "local_path_traversal",
+      "title": "Local path traversal",
+      "summary": "Operator-selected or derived local paths must stay inside the intended repo-owned or app-owned containment root before any filesystem operation.",
+      "primary_cwe_id": "CWE-22",
+      "primary_cwe_title": "Improper Limitation of a Pathname to a Restricted Directory",
+      "primary_cwe_mapping_status": "ALLOWED",
+      "primary_cwe_reference": "https://cwe.mitre.org/data/definitions/22.html",
+      "related_cwe_ids": [
+        "CWE-73"
+      ],
+      "scanner_cwe_provenance": [],
+      "discouraged_or_prohibited_cwe_provenance": [],
+      "codeql_rule_ids": [
+        "py/path-injection"
+      ],
+      "local_detector_ids": [
+        "path_containment_tests",
+        "check_protected_surfaces"
+      ],
+      "local_test_refs": [
+        "tests/test_check_protected_surfaces.py",
+        "tests/test_cwe_mapped_local_validation_profile.py"
+      ],
+      "allowed_evidence": [
+        "repo-relative source locations",
+        "synthetic path test cases",
+        "public-safe symbolic reports"
+      ],
+      "forbidden_evidence": [
+        "local absolute paths",
+        "private app-data paths",
+        "raw log file paths",
+        "private artifact paths"
+      ],
+      "reporting_policy": "Report only repo-relative locations or symbolic containment labels.",
+      "rollout_status": "advisory_available",
+      "mapping_rationale": "This family covers directory escape and traversal risks when local path input reaches filesystem operations.",
+      "mapping_review_status": "accepted_exact",
+      "non_claims": [
+        "not parser truth",
+        "not exploit proof",
+        "not security assurance"
+      ]
+    },
+    {
+      "family_id": "generated_filename_id_to_path",
+      "title": "Generated filename or ID to path",
+      "summary": "Generated IDs and filenames must pass through a deterministic safe-name boundary before they become filesystem paths.",
+      "primary_cwe_id": "CWE-73",
+      "primary_cwe_title": "External Control of File Name or Path",
+      "primary_cwe_mapping_status": "ALLOWED",
+      "primary_cwe_reference": "https://cwe.mitre.org/data/definitions/73.html",
+      "related_cwe_ids": [
+        "CWE-22"
+      ],
+      "scanner_cwe_provenance": [],
+      "discouraged_or_prohibited_cwe_provenance": [],
+      "codeql_rule_ids": [
+        "py/path-injection"
+      ],
+      "local_detector_ids": [
+        "generated_filename_boundary_tests"
+      ],
+      "local_test_refs": [
+        "tests/test_cwe_mapped_local_validation_profile.py"
+      ],
+      "allowed_evidence": [
+        "synthetic IDs",
+        "repo-relative generated-output references",
+        "symbolic filename examples"
+      ],
+      "forbidden_evidence": [
+        "real match IDs from private logs",
+        "runtime status filenames from local app data",
+        "local generated artifact paths"
+      ],
+      "reporting_policy": "Report generated-name risks with symbolic IDs only.",
+      "rollout_status": "advisory_available",
+      "mapping_rationale": "This family is about externally influenced names becoming paths, with traversal tracked as a related risk.",
+      "mapping_review_status": "accepted_exact",
+      "non_claims": [
+        "not parser truth",
+        "not exploit proof",
+        "not security assurance"
+      ]
+    },
+    {
+      "family_id": "subprocess_command_line_invocation",
+      "title": "Subprocess command-line invocation",
+      "summary": "Repo-owned tools should prefer fixed argv lists and validated arguments instead of shell strings or command fragments.",
+      "primary_cwe_id": "CWE-78",
+      "primary_cwe_title": "Improper Neutralization of Special Elements used in an OS Command",
+      "primary_cwe_mapping_status": "ALLOWED",
+      "primary_cwe_reference": "https://cwe.mitre.org/data/definitions/78.html",
+      "related_cwe_ids": [
+        "CWE-88"
+      ],
+      "scanner_cwe_provenance": [],
+      "discouraged_or_prohibited_cwe_provenance": [],
+      "codeql_rule_ids": [
+        "py/command-line-injection"
+      ],
+      "local_detector_ids": [
+        "subprocess_argv_tests"
+      ],
+      "local_test_refs": [
+        "tests/test_cwe_mapped_local_validation_profile.py"
+      ],
+      "allowed_evidence": [
+        "repo-relative tool paths",
+        "symbolic command component names",
+        "synthetic argument examples"
+      ],
+      "forbidden_evidence": [
+        "secret values in command examples",
+        "private paths",
+        "executable payload strings",
+        "exploit reproduction steps"
+      ],
+      "reporting_policy": "Report command construction patterns without payload strings or private arguments.",
+      "rollout_status": "advisory_available",
+      "mapping_rationale": "This family maps shell or command fragment risks to command injection, with argument injection as related context.",
+      "mapping_review_status": "accepted_exact",
+      "non_claims": [
+        "not exploit proof",
+        "not security assurance",
+        "not production readiness"
+      ]
+    },
+    {
+      "family_id": "url_host_validation",
+      "title": "URL host validation",
+      "summary": "URL validation should parse the URL and compare the host exactly instead of relying on partial string checks.",
+      "primary_cwe_id": "CWE-187",
+      "primary_cwe_title": "Partial String Comparison",
+      "primary_cwe_mapping_status": "ALLOWED",
+      "primary_cwe_reference": "https://cwe.mitre.org/data/definitions/187.html",
+      "related_cwe_ids": [
+        "CWE-1023",
+        "CWE-184"
+      ],
+      "scanner_cwe_provenance": [
+        "CWE-20"
+      ],
+      "discouraged_or_prohibited_cwe_provenance": [
+        "CWE-20"
+      ],
+      "codeql_rule_ids": [
+        "py/incomplete-url-substring-sanitization"
+      ],
+      "local_detector_ids": [
+        "url_exact_host_validation_tests"
+      ],
+      "local_test_refs": [
+        "tests/test_cwe_mapped_local_validation_profile.py"
+      ],
+      "allowed_evidence": [
+        "symbolic example URLs",
+        "exact-host parser tests",
+        "CodeQL rule provenance"
+      ],
+      "forbidden_evidence": [
+        "live webhook URLs",
+        "workbook URLs",
+        "private deployment URLs",
+        "credential-bearing query strings"
+      ],
+      "reporting_policy": "Report only symbolic URLs and host-validation categories.",
+      "rollout_status": "advisory_available",
+      "mapping_rationale": "The historical scanner provenance is broad input validation, but the local profile family is specifically partial URL text comparison.",
+      "mapping_review_status": "accepted_exact",
+      "non_claims": [
+        "not external service assurance",
+        "not exploit proof",
+        "not security assurance"
+      ]
+    },
+    {
+      "family_id": "secret_private_artifact_exposure",
+      "title": "Secret or private artifact exposure",
+      "summary": "Public repo files and reports must not contain secrets, raw logs, private local artifact contents, or generated private outputs.",
+      "primary_cwe_id": "CWE-538",
+      "primary_cwe_title": "Insertion of Sensitive Information into Externally-Accessible File or Directory",
+      "primary_cwe_mapping_status": "ALLOWED",
+      "primary_cwe_reference": "https://cwe.mitre.org/data/definitions/538.html",
+      "related_cwe_ids": [
+        "CWE-532"
+      ],
+      "scanner_cwe_provenance": [
+        "CWE-200"
+      ],
+      "discouraged_or_prohibited_cwe_provenance": [
+        "CWE-200"
+      ],
+      "codeql_rule_ids": [],
+      "local_detector_ids": [
+        "check_secret_patterns",
+        "check_protected_surfaces"
+      ],
+      "local_test_refs": [
+        "tests/test_check_secret_patterns.py",
+        "tests/test_check_protected_surfaces.py",
+        "tests/test_cwe_mapped_local_validation_profile.py"
+      ],
+      "allowed_evidence": [
+        "scanner category IDs",
+        "redacted excerpts",
+        "symbolic private-marker categories",
+        "repo-relative public-safe paths"
+      ],
+      "forbidden_evidence": [
+        "raw secret values",
+        "tokens",
+        "webhook URLs",
+        "local absolute paths",
+        "raw MTGA log content",
+        "workbook exports",
+        "SQLite databases",
+        "runtime artifacts"
+      ],
+      "reporting_policy": "Report only redacted excerpts, symbolic categories, and public-safe repo-relative paths.",
+      "rollout_status": "advisory_available",
+      "mapping_rationale": "This family is narrower than broad information exposure and focuses on sensitive material entering public repository files or reports.",
+      "mapping_review_status": "accepted_exact",
+      "non_claims": [
+        "not privacy assurance",
+        "not security assurance",
+        "not proof that all private artifacts are absent"
+      ]
+    },
+    {
+      "family_id": "temporary_file_handling",
+      "title": "Temporary file handling",
+      "summary": "Temporary files and directories should use safe standard-library patterns and must not leak private local content into reports.",
+      "primary_cwe_id": "CWE-377",
+      "primary_cwe_title": "Insecure Temporary File",
+      "primary_cwe_mapping_status": "ALLOWED",
+      "primary_cwe_reference": "https://cwe.mitre.org/data/definitions/377.html",
+      "related_cwe_ids": [
+        "CWE-378",
+        "CWE-379"
+      ],
+      "scanner_cwe_provenance": [],
+      "discouraged_or_prohibited_cwe_provenance": [],
+      "codeql_rule_ids": [],
+      "local_detector_ids": [
+        "temporary_file_tests"
+      ],
+      "local_test_refs": [
+        "tests/test_cwe_mapped_local_validation_profile.py"
+      ],
+      "allowed_evidence": [
+        "repo-relative source locations",
+        "symbolic temporary filenames",
+        "synthetic tests"
+      ],
+      "forbidden_evidence": [
+        "real local temporary paths",
+        "raw generated private artifacts",
+        "private runtime file contents"
+      ],
+      "reporting_policy": "Report temporary-file risks with symbolic names and repo-relative code references only.",
+      "rollout_status": "advisory_available",
+      "mapping_rationale": "This family covers unsafe temporary-file creation patterns while preserving private-path redaction.",
+      "mapping_review_status": "accepted_exact",
+      "non_claims": [
+        "not privacy assurance",
+        "not exploit proof",
+        "not production readiness"
+      ]
+    },
+    {
+      "family_id": "workflow_permission_scope",
+      "title": "Workflow permission scope",
+      "summary": "GitHub Actions workflows should declare least-privilege token permissions and require review before write scopes are added.",
+      "primary_cwe_id": "CWE-732",
+      "primary_cwe_title": "Incorrect Permission Assignment for Critical Resource",
+      "primary_cwe_mapping_status": "ALLOWED-WITH-REVIEW",
+      "primary_cwe_reference": "https://cwe.mitre.org/data/definitions/732.html",
+      "related_cwe_ids": [
+        "CWE-276"
+      ],
+      "scanner_cwe_provenance": [
+        "CWE-275"
+      ],
+      "discouraged_or_prohibited_cwe_provenance": [
+        "CWE-275"
+      ],
+      "codeql_rule_ids": [
+        "actions/missing-workflow-permissions"
+      ],
+      "local_detector_ids": [
+        "github_workflow_permissions_tests"
+      ],
+      "local_test_refs": [
+        "tests/test_github_workflow_permissions.py",
+        "tests/test_cwe_mapped_local_validation_profile.py"
+      ],
+      "allowed_evidence": [
+        "workflow filenames",
+        "symbolic permission names",
+        "public workflow snippets without secrets"
+      ],
+      "forbidden_evidence": [
+        "workflow tokens",
+        "secrets",
+        "credential values",
+        "GitHub settings mutations",
+        "CodeQL alert mutations"
+      ],
+      "reporting_policy": "Report workflow permission posture as advisory only and never mutate GitHub settings or alerts.",
+      "rollout_status": "advisory_available",
+      "mapping_rationale": "The profile maps workflow token permission assignment to CWE-732 and keeps CodeQL CWE-275 as prohibited scanner provenance only.",
+      "mapping_review_status": "accepted_exact",
+      "non_claims": [
+        "not effective GitHub runtime permission proof",
+        "not security assurance",
+        "not CI enforcement"
+      ]
+    }
+  ]
+}
