@@ -14,6 +14,7 @@ from mythic_edge_parser.app.match_journal_service import (
 )
 from mythic_edge_parser.local_app.backend import create_app
 from mythic_edge_parser.local_app.match_journal_cockpit import UNATTACHED_SMOKE_NOTE_PREFIX
+from tests.local_app_request_guard_helpers import guarded_client
 
 
 class RecordingJournalService:
@@ -93,7 +94,7 @@ class RecordingJournalService:
 
 def _client(tmp_path, service: Any | None = None) -> TestClient:
     factory = (lambda: service) if service is not None else None
-    return TestClient(create_app(app_data_root=tmp_path / "app-data", match_journal_service_factory=factory))
+    return guarded_client(create_app(app_data_root=tmp_path / "app-data", match_journal_service_factory=factory))
 
 
 def _real_journal_service() -> MatchJournalService:
@@ -146,7 +147,7 @@ def test_journal_facade_preserves_local_cors_and_rejects_non_loopback_origins(tm
 
 
 def test_injected_journal_service_factory_overrides_default_wiring_and_can_fail_closed(tmp_path) -> None:
-    client = TestClient(
+    client = guarded_client(
         create_app(app_data_root=tmp_path / "app-data", match_journal_service_factory=lambda: None)
     )
 
@@ -164,7 +165,7 @@ def test_injected_journal_service_factory_overrides_default_wiring_and_can_fail_
 
 def test_default_journal_read_reports_missing_without_creating_app_data_artifacts(tmp_path) -> None:
     app_root = tmp_path / "app-data"
-    client = TestClient(create_app(app_data_root=app_root))
+    client = guarded_client(create_app(app_data_root=app_root))
 
     response = client.get("/api/journal?parser_match_id=parser-match-1")
 
@@ -179,7 +180,7 @@ def test_default_journal_write_creates_only_app_owned_match_journal_database(tmp
     app_root = tmp_path / "app-data"
     journal_database = app_root / "db" / "match_journal.sqlite3"
     analytics_database = app_root / "db" / "mythic_edge.sqlite3"
-    client = TestClient(create_app(app_data_root=app_root))
+    client = guarded_client(create_app(app_data_root=app_root))
 
     response = client.post(
         "/api/journal/notes",
@@ -211,7 +212,7 @@ def test_unattached_smoke_note_readback_returns_safe_exact_id_metadata(tmp_path)
     app_root = tmp_path / "app-data"
     journal_database = app_root / "db" / "match_journal.sqlite3"
     analytics_database = app_root / "db" / "mythic_edge.sqlite3"
-    client = TestClient(create_app(app_data_root=app_root))
+    client = guarded_client(create_app(app_data_root=app_root))
 
     write_response = client.post(
         "/api/journal/notes",
@@ -274,7 +275,7 @@ def test_unattached_smoke_note_readback_rejects_listing_context_and_malformed_qu
 
 def test_unattached_smoke_note_readback_missing_database_does_not_create_artifacts(tmp_path) -> None:
     app_root = tmp_path / "app-data"
-    client = TestClient(create_app(app_data_root=app_root))
+    client = guarded_client(create_app(app_data_root=app_root))
 
     response = client.get("/api/journal/notes?journal_note_id=journal_note:missing&note_scope=unattached")
 
@@ -321,7 +322,7 @@ def test_journal_get_reads_bundle_without_creating_app_data_artifacts(tmp_path) 
     service = RecordingJournalService(
         bundle={"match": {"parser_match_id": "parser-match-1"}, "warnings": ["synthetic"]}
     )
-    client = TestClient(create_app(app_data_root=app_root, match_journal_service_factory=lambda: service))
+    client = guarded_client(create_app(app_data_root=app_root, match_journal_service_factory=lambda: service))
 
     response = client.get("/api/journal?parser_match_id=parser-match-1&game_number=2")
     payload = response.json()

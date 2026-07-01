@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import hmac
 import os
+import secrets
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from urllib.parse import urlparse
 
-from fastapi import Body, FastAPI, HTTPException, Request
+from fastapi import Body, Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.datastructures import UploadFile
 
@@ -54,6 +56,24 @@ from .setup_status import (
 FRONTEND_ORIGIN_ENV = "MYTHIC_EDGE_LOCAL_APP_FRONTEND_ORIGIN"
 DEFAULT_FRONTEND_ORIGINS = ("http://127.0.0.1:5173", "http://localhost:5173")
 LOOPBACK_HOSTS = {"127.0.0.1", "localhost"}
+LOCAL_REQUEST_GUARD_HEADER = "X-Mythic-Edge-Local-Request-Guard"
+LOCAL_REQUEST_GUARD_OBJECT = "mythic_edge_local_request_guard"
+LOCAL_REQUEST_GUARD_SCHEMA_VERSION = 1
+GUARDED_MUTATING_API_ROUTES = frozenset(
+    {
+        "/api/live/capture/start",
+        "/api/live/capture/stop",
+        "/api/feedback/error-report/preview",
+        "/api/feedback/error-report/submit",
+        "/api/journal/notes",
+        "/api/journal/opponent-labels",
+        "/api/journal/review-flags",
+        "/api/journal/experiment-label",
+        "/api/journal/display-corrections",
+        "/api/imports/jsonl",
+        "/api/imports/jsonl/upload",
+    }
+)
 HISTORY_QUERY_PARAM_INVALID = "analytics_history_query_parameter_invalid"
 HISTORY_QUERY_PARAM_NOT_ALLOWED = "analytics_history_query_parameter_not_allowed"
 DASHBOARD_QUERY_PARAM_NOT_ALLOWED = "analytics_dashboard_query_parameter_not_allowed"
@@ -78,12 +98,15 @@ def create_app(
         openapi_url=None,
     )
     allowed_origins = resolve_frontend_origins(frontend_origins=frontend_origins, env=env)
+    app.state.local_request_guard_token = secrets.token_urlsafe(32)
+    app.state.local_request_guard_allowed_origins = allowed_origins
+    guarded_mutation_dependencies = [Depends(require_local_request_guard)]
     if allowed_origins:
         app.add_middleware(
             CORSMiddleware,
             allow_origins=list(allowed_origins),
             allow_methods=["GET", "POST"],
-            allow_headers=["Accept", "Content-Type"],
+            allow_headers=["Accept", "Content-Type", LOCAL_REQUEST_GUARD_HEADER],
         )
 
     @app.get("/api/health")
@@ -103,6 +126,22 @@ def create_app(
         from .paths import build_path_status
 
         return build_path_status(local_app_paths)
+
+    @app.get("/api/app/request-guard")
+    def app_request_guard(request: Request) -> dict[str, object]:
+        _validate_local_request_origin_and_host(request)
+        guard_value = _get_local_request_guard_token(request)
+        payload: dict[str, object] = {
+            "object": LOCAL_REQUEST_GUARD_OBJECT,
+            "schema_version": LOCAL_REQUEST_GUARD_SCHEMA_VERSION,
+            "status": "available",
+            "header_name": LOCAL_REQUEST_GUARD_HEADER,
+            "expires_on_backend_restart": True,
+            "warnings": [],
+            "errors": [],
+        }
+        payload["token"] = guard_value
+        return payload
 
     @app.get("/api/analytics/database/status")
     def analytics_database_status() -> dict[str, object]:
@@ -132,11 +171,11 @@ def create_app(
     def live_capture_status() -> dict[str, object]:
         return build_live_capture_status(local_app_paths)
 
-    @app.post("/api/live/capture/start")
+    @app.post("/api/live/capture/start", dependencies=guarded_mutation_dependencies)
     def live_capture_start() -> dict[str, object]:
         return start_live_capture(local_app_paths)
 
-    @app.post("/api/live/capture/stop")
+    @app.post("/api/live/capture/stop", dependencies=guarded_mutation_dependencies)
     def live_capture_stop() -> dict[str, object]:
         return stop_live_capture(local_app_paths)
 
@@ -194,11 +233,11 @@ def create_app(
     def runtime_state() -> dict[str, object]:
         return build_runtime_state()
 
-    @app.post("/api/feedback/error-report/preview")
+    @app.post("/api/feedback/error-report/preview", dependencies=guarded_mutation_dependencies)
     def error_report_preview(request: object = Body(...)) -> dict[str, object]:
         return build_error_report_preview(request, local_app_paths)
 
-    @app.post("/api/feedback/error-report/submit")
+    @app.post("/api/feedback/error-report/submit", dependencies=guarded_mutation_dependencies)
     def error_report_submit(request: object = Body(...)) -> dict[str, object]:
         return build_error_report_submission(request, local_app_paths, submitter=error_report_submitter)
 
@@ -206,7 +245,7 @@ def create_app(
     async def match_journal(request: Request) -> object:
         return await match_journal_get_response(request, journal_service_factory)
 
-    @app.post("/api/journal/notes")
+    @app.post("/api/journal/notes", dependencies=guarded_mutation_dependencies)
     async def match_journal_notes(request: Request) -> object:
         return await match_journal_post_response("notes", request, journal_service_factory)
 
@@ -214,27 +253,27 @@ def create_app(
     async def match_journal_note_readback(request: Request) -> object:
         return await match_journal_note_readback_response(request, journal_service_factory)
 
-    @app.post("/api/journal/opponent-labels")
+    @app.post("/api/journal/opponent-labels", dependencies=guarded_mutation_dependencies)
     async def match_journal_opponent_labels(request: Request) -> object:
         return await match_journal_post_response("opponent-labels", request, journal_service_factory)
 
-    @app.post("/api/journal/review-flags")
+    @app.post("/api/journal/review-flags", dependencies=guarded_mutation_dependencies)
     async def match_journal_review_flags(request: Request) -> object:
         return await match_journal_post_response("review-flags", request, journal_service_factory)
 
-    @app.post("/api/journal/experiment-label")
+    @app.post("/api/journal/experiment-label", dependencies=guarded_mutation_dependencies)
     async def match_journal_experiment_label(request: Request) -> object:
         return await match_journal_post_response("experiment-label", request, journal_service_factory)
 
-    @app.post("/api/journal/display-corrections")
+    @app.post("/api/journal/display-corrections", dependencies=guarded_mutation_dependencies)
     async def match_journal_display_corrections(request: Request) -> object:
         return await match_journal_post_response("display-corrections", request, journal_service_factory)
 
-    @app.post("/api/imports/jsonl")
+    @app.post("/api/imports/jsonl", dependencies=guarded_mutation_dependencies)
     def import_jsonl(request: object = Body(...)) -> dict[str, object]:
         return run_manual_jsonl_import(request, app_data_root=resolved_app_data_root)
 
-    @app.post("/api/imports/jsonl/upload")
+    @app.post("/api/imports/jsonl/upload", dependencies=guarded_mutation_dependencies)
     async def import_jsonl_upload(request: Request) -> dict[str, object]:
         form = await request.form()
         form_files = list(form.getlist("files"))
@@ -375,3 +414,44 @@ def _local_http_origin(value: str) -> str | None:
     if parsed.path not in {"", "/"} or parsed.params or parsed.query or parsed.fragment:
         return None
     return f"http://{parsed.hostname}:{port}"
+
+
+def require_local_request_guard(request: Request) -> None:
+    _validate_local_request_origin_and_host(request)
+    expected_token = _get_local_request_guard_token(request)
+    received_token = request.headers.get(LOCAL_REQUEST_GUARD_HEADER)
+    if received_token is None or not received_token.strip():
+        raise _local_request_guard_error(401, "local_request_guard_missing")
+    if not hmac.compare_digest(received_token, expected_token):
+        raise _local_request_guard_error(403, "local_request_guard_invalid")
+
+
+def _validate_local_request_origin_and_host(request: Request) -> None:
+    origin = request.headers.get("origin")
+    allowed_origins = set(getattr(request.app.state, "local_request_guard_allowed_origins", ()))
+    if origin is not None and origin not in allowed_origins:
+        raise _local_request_guard_error(403, "local_request_origin_not_allowed")
+
+    host = request.headers.get("host")
+    if host and not _is_loopback_host_header(host):
+        raise _local_request_guard_error(403, "local_request_host_not_allowed")
+
+
+def _get_local_request_guard_token(request: Request) -> str:
+    guard_value = getattr(request.app.state, "local_request_guard_token", None)
+    if not isinstance(guard_value, str) or not guard_value:
+        raise _local_request_guard_error(503, "local_request_guard_unavailable")
+    return guard_value
+
+
+def _local_request_guard_error(status_code: int, error_code: str) -> HTTPException:
+    return HTTPException(status_code=status_code, detail={"error": error_code})
+
+
+def _is_loopback_host_header(value: str) -> bool:
+    try:
+        parsed = urlparse(f"http://{value.strip()}")
+        port = parsed.port
+    except ValueError:
+        return False
+    return parsed.hostname in LOOPBACK_HOSTS and (port is None or 1 <= port <= 65535)
