@@ -25,6 +25,8 @@ production readiness, analytics truth, AI truth, or coaching truth.
 - Repository URL: `https://github.com/Tahjali11/Mythic-Edge`
 - Issue: https://github.com/Tahjali11/Mythic-Edge/issues/582
 - Clarification issue: https://github.com/Tahjali11/Mythic-Edge/issues/584
+- Sanitized report execution issue:
+  https://github.com/Tahjali11/Mythic-Edge/issues/588
 - Tracker: https://github.com/Tahjali11/Mythic-Edge/issues/567
 - Project roadmap: https://github.com/Tahjali11/Mythic-Edge/issues/568
 - Previous issue: https://github.com/Tahjali11/Mythic-Edge/issues/578
@@ -85,6 +87,7 @@ pipeline_activation_ready_for_issue_388: false
 - `docs/templates/module_contract.md`
 - Issue #582
 - Issue #584
+- Issue #588 and Codex E blocker handoff
 - Tracker #567
 - Roadmap #568
 - Previous issue #578
@@ -258,6 +261,8 @@ This contract authorizes only contract language for:
 - a narrow Ruff-native filename normalization boundary;
 - a narrow raw diagnostic-message handling boundary;
 - sanitized report artifact shape and path pattern;
+- symbolic diagnostic-filename omission for public-unsafe private-marker path
+  text;
 - helper usage with `tools/generate_ruff_advisory_report.py`;
 - stop conditions for malformed, stale, private, local, secret-like, autofix,
   unsupported, or overclaiming output;
@@ -399,7 +404,9 @@ diagnostic filenames to repo-relative paths only when all of these are true:
 5. The raw absolute filename is not copied to stdout, committed reports,
    implementation handoffs, issue comments, PR bodies, tracker comments, or
    public docs.
-6. The normalized path still passes private-marker and secret-pattern scans.
+6. The normalized path either passes private-marker and secret-pattern scans
+   or is omitted from public path output under the diagnostic filename
+   private-marker omission boundary below.
 
 This exception applies only to Ruff diagnostic filename fields. It does not
 apply to:
@@ -410,7 +417,8 @@ apply to:
 - source snippets;
 - fix edits;
 - raw JSON records pasted into docs;
-- private markers;
+- private markers outside the diagnostic filename private-marker omission
+  boundary;
 - secret-like values;
 - paths outside the measured checkout;
 - generated local evidence paths;
@@ -423,9 +431,74 @@ the helper must fail closed. Allowed failure statuses:
 - `measurement_blocked_path_normalization_unsupported`
 - `measurement_blocked_local_path_leak`
 
-The sanitized report must contain only repo-relative paths. It must not
-contain local absolute paths even when they were accepted as temporary raw
-input.
+The sanitized report must contain only repo-relative paths or public-safe
+symbolic path-omission/bucket fields. It must not contain local absolute paths
+even when they were accepted as temporary raw input.
+
+### Diagnostic Filename Private-Marker Omission Boundary
+
+Ruff diagnostic filename fields may sometimes resolve under the measured
+checkout and still contain private-marker-like text as part of a source or
+test filename. The public-safety boundary is to prevent that text from
+appearing in committed artifacts, not to convert advisory findings into false
+zero-baseline evidence.
+
+A future helper may count a diagnostic whose filename contains private-marker
+vocabulary without emitting the filename only when all of these are true:
+
+1. the filename is a Ruff diagnostic `filename` field, not metadata, command
+   text, a diagnostic message, a source snippet, a fix edit, or raw JSON copied
+   into public output;
+2. the filename resolves under the measured clean checkout after symlink and
+   `..` normalization;
+3. the normalized repo-relative path is inside the approved scan scope
+   (`src`, `tests`, or `tools`) and is not under `_review_`, `data/`, runtime,
+   generated, private-evidence, raw-log, workbook-export, SQLite, or local
+   artifact paths;
+4. the path does not contain secret-like values, credentials, tokens, API
+   keys, webhook URLs, auth headers, source patches, or raw payload content;
+5. the raw absolute path and normalized repo-relative path are not emitted to
+   stdout, committed reports, implementation handoffs, issue comments, PR
+   bodies, tracker comments, or public docs;
+6. the public report records only non-reversible symbolic path handling such
+   as counts, approved top-level scan-scope buckets, and labels like
+   `path_omitted_private_marker_filename` or
+   `path_bucketed_private_marker_filename`;
+7. the finding remains counted under its exact Ruff rule code and must not be
+   treated as a zero-baseline candidate;
+8. any rule summary with omitted private-marker filename data uses a
+   review-required or advisory disposition, not a blocking-promotion,
+   cleanup-issue, or ignore disposition by default;
+9. the final public artifact passes secret/private/local-path/protected-surface
+   scans.
+
+Allowed public fields for this boundary are optional and symbolic only:
+
+```json
+{
+  "affected_paths": ["tools/public_safe_example.py"],
+  "omitted_affected_path_count": 1,
+  "path_handling_policy": "symbolic_private_marker_filename_omission",
+  "path_scope_buckets": ["tests"]
+}
+```
+
+These example values are illustrative. They do not authorize raw path output,
+path hashes, reversible lookup keys, original basenames, path fragments,
+private-marker strings, source snippets, fix edits, local absolute paths, or
+raw Ruff JSON.
+
+The helper must still fail closed with `measurement_blocked_private_marker`
+when:
+
+- private-marker text would be emitted in any public artifact;
+- the path points outside the measured checkout;
+- the path is under `_review_`, `data/`, runtime, generated, private-evidence,
+  raw-log, workbook-export, SQLite, or local artifact paths;
+- the path contains secret-like values or credential-shaped content;
+- the path is needed for a human-readable explanation that cannot be expressed
+  symbolically;
+- omission would make a rule look clean, blocking-ready, or promotion-ready.
 
 ### Ruff Diagnostic Message Handling
 
@@ -568,6 +641,11 @@ or any output implying CI readiness, parser truth, security assurance, privacy
 assurance, release readiness, deploy readiness, production readiness,
 analytics truth, AI truth, or coaching truth.
 
+If a diagnostic filename is omitted under the private-marker filename boundary,
+the report may include only symbolic omission/count/bucket fields. It must not
+include the omitted path, its basename, any path fragment, a path hash, or the
+private-marker text that caused omission.
+
 If the helper records diagnostic-message handling, it may emit only bounded
 symbolic fields such as:
 
@@ -592,6 +670,7 @@ Allowed report statuses for a future measurement handoff:
 - `measurement_not_run`
 - `measurement_authorized_not_started`
 - `measurement_completed_report_only`
+- `measurement_completed_report_only_with_symbolic_path_omissions`
 - `measurement_blocked_tool_missing`
 - `measurement_blocked_command_failed`
 - `measurement_blocked_malformed_json`
@@ -600,6 +679,7 @@ Allowed report statuses for a future measurement handoff:
 - `measurement_blocked_path_outside_checkout`
 - `measurement_blocked_path_normalization_unsupported`
 - `measurement_blocked_private_marker`
+- `measurement_blocked_private_marker_path_required`
 - `measurement_blocked_secret_like_output`
 - `measurement_blocked_stale_commit`
 - `measurement_blocked_dirty_worktree`
@@ -679,15 +759,20 @@ Future measurement must stop without report adoption when:
   repo-relative path under the measured checkout;
 - raw Ruff JSON contains secret-like output in any field;
 - raw Ruff JSON contains private markers outside un-emitted diagnostic message
-  fields handled under the message-handling boundary;
+  fields handled under the message-handling boundary and outside diagnostic
+  filename fields handled under the symbolic private-marker filename omission
+  boundary;
+- a diagnostic filename with private-marker text cannot be omitted or
+  symbolically bucketed without losing required count evidence;
 - raw diagnostic messages require public emission or contain forbidden content
   under the message-handling boundary;
 - raw output would need to be committed to proceed;
 - helper input is unreadable;
 - helper output is malformed;
 - helper rejects unsupported records;
-- helper output contains local absolute paths, private markers, secret-like
-  values, raw logs, source patches, raw source snippets, or autofix diffs;
+- helper output contains local absolute paths, emitted private-marker path
+  text, secret-like values, raw logs, source patches, raw source snippets,
+  autofix diffs, or non-symbolic path omission data;
 - a proposed public report or handoff would paste raw Ruff records or raw
   command output instead of reduced helper summary fields;
 - the sanitized report omits repository, branch/ref, commit, Ruff version,
@@ -793,7 +878,9 @@ A future Codex C measurement pass, if separately authorized, should validate:
 - helper output uses `quality_ruff_advisory_report.v1`;
 - helper output validates as JSON;
 - helper output contains required metadata and non-claims;
-- helper output contains repo-relative paths only;
+- helper output contains repo-relative paths only for emitted path fields;
+- diagnostic filenames omitted for private-marker reasons are represented only
+  through symbolic counts or approved top-level scan-scope buckets;
 - helper output contains no raw diagnostic messages;
 - any diagnostic-message handling is either ignored, redacted, or symbolic
   only;
@@ -816,6 +903,11 @@ A future Codex C measurement pass, if separately authorized, should validate:
 - The contract defines that raw diagnostic messages are not public summary
   fields and may only be ignored, redacted, or symbolically classified when
   they are not emitted.
+- The contract defines that diagnostic filename fields containing
+  private-marker text may be omitted or symbolically bucketed only when the
+  filename resolves under the measured checkout, remains inside the approved
+  scan scope, and the public artifact emits no raw or normalized private-marker
+  path text.
 - The contract defines stop conditions for malformed Ruff output, command
   failure, helper rejection, local-path leakage, unnormalizable Ruff
   diagnostic filenames, private markers, secret-like output, raw log
@@ -854,8 +946,9 @@ This contract does not claim:
 
 This contract does not authorize:
 
-- code implementation outside the bounded helper/test filename-normalization
-  and message-handling fixes described for issue #584;
+- code implementation outside the bounded helper/test filename-normalization,
+  message-handling, and symbolic private-marker filename omission fixes
+  described for issues #584 and #588;
 - PR creation;
 - tracker closure;
 - issue closure;
@@ -911,29 +1004,64 @@ to symbolic labels, while secrets, raw source snippets, fix edits, unsafe
 paths in public output, raw logs, private payloads, and readiness/truth/
 assurance claims still fail closed.
 
+## Issue #588 Clarification Decision
+
+Selected decision for issue #588:
+
+```yaml
+contract_clarification: "allow_symbolic_private_marker_filename_omission"
+applies_only_to: "Ruff diagnostic filename fields under the measured checkout"
+public_path_output_allowed: "repo_relative_paths_that_pass_public_scans_only"
+private_marker_filename_output_allowed: false
+private_marker_filename_counting_allowed: true
+private_marker_filename_bucket_reporting_allowed: true
+allowed_buckets: "approved top-level scan-scope buckets only"
+path_hashes_or_reversible_lookup_keys_allowed: false
+omitted_paths_may_create_zero_baseline_candidates: false
+secrets_raw_snippets_fix_edits_unsafe_paths_raw_logs_and_overclaims_fail_closed: true
+raw_json_remains_local_uncommitted: true
+sanitized_report_created_by_this_clarification: false
+measurement_rerun_authorized_by_this_clarification: false
+ci_change_authorized: false
+ruff_blocking_promotion_authorized: false
+ruff_autofix_authorized: false
+```
+
+Rationale: Codex E verified that the raw-source/fix-edit message blocker was
+fixed for issue #588, then found the next fail-closed boundary:
+`measurement_blocked_private_marker` from diagnostic filename fields. The
+contract now distinguishes public path emission from private-marker path
+counting. A public report may count the affected finding and use symbolic
+omission or approved top-level scan-scope buckets, but it must not emit the
+path, basename, path fragment, hash, or private-marker text.
+
+This clarification does not make private-marker filename findings safe for
+automatic promotion. Any rule summary affected by omitted private-marker path
+data remains advisory or review-required and cannot become a zero-baseline,
+blocking-promotion, cleanup-issue, or ignore recommendation by default.
+
 ## Recommended Next Role
 
-Recommended next role for issue #584: Codex D.
+Recommended next role for issue #588: Codex D.
 
-For issue #584, this clarification should route to Codex D or Codex C only for
-the smallest helper/test update needed to preserve Ruff-native diagnostic
-filename normalization and apply the new diagnostic-message handling boundary.
-It does not authorize rerunning the measurement or adopting a sanitized report
-until a later handoff explicitly preserves
-`ruff_measurement_execution_authorized: true` and
-`report_artifact_creation_authorized: true`.
+For issue #588, this clarification should route to Codex D for the smallest
+helper/test update needed to keep private-marker diagnostic filename fields
+out of public path output while preserving advisory counts and symbolic bucket
+evidence. The existing #588 approval may be used only within the original
+report-execution scope and only if Codex D first validates that raw Ruff JSON
+remains local, uncommitted, and unchanged except through the already-approved
+measurement path.
 
-Because Codex C already found a concrete helper blocker and stopped correctly,
-Codex D is the narrower route for the helper/test fix. Codex D should not
-rerun the all-rules measurement unless a later prompt explicitly authorizes
-that execution again.
+Codex D must not treat this contract clarification as permission to broaden
+the report, emit omitted filenames, create cleanup issues, promote blocking
+rules, change CI, run autofix, or claim readiness/truth/assurance.
 
 ## Pasteable Codex D Prompt
 
 ```text
 Use the Mythic Edge workflow rules.
 
-Act as Codex D: Module Fixer for issue #584.
+Act as Codex D: Module Fixer for issue #588.
 
 Repository:
 Tahjali11/Mythic-Edge
@@ -942,7 +1070,7 @@ Repository URL:
 https://github.com/Tahjali11/Mythic-Edge
 
 Issue:
-https://github.com/Tahjali11/Mythic-Edge/issues/584
+https://github.com/Tahjali11/Mythic-Edge/issues/588
 
 Tracker:
 https://github.com/Tahjali11/Mythic-Edge/issues/567
@@ -951,47 +1079,48 @@ Project roadmap:
 https://github.com/Tahjali11/Mythic-Edge/issues/568
 
 Previous issue:
-https://github.com/Tahjali11/Mythic-Edge/issues/582
+https://github.com/Tahjali11/Mythic-Edge/issues/584
 
 Previous PR:
-https://github.com/Tahjali11/Mythic-Edge/pull/583
+https://github.com/Tahjali11/Mythic-Edge/pull/587
 
 Previous merge commit:
-97f7d9ced74410d03fe4b94ba9f6dc3257bc6a5f
+51d5d8352c10204663d904765a8820bb464a52ac
 
 Contract:
 docs/contracts/quality_ruff_current_advisory_measurement_report.md
 
 Implementation handoff:
-docs/implementation_handoffs/quality_ruff_current_advisory_measurement_report.md
+docs/implementation_handoffs/quality_ruff_sanitized_advisory_report_execution.md
 
 Blocker:
-Codex C and D addressed the bounded Ruff diagnostic filename-normalization
-blocker. The current remaining blocker is diagnostic message content:
-Ruff messages include local-path or private-marker wording, the helper does not
-emit messages, and the contract now clarifies that un-emitted messages may be
-ignored, redacted, or symbolically classified while unsafe public output still
-fails closed.
+Codex E verified that the raw-source/fix-edit message blocker was fixed. The
+remaining blocker is `measurement_blocked_private_marker` from Ruff diagnostic
+filename fields. The contract now clarifies that a diagnostic filename under
+the measured checkout may be omitted from public path output and counted
+symbolically when the filename itself contains private-marker text.
 
 Goal:
 Implement the smallest helper/test fix allowed by the clarified contract:
-keep Ruff-native diagnostic filename fields repo-relative, and update
-diagnostic message handling so raw messages are never emitted but may be
-ignored, redacted, or reduced to symbolic labels when the public report does
-not need message text. Continue to reject secrets, raw source snippets, fix
+keep Ruff-native diagnostic filename fields repo-relative when they pass public
+scans, omit or symbolically bucket private-marker diagnostic filename fields
+without emitting the path, preserve advisory counts, and keep raw diagnostic
+messages un-emitted. Continue to reject secrets, raw source snippets, fix
 edits, unsafe paths in public output, raw logs/private payloads, autofix
-output, and readiness/truth/assurance claims.
+output, outside-checkout paths, generated/private artifact paths, and
+readiness/truth/assurance claims.
 
 Allowed scope:
 - `tools/generate_ruff_advisory_report.py`
 - `tests/test_ruff_advisory_report.py`
-- `docs/implementation_handoffs/quality_ruff_current_advisory_measurement_report.md`
+- `docs/implementation_handoffs/quality_ruff_sanitized_advisory_report_execution.md`
   if a D handoff update is needed
 
-Do not rerun the all-rules Ruff measurement unless a later prompt explicitly
-authorizes it again. Do not create or commit a sanitized measurement report in
-this D pass unless a later prompt explicitly authorizes report artifact
-creation.
+Do not run a new all-rules Ruff measurement. Use only the already-approved
+#588 local raw Ruff JSON if it is still present, ignored, uncommitted, and tied
+to the approved target commit. Do not create or commit a sanitized measurement
+report unless the original #588 approval remains valid and the fixed helper
+passes validation.
 
 Run:
 - PYTHONDONTWRITEBYTECODE=1 python3 -m pytest -q tests/test_ruff_advisory_report.py
@@ -1017,21 +1146,21 @@ truth, AI truth, or coaching truth.
 workflow_handoff:
   repository: "Tahjali11/Mythic-Edge"
   repository_url: "https://github.com/Tahjali11/Mythic-Edge"
-  issue: "https://github.com/Tahjali11/Mythic-Edge/issues/584"
+  issue: "https://github.com/Tahjali11/Mythic-Edge/issues/588"
   tracker: "https://github.com/Tahjali11/Mythic-Edge/issues/567"
   project_roadmap: "https://github.com/Tahjali11/Mythic-Edge/issues/568"
-  previous_issue: "https://github.com/Tahjali11/Mythic-Edge/issues/582"
-  previous_pr: "https://github.com/Tahjali11/Mythic-Edge/pull/583"
-  previous_merge_commit: "97f7d9ced74410d03fe4b94ba9f6dc3257bc6a5f"
+  previous_issue: "https://github.com/Tahjali11/Mythic-Edge/issues/584"
+  previous_pr: "https://github.com/Tahjali11/Mythic-Edge/pull/587"
+  previous_merge_commit: "51d5d8352c10204663d904765a8820bb464a52ac"
   completed_thread: "B"
   next_thread: "D"
-  verdict: "ruff_measurement_message_handling_contract_clarified_ready_for_helper_fix"
+  verdict: "ruff_private_marker_filename_omission_contract_clarified_ready_for_helper_fix"
   risk_tier: "High"
   base_branch: "main"
   target_branch: "main"
-  branch: "codex/quality-ruff-current-advisory-measurement-584"
+  branch: "codex/quality-ruff-sanitized-advisory-report-588"
   target_artifact: "docs/contracts/quality_ruff_current_advisory_measurement_report.md"
-  implementation_handoff: "docs/implementation_handoffs/quality_ruff_current_advisory_measurement_report.md"
+  implementation_handoff: "docs/implementation_handoffs/quality_ruff_sanitized_advisory_report_execution.md"
   sanitized_report_created: false
   raw_ruff_json_committed: false
   ci_change_authorized: false
@@ -1039,6 +1168,8 @@ workflow_handoff:
   ruff_autofix_authorized: false
   ruff_measurement_execution_authorized: false
   report_artifact_creation_authorized: false
+  private_marker_filename_output_authorized: false
+  symbolic_private_marker_filename_omission_authorized: true
   parser_behavior_change_authorized: false
   parser_behavior_ready: false
   pipeline_activation_ready_for_issue_388: false

@@ -112,14 +112,23 @@ QUOTED_SECRET_FIELD_ASSIGNMENT_RE = re.compile(
     r"[\"']?\s*(?::=|=>|[:=])\s*[\"']?\S{8,}"
 )
 RAW_SOURCE_OR_FIX_MESSAGE_RE = re.compile(
-    r"(?im)("
+    r"(?m)("
     r"^diff --git\b|"
     r"^@@\s|"
-    r"^\s*[+-]\s*(?:def |class |import |from |return\b|if\b|for\b|while\b|"
-    r"raise\b|print\(|[A-Za-z_][A-Za-z0-9_]*\s*=)|"
-    r"^\s*(?:def |class |import |from .+ import |return\b|if .+:|for .+:|"
-    r"while .+:|raise\b|print\(|[A-Za-z_][A-Za-z0-9_]*\s*=)|"
-    r"\b(?:autofix diff|fix edit|edit preview|source patch)\b"
+    r"^\s*[+-]\s*(?:def\s+[A-Za-z_][A-Za-z0-9_]*\s*\(|"
+    r"class\s+[A-Za-z_][A-Za-z0-9_]*(?:\(|:)|"
+    r"import\s+[A-Za-z_][A-Za-z0-9_.]*|"
+    r"from\s+[A-Za-z_][A-Za-z0-9_.]*\s+import\s+|"
+    r"return\b|if\b|for\b|while\b|raise\b|print\(|"
+    r"[A-Za-z_][A-Za-z0-9_]*\s*=)|"
+    r"^\s*(?:def\s+[A-Za-z_][A-Za-z0-9_]*\s*\(|"
+    r"class\s+[A-Za-z_][A-Za-z0-9_]*(?:\(|:)|"
+    r"import\s+[A-Za-z_][A-Za-z0-9_.]*(?:\s|$)|"
+    r"from\s+[A-Za-z_][A-Za-z0-9_.]*\s+import\s+)|"
+    r"^\s{2,}(?:return\b|if .+:|for .+:|while .+:|raise\b|print\(|"
+    r"[A-Za-z_][A-Za-z0-9_]*\s*=)|"
+    r"^[A-Za-z_][A-Za-z0-9_]*\s*=|"
+    r"(?i:\b(?:autofix diff|fix edit|edit preview|source patch)\b)"
     r")"
 )
 RAW_PRIVATE_PAYLOAD_RE = re.compile(
@@ -144,6 +153,9 @@ PRIVATE_MARKERS = (
 AUTOFIX_FLAGS = ("--fix", "--unsafe-fixes", "--fix-only")
 GENERATED_PRIVATE_PATH_PREFIXES = ("_review_", "data/")
 MEASURED_CHECKOUT_ROOT_MARKERS = ("pyproject.toml", "AGENTS.md", ".git")
+PRIVATE_MARKER_FILENAME_OMISSION_POLICY = "symbolic_private_marker_filename_omission"
+PRIVATE_MARKER_FILENAME_OMISSION_REASON = "path_omitted_private_marker_filename"
+APPROVED_PRIVATE_MARKER_PATH_BUCKETS = frozenset(DEFAULT_SCAN_SCOPE)
 
 
 class RuffAdvisoryError(ValueError):
@@ -164,8 +176,10 @@ class ReportMetadata:
 @dataclass(frozen=True)
 class Finding:
     rule_code: str
-    filename: str
+    filename: str | None
     fix_applicability: str
+    omitted_path_reason: str | None = None
+    path_scope_bucket: str | None = None
 
 
 def load_ruff_json(text: str) -> list[dict[str, Any]]:
@@ -299,13 +313,15 @@ def _parse_finding(record: dict[str, Any], *, measured_checkout_root: Path) -> F
         measured_checkout_root=measured_checkout_root,
     )
     message = _require_string(record, "message")
-    _reject_forbidden_text(filename)
     _validate_unemitted_diagnostic_message(message)
+    public_filename, omitted_reason, path_scope_bucket = _public_diagnostic_path_or_symbolic_omission(filename)
 
     return Finding(
         rule_code=rule_code,
-        filename=filename,
+        filename=public_filename,
         fix_applicability=_fix_applicability(record.get("fix")),
+        omitted_path_reason=omitted_reason,
+        path_scope_bucket=path_scope_bucket,
     )
 
 
@@ -343,7 +359,6 @@ def normalize_diagnostic_filename(path: str, *, measured_checkout_root: Path) ->
     else:
         repo_path = normalize_repo_path(text)
     _reject_forbidden_repo_path(repo_path)
-    _reject_forbidden_text(repo_path)
     return repo_path
 
 
@@ -405,14 +420,34 @@ def _reject_forbidden_repo_path(path: str) -> None:
 
 def _reject_forbidden_text(text: str) -> None:
     _reject_secret_like_text(text)
-    lowered = text.lower()
-    if any(marker.lower() in lowered for marker in PRIVATE_MARKERS):
+    if _contains_private_marker_text(text):
         raise RuffAdvisoryError("measurement_blocked_private_marker")
 
 
 def _reject_secret_like_text(text: str) -> None:
     if SECRET_RE.search(text) or QUOTED_SECRET_FIELD_ASSIGNMENT_RE.search(text):
         raise RuffAdvisoryError("measurement_blocked_secret_like_output")
+
+
+def _contains_private_marker_text(text: str) -> bool:
+    lowered = text.lower()
+    return any(marker.lower() in lowered for marker in PRIVATE_MARKERS)
+
+
+def _public_diagnostic_path_or_symbolic_omission(path: str) -> tuple[str | None, str | None, str | None]:
+    _reject_secret_like_text(path)
+    if not _contains_private_marker_text(path):
+        return path, None, None
+
+    path_scope_bucket = _private_marker_path_scope_bucket(path)
+    return None, PRIVATE_MARKER_FILENAME_OMISSION_REASON, path_scope_bucket
+
+
+def _private_marker_path_scope_bucket(path: str) -> str:
+    bucket = path.split("/", 1)[0]
+    if bucket not in APPROVED_PRIVATE_MARKER_PATH_BUCKETS:
+        raise RuffAdvisoryError("measurement_blocked_private_marker")
+    return bucket
 
 
 def _reject_secret_like_payload(value: Any) -> None:
@@ -488,25 +523,41 @@ def _build_rule_summaries(
     summaries = []
     for code in all_codes:
         code_findings = tuple(finding for finding in findings if finding.rule_code == code)
-        affected_paths = tuple(sorted({finding.filename for finding in code_findings}))
-        protected_surface = classify_protected_surface(affected_paths)
+        affected_paths = tuple(sorted({finding.filename for finding in code_findings if finding.filename}))
+        omitted_path_count = sum(1 for finding in code_findings if finding.omitted_path_reason is not None)
+        omitted_path_buckets = tuple(
+            sorted({finding.path_scope_bucket for finding in code_findings if finding.path_scope_bucket is not None})
+        )
+        protected_surface = (
+            "private_artifact_or_secret_surface"
+            if omitted_path_count
+            else classify_protected_surface(affected_paths)
+        )
         disposition = _disposition_for(code_findings, protected_surface)
         if disposition in FORBIDDEN_DISPOSITIONS or disposition not in ALLOWED_DISPOSITIONS:
             raise RuffAdvisoryError("unsupported_rule_record")
-        summaries.append(
-            {
-                "rule_code": code,
-                "rule_family": rule_family(code),
-                "count": len(code_findings),
-                "affected_file_count": len(affected_paths),
-                "affected_paths": list(affected_paths),
-                "autofix_available": _aggregate_autofix(code_findings),
-                "unsafe_fix_available": _aggregate_unsafe_fix(code_findings),
-                "protected_surface_impact": protected_surface,
-                "disposition": disposition,
-                "reason": _reason_for(disposition),
-            }
-        )
+        summary = {
+            "rule_code": code,
+            "rule_family": rule_family(code),
+            "count": len(code_findings),
+            "affected_file_count": len(affected_paths) + omitted_path_count,
+            "affected_paths": list(affected_paths),
+            "autofix_available": _aggregate_autofix(code_findings),
+            "unsafe_fix_available": _aggregate_unsafe_fix(code_findings),
+            "protected_surface_impact": protected_surface,
+            "disposition": disposition,
+            "reason": _reason_for(disposition),
+        }
+        if omitted_path_count:
+            summary.update(
+                {
+                    "omitted_affected_path_count": omitted_path_count,
+                    "path_handling_policy": PRIVATE_MARKER_FILENAME_OMISSION_POLICY,
+                    "path_omission_reason": PRIVATE_MARKER_FILENAME_OMISSION_REASON,
+                    "path_scope_buckets": list(omitted_path_buckets),
+                }
+            )
+        summaries.append(summary)
     return tuple(summaries)
 
 
