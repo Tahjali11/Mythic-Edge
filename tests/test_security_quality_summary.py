@@ -237,7 +237,7 @@ def test_secret_like_field_is_blocked_without_echo(tmp_path: Path, monkeypatch: 
     report = _generate(
         tmp_path,
         monkeypatch,
-        secret_private_summary_path=unsafe_summary,
+        private_marker_summary_path=unsafe_summary,
     )
     encoded = json.dumps(report, sort_keys=True)
 
@@ -266,3 +266,52 @@ def test_default_report_path_uses_date_and_short_commit() -> None:
         "docs/quality_reports/security/security_quality_summary/"
         "2026-07-01-503239c-security-quality-summary.json"
     )
+
+
+def test_main_stdout_is_status_only_without_write_report(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    report = {
+        "overall_status": "advisory_warnings",
+        "schema_version": "security_quality_scanner_summary_aggregation.v1",
+        "source_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/610",
+    }
+    monkeypatch.setattr(reporter, "generate_report", lambda **kwargs: report)
+
+    exit_code = reporter.main(["--report-date", "2026-07-01"])
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert captured.out == "security quality summary generated\n"
+    assert "schema_version" not in captured.out
+    assert "issues/610" not in captured.out
+
+
+def test_main_write_report_stdout_is_status_only(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    report = {
+        "overall_status": "advisory_warnings",
+        "schema_version": "security_quality_scanner_summary_aggregation.v1",
+        "source_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/610",
+    }
+    writes: list[tuple[dict, str]] = []
+    monkeypatch.setattr(reporter, "generate_report", lambda **kwargs: report)
+
+    def fake_write_default_report(candidate: dict, *, report_date: str) -> Path:
+        writes.append((candidate, report_date))
+        return Path("docs/quality_reports/security/security_quality_summary/test-report.json")
+
+    monkeypatch.setattr(reporter, "write_default_report", fake_write_default_report)
+
+    exit_code = reporter.main(["--write-report", "--report-date", "2026-07-01"])
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert captured.out == "security quality summary report written\n"
+    assert "test-report.json" not in captured.out
+    assert "schema_version" not in captured.out
+    assert "issues/610" not in captured.out
+    assert writes == [(report, "2026-07-01")]

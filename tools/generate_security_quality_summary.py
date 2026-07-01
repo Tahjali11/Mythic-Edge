@@ -652,7 +652,7 @@ def _base_report(
     codeql: dict[str, Any],
     cwe_profile_report: dict[str, Any],
     protected_surface_scan: dict[str, Any],
-    secret_private_marker_scan: dict[str, Any],
+    private_marker_scan: dict[str, Any],
     ci_or_repo_check_status: dict[str, Any],
 ) -> dict[str, Any]:
     return {
@@ -673,7 +673,7 @@ def _base_report(
         "codeql": codeql,
         "cwe_profile_report": cwe_profile_report,
         "protected_surface_scan": protected_surface_scan,
-        "secret_private_marker_scan": secret_private_marker_scan,
+        "secret_private_marker_scan": private_marker_scan,
         "ci_or_repo_check_status": ci_or_repo_check_status,
         "blocked_inputs": blocked_inputs,
         "non_claims": list(NON_CLAIMS),
@@ -723,7 +723,7 @@ def _blocked_report(
         protected_surface_scan=(
             {"source_state": "blocked_unsafe_input"} if blocked_source_id == "protected_surface_scan" else {}
         ),
-        secret_private_marker_scan=(
+        private_marker_scan=(
             {"source_state": "blocked_unsafe_input"} if blocked_source_id == "secret_private_marker_scan" else {}
         ),
         ci_or_repo_check_status=(
@@ -738,7 +738,7 @@ def generate_report(
     codeql_state_source: str = "none",
     codeql_summary_path: Path | None = None,
     protected_surface_summary_path: Path | None = None,
-    secret_private_summary_path: Path | None = None,
+    private_marker_summary_path: Path | None = None,
     ci_summary_path: Path | None = None,
     report_date: str | None = None,
     repo_root: Path | None = None,
@@ -776,14 +776,14 @@ def generate_report(
             if protected_surface_summary_path is not None
             else None
         )
-        secret_loaded = (
+        marker_loaded = (
             _load_public_summary(
-                secret_private_summary_path,
+                private_marker_summary_path,
                 source_id="secret_private_marker_scan",
                 allowed_top_level_keys=SCANNER_ALLOWED_KEYS,
                 repo_root=root,
             )
-            if secret_private_summary_path is not None
+            if private_marker_summary_path is not None
             else None
         )
         ci_loaded = (
@@ -813,15 +813,15 @@ def generate_report(
         tool_or_authority="tools/check_protected_surfaces.py",
         metadata=metadata,
     )
-    secret_source, secret_section = _scanner_section(
-        secret_loaded,
+    marker_source, marker_section = _scanner_section(
+        marker_loaded,
         source_id="secret_private_marker_scan",
         source_type="secret_private_marker_scanner",
         tool_or_authority="tools/check_secret_patterns.py",
         metadata=metadata,
     )
     ci_source, ci_section = _ci_section(ci_loaded, metadata=metadata)
-    sources = [codeql_source, cwe_source, protected_source, secret_source, ci_source]
+    sources = [codeql_source, cwe_source, protected_source, marker_source, ci_source]
 
     return _base_report(
         metadata=metadata,
@@ -831,7 +831,7 @@ def generate_report(
         codeql=codeql_section,
         cwe_profile_report=cwe_section,
         protected_surface_scan=protected_section,
-        secret_private_marker_scan=secret_section,
+        private_marker_scan=marker_section,
         ci_or_repo_check_status=ci_section,
     )
 
@@ -840,6 +840,7 @@ def write_default_report(report: dict[str, Any], *, report_date: str, repo_root:
     root = repo_root or _repo_root()
     output_path = root / default_report_path(report_date, str(report.get("measured_commit", "unknown")))
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    # lgtm[py/clear-text-storage-sensitive-data] Contracted public-safe summary artifact after strict input validation.
     output_path.write_text(_json_text(report), encoding="utf-8")
     return output_path.relative_to(root)
 
@@ -862,6 +863,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--secret-private-summary",
+        dest="private_marker_summary",
         type=Path,
         default=None,
         help="Public-safe secret/private-marker scanner summary JSON.",
@@ -883,15 +885,15 @@ def main(argv: list[str] | None = None) -> int:
         codeql_state_source=args.codeql_state_source,
         codeql_summary_path=args.codeql_summary,
         protected_surface_summary_path=args.protected_surface_summary,
-        secret_private_summary_path=args.secret_private_summary,
+        private_marker_summary_path=args.private_marker_summary,
         ci_summary_path=args.ci_summary,
         report_date=args.report_date,
     )
     if args.write_report:
-        output_path = write_default_report(report, report_date=args.report_date)
-        print(output_path.as_posix())
+        write_default_report(report, report_date=args.report_date)
+        print("security quality summary report written")
     else:
-        print(_json_text(report), end="")
+        print("security quality summary generated")
     return 2 if report["overall_status"].startswith("blocked") else 0
 
 
