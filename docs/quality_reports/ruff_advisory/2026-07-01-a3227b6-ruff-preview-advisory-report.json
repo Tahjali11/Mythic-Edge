@@ -1,0 +1,5015 @@
+{
+  "autofix_authorized": false,
+  "blocking_promotion_authorized": false,
+  "branch_or_ref": "origin/main",
+  "classification_summary": {
+    "defer_until_stable": 111,
+    "protected_surface_review_required": 104,
+    "style_only": 4,
+    "watch_list": 36
+  },
+  "commands": [
+    "py -m ruff check src tests tools --preview --select ALL --exit-zero --output-format json --output-file <local-only-raw-json>"
+  ],
+  "commit": "a3227b611f4333b40a6131d710c3ea5d8a7a9ccc",
+  "exit_behavior": "advisory_exit_zero",
+  "log004_classification": {
+    "count": 0,
+    "preview_only_rule": true,
+    "primary_classification": "defer_until_stable",
+    "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+    "rule_code": "LOG004"
+  },
+  "non_claims": [
+    "not CI readiness",
+    "not blocking-promotion readiness",
+    "not parser behavior readiness",
+    "not parser truth",
+    "not fixture promotion readiness",
+    "not corpus readiness",
+    "not security assurance",
+    "not privacy assurance",
+    "not release readiness",
+    "not deploy readiness",
+    "not production readiness",
+    "not analytics truth",
+    "not AI truth",
+    "not coaching truth",
+    "not preview-mode adoption approval"
+  ],
+  "object": "mythic_edge_quality_ruff_preview_advisory_report",
+  "preview_enabled_for_measurement": true,
+  "preview_enabled_in_ci": false,
+  "preview_enabled_in_pyproject": false,
+  "repository": "Tahjali11/Mythic-Edge",
+  "repository_url": "https://github.com/Tahjali11/Mythic-Edge",
+  "ruff_version": "ruff 0.15.12",
+  "rule_summaries": [
+    {
+      "affected_file_count": 1,
+      "affected_path_families": [
+        "src"
+      ],
+      "autofix_available": "unavailable",
+      "count": 1,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "watch_list",
+      "protected_surface_impact": "none",
+      "reason": "Rule has advisory findings and must not block without cleanup and review.",
+      "rule_code": "A002",
+      "rule_family": "A",
+      "secondary_labels": [],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "AIR003",
+      "rule_family": "AIR",
+      "secondary_labels": [
+        "preview_only"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "AIR004",
+      "rule_family": "AIR",
+      "secondary_labels": [
+        "preview_only"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "AIR201",
+      "rule_family": "AIR",
+      "secondary_labels": [
+        "preview_only"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "AIR303",
+      "rule_family": "AIR",
+      "secondary_labels": [
+        "preview_only"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "AIR304",
+      "rule_family": "AIR",
+      "secondary_labels": [
+        "preview_only"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "AIR321",
+      "rule_family": "AIR",
+      "secondary_labels": [
+        "preview_only"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 53,
+      "affected_path_families": [
+        "tests",
+        "tools"
+      ],
+      "autofix_available": "unavailable",
+      "count": 490,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "private_artifact_or_secret_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "ANN001",
+      "rule_family": "ANN",
+      "secondary_labels": [
+        "high_volume",
+        "private_artifact_or_secret_surface",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 3,
+      "affected_path_families": [
+        "tests"
+      ],
+      "autofix_available": "unavailable",
+      "count": 7,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "workbook_webhook_or_appsscript_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "ANN002",
+      "rule_family": "ANN",
+      "secondary_labels": [
+        "style_or_documentation",
+        "workbook_webhook_or_appsscript_surface"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 13,
+      "affected_path_families": [
+        "tests"
+      ],
+      "autofix_available": "unavailable",
+      "count": 26,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "private_artifact_or_secret_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "ANN003",
+      "rule_family": "ANN",
+      "secondary_labels": [
+        "private_artifact_or_secret_surface",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 2,
+      "affected_path_families": [
+        "src",
+        "tools"
+      ],
+      "autofix_available": "unavailable",
+      "count": 2,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "style_only",
+      "protected_surface_impact": "none",
+      "reason": "Rule is mainly style or documentation oriented and is lower priority for current hardening.",
+      "rule_code": "ANN201",
+      "rule_family": "ANN",
+      "secondary_labels": [
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 22,
+      "affected_path_families": [
+        "src",
+        "tests",
+        "tools"
+      ],
+      "autofix_available": "unsafe",
+      "count": 78,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "private_artifact_or_secret_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "ANN202",
+      "rule_family": "ANN",
+      "secondary_labels": [
+        "private_artifact_or_secret_surface",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "yes"
+    },
+    {
+      "affected_file_count": 76,
+      "affected_path_families": [
+        "src",
+        "tests",
+        "tools"
+      ],
+      "autofix_available": "unavailable",
+      "count": 526,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "parser_truth_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "ANN401",
+      "rule_family": "ANN",
+      "secondary_labels": [
+        "high_volume",
+        "parser_truth_surface",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 21,
+      "affected_path_families": [
+        "src",
+        "tests",
+        "tools"
+      ],
+      "autofix_available": "unavailable",
+      "count": 64,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "private_artifact_or_secret_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "ARG001",
+      "rule_family": "ARG",
+      "secondary_labels": [
+        "private_artifact_or_secret_surface"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 4,
+      "affected_path_families": [
+        "src",
+        "tests"
+      ],
+      "autofix_available": "unavailable",
+      "count": 6,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "analytics_ai_or_coaching_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "ARG002",
+      "rule_family": "ARG",
+      "secondary_labels": [
+        "analytics_ai_or_coaching_surface"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 9,
+      "affected_path_families": [
+        "tests"
+      ],
+      "autofix_available": "unavailable",
+      "count": 48,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "analytics_ai_or_coaching_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "ARG005",
+      "rule_family": "ARG",
+      "secondary_labels": [
+        "analytics_ai_or_coaching_surface"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 2,
+      "affected_path_families": [
+        "src",
+        "tools"
+      ],
+      "autofix_available": "safe",
+      "count": 24,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "watch_list",
+      "protected_surface_impact": "none",
+      "reason": "Rule has advisory findings and must not block without cleanup and review.",
+      "rule_code": "B009",
+      "rule_family": "B",
+      "secondary_labels": [
+        "runtime_safety"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 2,
+      "affected_path_families": [
+        "tests",
+        "tools"
+      ],
+      "autofix_available": "safe",
+      "count": 2,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "workbook_webhook_or_appsscript_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "B010",
+      "rule_family": "B",
+      "secondary_labels": [
+        "runtime_safety",
+        "workbook_webhook_or_appsscript_surface"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "B043",
+      "rule_family": "B",
+      "secondary_labels": [
+        "preview_only",
+        "runtime_safety"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "B901",
+      "rule_family": "B",
+      "secondary_labels": [
+        "preview_only",
+        "runtime_safety"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 1,
+      "affected_path_families": [
+        "src"
+      ],
+      "autofix_available": "unavailable",
+      "count": 1,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "evidence_or_corpus_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "B903",
+      "rule_family": "B",
+      "secondary_labels": [
+        "evidence_or_corpus_surface",
+        "preview_only",
+        "runtime_safety"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 1,
+      "affected_path_families": [
+        "src"
+      ],
+      "autofix_available": "unsafe",
+      "count": 1,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "parser_truth_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "B905",
+      "rule_family": "B",
+      "secondary_labels": [
+        "parser_truth_surface",
+        "runtime_safety"
+      ],
+      "unsafe_fix_available": "yes"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "B909",
+      "rule_family": "B",
+      "secondary_labels": [
+        "preview_only",
+        "runtime_safety"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 23,
+      "affected_path_families": [
+        "src",
+        "tools"
+      ],
+      "autofix_available": "unavailable",
+      "count": 73,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "parser_truth_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "BLE001",
+      "rule_family": "BLE",
+      "secondary_labels": [
+        "parser_truth_surface",
+        "runtime_safety"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 11,
+      "affected_path_families": [
+        "src",
+        "tests"
+      ],
+      "autofix_available": "safe",
+      "count": 23,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "parser_truth_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "C420",
+      "rule_family": "C",
+      "secondary_labels": [
+        "parser_truth_surface"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 49,
+      "affected_path_families": [
+        "src",
+        "tools"
+      ],
+      "autofix_available": "unavailable",
+      "count": 97,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "parser_truth_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "C901",
+      "rule_family": "C",
+      "secondary_labels": [
+        "parser_truth_surface"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 135,
+      "affected_path_families": [
+        "src",
+        "tests",
+        "tools"
+      ],
+      "autofix_available": "safe",
+      "count": 944,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "parser_truth_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "COM812",
+      "rule_family": "COM",
+      "secondary_labels": [
+        "high_volume",
+        "parser_truth_surface",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 281,
+      "affected_path_families": [
+        "src",
+        "tests",
+        "tools"
+      ],
+      "autofix_available": "unavailable",
+      "count": 281,
+      "omitted_affected_path_count": 2,
+      "path_handling_policy": "symbolic_private_marker_filename_omission",
+      "path_omission_reason": "path_omitted_private_marker_filename",
+      "path_scope_buckets": [
+        "src",
+        "tests"
+      ],
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "private_artifact_or_secret_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "CPY001",
+      "rule_family": "CPY",
+      "secondary_labels": [
+        "high_volume",
+        "preview_only",
+        "private_artifact_or_secret_surface",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 237,
+      "affected_path_families": [
+        "src",
+        "tests",
+        "tools"
+      ],
+      "autofix_available": "unavailable",
+      "count": 237,
+      "omitted_affected_path_count": 2,
+      "path_handling_policy": "symbolic_private_marker_filename_omission",
+      "path_omission_reason": "path_omitted_private_marker_filename",
+      "path_scope_buckets": [
+        "src",
+        "tests"
+      ],
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "private_artifact_or_secret_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "D100",
+      "rule_family": "D",
+      "secondary_labels": [
+        "high_volume",
+        "private_artifact_or_secret_surface",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 70,
+      "affected_path_families": [
+        "src",
+        "tests",
+        "tools"
+      ],
+      "autofix_available": "unavailable",
+      "count": 182,
+      "omitted_affected_path_count": 3,
+      "path_handling_policy": "symbolic_private_marker_filename_omission",
+      "path_omission_reason": "path_omitted_private_marker_filename",
+      "path_scope_buckets": [
+        "src"
+      ],
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "private_artifact_or_secret_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "D101",
+      "rule_family": "D",
+      "secondary_labels": [
+        "high_volume",
+        "private_artifact_or_secret_surface",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 46,
+      "affected_path_families": [
+        "src",
+        "tests",
+        "tools"
+      ],
+      "autofix_available": "unavailable",
+      "count": 268,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "private_artifact_or_secret_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "D102",
+      "rule_family": "D",
+      "secondary_labels": [
+        "high_volume",
+        "private_artifact_or_secret_surface",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 255,
+      "affected_path_families": [
+        "src",
+        "tests",
+        "tools"
+      ],
+      "autofix_available": "unavailable",
+      "count": 2208,
+      "omitted_affected_path_count": 8,
+      "path_handling_policy": "symbolic_private_marker_filename_omission",
+      "path_omission_reason": "path_omitted_private_marker_filename",
+      "path_scope_buckets": [
+        "tests"
+      ],
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "private_artifact_or_secret_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "D103",
+      "rule_family": "D",
+      "secondary_labels": [
+        "high_volume",
+        "private_artifact_or_secret_surface",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 6,
+      "affected_path_families": [
+        "src"
+      ],
+      "autofix_available": "unavailable",
+      "count": 6,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "parser_truth_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "D104",
+      "rule_family": "D",
+      "secondary_labels": [
+        "parser_truth_surface",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 1,
+      "affected_path_families": [
+        "src"
+      ],
+      "autofix_available": "unavailable",
+      "count": 2,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "parser_truth_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "D105",
+      "rule_family": "D",
+      "secondary_labels": [
+        "parser_truth_surface",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 21,
+      "affected_path_families": [
+        "src",
+        "tests",
+        "tools"
+      ],
+      "autofix_available": "unavailable",
+      "count": 27,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "parser_truth_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "D107",
+      "rule_family": "D",
+      "secondary_labels": [
+        "parser_truth_surface",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 18,
+      "affected_path_families": [
+        "src"
+      ],
+      "autofix_available": "safe",
+      "count": 46,
+      "omitted_affected_path_count": 2,
+      "path_handling_policy": "symbolic_private_marker_filename_omission",
+      "path_omission_reason": "path_omitted_private_marker_filename",
+      "path_scope_buckets": [
+        "src"
+      ],
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "private_artifact_or_secret_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "D202",
+      "rule_family": "D",
+      "secondary_labels": [
+        "private_artifact_or_secret_surface",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "D420",
+      "rule_family": "D",
+      "secondary_labels": [
+        "preview_only",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "DOC102",
+      "rule_family": "DOC",
+      "secondary_labels": [
+        "preview_only"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 18,
+      "affected_path_families": [
+        "src",
+        "tools"
+      ],
+      "autofix_available": "unavailable",
+      "count": 43,
+      "omitted_affected_path_count": 1,
+      "path_handling_policy": "symbolic_private_marker_filename_omission",
+      "path_omission_reason": "path_omitted_private_marker_filename",
+      "path_scope_buckets": [
+        "src"
+      ],
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "private_artifact_or_secret_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "DOC201",
+      "rule_family": "DOC",
+      "secondary_labels": [
+        "preview_only",
+        "private_artifact_or_secret_surface"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "DOC202",
+      "rule_family": "DOC",
+      "secondary_labels": [
+        "preview_only"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "DOC402",
+      "rule_family": "DOC",
+      "secondary_labels": [
+        "preview_only"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "DOC403",
+      "rule_family": "DOC",
+      "secondary_labels": [
+        "preview_only"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 11,
+      "affected_path_families": [
+        "src",
+        "tools"
+      ],
+      "autofix_available": "unavailable",
+      "count": 15,
+      "omitted_affected_path_count": 4,
+      "path_handling_policy": "symbolic_private_marker_filename_omission",
+      "path_omission_reason": "path_omitted_private_marker_filename",
+      "path_scope_buckets": [
+        "src"
+      ],
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "private_artifact_or_secret_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "DOC501",
+      "rule_family": "DOC",
+      "secondary_labels": [
+        "preview_only",
+        "private_artifact_or_secret_surface"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "DOC502",
+      "rule_family": "DOC",
+      "secondary_labels": [
+        "preview_only"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 1,
+      "affected_path_families": [
+        "tests"
+      ],
+      "autofix_available": "unavailable",
+      "count": 1,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "watch_list",
+      "protected_surface_impact": "none",
+      "reason": "Rule has advisory findings and must not block without cleanup and review.",
+      "rule_code": "DTZ001",
+      "rule_family": "DTZ",
+      "secondary_labels": [
+        "runtime_safety"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 4,
+      "affected_path_families": [
+        "src",
+        "tests",
+        "tools"
+      ],
+      "autofix_available": "unavailable",
+      "count": 8,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "parser_truth_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "DTZ005",
+      "rule_family": "DTZ",
+      "secondary_labels": [
+        "parser_truth_surface",
+        "runtime_safety"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 1,
+      "affected_path_families": [
+        "src"
+      ],
+      "autofix_available": "unavailable",
+      "count": 1,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "parser_truth_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "DTZ007",
+      "rule_family": "DTZ",
+      "secondary_labels": [
+        "parser_truth_surface",
+        "runtime_safety"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "E111",
+      "rule_family": "E",
+      "secondary_labels": [
+        "preview_only",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "E112",
+      "rule_family": "E",
+      "secondary_labels": [
+        "preview_only",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "E113",
+      "rule_family": "E",
+      "secondary_labels": [
+        "preview_only",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "E114",
+      "rule_family": "E",
+      "secondary_labels": [
+        "preview_only",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "E115",
+      "rule_family": "E",
+      "secondary_labels": [
+        "preview_only",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "E116",
+      "rule_family": "E",
+      "secondary_labels": [
+        "preview_only",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "E117",
+      "rule_family": "E",
+      "secondary_labels": [
+        "preview_only",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "E201",
+      "rule_family": "E",
+      "secondary_labels": [
+        "preview_only",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "E202",
+      "rule_family": "E",
+      "secondary_labels": [
+        "preview_only",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "E203",
+      "rule_family": "E",
+      "secondary_labels": [
+        "preview_only",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "E204",
+      "rule_family": "E",
+      "secondary_labels": [
+        "preview_only",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "E211",
+      "rule_family": "E",
+      "secondary_labels": [
+        "preview_only",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "E221",
+      "rule_family": "E",
+      "secondary_labels": [
+        "preview_only",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "E222",
+      "rule_family": "E",
+      "secondary_labels": [
+        "preview_only",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "E223",
+      "rule_family": "E",
+      "secondary_labels": [
+        "preview_only",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "E224",
+      "rule_family": "E",
+      "secondary_labels": [
+        "preview_only",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "E225",
+      "rule_family": "E",
+      "secondary_labels": [
+        "preview_only",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "E226",
+      "rule_family": "E",
+      "secondary_labels": [
+        "preview_only",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "E227",
+      "rule_family": "E",
+      "secondary_labels": [
+        "preview_only",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "E228",
+      "rule_family": "E",
+      "secondary_labels": [
+        "preview_only",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "E231",
+      "rule_family": "E",
+      "secondary_labels": [
+        "preview_only",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "E241",
+      "rule_family": "E",
+      "secondary_labels": [
+        "preview_only",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "E242",
+      "rule_family": "E",
+      "secondary_labels": [
+        "preview_only",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "E251",
+      "rule_family": "E",
+      "secondary_labels": [
+        "preview_only",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "E252",
+      "rule_family": "E",
+      "secondary_labels": [
+        "preview_only",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "E261",
+      "rule_family": "E",
+      "secondary_labels": [
+        "preview_only",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "E262",
+      "rule_family": "E",
+      "secondary_labels": [
+        "preview_only",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 1,
+      "affected_path_families": [
+        "src"
+      ],
+      "autofix_available": "safe",
+      "count": 6,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "parser_truth_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "E265",
+      "rule_family": "E",
+      "secondary_labels": [
+        "parser_truth_surface",
+        "preview_only",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "E266",
+      "rule_family": "E",
+      "secondary_labels": [
+        "preview_only",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "E271",
+      "rule_family": "E",
+      "secondary_labels": [
+        "preview_only",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "E272",
+      "rule_family": "E",
+      "secondary_labels": [
+        "preview_only",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "E273",
+      "rule_family": "E",
+      "secondary_labels": [
+        "preview_only",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "E274",
+      "rule_family": "E",
+      "secondary_labels": [
+        "preview_only",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "E275",
+      "rule_family": "E",
+      "secondary_labels": [
+        "preview_only",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "E301",
+      "rule_family": "E",
+      "secondary_labels": [
+        "preview_only",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 3,
+      "affected_path_families": [
+        "src",
+        "tools"
+      ],
+      "autofix_available": "safe",
+      "count": 8,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "parser_truth_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "E302",
+      "rule_family": "E",
+      "secondary_labels": [
+        "parser_truth_surface",
+        "preview_only",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "E303",
+      "rule_family": "E",
+      "secondary_labels": [
+        "preview_only",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "E304",
+      "rule_family": "E",
+      "secondary_labels": [
+        "preview_only",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "E305",
+      "rule_family": "E",
+      "secondary_labels": [
+        "preview_only",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "E306",
+      "rule_family": "E",
+      "secondary_labels": [
+        "preview_only",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "E502",
+      "rule_family": "E",
+      "secondary_labels": [
+        "preview_only",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 48,
+      "affected_path_families": [
+        "src",
+        "tests",
+        "tools"
+      ],
+      "autofix_available": "unsafe",
+      "count": 162,
+      "omitted_affected_path_count": 6,
+      "path_handling_policy": "symbolic_private_marker_filename_omission",
+      "path_omission_reason": "path_omitted_private_marker_filename",
+      "path_scope_buckets": [
+        "src"
+      ],
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "private_artifact_or_secret_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "EM101",
+      "rule_family": "EM",
+      "secondary_labels": [
+        "high_volume",
+        "private_artifact_or_secret_surface"
+      ],
+      "unsafe_fix_available": "yes"
+    },
+    {
+      "affected_file_count": 36,
+      "affected_path_families": [
+        "src",
+        "tests",
+        "tools"
+      ],
+      "autofix_available": "unsafe",
+      "count": 214,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "private_artifact_or_secret_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "EM102",
+      "rule_family": "EM",
+      "secondary_labels": [
+        "high_volume",
+        "private_artifact_or_secret_surface"
+      ],
+      "unsafe_fix_available": "yes"
+    },
+    {
+      "affected_file_count": 1,
+      "affected_path_families": [
+        "src"
+      ],
+      "autofix_available": "unsafe",
+      "count": 3,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "watch_list",
+      "protected_surface_impact": "none",
+      "reason": "Rule has advisory findings and must not block without cleanup and review.",
+      "rule_code": "FAST002",
+      "rule_family": "FAST",
+      "secondary_labels": [],
+      "unsafe_fix_available": "yes"
+    },
+    {
+      "affected_file_count": 14,
+      "affected_path_families": [
+        "src",
+        "tools"
+      ],
+      "autofix_available": "unavailable",
+      "count": 24,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "parser_truth_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "FBT001",
+      "rule_family": "FBT",
+      "secondary_labels": [
+        "parser_truth_surface"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 2,
+      "affected_path_families": [
+        "src"
+      ],
+      "autofix_available": "unavailable",
+      "count": 3,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "watch_list",
+      "protected_surface_impact": "none",
+      "reason": "Rule has advisory findings and must not block without cleanup and review.",
+      "rule_code": "FBT002",
+      "rule_family": "FBT",
+      "secondary_labels": [],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 7,
+      "affected_path_families": [
+        "src",
+        "tests",
+        "tools"
+      ],
+      "autofix_available": "unavailable",
+      "count": 30,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "workbook_webhook_or_appsscript_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "FBT003",
+      "rule_family": "FBT",
+      "secondary_labels": [
+        "workbook_webhook_or_appsscript_surface"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 5,
+      "affected_path_families": [
+        "tests"
+      ],
+      "autofix_available": "unsafe",
+      "count": 9,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "watch_list",
+      "protected_surface_impact": "none",
+      "reason": "Rule has advisory findings and must not block without cleanup and review.",
+      "rule_code": "FLY002",
+      "rule_family": "FLY",
+      "secondary_labels": [],
+      "unsafe_fix_available": "yes"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "FURB101",
+      "rule_family": "FURB",
+      "secondary_labels": [
+        "preview_only"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "FURB103",
+      "rule_family": "FURB",
+      "secondary_labels": [
+        "preview_only"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 2,
+      "affected_path_families": [
+        "src",
+        "tools"
+      ],
+      "autofix_available": "safe",
+      "count": 6,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "parser_truth_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "FURB110",
+      "rule_family": "FURB",
+      "secondary_labels": [
+        "parser_truth_surface"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 5,
+      "affected_path_families": [
+        "src",
+        "tools"
+      ],
+      "autofix_available": "unsafe",
+      "count": 9,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "watch_list",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is worth monitoring but is not stable blocking-ready.",
+      "rule_code": "FURB113",
+      "rule_family": "FURB",
+      "secondary_labels": [
+        "preview_only"
+      ],
+      "unsafe_fix_available": "yes"
+    },
+    {
+      "affected_file_count": 5,
+      "affected_path_families": [
+        "src",
+        "tools"
+      ],
+      "autofix_available": "unsafe",
+      "count": 9,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "analytics_ai_or_coaching_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "FURB118",
+      "rule_family": "FURB",
+      "secondary_labels": [
+        "analytics_ai_or_coaching_surface",
+        "preview_only"
+      ],
+      "unsafe_fix_available": "yes"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "FURB131",
+      "rule_family": "FURB",
+      "secondary_labels": [
+        "preview_only"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 1,
+      "affected_path_families": [
+        "src"
+      ],
+      "autofix_available": "safe",
+      "count": 1,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "watch_list",
+      "protected_surface_impact": "none",
+      "reason": "Rule has advisory findings and must not block without cleanup and review.",
+      "rule_code": "FURB136",
+      "rule_family": "FURB",
+      "secondary_labels": [],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "FURB140",
+      "rule_family": "FURB",
+      "secondary_labels": [
+        "preview_only"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "FURB142",
+      "rule_family": "FURB",
+      "secondary_labels": [
+        "preview_only"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "FURB145",
+      "rule_family": "FURB",
+      "secondary_labels": [
+        "preview_only"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "FURB148",
+      "rule_family": "FURB",
+      "secondary_labels": [
+        "preview_only"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "FURB152",
+      "rule_family": "FURB",
+      "secondary_labels": [
+        "preview_only"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 1,
+      "affected_path_families": [
+        "src"
+      ],
+      "autofix_available": "safe",
+      "count": 1,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "parser_truth_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "FURB154",
+      "rule_family": "FURB",
+      "secondary_labels": [
+        "parser_truth_surface",
+        "preview_only"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "FURB156",
+      "rule_family": "FURB",
+      "secondary_labels": [
+        "preview_only"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 4,
+      "affected_path_families": [
+        "src",
+        "tools"
+      ],
+      "autofix_available": "unsafe",
+      "count": 6,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "analytics_ai_or_coaching_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "FURB162",
+      "rule_family": "FURB",
+      "secondary_labels": [
+        "analytics_ai_or_coaching_surface"
+      ],
+      "unsafe_fix_available": "yes"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "FURB164",
+      "rule_family": "FURB",
+      "secondary_labels": [
+        "preview_only"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 1,
+      "affected_path_families": [
+        "tools"
+      ],
+      "autofix_available": "safe",
+      "count": 8,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "watch_list",
+      "protected_surface_impact": "none",
+      "reason": "Rule has advisory findings and must not block without cleanup and review.",
+      "rule_code": "FURB167",
+      "rule_family": "FURB",
+      "secondary_labels": [],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 4,
+      "affected_path_families": [
+        "src",
+        "tools"
+      ],
+      "autofix_available": "unsafe",
+      "count": 8,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "evidence_or_corpus_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "FURB171",
+      "rule_family": "FURB",
+      "secondary_labels": [
+        "evidence_or_corpus_surface"
+      ],
+      "unsafe_fix_available": "yes"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "FURB180",
+      "rule_family": "FURB",
+      "secondary_labels": [
+        "preview_only"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 1,
+      "affected_path_families": [
+        "tools"
+      ],
+      "autofix_available": "safe",
+      "count": 1,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "watch_list",
+      "protected_surface_impact": "none",
+      "reason": "Rule has advisory findings and must not block without cleanup and review.",
+      "rule_code": "FURB188",
+      "rule_family": "FURB",
+      "secondary_labels": [],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "FURB189",
+      "rule_family": "FURB",
+      "secondary_labels": [
+        "preview_only"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 1,
+      "affected_path_families": [
+        "tools"
+      ],
+      "autofix_available": "unsafe",
+      "count": 1,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "watch_list",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is worth monitoring but is not stable blocking-ready.",
+      "rule_code": "FURB192",
+      "rule_family": "FURB",
+      "secondary_labels": [
+        "preview_only"
+      ],
+      "unsafe_fix_available": "yes"
+    },
+    {
+      "affected_file_count": 165,
+      "affected_path_families": [
+        "tests",
+        "tools"
+      ],
+      "autofix_available": "unavailable",
+      "count": 165,
+      "omitted_affected_path_count": 1,
+      "path_handling_policy": "symbolic_private_marker_filename_omission",
+      "path_omission_reason": "path_omitted_private_marker_filename",
+      "path_scope_buckets": [
+        "tests"
+      ],
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "private_artifact_or_secret_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "INP001",
+      "rule_family": "INP",
+      "secondary_labels": [
+        "high_volume",
+        "private_artifact_or_secret_surface"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 5,
+      "affected_path_families": [
+        "src",
+        "tests"
+      ],
+      "autofix_available": "safe",
+      "count": 17,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "evidence_or_corpus_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "ISC001",
+      "rule_family": "ISC",
+      "secondary_labels": [
+        "evidence_or_corpus_surface",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 2,
+      "affected_path_families": [
+        "tests"
+      ],
+      "autofix_available": "safe",
+      "count": 2,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "style_only",
+      "protected_surface_impact": "none",
+      "reason": "Rule is mainly style or documentation oriented and is lower priority for current hardening.",
+      "rule_code": "ISC003",
+      "rule_family": "ISC",
+      "secondary_labels": [
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 10,
+      "affected_path_families": [
+        "src",
+        "tests",
+        "tools"
+      ],
+      "autofix_available": "unsafe",
+      "count": 145,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "evidence_or_corpus_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "ISC004",
+      "rule_family": "ISC",
+      "secondary_labels": [
+        "evidence_or_corpus_surface",
+        "high_volume",
+        "preview_only",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "yes"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "LOG004",
+      "rule_family": "LOG",
+      "secondary_labels": [
+        "logging_visibility",
+        "preview_only"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 35,
+      "affected_path_families": [
+        "src",
+        "tests",
+        "tools"
+      ],
+      "autofix_available": "unsafe",
+      "count": 95,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "parser_truth_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "PERF401",
+      "rule_family": "PERF",
+      "secondary_labels": [
+        "parser_truth_surface",
+        "runtime_safety"
+      ],
+      "unsafe_fix_available": "yes"
+    },
+    {
+      "affected_file_count": 1,
+      "affected_path_families": [
+        "src"
+      ],
+      "autofix_available": "unsafe",
+      "count": 1,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "watch_list",
+      "protected_surface_impact": "none",
+      "reason": "Rule has advisory findings and must not block without cleanup and review.",
+      "rule_code": "PERF403",
+      "rule_family": "PERF",
+      "secondary_labels": [
+        "runtime_safety"
+      ],
+      "unsafe_fix_available": "yes"
+    },
+    {
+      "affected_file_count": 6,
+      "affected_path_families": [
+        "src",
+        "tests",
+        "tools"
+      ],
+      "autofix_available": "unsafe",
+      "count": 11,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "parser_truth_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "PIE810",
+      "rule_family": "PIE",
+      "secondary_labels": [
+        "parser_truth_surface"
+      ],
+      "unsafe_fix_available": "yes"
+    },
+    {
+      "affected_file_count": 1,
+      "affected_path_families": [
+        "src"
+      ],
+      "autofix_available": "unavailable",
+      "count": 2,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "evidence_or_corpus_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "PLC0206",
+      "rule_family": "PLC",
+      "secondary_labels": [
+        "evidence_or_corpus_surface"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 6,
+      "affected_path_families": [
+        "src",
+        "tests"
+      ],
+      "autofix_available": "unavailable",
+      "count": 11,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "analytics_ai_or_coaching_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "PLC0415",
+      "rule_family": "PLC",
+      "secondary_labels": [
+        "analytics_ai_or_coaching_surface"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 40,
+      "affected_path_families": [
+        "src",
+        "tests",
+        "tools"
+      ],
+      "autofix_available": "unavailable",
+      "count": 123,
+      "omitted_affected_path_count": 2,
+      "path_handling_policy": "symbolic_private_marker_filename_omission",
+      "path_omission_reason": "path_omitted_private_marker_filename",
+      "path_scope_buckets": [
+        "src",
+        "tests"
+      ],
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "private_artifact_or_secret_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "PLC1901",
+      "rule_family": "PLC",
+      "secondary_labels": [
+        "high_volume",
+        "preview_only",
+        "private_artifact_or_secret_surface"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 4,
+      "affected_path_families": [
+        "tests"
+      ],
+      "autofix_available": "unavailable",
+      "count": 25,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "analytics_ai_or_coaching_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "PLC2701",
+      "rule_family": "PLC",
+      "secondary_labels": [
+        "analytics_ai_or_coaching_surface",
+        "preview_only"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "PLC2801",
+      "rule_family": "PLC",
+      "secondary_labels": [
+        "preview_only"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "PLE0304",
+      "rule_family": "PLE",
+      "secondary_labels": [
+        "preview_only"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "PLE1141",
+      "rule_family": "PLE",
+      "secondary_labels": [
+        "preview_only"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "PLE4703",
+      "rule_family": "PLE",
+      "secondary_labels": [
+        "preview_only"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "PLR0202",
+      "rule_family": "PLR",
+      "secondary_labels": [
+        "preview_only"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "PLR0203",
+      "rule_family": "PLR",
+      "secondary_labels": [
+        "preview_only"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 3,
+      "affected_path_families": [
+        "src",
+        "tools"
+      ],
+      "autofix_available": "unavailable",
+      "count": 3,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "parser_truth_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "PLR0904",
+      "rule_family": "PLR",
+      "secondary_labels": [
+        "parser_truth_surface",
+        "preview_only"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 37,
+      "affected_path_families": [
+        "src",
+        "tools"
+      ],
+      "autofix_available": "unavailable",
+      "count": 66,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "private_artifact_or_secret_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "PLR0911",
+      "rule_family": "PLR",
+      "secondary_labels": [
+        "private_artifact_or_secret_surface"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 31,
+      "affected_path_families": [
+        "src",
+        "tools"
+      ],
+      "autofix_available": "unavailable",
+      "count": 46,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "parser_truth_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "PLR0912",
+      "rule_family": "PLR",
+      "secondary_labels": [
+        "parser_truth_surface"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 65,
+      "affected_path_families": [
+        "src",
+        "tests",
+        "tools"
+      ],
+      "autofix_available": "unavailable",
+      "count": 143,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "private_artifact_or_secret_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "PLR0913",
+      "rule_family": "PLR",
+      "secondary_labels": [
+        "high_volume",
+        "private_artifact_or_secret_surface"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 30,
+      "affected_path_families": [
+        "src",
+        "tests",
+        "tools"
+      ],
+      "autofix_available": "unavailable",
+      "count": 34,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "parser_truth_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "PLR0914",
+      "rule_family": "PLR",
+      "secondary_labels": [
+        "parser_truth_surface",
+        "preview_only"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 25,
+      "affected_path_families": [
+        "src",
+        "tests",
+        "tools"
+      ],
+      "autofix_available": "unavailable",
+      "count": 31,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "parser_truth_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "PLR0915",
+      "rule_family": "PLR",
+      "secondary_labels": [
+        "parser_truth_surface"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 5,
+      "affected_path_families": [
+        "src",
+        "tools"
+      ],
+      "autofix_available": "unavailable",
+      "count": 8,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "analytics_ai_or_coaching_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "PLR0916",
+      "rule_family": "PLR",
+      "secondary_labels": [
+        "analytics_ai_or_coaching_surface",
+        "preview_only"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 6,
+      "affected_path_families": [
+        "src",
+        "tests",
+        "tools"
+      ],
+      "autofix_available": "unavailable",
+      "count": 7,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "analytics_ai_or_coaching_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "PLR0917",
+      "rule_family": "PLR",
+      "secondary_labels": [
+        "analytics_ai_or_coaching_surface",
+        "preview_only"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 5,
+      "affected_path_families": [
+        "src"
+      ],
+      "autofix_available": "unavailable",
+      "count": 10,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "evidence_or_corpus_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "PLR1702",
+      "rule_family": "PLR",
+      "secondary_labels": [
+        "evidence_or_corpus_surface",
+        "preview_only"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "PLR1708",
+      "rule_family": "PLR",
+      "secondary_labels": [
+        "preview_only"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "PLR1712",
+      "rule_family": "PLR",
+      "secondary_labels": [
+        "preview_only"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 3,
+      "affected_path_families": [
+        "src",
+        "tools"
+      ],
+      "autofix_available": "unsafe",
+      "count": 6,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "watch_list",
+      "protected_surface_impact": "none",
+      "reason": "Rule has advisory findings and must not block without cleanup and review.",
+      "rule_code": "PLR1714",
+      "rule_family": "PLR",
+      "secondary_labels": [],
+      "unsafe_fix_available": "yes"
+    },
+    {
+      "affected_file_count": 1,
+      "affected_path_families": [
+        "src"
+      ],
+      "autofix_available": "safe",
+      "count": 1,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "parser_truth_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "PLR1730",
+      "rule_family": "PLR",
+      "secondary_labels": [
+        "parser_truth_surface"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 121,
+      "affected_path_families": [
+        "src",
+        "tests",
+        "tools"
+      ],
+      "autofix_available": "unavailable",
+      "count": 561,
+      "omitted_affected_path_count": 5,
+      "path_handling_policy": "symbolic_private_marker_filename_omission",
+      "path_omission_reason": "path_omitted_private_marker_filename",
+      "path_scope_buckets": [
+        "tests"
+      ],
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "private_artifact_or_secret_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "PLR2004",
+      "rule_family": "PLR",
+      "secondary_labels": [
+        "high_volume",
+        "private_artifact_or_secret_surface"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "PLR6104",
+      "rule_family": "PLR",
+      "secondary_labels": [
+        "preview_only"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 18,
+      "affected_path_families": [
+        "src",
+        "tools"
+      ],
+      "autofix_available": "unsafe",
+      "count": 91,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "parser_truth_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "PLR6201",
+      "rule_family": "PLR",
+      "secondary_labels": [
+        "parser_truth_surface",
+        "preview_only"
+      ],
+      "unsafe_fix_available": "yes"
+    },
+    {
+      "affected_file_count": 10,
+      "affected_path_families": [
+        "src",
+        "tests",
+        "tools"
+      ],
+      "autofix_available": "unavailable",
+      "count": 20,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "workbook_webhook_or_appsscript_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "PLR6301",
+      "rule_family": "PLR",
+      "secondary_labels": [
+        "preview_only",
+        "workbook_webhook_or_appsscript_surface"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "PLW0244",
+      "rule_family": "PLW",
+      "secondary_labels": [
+        "preview_only"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 1,
+      "affected_path_families": [
+        "src"
+      ],
+      "autofix_available": "unavailable",
+      "count": 4,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "parser_truth_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "PLW0602",
+      "rule_family": "PLW",
+      "secondary_labels": [
+        "parser_truth_surface"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 8,
+      "affected_path_families": [
+        "src"
+      ],
+      "autofix_available": "unavailable",
+      "count": 44,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "parser_truth_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "PLW0603",
+      "rule_family": "PLW",
+      "secondary_labels": [
+        "parser_truth_surface"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 3,
+      "affected_path_families": [
+        "src",
+        "tests",
+        "tools"
+      ],
+      "autofix_available": "available",
+      "count": 12,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "watch_list",
+      "protected_surface_impact": "none",
+      "reason": "Rule has advisory findings and must not block without cleanup and review.",
+      "rule_code": "PLW1510",
+      "rule_family": "PLW",
+      "secondary_labels": [],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 2,
+      "affected_path_families": [
+        "tests"
+      ],
+      "autofix_available": "unsafe",
+      "count": 4,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "evidence_or_corpus_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "PLW1514",
+      "rule_family": "PLW",
+      "secondary_labels": [
+        "evidence_or_corpus_surface",
+        "preview_only"
+      ],
+      "unsafe_fix_available": "yes"
+    },
+    {
+      "affected_file_count": 3,
+      "affected_path_families": [
+        "src"
+      ],
+      "autofix_available": "unavailable",
+      "count": 5,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "watch_list",
+      "protected_surface_impact": "none",
+      "reason": "Rule has advisory findings and must not block without cleanup and review.",
+      "rule_code": "PLW2901",
+      "rule_family": "PLW",
+      "secondary_labels": [],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "PLW3201",
+      "rule_family": "PLW",
+      "secondary_labels": [
+        "preview_only"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 1,
+      "affected_path_families": [
+        "tests"
+      ],
+      "autofix_available": "unsafe",
+      "count": 1,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "watch_list",
+      "protected_surface_impact": "none",
+      "reason": "Rule has advisory findings and must not block without cleanup and review.",
+      "rule_code": "PT006",
+      "rule_family": "PT",
+      "secondary_labels": [],
+      "unsafe_fix_available": "yes"
+    },
+    {
+      "affected_file_count": 8,
+      "affected_path_families": [
+        "tests"
+      ],
+      "autofix_available": "unsafe",
+      "count": 15,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "workbook_webhook_or_appsscript_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "PT007",
+      "rule_family": "PT",
+      "secondary_labels": [
+        "workbook_webhook_or_appsscript_surface"
+      ],
+      "unsafe_fix_available": "yes"
+    },
+    {
+      "affected_file_count": 3,
+      "affected_path_families": [
+        "tests"
+      ],
+      "autofix_available": "unavailable",
+      "count": 4,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "evidence_or_corpus_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "PT011",
+      "rule_family": "PT",
+      "secondary_labels": [
+        "evidence_or_corpus_surface"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 2,
+      "affected_path_families": [
+        "tests"
+      ],
+      "autofix_available": "unavailable",
+      "count": 3,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "watch_list",
+      "protected_surface_impact": "none",
+      "reason": "Rule has advisory findings and must not block without cleanup and review.",
+      "rule_code": "PT017",
+      "rule_family": "PT",
+      "secondary_labels": [],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "PT029",
+      "rule_family": "PT",
+      "secondary_labels": [
+        "preview_only"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 1,
+      "affected_path_families": [
+        "tools"
+      ],
+      "autofix_available": "safe",
+      "count": 2,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "watch_list",
+      "protected_surface_impact": "none",
+      "reason": "Rule has advisory findings and must not block without cleanup and review.",
+      "rule_code": "PTH201",
+      "rule_family": "PTH",
+      "secondary_labels": [],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 1,
+      "affected_path_families": [
+        "src"
+      ],
+      "autofix_available": "safe",
+      "count": 1,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "parser_truth_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "PYI041",
+      "rule_family": "PYI",
+      "secondary_labels": [
+        "parser_truth_surface"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 2,
+      "affected_path_families": [
+        "src",
+        "tests"
+      ],
+      "autofix_available": "safe",
+      "count": 9,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "style_only",
+      "protected_surface_impact": "none",
+      "reason": "Rule is mainly style or documentation oriented and is lower priority for current hardening.",
+      "rule_code": "Q000",
+      "rule_family": "Q",
+      "secondary_labels": [
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 4,
+      "affected_path_families": [
+        "tests"
+      ],
+      "autofix_available": "safe",
+      "count": 13,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "style_only",
+      "protected_surface_impact": "none",
+      "reason": "Rule is mainly style or documentation oriented and is lower priority for current hardening.",
+      "rule_code": "Q003",
+      "rule_family": "Q",
+      "secondary_labels": [
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 10,
+      "affected_path_families": [
+        "src",
+        "tests",
+        "tools"
+      ],
+      "autofix_available": "unsafe",
+      "count": 11,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "parser_truth_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "RET504",
+      "rule_family": "RET",
+      "secondary_labels": [
+        "parser_truth_surface"
+      ],
+      "unsafe_fix_available": "yes"
+    },
+    {
+      "affected_file_count": 2,
+      "affected_path_families": [
+        "src"
+      ],
+      "autofix_available": "unavailable",
+      "count": 2,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "watch_list",
+      "protected_surface_impact": "none",
+      "reason": "Rule has advisory findings and must not block without cleanup and review.",
+      "rule_code": "RUF001",
+      "rule_family": "RUF",
+      "secondary_labels": [
+        "runtime_safety"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 6,
+      "affected_path_families": [
+        "src",
+        "tests",
+        "tools"
+      ],
+      "autofix_available": "unsafe",
+      "count": 10,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "evidence_or_corpus_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "RUF005",
+      "rule_family": "RUF",
+      "secondary_labels": [
+        "evidence_or_corpus_surface",
+        "runtime_safety"
+      ],
+      "unsafe_fix_available": "yes"
+    },
+    {
+      "affected_file_count": 2,
+      "affected_path_families": [
+        "src"
+      ],
+      "autofix_available": "safe",
+      "count": 2,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "watch_list",
+      "protected_surface_impact": "none",
+      "reason": "Rule has advisory findings and must not block without cleanup and review.",
+      "rule_code": "RUF022",
+      "rule_family": "RUF",
+      "secondary_labels": [
+        "runtime_safety"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "RUF027",
+      "rule_family": "RUF",
+      "secondary_labels": [
+        "preview_only",
+        "runtime_safety"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 5,
+      "affected_path_families": [
+        "src",
+        "tests"
+      ],
+      "autofix_available": "unavailable",
+      "count": 6,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "watch_list",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is worth monitoring but is not stable blocking-ready.",
+      "rule_code": "RUF029",
+      "rule_family": "RUF",
+      "secondary_labels": [
+        "preview_only",
+        "runtime_safety"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 7,
+      "affected_path_families": [
+        "src",
+        "tests"
+      ],
+      "autofix_available": "safe",
+      "count": 16,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "workbook_webhook_or_appsscript_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "RUF031",
+      "rule_family": "RUF",
+      "secondary_labels": [
+        "preview_only",
+        "runtime_safety",
+        "workbook_webhook_or_appsscript_surface"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "RUF036",
+      "rule_family": "RUF",
+      "secondary_labels": [
+        "preview_only",
+        "runtime_safety"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "RUF038",
+      "rule_family": "RUF",
+      "secondary_labels": [
+        "preview_only",
+        "runtime_safety"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "RUF039",
+      "rule_family": "RUF",
+      "secondary_labels": [
+        "preview_only",
+        "runtime_safety"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 1,
+      "affected_path_families": [
+        "tests"
+      ],
+      "autofix_available": "unavailable",
+      "count": 1,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "analytics_ai_or_coaching_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "RUF043",
+      "rule_family": "RUF",
+      "secondary_labels": [
+        "analytics_ai_or_coaching_surface",
+        "runtime_safety"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "RUF045",
+      "rule_family": "RUF",
+      "secondary_labels": [
+        "preview_only",
+        "runtime_safety"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "RUF047",
+      "rule_family": "RUF",
+      "secondary_labels": [
+        "preview_only",
+        "runtime_safety"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "RUF050",
+      "rule_family": "RUF",
+      "secondary_labels": [
+        "preview_only",
+        "runtime_safety"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "RUF052",
+      "rule_family": "RUF",
+      "secondary_labels": [
+        "preview_only",
+        "runtime_safety"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "RUF054",
+      "rule_family": "RUF",
+      "secondary_labels": [
+        "preview_only",
+        "runtime_safety"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "RUF055",
+      "rule_family": "RUF",
+      "secondary_labels": [
+        "preview_only",
+        "runtime_safety"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 1,
+      "affected_path_families": [
+        "src"
+      ],
+      "autofix_available": "safe",
+      "count": 1,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "watch_list",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is worth monitoring but is not stable blocking-ready.",
+      "rule_code": "RUF056",
+      "rule_family": "RUF",
+      "secondary_labels": [
+        "preview_only",
+        "runtime_safety"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 2,
+      "affected_path_families": [
+        "src",
+        "tools"
+      ],
+      "autofix_available": "unsafe",
+      "count": 3,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "watch_list",
+      "protected_surface_impact": "none",
+      "reason": "Rule has advisory findings and must not block without cleanup and review.",
+      "rule_code": "RUF059",
+      "rule_family": "RUF",
+      "secondary_labels": [
+        "runtime_safety"
+      ],
+      "unsafe_fix_available": "yes"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "RUF063",
+      "rule_family": "RUF",
+      "secondary_labels": [
+        "preview_only",
+        "runtime_safety"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "RUF065",
+      "rule_family": "RUF",
+      "secondary_labels": [
+        "preview_only",
+        "runtime_safety"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "RUF066",
+      "rule_family": "RUF",
+      "secondary_labels": [
+        "preview_only",
+        "runtime_safety"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 2,
+      "affected_path_families": [
+        "src"
+      ],
+      "autofix_available": "unavailable",
+      "count": 8,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "parser_truth_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "RUF067",
+      "rule_family": "RUF",
+      "secondary_labels": [
+        "parser_truth_surface",
+        "preview_only",
+        "runtime_safety"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "RUF068",
+      "rule_family": "RUF",
+      "secondary_labels": [
+        "preview_only",
+        "runtime_safety"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 10,
+      "affected_path_families": [
+        "tests"
+      ],
+      "autofix_available": "unavailable",
+      "count": 21,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "analytics_ai_or_coaching_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "RUF069",
+      "rule_family": "RUF",
+      "secondary_labels": [
+        "analytics_ai_or_coaching_surface",
+        "preview_only",
+        "runtime_safety"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "RUF070",
+      "rule_family": "RUF",
+      "secondary_labels": [
+        "preview_only",
+        "runtime_safety"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "RUF071",
+      "rule_family": "RUF",
+      "secondary_labels": [
+        "preview_only",
+        "runtime_safety"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "RUF072",
+      "rule_family": "RUF",
+      "secondary_labels": [
+        "preview_only",
+        "runtime_safety"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "RUF073",
+      "rule_family": "RUF",
+      "secondary_labels": [
+        "preview_only",
+        "runtime_safety"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 1,
+      "affected_path_families": [
+        "src"
+      ],
+      "autofix_available": "safe",
+      "count": 7,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "watch_list",
+      "protected_surface_impact": "none",
+      "reason": "Rule has advisory findings and must not block without cleanup and review.",
+      "rule_code": "RUF100",
+      "rule_family": "RUF",
+      "secondary_labels": [
+        "runtime_safety"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 177,
+      "affected_path_families": [
+        "src",
+        "tests",
+        "tools"
+      ],
+      "autofix_available": "unavailable",
+      "count": 9663,
+      "omitted_affected_path_count": 39,
+      "path_handling_policy": "symbolic_private_marker_filename_omission",
+      "path_omission_reason": "path_omitted_private_marker_filename",
+      "path_scope_buckets": [
+        "tests"
+      ],
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "private_artifact_or_secret_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "S101",
+      "rule_family": "S",
+      "secondary_labels": [
+        "high_volume",
+        "private_artifact_or_secret_surface",
+        "security_adjacent"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 2,
+      "affected_path_families": [
+        "tests"
+      ],
+      "autofix_available": "unavailable",
+      "count": 3,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "analytics_ai_or_coaching_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "S104",
+      "rule_family": "S",
+      "secondary_labels": [
+        "analytics_ai_or_coaching_surface",
+        "security_adjacent"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 6,
+      "affected_path_families": [
+        "src",
+        "tests"
+      ],
+      "autofix_available": "unavailable",
+      "count": 9,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "evidence_or_corpus_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "S105",
+      "rule_family": "S",
+      "secondary_labels": [
+        "evidence_or_corpus_surface",
+        "security_adjacent"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 4,
+      "affected_path_families": [
+        "src",
+        "tests"
+      ],
+      "autofix_available": "unavailable",
+      "count": 7,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "analytics_ai_or_coaching_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "S108",
+      "rule_family": "S",
+      "secondary_labels": [
+        "analytics_ai_or_coaching_surface",
+        "security_adjacent"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 4,
+      "affected_path_families": [
+        "src",
+        "tools"
+      ],
+      "autofix_available": "unavailable",
+      "count": 4,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "parser_truth_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "S110",
+      "rule_family": "S",
+      "secondary_labels": [
+        "parser_truth_surface",
+        "security_adjacent"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 1,
+      "affected_path_families": [
+        "tools"
+      ],
+      "autofix_available": "unavailable",
+      "count": 1,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "watch_list",
+      "protected_surface_impact": "none",
+      "reason": "Rule has advisory findings and must not block without cleanup and review.",
+      "rule_code": "S112",
+      "rule_family": "S",
+      "secondary_labels": [
+        "security_adjacent"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 2,
+      "affected_path_families": [
+        "tools"
+      ],
+      "autofix_available": "unavailable",
+      "count": 2,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "watch_list",
+      "protected_surface_impact": "none",
+      "reason": "Rule has advisory findings and must not block without cleanup and review.",
+      "rule_code": "S314",
+      "rule_family": "S",
+      "secondary_labels": [
+        "security_adjacent"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 2,
+      "affected_path_families": [
+        "src"
+      ],
+      "autofix_available": "unavailable",
+      "count": 2,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "workbook_webhook_or_appsscript_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "S324",
+      "rule_family": "S",
+      "secondary_labels": [
+        "security_adjacent",
+        "workbook_webhook_or_appsscript_surface"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "S401",
+      "rule_family": "S",
+      "secondary_labels": [
+        "preview_only",
+        "security_adjacent"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "S402",
+      "rule_family": "S",
+      "secondary_labels": [
+        "preview_only",
+        "security_adjacent"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "S403",
+      "rule_family": "S",
+      "secondary_labels": [
+        "preview_only",
+        "security_adjacent"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 27,
+      "affected_path_families": [
+        "src",
+        "tests",
+        "tools"
+      ],
+      "autofix_available": "unavailable",
+      "count": 27,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "private_artifact_or_secret_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "S404",
+      "rule_family": "S",
+      "secondary_labels": [
+        "preview_only",
+        "private_artifact_or_secret_surface",
+        "security_adjacent"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 2,
+      "affected_path_families": [
+        "tools"
+      ],
+      "autofix_available": "unavailable",
+      "count": 2,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "watch_list",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is worth monitoring but is not stable blocking-ready.",
+      "rule_code": "S405",
+      "rule_family": "S",
+      "secondary_labels": [
+        "preview_only",
+        "security_adjacent"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "S406",
+      "rule_family": "S",
+      "secondary_labels": [
+        "preview_only",
+        "security_adjacent"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "S407",
+      "rule_family": "S",
+      "secondary_labels": [
+        "preview_only",
+        "security_adjacent"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "S408",
+      "rule_family": "S",
+      "secondary_labels": [
+        "preview_only",
+        "security_adjacent"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "S409",
+      "rule_family": "S",
+      "secondary_labels": [
+        "preview_only",
+        "security_adjacent"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "S411",
+      "rule_family": "S",
+      "secondary_labels": [
+        "preview_only",
+        "security_adjacent"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "S412",
+      "rule_family": "S",
+      "secondary_labels": [
+        "preview_only",
+        "security_adjacent"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "S413",
+      "rule_family": "S",
+      "secondary_labels": [
+        "preview_only",
+        "security_adjacent"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "S415",
+      "rule_family": "S",
+      "secondary_labels": [
+        "preview_only",
+        "security_adjacent"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 17,
+      "affected_path_families": [
+        "src",
+        "tests",
+        "tools"
+      ],
+      "autofix_available": "unavailable",
+      "count": 40,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "private_artifact_or_secret_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "S603",
+      "rule_family": "S",
+      "secondary_labels": [
+        "private_artifact_or_secret_surface",
+        "security_adjacent"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 1,
+      "affected_path_families": [
+        "tools"
+      ],
+      "autofix_available": "unavailable",
+      "count": 2,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "watch_list",
+      "protected_surface_impact": "none",
+      "reason": "Rule has advisory findings and must not block without cleanup and review.",
+      "rule_code": "S606",
+      "rule_family": "S",
+      "secondary_labels": [
+        "security_adjacent"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 8,
+      "affected_path_families": [
+        "tests",
+        "tools"
+      ],
+      "autofix_available": "unavailable",
+      "count": 17,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "watch_list",
+      "protected_surface_impact": "none",
+      "reason": "Rule has advisory findings and must not block without cleanup and review.",
+      "rule_code": "S607",
+      "rule_family": "S",
+      "secondary_labels": [
+        "security_adjacent"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 26,
+      "affected_path_families": [
+        "src",
+        "tests"
+      ],
+      "autofix_available": "unavailable",
+      "count": 46,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "analytics_ai_or_coaching_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "S608",
+      "rule_family": "S",
+      "secondary_labels": [
+        "analytics_ai_or_coaching_surface",
+        "security_adjacent"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 1,
+      "affected_path_families": [
+        "src"
+      ],
+      "autofix_available": "unsafe",
+      "count": 1,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "evidence_or_corpus_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "SIM101",
+      "rule_family": "SIM",
+      "secondary_labels": [
+        "evidence_or_corpus_surface"
+      ],
+      "unsafe_fix_available": "yes"
+    },
+    {
+      "affected_file_count": 3,
+      "affected_path_families": [
+        "src"
+      ],
+      "autofix_available": "safe",
+      "count": 4,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "evidence_or_corpus_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "SIM102",
+      "rule_family": "SIM",
+      "secondary_labels": [
+        "evidence_or_corpus_surface"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 5,
+      "affected_path_families": [
+        "src",
+        "tools"
+      ],
+      "autofix_available": "unsafe",
+      "count": 5,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "parser_truth_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "SIM103",
+      "rule_family": "SIM",
+      "secondary_labels": [
+        "parser_truth_surface"
+      ],
+      "unsafe_fix_available": "yes"
+    },
+    {
+      "affected_file_count": 3,
+      "affected_path_families": [
+        "src",
+        "tools"
+      ],
+      "autofix_available": "unsafe",
+      "count": 3,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "parser_truth_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "SIM105",
+      "rule_family": "SIM",
+      "secondary_labels": [
+        "parser_truth_surface"
+      ],
+      "unsafe_fix_available": "yes"
+    },
+    {
+      "affected_file_count": 5,
+      "affected_path_families": [
+        "src",
+        "tools"
+      ],
+      "autofix_available": "unsafe",
+      "count": 5,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "private_artifact_or_secret_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "SIM108",
+      "rule_family": "SIM",
+      "secondary_labels": [
+        "private_artifact_or_secret_surface"
+      ],
+      "unsafe_fix_available": "yes"
+    },
+    {
+      "affected_file_count": 1,
+      "affected_path_families": [
+        "src"
+      ],
+      "autofix_available": "unsafe",
+      "count": 1,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "watch_list",
+      "protected_surface_impact": "none",
+      "reason": "Rule has advisory findings and must not block without cleanup and review.",
+      "rule_code": "SIM110",
+      "rule_family": "SIM",
+      "secondary_labels": [],
+      "unsafe_fix_available": "yes"
+    },
+    {
+      "affected_file_count": 3,
+      "affected_path_families": [
+        "src"
+      ],
+      "autofix_available": "safe",
+      "count": 3,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "evidence_or_corpus_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "SIM114",
+      "rule_family": "SIM",
+      "secondary_labels": [
+        "evidence_or_corpus_surface"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 3,
+      "affected_path_families": [
+        "src"
+      ],
+      "autofix_available": "unsafe",
+      "count": 3,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "watch_list",
+      "protected_surface_impact": "none",
+      "reason": "Rule has advisory findings and must not block without cleanup and review.",
+      "rule_code": "SIM118",
+      "rule_family": "SIM",
+      "secondary_labels": [],
+      "unsafe_fix_available": "yes"
+    },
+    {
+      "affected_file_count": 14,
+      "affected_path_families": [
+        "src",
+        "tests"
+      ],
+      "autofix_available": "safe",
+      "count": 27,
+      "omitted_affected_path_count": 1,
+      "path_handling_policy": "symbolic_private_marker_filename_omission",
+      "path_omission_reason": "path_omitted_private_marker_filename",
+      "path_scope_buckets": [
+        "tests"
+      ],
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "private_artifact_or_secret_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "SIM300",
+      "rule_family": "SIM",
+      "secondary_labels": [
+        "private_artifact_or_secret_surface"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 31,
+      "affected_path_families": [
+        "src",
+        "tests"
+      ],
+      "autofix_available": "unavailable",
+      "count": 479,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "parser_truth_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "SLF001",
+      "rule_family": "SLF",
+      "secondary_labels": [
+        "high_volume",
+        "parser_truth_surface"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 29,
+      "affected_path_families": [
+        "src",
+        "tools"
+      ],
+      "autofix_available": "unsafe",
+      "count": 93,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "private_artifact_or_secret_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "T201",
+      "rule_family": "T",
+      "secondary_labels": [
+        "private_artifact_or_secret_surface"
+      ],
+      "unsafe_fix_available": "yes"
+    },
+    {
+      "affected_file_count": 18,
+      "affected_path_families": [
+        "src"
+      ],
+      "autofix_available": "unsafe",
+      "count": 18,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "parser_truth_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "TC001",
+      "rule_family": "TC",
+      "secondary_labels": [
+        "parser_truth_surface"
+      ],
+      "unsafe_fix_available": "yes"
+    },
+    {
+      "affected_file_count": 9,
+      "affected_path_families": [
+        "src",
+        "tests"
+      ],
+      "autofix_available": "unsafe",
+      "count": 9,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "analytics_ai_or_coaching_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "TC002",
+      "rule_family": "TC",
+      "secondary_labels": [
+        "analytics_ai_or_coaching_surface"
+      ],
+      "unsafe_fix_available": "yes"
+    },
+    {
+      "affected_file_count": 63,
+      "affected_path_families": [
+        "src",
+        "tests",
+        "tools"
+      ],
+      "autofix_available": "unsafe",
+      "count": 83,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "parser_truth_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "TC003",
+      "rule_family": "TC",
+      "secondary_labels": [
+        "parser_truth_surface"
+      ],
+      "unsafe_fix_available": "yes"
+    },
+    {
+      "affected_file_count": 5,
+      "affected_path_families": [
+        "src",
+        "tests",
+        "tools"
+      ],
+      "autofix_available": "safe",
+      "count": 7,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "evidence_or_corpus_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "TC006",
+      "rule_family": "TC",
+      "secondary_labels": [
+        "evidence_or_corpus_surface"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "TC008",
+      "rule_family": "TC",
+      "secondary_labels": [
+        "preview_only"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 28,
+      "affected_path_families": [
+        "src"
+      ],
+      "autofix_available": "unsafe",
+      "count": 101,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "parser_truth_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "TID252",
+      "rule_family": "TID",
+      "secondary_labels": [
+        "high_volume",
+        "parser_truth_surface"
+      ],
+      "unsafe_fix_available": "yes"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "TID254",
+      "rule_family": "TID",
+      "secondary_labels": [
+        "preview_only"
+      ],
+      "unsafe_fix_available": "unknown"
+    },
+    {
+      "affected_file_count": 58,
+      "affected_path_families": [
+        "src",
+        "tests",
+        "tools"
+      ],
+      "autofix_available": "unavailable",
+      "count": 317,
+      "omitted_affected_path_count": 6,
+      "path_handling_policy": "symbolic_private_marker_filename_omission",
+      "path_omission_reason": "path_omitted_private_marker_filename",
+      "path_scope_buckets": [
+        "src"
+      ],
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "private_artifact_or_secret_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "TRY003",
+      "rule_family": "TRY",
+      "secondary_labels": [
+        "high_volume",
+        "private_artifact_or_secret_surface",
+        "runtime_safety"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 6,
+      "affected_path_families": [
+        "src",
+        "tools"
+      ],
+      "autofix_available": "unavailable",
+      "count": 9,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "watch_list",
+      "protected_surface_impact": "none",
+      "reason": "Rule has advisory findings and must not block without cleanup and review.",
+      "rule_code": "TRY004",
+      "rule_family": "TRY",
+      "secondary_labels": [
+        "runtime_safety"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 4,
+      "affected_path_families": [
+        "src",
+        "tools"
+      ],
+      "autofix_available": "unavailable",
+      "count": 4,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "parser_truth_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "TRY300",
+      "rule_family": "TRY",
+      "secondary_labels": [
+        "parser_truth_surface",
+        "runtime_safety"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 2,
+      "affected_path_families": [
+        "tests",
+        "tools"
+      ],
+      "autofix_available": "unavailable",
+      "count": 3,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "watch_list",
+      "protected_surface_impact": "none",
+      "reason": "Rule has advisory findings and must not block without cleanup and review.",
+      "rule_code": "TRY301",
+      "rule_family": "TRY",
+      "secondary_labels": [
+        "runtime_safety"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 1,
+      "affected_path_families": [
+        "src"
+      ],
+      "autofix_available": "unsafe",
+      "count": 2,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "workbook_webhook_or_appsscript_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "TRY400",
+      "rule_family": "TRY",
+      "secondary_labels": [
+        "runtime_safety",
+        "workbook_webhook_or_appsscript_surface"
+      ],
+      "unsafe_fix_available": "yes"
+    },
+    {
+      "affected_file_count": 2,
+      "affected_path_families": [
+        "src"
+      ],
+      "autofix_available": "unavailable",
+      "count": 2,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "watch_list",
+      "protected_surface_impact": "none",
+      "reason": "Rule has advisory findings and must not block without cleanup and review.",
+      "rule_code": "TRY401",
+      "rule_family": "TRY",
+      "secondary_labels": [
+        "runtime_safety"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 1,
+      "affected_path_families": [
+        "tests"
+      ],
+      "autofix_available": "safe",
+      "count": 1,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "watch_list",
+      "protected_surface_impact": "none",
+      "reason": "Rule has advisory findings and must not block without cleanup and review.",
+      "rule_code": "UP012",
+      "rule_family": "UP",
+      "secondary_labels": [],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 6,
+      "affected_path_families": [
+        "tools"
+      ],
+      "autofix_available": "unsafe",
+      "count": 8,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "private_artifact_or_secret_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "UP022",
+      "rule_family": "UP",
+      "secondary_labels": [
+        "private_artifact_or_secret_surface"
+      ],
+      "unsafe_fix_available": "yes"
+    },
+    {
+      "affected_file_count": 1,
+      "affected_path_families": [
+        "src"
+      ],
+      "autofix_available": "unsafe",
+      "count": 2,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "analytics_ai_or_coaching_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "UP028",
+      "rule_family": "UP",
+      "secondary_labels": [
+        "analytics_ai_or_coaching_surface"
+      ],
+      "unsafe_fix_available": "yes"
+    },
+    {
+      "affected_file_count": 1,
+      "affected_path_families": [
+        "tools"
+      ],
+      "autofix_available": "safe",
+      "count": 1,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "watch_list",
+      "protected_surface_impact": "none",
+      "reason": "Rule has advisory findings and must not block without cleanup and review.",
+      "rule_code": "UP034",
+      "rule_family": "UP",
+      "secondary_labels": [],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 17,
+      "affected_path_families": [
+        "src",
+        "tests",
+        "tools"
+      ],
+      "autofix_available": "safe",
+      "count": 17,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "private_artifact_or_secret_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "UP035",
+      "rule_family": "UP",
+      "secondary_labels": [
+        "private_artifact_or_secret_surface"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 7,
+      "affected_path_families": [
+        "src",
+        "tests"
+      ],
+      "autofix_available": "safe",
+      "count": 8,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "parser_truth_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "UP037",
+      "rule_family": "UP",
+      "secondary_labels": [
+        "parser_truth_surface"
+      ],
+      "unsafe_fix_available": "no"
+    },
+    {
+      "affected_file_count": 2,
+      "affected_path_families": [
+        "src"
+      ],
+      "autofix_available": "unsafe",
+      "count": 2,
+      "preview_only_rule": false,
+      "preview_rule_status": "stable_or_non_preview",
+      "primary_classification": "protected_surface_review_required",
+      "protected_surface_impact": "parser_truth_surface",
+      "reason": "Findings touch protected surfaces and need a dedicated contract before cleanup or promotion.",
+      "rule_code": "UP042",
+      "rule_family": "UP",
+      "secondary_labels": [
+        "parser_truth_surface"
+      ],
+      "unsafe_fix_available": "yes"
+    },
+    {
+      "affected_file_count": 0,
+      "affected_path_families": [],
+      "autofix_available": "unavailable",
+      "count": 0,
+      "preview_only_rule": true,
+      "preview_rule_status": "preview",
+      "primary_classification": "defer_until_stable",
+      "protected_surface_impact": "none",
+      "reason": "Preview-only rule is measured for awareness but deferred until Ruff stabilizes the rule.",
+      "rule_code": "W391",
+      "rule_family": "W",
+      "secondary_labels": [
+        "preview_only",
+        "style_or_documentation"
+      ],
+      "unsafe_fix_available": "unknown"
+    }
+  ],
+  "scan_scope": [
+    "src",
+    "tests",
+    "tools"
+  ],
+  "schema_version": "quality_ruff_preview_advisory_report.v1",
+  "totals": {
+    "findings": 19119,
+    "preview_only_rule_codes": 139,
+    "triggered_preview_only_rule_codes": 28,
+    "triggered_rule_codes": 144,
+    "zero_baseline_preview_rule_codes": 111
+  },
+  "unsafe_fix_authorized": false
+}
