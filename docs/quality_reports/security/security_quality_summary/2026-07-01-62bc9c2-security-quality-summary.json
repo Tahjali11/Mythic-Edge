@@ -1,0 +1,198 @@
+{
+  "advisory_only": true,
+  "ai_truth_claimed": false,
+  "analytics_truth_claimed": false,
+  "blocked_inputs": [],
+  "ci_change_authorized": false,
+  "ci_or_repo_check_status": {
+    "result": "not_collected",
+    "source_state": "not_collected"
+  },
+  "coaching_truth_claimed": false,
+  "codeql": {
+    "lifecycle_claim": "not_collected",
+    "source_state": "not_collected"
+  },
+  "codeql_alert_mutation_authorized": false,
+  "contract_ref": "docs/contracts/security_quality_scanner_summary_aggregation.md",
+  "cwe_profile_report": {
+    "advisory_only": true,
+    "artifact": "docs/quality_reports/security/cwe_mapped_local_validation_profile/2026-07-01-024eda7-cwe-profile-advisory-report.json",
+    "ci_change_authorized": false,
+    "codeql_alert_mutation_authorized": false,
+    "enforcement_authorized": false,
+    "freshness_status": "stale",
+    "measured_commit": "024eda7d9408c0bb72d645af4d41d604539291ba",
+    "measured_ref": "codex/cwe-profile-advisory-report-603",
+    "overall_status": "passed_advisory",
+    "privacy_assurance_claimed": false,
+    "profile_family_count": 7,
+    "profile_status": "advisory_profile",
+    "report_id": "cwe-profile-advisory-report:024eda7:manifest_validator_advisory",
+    "schema_version": "security_cwe_mapped_local_validation_profile_advisory_report.v1",
+    "security_assurance_claimed": false,
+    "source_state": "stale",
+    "validator": {
+      "errors_count": 0,
+      "exit_code": 0,
+      "result": "passed",
+      "warnings_count": 0
+    }
+  },
+  "deploy_readiness_claimed": false,
+  "enforcement_authorized": false,
+  "freshness_status": "mixed",
+  "generated_at_policy": "manual_or_test_only",
+  "measured_commit": "62bc9c2a61b414d5e168148cb078a44842fc42bc",
+  "measured_ref": "codex/security-summary-aggregation-330",
+  "next_recommended_role": "Codex E: Module Reviewer / contract-test thread",
+  "non_claims": [
+    "This report is advisory workflow evidence only.",
+    "This report does not mutate, dismiss, reopen, or close CodeQL alerts.",
+    "This report does not prove that CodeQL has zero open alerts.",
+    "This report is not formal CWE compliance.",
+    "This report is not security assurance.",
+    "This report is not privacy assurance.",
+    "This report is not release readiness.",
+    "This report is not deploy readiness.",
+    "This report is not production readiness.",
+    "This report is not parser truth, analytics truth, AI truth, or coaching truth."
+  ],
+  "overall_status": "advisory_warnings",
+  "parent_security_workflow": "https://github.com/Tahjali11/Mythic-Edge/issues/330",
+  "parser_truth_claimed": false,
+  "privacy_assurance_claimed": false,
+  "privacy_redaction": {
+    "absolute_paths_included": false,
+    "local_private_data_included": false,
+    "policy": "symbolic_counts_statuses_refs_and_repo_relative_artifacts_only",
+    "raw_finding_lists_included": false,
+    "raw_payloads_included": false,
+    "secret_values_included": false,
+    "unsafe_input_echoed": false
+  },
+  "project_roadmap": "https://github.com/Tahjali11/Mythic-Edge/issues/568",
+  "protected_surface_scan": {
+    "result": "not_collected",
+    "source_state": "not_collected"
+  },
+  "release_readiness_claimed": false,
+  "report_id": "security-quality-summary:62bc9c2:2026-07-01",
+  "repository": "Tahjali11/Mythic-Edge",
+  "repository_url": "https://github.com/Tahjali11/Mythic-Edge",
+  "schema_version": "security_quality_scanner_summary_aggregation.v1",
+  "secret_private_marker_scan": {
+    "result": "not_collected",
+    "source_state": "not_collected"
+  },
+  "security_assurance_claimed": false,
+  "source_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/610",
+  "sources": [
+    {
+      "collected_at_policy": "not_collected",
+      "counts": {},
+      "freshness_status": "not_collected",
+      "local_private_data_included": false,
+      "measured_commit": "62bc9c2a61b414d5e168148cb078a44842fc42bc",
+      "measured_ref": "codex/security-summary-aggregation-330",
+      "notes": [
+        "No public-safe summary input was provided to this advisory helper."
+      ],
+      "public_safe": true,
+      "raw_payload_included": false,
+      "result": "not_collected",
+      "source_id": "codeql",
+      "source_type": "github_code_scanning",
+      "status": "not_collected",
+      "tool_or_authority": "GitHub CodeQL code scanning"
+    },
+    {
+      "collected_at_policy": "manual_or_test_only",
+      "counts": {
+        "profile_family_count": 7,
+        "validator_errors": 0,
+        "validator_warnings": 0
+      },
+      "freshness_status": "stale",
+      "local_private_data_included": false,
+      "measured_commit": "024eda7d9408c0bb72d645af4d41d604539291ba",
+      "measured_ref": "codex/cwe-profile-advisory-report-603",
+      "notes": [
+        "Artifact: docs/quality_reports/security/cwe_mapped_local_validation_profile/2026-07-01-024eda7-cwe-profile-advisory-report.json"
+      ],
+      "public_safe": true,
+      "raw_payload_included": false,
+      "result": "passed_advisory",
+      "source_id": "cwe_profile_report",
+      "source_type": "local_cwe_profile_advisory_report",
+      "status": "stale",
+      "tool_or_authority": "tools/generate_cwe_profile_advisory_report.py"
+    },
+    {
+      "collected_at_policy": "not_collected",
+      "counts": {},
+      "freshness_status": "not_collected",
+      "local_private_data_included": false,
+      "measured_commit": "62bc9c2a61b414d5e168148cb078a44842fc42bc",
+      "measured_ref": "codex/security-summary-aggregation-330",
+      "notes": [
+        "No public-safe summary input was provided to this advisory helper."
+      ],
+      "public_safe": true,
+      "raw_payload_included": false,
+      "result": "not_collected",
+      "source_id": "protected_surface_scan",
+      "source_type": "protected_surface_scanner",
+      "status": "not_collected",
+      "tool_or_authority": "tools/check_protected_surfaces.py"
+    },
+    {
+      "collected_at_policy": "not_collected",
+      "counts": {},
+      "freshness_status": "not_collected",
+      "local_private_data_included": false,
+      "measured_commit": "62bc9c2a61b414d5e168148cb078a44842fc42bc",
+      "measured_ref": "codex/security-summary-aggregation-330",
+      "notes": [
+        "No public-safe summary input was provided to this advisory helper."
+      ],
+      "public_safe": true,
+      "raw_payload_included": false,
+      "result": "not_collected",
+      "source_id": "secret_private_marker_scan",
+      "source_type": "secret_private_marker_scanner",
+      "status": "not_collected",
+      "tool_or_authority": "tools/check_secret_patterns.py"
+    },
+    {
+      "collected_at_policy": "not_collected",
+      "counts": {},
+      "freshness_status": "not_collected",
+      "local_private_data_included": false,
+      "measured_commit": "62bc9c2a61b414d5e168148cb078a44842fc42bc",
+      "measured_ref": "codex/security-summary-aggregation-330",
+      "notes": [
+        "No public-safe summary input was provided to this advisory helper."
+      ],
+      "public_safe": true,
+      "raw_payload_included": false,
+      "result": "not_collected",
+      "source_id": "ci_or_repo_check_status",
+      "source_type": "workflow_status",
+      "status": "not_collected",
+      "tool_or_authority": "repo workflow status"
+    }
+  ],
+  "validation_commands": [
+    "py -m pytest -q tests\\test_security_quality_summary.py",
+    "py -m pytest -q tests\\test_cwe_profile_advisory_report.py tests\\test_cwe_mapped_local_validation_profile.py",
+    "py -m json.tool docs\\security\\cwe_mapped_local_validation_profile.v1.json",
+    "py -m json.tool docs\\quality_reports\\security\\cwe_mapped_local_validation_profile\\2026-07-01-024eda7-cwe-profile-advisory-report.json",
+    "py tools\\check_cwe_mapped_local_validation_profile.py docs\\security\\cwe_mapped_local_validation_profile.v1.json",
+    "py -m ruff check tools\\generate_security_quality_summary.py tests\\test_security_quality_summary.py",
+    "git diff --check",
+    "py tools\\check_agent_docs.py",
+    "path-scoped protected-surface scan over changed files",
+    "path-scoped secret/private-marker scan over changed files"
+  ]
+}
