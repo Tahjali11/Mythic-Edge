@@ -1,0 +1,214 @@
+{
+  "advisory_only": true,
+  "blocked_items": [
+    "local_scanner_outputs",
+    "raw_sarif_files",
+    "codeql_api_responses",
+    "private_evidence_packets",
+    "raw_logs",
+    "local_app_data",
+    "sqlite_contents",
+    "secrets_or_credentials",
+    "endpoint_values",
+    "workbook_exports",
+    "transport_failure_artifacts",
+    "runtime_logs",
+    "private_decklists",
+    "arbitrary_user_files"
+  ],
+  "ci_change_authorized": false,
+  "codeql_alert_mutation_authorized": false,
+  "contract_ref": "docs/contracts/security_cwe_mapped_local_validation_profile_advisory_report.md",
+  "enforcement_authorized": false,
+  "families": [
+    {
+      "codeql_rule_ids": [
+        "py/path-injection"
+      ],
+      "family_id": "local_path_traversal",
+      "local_detector_ids": [
+        "path_containment_tests",
+        "check_protected_surfaces"
+      ],
+      "mapping_review_status": "accepted_exact",
+      "non_claims": [
+        "not parser truth",
+        "not exploit proof",
+        "not security assurance"
+      ],
+      "primary_cwe_id": "CWE-22",
+      "primary_cwe_title": "Improper Limitation of a Pathname to a Restricted Directory",
+      "reporting_policy": "Report only repo-relative locations or symbolic containment labels.",
+      "rollout_status": "advisory_available"
+    },
+    {
+      "codeql_rule_ids": [
+        "py/path-injection"
+      ],
+      "family_id": "generated_filename_id_to_path",
+      "local_detector_ids": [
+        "generated_filename_boundary_tests"
+      ],
+      "mapping_review_status": "accepted_exact",
+      "non_claims": [
+        "not parser truth",
+        "not exploit proof",
+        "not security assurance"
+      ],
+      "primary_cwe_id": "CWE-73",
+      "primary_cwe_title": "External Control of File Name or Path",
+      "reporting_policy": "Report generated-name risks with symbolic IDs only.",
+      "rollout_status": "advisory_available"
+    },
+    {
+      "codeql_rule_ids": [
+        "py/command-line-injection"
+      ],
+      "family_id": "subprocess_command_line_invocation",
+      "local_detector_ids": [
+        "subprocess_argv_tests"
+      ],
+      "mapping_review_status": "accepted_exact",
+      "non_claims": [
+        "not exploit proof",
+        "not security assurance",
+        "not production readiness"
+      ],
+      "primary_cwe_id": "CWE-78",
+      "primary_cwe_title": "Improper Neutralization of Special Elements used in an OS Command",
+      "reporting_policy": "Report command construction patterns without payload strings or private arguments.",
+      "rollout_status": "advisory_available"
+    },
+    {
+      "codeql_rule_ids": [
+        "py/incomplete-url-substring-sanitization"
+      ],
+      "family_id": "url_host_validation",
+      "local_detector_ids": [
+        "url_exact_host_validation_tests"
+      ],
+      "mapping_review_status": "accepted_exact",
+      "non_claims": [
+        "not external service assurance",
+        "not exploit proof",
+        "not security assurance"
+      ],
+      "primary_cwe_id": "CWE-187",
+      "primary_cwe_title": "Partial String Comparison",
+      "reporting_policy": "Report only symbolic URLs and host-validation categories.",
+      "rollout_status": "advisory_available"
+    },
+    {
+      "codeql_rule_ids": [],
+      "family_id": "secret_private_artifact_exposure",
+      "local_detector_ids": [
+        "check_secret_patterns",
+        "check_protected_surfaces"
+      ],
+      "mapping_review_status": "accepted_exact",
+      "non_claims": [
+        "not privacy assurance",
+        "not security assurance",
+        "not proof that all private artifacts are absent"
+      ],
+      "primary_cwe_id": "CWE-538",
+      "primary_cwe_title": "Insertion of Sensitive Information into Externally-Accessible File or Directory",
+      "reporting_policy": "Report only redacted excerpts, symbolic categories, and public-safe repo-relative paths.",
+      "rollout_status": "advisory_available"
+    },
+    {
+      "codeql_rule_ids": [],
+      "family_id": "temporary_file_handling",
+      "local_detector_ids": [
+        "temporary_file_tests"
+      ],
+      "mapping_review_status": "accepted_exact",
+      "non_claims": [
+        "not privacy assurance",
+        "not exploit proof",
+        "not production readiness"
+      ],
+      "primary_cwe_id": "CWE-377",
+      "primary_cwe_title": "Insecure Temporary File",
+      "reporting_policy": "Report temporary-file risks with symbolic names and repo-relative code references only.",
+      "rollout_status": "advisory_available"
+    },
+    {
+      "codeql_rule_ids": [
+        "actions/missing-workflow-permissions"
+      ],
+      "family_id": "workflow_permission_scope",
+      "local_detector_ids": [
+        "github_workflow_permissions_tests"
+      ],
+      "mapping_review_status": "accepted_exact",
+      "non_claims": [
+        "not effective GitHub runtime permission proof",
+        "not security assurance",
+        "not CI enforcement"
+      ],
+      "primary_cwe_id": "CWE-732",
+      "primary_cwe_title": "Incorrect Permission Assignment for Critical Resource",
+      "reporting_policy": "Report workflow permission posture as advisory only and never mutate GitHub settings or alerts.",
+      "rollout_status": "advisory_available"
+    }
+  ],
+  "generated_at_policy": "manual_or_test_only",
+  "measured_commit": "3f571ec3abd2800c2df2d6a8e79cec1a0f5896ce",
+  "measured_ref": "codex/security-quality-evidence-bundle-639",
+  "next_recommended_role": "Codex E: Module Reviewer / contract-test thread",
+  "non_claims": [
+    "This report is advisory local validation evidence only.",
+    "This report does not mutate, dismiss, reopen, or close CodeQL alerts.",
+    "This report does not prove that CodeQL has zero open alerts.",
+    "This report is not formal CWE compliance.",
+    "This report is not security assurance.",
+    "This report is not privacy assurance.",
+    "This report is not release readiness.",
+    "This report is not deploy readiness.",
+    "This report is not CI enforcement.",
+    "This report is not parser truth, analytics truth, AI truth, or coaching truth.",
+    "This report does not authorize production, workbook, webhook, Apps Script, Google Sheets, OpenAI, model-provider, Line Tracer, or coaching behavior changes."
+  ],
+  "overall_status": "passed_advisory",
+  "parent_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/330",
+  "privacy_assurance_claimed": false,
+  "privacy_redaction": {
+    "policy": "repo_relative_and_symbolic_only",
+    "raw_private_values_included": false,
+    "redacted_placeholder": "<redacted>",
+    "unsafe_input_echoed": false
+  },
+  "profile_family_count": 7,
+  "profile_status": "advisory_profile",
+  "report_id": "cwe-profile-advisory-report:3f571ec:manifest_validator_advisory",
+  "repository": "Tahjali11/Mythic-Edge",
+  "repository_url": "https://github.com/Tahjali11/Mythic-Edge",
+  "run_mode": "manifest_validator_advisory",
+  "schema_version": "security_cwe_mapped_local_validation_profile_advisory_report.v1",
+  "security_assurance_claimed": false,
+  "source_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/603",
+  "source_profile_contract": "docs/contracts/security_cwe_mapped_local_validation_profile.md",
+  "source_profile_manifest": "docs/security/cwe_mapped_local_validation_profile.v1.json",
+  "source_validator": "tools/check_cwe_mapped_local_validation_profile.py",
+  "validation_commands": [
+    "py -m pytest -q tests\\test_cwe_mapped_local_validation_profile.py",
+    "py -m pytest -q tests\\test_cwe_profile_advisory_report.py",
+    "py -m json.tool docs\\security\\cwe_mapped_local_validation_profile.v1.json",
+    "py tools\\check_cwe_mapped_local_validation_profile.py docs\\security\\cwe_mapped_local_validation_profile.v1.json",
+    "py tools\\generate_cwe_profile_advisory_report.py --write-report --report-date 2026-07-01",
+    "py -m json.tool docs\\quality_reports\\security\\cwe_mapped_local_validation_profile\\<report>.json",
+    "py -m ruff check tools\\generate_cwe_profile_advisory_report.py tests\\test_cwe_profile_advisory_report.py",
+    "git diff --check",
+    "py tools\\check_agent_docs.py"
+  ],
+  "validator": {
+    "errors": [],
+    "errors_count": 0,
+    "exit_code": 0,
+    "result": "passed",
+    "tool": "tools/check_cwe_mapped_local_validation_profile.py",
+    "warnings": [],
+    "warnings_count": 0
+  }
+}
