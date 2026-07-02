@@ -7,6 +7,10 @@ from types import SimpleNamespace
 from mythic_edge_parser.app import diagnostics, evidence_runtime_status
 
 
+def _raise_router_failure_for_test() -> None:
+    raise RuntimeError("router blew up")
+
+
 def test_normalize_int_list_ignores_bools_and_bad_values() -> None:
     assert diagnostics.normalize_int_list([1, "2", " 3 ", True, False, "x", None, 4]) == [1, 2, 3, 4]
 
@@ -38,12 +42,12 @@ def test_record_router_failure_updates_status_and_writes_entry(tmp_path, monkeyp
 
     diagnostics.reset_diagnostics_runtime_state()
     entry = SimpleNamespace(
-        header=SimpleNamespace(value="[UnityCrossThreadLogger]"),
+        header=SimpleNamespace(value="synthetic-router-header"),
         body={"message": "router payload"},
     )
 
     try:
-        raise RuntimeError("router blew up")
+        _raise_router_failure_for_test()
     except RuntimeError as exc:
         out_path = diagnostics.record_router_failure(entry, exc)
 
