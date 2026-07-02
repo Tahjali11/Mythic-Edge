@@ -45,6 +45,8 @@ jobs:
           py tools/check_coverage_floor.py `
             --coverage-xml $coverageXml `
             --line-floor 85 `
+            --protected-surface-group parser_state_final_reconciliation `
+            --protected-surface-line-floor 88 `
             --command-label "GitHub Actions repo checks"
           $coverageExit = $LASTEXITCODE
           Remove-Item Env:\COVERAGE_FILE -ErrorAction SilentlyContinue
