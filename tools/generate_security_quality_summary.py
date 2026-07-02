@@ -732,6 +732,17 @@ def _blocked_report(
     )
 
 
+def _validate_codeql_state_source(codeql_state_source: str) -> None:
+    if codeql_state_source not in CODEQL_SOURCE_STATES:
+        raise UnsafeInputError("codeql", "blocked_unsupported_mode")
+
+
+def _required_codeql_summary_path(codeql_summary_path: Path | None) -> Path:
+    if codeql_summary_path is None:
+        raise UnsafeInputError("codeql", "blocked_unavailable")
+    return codeql_summary_path
+
+
 def generate_report(
     *,
     cwe_report_path: Path | None = None,
@@ -755,13 +766,10 @@ def generate_report(
             repo_root=root,
         )
         codeql_loaded = None
-        if codeql_state_source not in CODEQL_SOURCE_STATES:
-            raise UnsafeInputError("codeql", "blocked_unsupported_mode")
+        _validate_codeql_state_source(codeql_state_source)
         if codeql_state_source == "summary-file":
-            if codeql_summary_path is None:
-                raise UnsafeInputError("codeql", "blocked_unavailable")
             codeql_loaded = _load_public_summary(
-                codeql_summary_path,
+                _required_codeql_summary_path(codeql_summary_path),
                 source_id="codeql",
                 allowed_top_level_keys=CODEQL_ALLOWED_KEYS,
                 repo_root=root,

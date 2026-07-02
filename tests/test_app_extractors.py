@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from types import SimpleNamespace
 
 from mythic_edge_parser.app import extractors
@@ -340,11 +340,11 @@ def test_game_state_annotations_prefers_top_level_then_current_raw_then_queued_r
 
 
 def test_event_datetime_and_safe_iso_use_valid_metadata_timestamp() -> None:
-    timestamp = datetime(2026, 5, 12, 9, 30, 15)
+    timestamp = datetime(2026, 5, 12, 9, 30, 15, tzinfo=UTC)
     event = SimpleNamespace(metadata=SimpleNamespace(timestamp=timestamp))
 
     assert _event_datetime(event) is timestamp
-    assert _safe_iso(event) == "2026-05-12T09:30:15"
+    assert _safe_iso(event) == timestamp.isoformat()
 
 
 def test_event_datetime_and_safe_iso_fall_back_when_timestamp_is_missing() -> None:
