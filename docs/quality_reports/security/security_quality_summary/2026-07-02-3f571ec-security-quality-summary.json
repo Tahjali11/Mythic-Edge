@@ -1,0 +1,260 @@
+{
+  "advisory_only": true,
+  "ai_truth_claimed": false,
+  "analytics_truth_claimed": false,
+  "blocked_inputs": [],
+  "ci_change_authorized": false,
+  "ci_or_repo_check_status": {
+    "commit": "3f571ec3abd2800c2df2d6a8e79cec1a0f5896ce",
+    "conclusion": "success",
+    "freshness_status": "current",
+    "ref": "refs/heads/main",
+    "source_state": "provided_summary",
+    "workflow_name": "CodeQL and Repo Checks"
+  },
+  "coaching_truth_claimed": false,
+  "codeql": {
+    "analysis_commit": "3f571ec3abd2800c2df2d6a8e79cec1a0f5896ce",
+    "codeql_alert_mutation_authorized": false,
+    "dismissed_count": 14,
+    "fixed_count": 3,
+    "freshness_status": "current",
+    "lifecycle_claim": "provided_summary_only",
+    "open_count": 0,
+    "ref": "refs/heads/main",
+    "rule_id_counts": {},
+    "severity_counts": {},
+    "source_state": "provided_by_codex_g",
+    "source_url": "https://github.com/Tahjali11/Mythic-Edge/security/code-scanning"
+  },
+  "codeql_alert_mutation_authorized": false,
+  "contract_ref": "docs/contracts/security_quality_scanner_summary_aggregation.md",
+  "cwe_profile_report": {
+    "advisory_only": true,
+    "artifact": "docs/quality_reports/security/cwe_mapped_local_validation_profile/2026-07-02-3f571ec-cwe-profile-advisory-report.json",
+    "ci_change_authorized": false,
+    "codeql_alert_mutation_authorized": false,
+    "enforcement_authorized": false,
+    "freshness_status": "current",
+    "measured_commit": "3f571ec3abd2800c2df2d6a8e79cec1a0f5896ce",
+    "measured_ref": "codex/security-quality-evidence-bundle-639",
+    "overall_status": "passed_advisory",
+    "privacy_assurance_claimed": false,
+    "profile_family_count": 7,
+    "profile_status": "advisory_profile",
+    "report_id": "cwe-profile-advisory-report:3f571ec:manifest_validator_advisory",
+    "schema_version": "security_cwe_mapped_local_validation_profile_advisory_report.v1",
+    "security_assurance_claimed": false,
+    "source_state": "collected_current",
+    "validator": {
+      "errors_count": 0,
+      "exit_code": 0,
+      "result": "passed",
+      "warnings_count": 0
+    }
+  },
+  "deploy_readiness_claimed": false,
+  "enforcement_authorized": false,
+  "freshness_status": "current",
+  "generated_at_policy": "manual_or_test_only",
+  "measured_commit": "3f571ec3abd2800c2df2d6a8e79cec1a0f5896ce",
+  "measured_ref": "codex/security-quality-evidence-bundle-639",
+  "next_recommended_role": "Codex E: Module Reviewer / contract-test thread",
+  "non_claims": [
+    "This report is advisory workflow evidence only.",
+    "This report does not mutate, dismiss, reopen, or close CodeQL alerts.",
+    "This report does not prove that CodeQL has zero open alerts.",
+    "This report is not formal CWE compliance.",
+    "This report is not security assurance.",
+    "This report is not privacy assurance.",
+    "This report is not release readiness.",
+    "This report is not deploy readiness.",
+    "This report is not production readiness.",
+    "This report is not parser truth, analytics truth, AI truth, or coaching truth."
+  ],
+  "overall_status": "advisory_passed",
+  "parent_security_workflow": "https://github.com/Tahjali11/Mythic-Edge/issues/330",
+  "parser_truth_claimed": false,
+  "privacy_assurance_claimed": false,
+  "privacy_redaction": {
+    "absolute_paths_included": false,
+    "local_private_data_included": false,
+    "policy": "symbolic_counts_statuses_refs_and_repo_relative_artifacts_only",
+    "raw_finding_lists_included": false,
+    "raw_payloads_included": false,
+    "secret_values_included": false,
+    "unsafe_input_echoed": false
+  },
+  "project_roadmap": "https://github.com/Tahjali11/Mythic-Edge/issues/568",
+  "protected_surface_scan": {
+    "base": "origin/main",
+    "counts": {
+      "forbidden": 0,
+      "scanned_paths": 4,
+      "skipped_paths": 0,
+      "symbolic_category_counts": {},
+      "warnings": 0
+    },
+    "freshness_status": "current",
+    "head": "3f571ec3abd2800c2df2d6a8e79cec1a0f5896ce",
+    "mode": "paths_from_stdin",
+    "result": "passed",
+    "source_state": "provided_summary",
+    "tool": "tools/check_protected_surfaces.py"
+  },
+  "release_readiness_claimed": false,
+  "report_id": "security-quality-summary:3f571ec:2026-07-02",
+  "repository": "Tahjali11/Mythic-Edge",
+  "repository_url": "https://github.com/Tahjali11/Mythic-Edge",
+  "schema_version": "security_quality_scanner_summary_aggregation.v1",
+  "secret_private_marker_scan": {
+    "base": "origin/main",
+    "counts": {
+      "forbidden": 0,
+      "scanned_paths": 4,
+      "skipped_paths": 0,
+      "symbolic_category_counts": {},
+      "warnings": 0
+    },
+    "freshness_status": "current",
+    "head": "3f571ec3abd2800c2df2d6a8e79cec1a0f5896ce",
+    "mode": "paths_from_stdin",
+    "result": "passed",
+    "source_state": "provided_summary",
+    "tool": "tools/check_secret_patterns.py"
+  },
+  "security_assurance_claimed": false,
+  "source_issue": "https://github.com/Tahjali11/Mythic-Edge/issues/610",
+  "sources": [
+    {
+      "collected_at_policy": "queried_live_count_only",
+      "counts": {
+        "rule_id_counts": {},
+        "severity_counts": {},
+        "state_counts": {
+          "dismissed": 14,
+          "fixed": 3,
+          "open": 0
+        }
+      },
+      "freshness_status": "current",
+      "local_private_data_included": false,
+      "measured_commit": "3f571ec3abd2800c2df2d6a8e79cec1a0f5896ce",
+      "measured_ref": "refs/heads/main",
+      "notes": [
+        "Artifact: provided_public_summary_file",
+        "Lifecycle state remains separate from local scanners."
+      ],
+      "public_safe": true,
+      "raw_payload_included": false,
+      "result": "provided_summary",
+      "source_id": "codeql",
+      "source_type": "github_code_scanning",
+      "status": "provided_by_codex_g",
+      "tool_or_authority": "CodeQL"
+    },
+    {
+      "collected_at_policy": "manual_or_test_only",
+      "counts": {
+        "profile_family_count": 7,
+        "validator_errors": 0,
+        "validator_warnings": 0
+      },
+      "freshness_status": "current",
+      "local_private_data_included": false,
+      "measured_commit": "3f571ec3abd2800c2df2d6a8e79cec1a0f5896ce",
+      "measured_ref": "codex/security-quality-evidence-bundle-639",
+      "notes": [
+        "Artifact: docs/quality_reports/security/cwe_mapped_local_validation_profile/2026-07-02-3f571ec-cwe-profile-advisory-report.json"
+      ],
+      "public_safe": true,
+      "raw_payload_included": false,
+      "result": "passed_advisory",
+      "source_id": "cwe_profile_report",
+      "source_type": "local_cwe_profile_advisory_report",
+      "status": "collected_current",
+      "tool_or_authority": "tools/generate_cwe_profile_advisory_report.py"
+    },
+    {
+      "collected_at_policy": "provided_summary",
+      "counts": {
+        "forbidden": 0,
+        "scanned_paths": 4,
+        "skipped_paths": 0,
+        "symbolic_category_counts": {},
+        "warnings": 0
+      },
+      "freshness_status": "current",
+      "local_private_data_included": false,
+      "measured_commit": "3f571ec3abd2800c2df2d6a8e79cec1a0f5896ce",
+      "measured_ref": "origin/main",
+      "notes": [
+        "Artifact: provided_public_summary_file",
+        "Scanner result is advisory validation evidence only."
+      ],
+      "public_safe": true,
+      "raw_payload_included": false,
+      "result": "passed",
+      "source_id": "protected_surface_scan",
+      "source_type": "protected_surface_scanner",
+      "status": "provided_summary",
+      "tool_or_authority": "tools/check_protected_surfaces.py"
+    },
+    {
+      "collected_at_policy": "provided_summary",
+      "counts": {
+        "forbidden": 0,
+        "scanned_paths": 4,
+        "skipped_paths": 0,
+        "symbolic_category_counts": {},
+        "warnings": 0
+      },
+      "freshness_status": "current",
+      "local_private_data_included": false,
+      "measured_commit": "3f571ec3abd2800c2df2d6a8e79cec1a0f5896ce",
+      "measured_ref": "origin/main",
+      "notes": [
+        "Artifact: provided_public_summary_file",
+        "Scanner result is advisory validation evidence only."
+      ],
+      "public_safe": true,
+      "raw_payload_included": false,
+      "result": "passed",
+      "source_id": "secret_private_marker_scan",
+      "source_type": "secret_private_marker_scanner",
+      "status": "provided_summary",
+      "tool_or_authority": "tools/check_secret_patterns.py"
+    },
+    {
+      "collected_at_policy": "queried_live_workflow_status",
+      "counts": {},
+      "freshness_status": "current",
+      "local_private_data_included": false,
+      "measured_commit": "3f571ec3abd2800c2df2d6a8e79cec1a0f5896ce",
+      "measured_ref": "refs/heads/main",
+      "notes": [
+        "Artifact: provided_public_summary_file",
+        "Workflow status is not security or release assurance."
+      ],
+      "public_safe": true,
+      "raw_payload_included": false,
+      "result": "success",
+      "source_id": "ci_or_repo_check_status",
+      "source_type": "workflow_status",
+      "status": "provided_summary",
+      "tool_or_authority": "CodeQL and Repo Checks"
+    }
+  ],
+  "validation_commands": [
+    "py -m pytest -q tests\\test_security_quality_summary.py",
+    "py -m pytest -q tests\\test_cwe_profile_advisory_report.py tests\\test_cwe_mapped_local_validation_profile.py",
+    "py -m json.tool docs\\security\\cwe_mapped_local_validation_profile.v1.json",
+    "py -m json.tool docs\\quality_reports\\security\\cwe_mapped_local_validation_profile\\2026-07-01-024eda7-cwe-profile-advisory-report.json",
+    "py tools\\check_cwe_mapped_local_validation_profile.py docs\\security\\cwe_mapped_local_validation_profile.v1.json",
+    "py -m ruff check tools\\generate_security_quality_summary.py tests\\test_security_quality_summary.py",
+    "git diff --check",
+    "py tools\\check_agent_docs.py",
+    "path-scoped protected-surface scan over changed files",
+    "path-scoped secret/private-marker scan over changed files"
+  ]
+}
