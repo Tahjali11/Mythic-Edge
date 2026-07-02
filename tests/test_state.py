@@ -162,6 +162,48 @@ def test_posting_state_bridge_aliases_point_to_nested_state() -> None:
     assert state._LAST_POSTED_GAME_LOG_ROWS is posting.last_posted_game_log_rows
 
 
+def test_posting_state_bridge_setters_preserve_alias_containers() -> None:
+    state.reset_runtime_state()
+
+    posting = state.RUNTIME_STATE.posting
+    alias_objects = {
+        "posted_submit_deck_keys": state._POSTED_SUBMIT_DECK_KEYS,
+        "posted_sideboard_keys": state._POSTED_SIDEBOARD_KEYS,
+        "game_rows_posted": state._GAME_ROWS_POSTED,
+        "match_rows_posted": state._MATCH_ROWS_POSTED,
+        "posted_match_summaries": state._POSTED_MATCH_SUMMARIES,
+        "posted_match_log_rows": state._POSTED_MATCH_LOG_ROWS,
+        "posted_match_rows": state._LAST_POSTED_MATCH_LOG_ROWS,
+        "posted_game_rows": state._LAST_POSTED_GAME_LOG_ROWS,
+    }
+
+    state.RUNTIME_STATE.posted_submit_deck_keys = {("match", 1)}
+    state.RUNTIME_STATE.posted_sideboard_keys = {("match", 2)}
+    state.RUNTIME_STATE.game_rows_posted = {("match", 1)}
+    state.RUNTIME_STATE.match_rows_posted = {"match"}
+    state.RUNTIME_STATE.posted_match_summaries = {"match"}
+    state.RUNTIME_STATE.posted_match_log_rows = {"match"}
+    state.RUNTIME_STATE.last_posted_match_log_rows = {"match": {"MTGA Match ID": "match"}}
+    state.RUNTIME_STATE.last_posted_game_log_rows = {("match", 1): {"Game Number": 1}}
+
+    assert state._POSTED_SUBMIT_DECK_KEYS is alias_objects["posted_submit_deck_keys"]
+    assert state._POSTED_SIDEBOARD_KEYS is alias_objects["posted_sideboard_keys"]
+    assert state._GAME_ROWS_POSTED is alias_objects["game_rows_posted"]
+    assert state._MATCH_ROWS_POSTED is alias_objects["match_rows_posted"]
+    assert state._POSTED_MATCH_SUMMARIES is alias_objects["posted_match_summaries"]
+    assert state._POSTED_MATCH_LOG_ROWS is alias_objects["posted_match_log_rows"]
+    assert state._LAST_POSTED_MATCH_LOG_ROWS is alias_objects["posted_match_rows"]
+    assert state._LAST_POSTED_GAME_LOG_ROWS is alias_objects["posted_game_rows"]
+    assert posting.posted_submit_deck_keys == {("match", 1)}
+    assert posting.posted_sideboard_keys == {("match", 2)}
+    assert posting.game_rows_posted == {("match", 1)}
+    assert posting.match_rows_posted == {"match"}
+    assert posting.posted_match_summaries == {"match"}
+    assert posting.posted_match_log_rows == {"match"}
+    assert posting.last_posted_match_log_rows == {"match": {"MTGA Match ID": "match"}}
+    assert posting.last_posted_game_log_rows == {("match", 1): {"Game Number": 1}}
+
+
 def test_unknown_event_kind_is_complete_noop() -> None:
     state.reset_runtime_state()
 
@@ -194,6 +236,22 @@ def test_missing_identity_events_do_not_create_anonymous_summaries() -> None:
         "current_game_number": "",
         "current_player_team": "",
     }
+
+
+def test_final_reconciliation_builders_do_not_invent_missing_rows() -> None:
+    state.reset_runtime_state()
+
+    assert state.build_match_summary_row("missing") is None
+    assert state.build_match_log_row("missing") is None
+    assert state.build_live_match_log_row("missing") is None
+    assert state.build_match_log_update("missing") == (None, [], False)
+    assert state.build_game_summary_rows("missing") == []
+    assert state.build_game_log_updates("missing") == []
+
+    state._MATCH_SUMMARIES["blank-identity"] = MatchSummary(match_id="")
+
+    assert state.build_live_match_log_row("blank-identity") is None
+    assert state.build_match_log_update("blank-identity") == (None, [], False)
 
 
 def test_mark_posted_rows_store_copies() -> None:
