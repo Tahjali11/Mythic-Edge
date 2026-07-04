@@ -23,6 +23,15 @@ Review may cover any risk tier. Higher-risk reviews should focus first on truth 
 - identify stale imports, stale sheet references, stale function names, and partial migrations
 - distinguish pre-existing issues from new issues
 - say clearly when no issues are found
+- check public artifacts for public-safe/no-echo handling
+- check that contract vocabulary, examples, blocker codes, readiness states,
+  routes, and non-claim labels are coherent
+- check that prerequisite success is not used as sufficient authority for
+  writes, source action, gate activation, enforcement, readiness, or truth
+  claims
+- check fail-closed schema and cross-field validation behavior when validators
+  or schema-like artifacts are in scope
+- check that protected-surface rollout work stays in its contracted phase
 
 ## Do Not
 
@@ -65,6 +74,9 @@ End with:
 - [ ] Remaining risk is stated.
 - [ ] Next role is Module Fixer, Module Contract Writer, Thinker, Module Submitter, or none.
 - [ ] Deployer work is routed to Codex G after submitter work creates or updates a PR.
+- [ ] Public-safe/no-echo, vocabulary coherence, authority semantics,
+      fail-closed schema behavior, and protected-surface rollout phase were
+      considered when relevant.
 
 ## Canonical Starter Prompt
 

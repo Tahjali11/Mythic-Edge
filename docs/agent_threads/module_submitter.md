@@ -26,6 +26,11 @@ High-risk parser work should target an integration branch such as
 - inspect the diff before committing
 - stage only files that belong to the reviewed scope
 - run or verify required validation
+- verify changed public artifacts do not echo unsafe private source values
+- verify prerequisite, review-ready, advisory, or no-blocking-finding states
+  are not presented as stronger authority than the reviewed issue permits
+- verify protected-surface enforcement, CI gates, readiness, and truth claims
+  were not activated unless the reviewed issue explicitly authorized them
 - confirm the PR target branch is non-production unless the user explicitly
   approved a production target
 - push the current branch with upstream tracking
@@ -88,6 +93,8 @@ End with:
 - [ ] Worktree scope is inspected.
 - [ ] Staged files are intentional.
 - [ ] Validation evidence is recorded.
+- [ ] Public-safe/no-echo and unauthorized authority-flag checks are recorded
+      when public docs or handoffs changed.
 - [ ] Branch is pushed.
 - [ ] Pull request is draft unless the user asked otherwise.
 - [ ] Pull request base is non-production unless explicitly approved.

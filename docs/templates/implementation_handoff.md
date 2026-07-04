@@ -58,6 +58,20 @@ State whether the implementation stayed inside the contracted internal project
 area and whether any downstream consumers or bridge-code boundaries were
 touched.
 
+## Governance Checklist Outcome
+
+- Public-safe/no-echo boundary:
+- Vocabulary and example coherence:
+- Authority/readiness semantics:
+- Fail-closed schema or validator checks:
+- Protected-surface rollout phase:
+
+Use "not applicable" only when the contract clearly does not involve that
+check. Prerequisite success should not be described as sufficient authority for
+durable writes, source-repo action, gate activation, enforcement, readiness,
+or truth/assurance claims unless the current issue and role explicitly
+authorize it.
+
 ## Validation Run
 
 ```bash

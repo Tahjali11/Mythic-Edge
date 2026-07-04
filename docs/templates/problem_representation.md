@@ -118,6 +118,23 @@ Out of scope:
 
 - TODO
 
+## Governance And Authority Checks
+
+For validator, preflight, dry-run, report-only, review-ready, advisory, or
+no-blocking-finding states, state whether the status is prerequisite evidence
+only. Do not frame it as authority for durable writes, source-repo action,
+gate activation, protected-surface enforcement, readiness, or truth claims
+unless the current issue and role explicitly authorize that stronger state.
+
+If protected-surface enforcement may be relevant, name the current rollout
+phase: measurement, advisory baseline, candidate selection, report-only gate,
+or blocking enforcement.
+
+For public artifacts, name any public-safe/no-echo boundary. Unsafe private
+source values should become symbolic categories, redacted placeholders,
+bucketed values, or fail-closed rejections instead of being pasted back into
+the artifact.
+
 ## Risks And Likely Breakpoints
 
 List likely import, shared state, interface, workbook, deployment, issue,

@@ -7,6 +7,13 @@ continue the work.
 
 Plain-English next step.
 
+## Authority And Public-Safety Notes
+
+Name any prerequisite success that is evidence only, any explicit authority
+that is still false, the protected-surface rollout phase if relevant, and any
+public-safe/no-echo checks the next role should preserve. Do not put local
+absolute paths or unsafe private source values in public handoffs.
+
 ## Pasteable Next-Thread Prompt
 
 ```text
@@ -43,6 +50,12 @@ workflow_handoff:
   internal_project_area: ""
   truth_owner: ""
   bridge_code_status: ""
+  authority_notes:
+    prerequisite_success_is_authority: false
+    protected_surface_rollout_phase: ""
+    readiness_claimed: false
+    security_assurance_claimed: false
+    privacy_assurance_claimed: false
   lane_activation:
     repo: "Tahjali11/Mythic-Edge"
     active_issue_or_lane: ""
