@@ -30,6 +30,11 @@ such as `codex/parser-module-audit-suite` before any later PR targets `main`.
 - verify the diff remains within reviewed scope
 - verify no forbidden files, secrets, local artifacts, generated data, raw
   logs, runtime status files, failed posts, or workbook exports are included
+- verify prerequisite, review-ready, advisory, or no-blocking-finding states
+  are not being used as authority for unapproved writes, gate activation,
+  protected-surface enforcement, readiness, or truth claims
+- verify protected-surface rollout work has explicit authorization for its
+  phase, especially before any blocking enforcement, CI, or threshold change
 - use correct `Closes #...` or `Refs #...` behavior
 - merge with the approved method
 - confirm merge method, merge commit, and source branch deletion or
@@ -93,6 +98,8 @@ End with:
 - [ ] Review has no blocking findings.
 - [ ] Diff remains within reviewed scope.
 - [ ] No forbidden files or local-only artifacts are included.
+- [ ] Prerequisite-success, public-safe/no-echo, and protected-surface rollout
+      checks do not reveal unauthorized authority or readiness claims.
 - [ ] Issue close behavior is correct.
 - [ ] Tracker update behavior is correct.
 - [ ] Merge commit and next step are recorded.

@@ -26,6 +26,14 @@ This role is required for high-risk implementation and recommended for medium-ri
 - report exact mismatches with file and function references
 - distinguish implementation bugs from contract ambiguity
 - classify repo, workbook, deployment, or local-data drift
+- verify public-safe/no-echo behavior for changed public artifacts
+- verify vocabulary and examples use only contract-defined values
+- verify prerequisite success is not treated as sufficient authority for
+  writes, source action, gate activation, enforcement, readiness, or truth
+  claims
+- verify schema-like artifacts fail closed on malformed input and cover
+  cross-field dependencies when the contract requires validators
+- verify protected-surface rollout work stays in the contracted phase
 
 ## Do Not
 
@@ -123,6 +131,9 @@ End with:
 - [ ] Missing tests are listed.
 - [ ] Drift is classified.
 - [ ] Recommendation is approve, request implementation fix, request contract clarification, or split follow-up issue.
+- [ ] Public-safe/no-echo, vocabulary coherence, authority semantics,
+      fail-closed schema behavior, and protected-surface rollout phase were
+      reviewed when relevant.
 
 ## Canonical Starter Prompt
 

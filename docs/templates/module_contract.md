@@ -78,6 +78,33 @@ Describe what should happen on malformed input, missing source data, partial
 workbook state, webhook failure, unavailable external data, contract ambiguity,
 or conflicting workflow instructions.
 
+## Governance Review Checklist
+
+For public artifacts, require public-safe sanitization and no-echo behavior:
+unsafe private values should be represented by symbolic categories, redacted
+placeholders, bucketed values, or fail-closed rejection reasons.
+
+Define every status, enum, blocker code, refusal code, readiness state, route
+label, and non-claim label before examples use it. Examples must use only
+allowed values from this contract, and downstream validator or consumer
+expectations should be named when this contract defines an artifact shape.
+
+State that validator, preflight, dry-run, report-only, review-ready, advisory,
+or no-blocking-finding success is prerequisite evidence only, not sufficient
+authority for durable writes, source-repo action, gate activation,
+protected-surface enforcement, parser behavior changes, fixture promotion, or
+readiness/truth/assurance claims.
+
+When defining schemas or validators, name required fields, optional fields,
+forbidden fields or unknown-key behavior, field types, boolean authority flags,
+stale/expired/revoked/superseded states, and cross-field dependencies. The
+default malformed-input behavior is fail-closed.
+
+When protected-surface enforcement is in scope, separate measurement,
+advisory baseline, candidate selection, report-only gate, and blocking
+enforcement. Fresh current-base evidence and separate authorization are
+required before threshold, fail-under, CI, or blocking-gate changes.
+
 ## Side Effects
 
 List files written, runtime state touched, webhooks posted, workbook tabs

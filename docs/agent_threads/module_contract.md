@@ -27,6 +27,15 @@ This role is required for high-risk work and recommended for medium-risk work wh
 - name dependency order across files and layers
 - list required tests
 - preserve legacy compatibility when needed
+- define every status, enum, blocker code, refusal code, readiness state,
+  route label, and non-claim label before examples use it
+- state when validator, preflight, dry-run, report-only, review-ready,
+  advisory, or no-blocking-finding success is prerequisite evidence only
+- for schema-like artifacts, define required, optional, forbidden, type,
+  boolean-authority, stale-state, unknown-key, and cross-field behavior
+- require public-safe/no-echo handling for private values in public artifacts
+- distinguish measurement, advisory baseline, candidate selection, report-only
+  gate, and blocking enforcement for protected-surface rollout work
 
 ## Do Not
 
@@ -76,6 +85,13 @@ End with:
 - [ ] Error behavior is specified.
 - [ ] Tests are required by behavior.
 - [ ] Acceptance criteria are testable.
+- [ ] Vocabulary, examples, blocker codes, readiness states, routes, and
+      non-claim labels are coherent.
+- [ ] Prerequisite success is not treated as sufficient authority.
+- [ ] Schema or validator contracts fail closed and include cross-field
+      checks when relevant.
+- [ ] Public-safe/no-echo and protected-surface rollout boundaries are named
+      when relevant.
 
 ## Canonical Starter Prompt
 

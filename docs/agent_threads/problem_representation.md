@@ -27,6 +27,15 @@ If a request is high risk, make the risk explicit and require a module contract 
 - list risks and likely breakpoints
 - list validation evidence needed
 - record open questions
+- when framing validators, preflights, dry-runs, report-only states, review
+  states, or advisory routes, state whether they are prerequisite evidence only
+  and not authority for writes, gate activation, enforcement, readiness, or
+  truth claims
+- when protected-surface enforcement is mentioned, distinguish measurement,
+  advisory baseline, candidate selection, report-only gate, and blocking
+  enforcement
+- name public-safe/no-echo boundaries for public artifacts instead of asking
+  later roles to paste unsafe private source values
 
 ## Do Not
 
@@ -78,6 +87,9 @@ End with:
 - [ ] Risk tier is named.
 - [ ] Validation evidence is listed.
 - [ ] Open questions are explicit.
+- [ ] Authority/readiness language is limited to the current issue and role.
+- [ ] Public-safe/no-echo and protected-surface rollout boundaries are named
+      when relevant.
 
 ## Canonical Starter Prompt
 

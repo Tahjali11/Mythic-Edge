@@ -50,6 +50,24 @@ lifecycle category for vocabulary-only issues.
 
 ```
 
+## Governance Checks Reviewed
+
+- Public-safe/no-echo behavior: confirm changed public artifacts avoid unsafe
+  private values, or replace them with symbolic categories, redacted
+  placeholders, bucketed values, or fail-closed reasons.
+- Vocabulary coherence: confirm statuses, enums, blocker codes, refusal codes,
+  readiness states, routes, examples, and non-claim labels agree with the
+  contract.
+- Authority semantics: confirm prerequisite success is not treated as durable
+  write authority, source-repo action authority, gate activation, enforcement,
+  readiness, or truth/assurance approval.
+- Fail-closed schemas: when schemas or validators exist, confirm required,
+  optional, forbidden, type, boolean-flag, stale-state, and cross-field
+  behavior is checked or explicitly out of scope.
+- Protected-surface rollout: confirm the implementation stays in the
+  contracted phase: measurement, advisory baseline, candidate selection,
+  report-only gate, or blocking enforcement.
+
 ## Results
 
 Pass/fail summary.
