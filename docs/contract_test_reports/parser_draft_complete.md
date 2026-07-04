@@ -21,7 +21,7 @@ Related evidence-ledger issue: https://github.com/Tahjali11/Mythic-Edge/issues/1
 
 Worktree:
 
-- `/Users/tahjblow/Documents/New project/Mythic-Edge-issue-124`
+- `/Users/<redacted>/Documents/New project/Mythic-Edge-issue-124`
 
 Branch target:
 
@@ -266,7 +266,7 @@ Context:
 - Related evidence-ledger issue: https://github.com/Tahjali11/Mythic-Edge/issues/11
 - Issue: https://github.com/Tahjali11/Mythic-Edge/issues/124
 - Branch/base: codex/parser-reliability-intelligence
-- Worktree reviewed by Codex E: /Users/tahjblow/Documents/New project/Mythic-Edge-issue-124
+- Worktree reviewed by Codex E: /Users/<redacted>/Documents/New project/Mythic-Edge-issue-124
 - Contract: docs/contracts/parser_draft_complete.md
 - Implementation handoff: docs/implementation_handoffs/parser_draft_complete_comparison.md
 - Contract-test report: docs/contract_test_reports/parser_draft_complete.md
@@ -340,7 +340,7 @@ workflow_handoff:
   target_artifact: "docs/contract_test_reports/parser_draft_complete.md"
   verdict: "No blocking findings. Ready for Codex F."
   branch: "codex/parser-reliability-intelligence"
-  worktree: "/Users/tahjblow/Documents/New project/Mythic-Edge-issue-124"
+  worktree: "/Users/<redacted>/Documents/New project/Mythic-Edge-issue-124"
   risk_tier: "High"
   validation:
     - "python3 -m pytest -q tests/test_draft_complete_parser.py -> 39 passed"

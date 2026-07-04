@@ -22,7 +22,7 @@ https://github.com/Tahjali11/Mythic-Edge/issues/11
 ## Implementation Under Test
 
 Local detached worktree:
-`/Users/tahjblow/Documents/New project/Mythic-Edge-issue-126`
+`/Users/<redacted>/Documents/New project/Mythic-Edge-issue-126`
 
 Base target:
 `codex/parser-reliability-intelligence`
@@ -178,7 +178,7 @@ workflow_handoff:
   target_artifact: "Codex F Module Submitter package for issue #126"
   verdict: "no_blocking_findings_ready_for_module_submitter"
   branch: "codex/parser-reliability-intelligence"
-  worktree: "/Users/tahjblow/Documents/New project/Mythic-Edge-issue-126"
+  worktree: "/Users/<redacted>/Documents/New project/Mythic-Edge-issue-126"
   risk_tier: "Medium"
   validation:
     - "python3 -m pytest -q tests/test_golden_replay_harness.py -> 13 passed"

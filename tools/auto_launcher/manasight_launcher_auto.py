@@ -14,7 +14,15 @@ APP_NAME = "Mythic Edge Launcher"
 SETTINGS_FILE = Path.home() / ".mythic_edge_launcher_settings.json"
 LEGACY_SETTINGS_FILE = Path.home() / ".manasight_launcher_settings.json"
 DEFAULT_PROJECT_ROOT = str(Path(__file__).resolve().parents[2])
-DEFAULT_PLAYER_LOG = r"C:\Users\Tahj Blow\AppData\LocalLow\Wizards Of The Coast\MTGA\Player.log"
+
+
+def _default_player_log() -> str:
+    if sys.platform == "darwin":
+        return str(Path.home() / "Library" / "Logs" / "Wizards Of The Coast" / "MTGA" / "Player.log")
+    return str(Path.home() / "AppData" / "LocalLow" / "Wizards Of The Coast" / "MTGA" / "Player.log")
+
+
+DEFAULT_PLAYER_LOG = _default_player_log()
 DEFAULT_MTGA_PROCESS = "MTGA.exe"
 STATUS_RELATIVE_PATH = Path("data") / "status" / "manasight_status_latest.json"
 CARD_CATALOG_REFRESH_STATUS_RELATIVE_PATH = Path("data") / "status" / "card_catalog_refresh_status_latest.json"

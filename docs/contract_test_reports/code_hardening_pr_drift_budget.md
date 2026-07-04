@@ -21,7 +21,7 @@ https://github.com/Tahjali11/Mythic-Edge/issues/33
 Branch/worktree: `codex/code-hardening-suite`
 
 Worktree path:
-`/Users/tahjblow/Documents/New project/Mythic-Edge-code-hardening-suite`
+`/Users/<redacted>/Documents/New project/Mythic-Edge-code-hardening-suite`
 
 Implementation handoff:
 `docs/implementation_handoffs/code_hardening_pr_drift_budget_comparison.md`

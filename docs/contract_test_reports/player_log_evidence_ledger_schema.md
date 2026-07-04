@@ -26,7 +26,7 @@ Integration target:
 `codex/parser-reliability-intelligence`
 
 Local worktree:
-`/Users/tahjblow/Documents/New project/Mythic-Edge-issue-128`
+`/Users/<redacted>/Documents/New project/Mythic-Edge-issue-128`
 
 Implementation handoff:
 `docs/implementation_handoffs/player_log_evidence_ledger_schema_comparison.md`

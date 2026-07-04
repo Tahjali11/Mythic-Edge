@@ -1,4 +1,5 @@
 import importlib
+import tomllib
 from pathlib import Path
 
 import mythic_edge_parser.app.config as app_config
@@ -26,6 +27,25 @@ def test_default_match_logs_root_uses_data_folder(monkeypatch) -> None:
     assert config.POST_GAME_LOG_ROWS is True
     assert config.POST_MATCH_LOG_ROWS is True
     assert config.SYNC_TIER_BUCKETS is True
+
+
+def test_default_mtga_player_log_uses_home_directory_without_committed_profile_name() -> None:
+    windows_home = Path("C:") / "Users" / "Arena Player"
+    mac_home = Path("/") / "Users" / "arena-player"
+
+    assert app_config._default_mtga_player_log(home=windows_home, platform="win32") == (
+        windows_home / "AppData" / "LocalLow" / "Wizards Of The Coast" / "MTGA" / "Player.log"
+    )
+    assert app_config._default_mtga_player_log(home=mac_home, platform="darwin") == (
+        mac_home / "Library" / "Logs" / "Wizards Of The Coast" / "MTGA" / "Player.log"
+    )
+
+
+def test_package_author_metadata_uses_project_owner() -> None:
+    pyproject_path = Path(__file__).resolve().parents[1] / "pyproject.toml"
+    pyproject = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
+
+    assert pyproject["project"]["authors"] == [{"name": "Tahj Blow"}]
 
 
 def test_invalid_integer_env_values_fall_back_to_defaults(monkeypatch) -> None:

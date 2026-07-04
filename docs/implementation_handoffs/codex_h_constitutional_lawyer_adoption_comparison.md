@@ -180,7 +180,7 @@ Pasteable prompt:
 
 ```text
 Use the Mythic Edge agent constitution.
-Use [$mythic-edge-workflow](C:\Users\Tahj Blow\.codex\skills\mythic-edge-workflow\SKILL.md).
+Use [$mythic-edge-workflow](C:\Users\<redacted>\.codex\skills\mythic-edge-workflow\SKILL.md).
 
 Act as Codex E: Module Reviewer / contract-test thread for issue #76.
 
