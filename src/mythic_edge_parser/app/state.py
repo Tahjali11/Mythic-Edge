@@ -529,178 +529,198 @@ def _update_match_summary(event: Any) -> None:
     payload = getattr(event, "payload", {}) or {}
 
     if kind == "MatchState":
-        match_id = payload.get("match_id") or _CONTEXT["current_match_id"]
-        if not match_id:
-            return
-
-        _CONTEXT["current_match_id"] = match_id
-        summary = _ensure_match_summary(match_id)
-        _set_first_last(summary, event)
-        _set_event_id(summary, payload.get("event_id"))
-
-        players = payload.get("players") or []
-        team_id = _CONTEXT["current_player_team"] or summary.player_team
-        if team_id in (None, ""):
-            local_player = _safe_local_player(players)
-            team_id = local_player.get("team_id")
-        _set_local_team(summary, team_id)
-
-        game_result_index = 1
-        for result in payload.get("game_results") or []:
-            if not isinstance(result, dict):
-                continue
-            scope = _infer_scope_label(result.get("scope", ""))
-            winning_team = result.get("winning_team_id")
-            result_type = result.get("result", "")
-            reason = result.get("reason", "")
-
-            if scope == "Game":
-                summary.set_game_winner(game_result_index, winning_team)
-                game_result_index += 1
-            elif scope == "Match" and winning_team not in (None, ""):
-                summary.match_winner_team = winning_team
-                summary.match_result_type = result_type
-                summary.match_result_reason = reason
-
-        if payload.get("type") == "match_started":
-            _CONTEXT["current_game_number"] = 1
+        _handle_match_state_match_summary(event, payload)
         return
 
     if kind == "GameState":
-        match_id, game_number, turn_number, _, _, _, _ = _extract_turn_info(payload, _CONTEXT)
-        match_id = match_id or _CONTEXT["current_match_id"]
-        game_number = game_number or _CONTEXT["current_game_number"]
-        if not match_id:
-            return
-
-        _CONTEXT["current_match_id"] = match_id
-        summary = _ensure_match_summary(match_id)
-        _set_first_last(summary, event)
-        _set_local_team(summary, _extract_local_team_from_game_state(payload))
-        summary.ingest_game_info(payload.get("game_info") or {})
-        if game_number not in (None, ""):
-            _CONTEXT["current_game_number"] = game_number
-            summary.touch_game(game_number, _safe_iso(event))
-            summary.set_game_starting_player(
-                game_number,
-                _extract_starting_player_from_game_state(payload),
-            )
-            summary.set_game_turn_count(game_number, turn_number)
-            _record_opening_hand_candidate(summary, game_number, payload)
+        _handle_game_state_match_summary(event, payload)
         return
 
     if kind == "Rank":
-        rank_text, rank_class, rank_level, rank_percentile = _normalized_rank_fields(payload)
-        if not rank_text:
-            return
-
-        set_last_posted_rank(rank_text)
-        _store_latest_rank_snapshot(rank_text, rank_class, rank_level, rank_percentile)
-        match_id = _CONTEXT["current_match_id"]
-        if match_id:
-            summary = _ensure_match_summary(match_id)
-            if not summary.is_ready():
-                _set_first_last(summary, event)
-                _apply_rank_snapshot(
-                    summary,
-                    rank_text,
-                    rank_class,
-                    rank_level,
-                    rank_percentile,
-                    source="payload",
-                )
+        _handle_rank_match_summary(event, payload)
         return
 
     if kind == "ClientAction":
-        match_id = _CONTEXT["current_match_id"]
-        game_number = _CONTEXT["current_game_number"]
-        if not match_id:
-            return
-
-        summary = _ensure_match_summary(match_id)
-        _set_first_last(summary, event)
-        action_type = payload.get("type", "")
-        _set_local_team(summary, _extract_local_team_from_client_action(payload))
-        if game_number not in (None, ""):
-            summary.touch_game(game_number, _safe_iso(event))
-
-        if action_type == "mulligan_resp":
-            decision = payload.get("decision")
-            if not _is_keep_decision(decision):
-                _record_discarded_mulligan_hand(summary, match_id, game_number)
-            summary.set_game_mulligans(
-                game_number,
-                _next_mulligan_count(match_id, game_number, decision),
-            )
-            return
-
-        if action_type == "submit_deck_resp":
-            summary.submit_deck_seen = True
-            return
-
-        if action_type != "generic_client_action":
-            return
-
-        msg_type = payload.get("message_type", "")
-        if msg_type == "ClientMessageType_ChooseStartingPlayerResp":
-            summary.set_game_starting_player(
-                game_number,
-                _extract_starting_player_from_client_action(payload),
-            )
-        elif msg_type == "ClientMessageType_EnterSideboardingReq":
-            summary.sideboarding_entered = True
-        elif msg_type == "ClientMessageType_SubmitDeckResp":
-            summary.submit_deck_seen = True
-        elif msg_type == "ClientMessageType_MulliganResp":
-            decision = payload.get("decision") or msg_type
-            if not _is_keep_decision(decision):
-                _record_discarded_mulligan_hand(summary, match_id, game_number)
-            summary.set_game_mulligans(
-                game_number,
-                _next_mulligan_count(match_id, game_number, decision),
-            )
+        _handle_client_action_match_summary(event, payload)
         return
 
     if kind == "GameResult":
-        match_id, game_number, winning_team, result_type, reason = _extract_game_result_identity(payload, _CONTEXT)
-        if not match_id:
-            return
-
-        _CONTEXT["current_match_id"] = match_id
-        if game_number not in (None, ""):
-            _CONTEXT["current_game_number"] = game_number
-
-        summary = _ensure_match_summary(match_id)
-        _set_first_last(summary, event)
-        summary.ingest_game_info(payload.get("game_info") or {})
-
-        if _CONTEXT["current_player_team"] not in (None, ""):
-            summary.player_team = _CONTEXT["current_player_team"]
-
-        summary.touch_game(game_number, _safe_iso(event))
-        has_nested_results = isinstance(payload.get("results"), list)
-        game_result = _extract_game_result_scope_result(payload, "Game", require_known_winner=True)
-        game_winner = _result_winner(game_result) if game_result is not None else winning_team
-        if (game_result is not None or not has_nested_results) and _is_known_winner(game_winner):
-            summary.set_game_winner(game_number, game_winner)
-
-        match_result = _extract_game_result_scope_result(payload, "Match", require_known_winner=True)
-        match_result_fallback = _extract_game_result_scope_result(payload, "Match", require_known_winner=False)
-        if match_result is not None:
-            summary.match_winner_team = _result_winner(match_result)
-            summary.match_result_type = match_result.get("result", "")
-            summary.match_result_reason = match_result.get("reason", "")
-            return
-
-        if str(payload.get("match_state", "")) == "MatchState_MatchComplete" and _is_known_winner(winning_team):
-            summary.match_winner_team = winning_team
-            if match_result_fallback is not None:
-                summary.match_result_type = match_result_fallback.get("result", "")
-                summary.match_result_reason = match_result_fallback.get("reason", "")
-            else:
-                summary.match_result_type = result_type
-                summary.match_result_reason = reason
+        _handle_game_result_match_summary(event, payload)
         return
+
+
+def _handle_match_state_match_summary(event: Any, payload: dict[str, Any]) -> None:
+    match_id = payload.get("match_id") or _CONTEXT["current_match_id"]
+    if not match_id:
+        return
+
+    _CONTEXT["current_match_id"] = match_id
+    summary = _ensure_match_summary(match_id)
+    _set_first_last(summary, event)
+    _set_event_id(summary, payload.get("event_id"))
+
+    players = payload.get("players") or []
+    team_id = _CONTEXT["current_player_team"] or summary.player_team
+    if team_id in (None, ""):
+        local_player = _safe_local_player(players)
+        team_id = local_player.get("team_id")
+    _set_local_team(summary, team_id)
+
+    game_result_index = 1
+    for result in payload.get("game_results") or []:
+        if not isinstance(result, dict):
+            continue
+        scope = _infer_scope_label(result.get("scope", ""))
+        winning_team = result.get("winning_team_id")
+        result_type = result.get("result", "")
+        reason = result.get("reason", "")
+
+        if scope == "Game":
+            summary.set_game_winner(game_result_index, winning_team)
+            game_result_index += 1
+        elif scope == "Match" and winning_team not in (None, ""):
+            summary.match_winner_team = winning_team
+            summary.match_result_type = result_type
+            summary.match_result_reason = reason
+
+    if payload.get("type") == "match_started":
+        _CONTEXT["current_game_number"] = 1
+
+
+def _handle_game_state_match_summary(event: Any, payload: dict[str, Any]) -> None:
+    match_id, game_number, turn_number, _, _, _, _ = _extract_turn_info(payload, _CONTEXT)
+    match_id = match_id or _CONTEXT["current_match_id"]
+    game_number = game_number or _CONTEXT["current_game_number"]
+    if not match_id:
+        return
+
+    _CONTEXT["current_match_id"] = match_id
+    summary = _ensure_match_summary(match_id)
+    _set_first_last(summary, event)
+    _set_local_team(summary, _extract_local_team_from_game_state(payload))
+    summary.ingest_game_info(payload.get("game_info") or {})
+    if game_number not in (None, ""):
+        _CONTEXT["current_game_number"] = game_number
+        summary.touch_game(game_number, _safe_iso(event))
+        summary.set_game_starting_player(
+            game_number,
+            _extract_starting_player_from_game_state(payload),
+        )
+        summary.set_game_turn_count(game_number, turn_number)
+        _record_opening_hand_candidate(summary, game_number, payload)
+
+
+def _handle_rank_match_summary(event: Any, payload: dict[str, Any]) -> None:
+    rank_text, rank_class, rank_level, rank_percentile = _normalized_rank_fields(payload)
+    if not rank_text:
+        return
+
+    set_last_posted_rank(rank_text)
+    _store_latest_rank_snapshot(rank_text, rank_class, rank_level, rank_percentile)
+    match_id = _CONTEXT["current_match_id"]
+    if match_id:
+        summary = _ensure_match_summary(match_id)
+        if not summary.is_ready():
+            _set_first_last(summary, event)
+            _apply_rank_snapshot(
+                summary,
+                rank_text,
+                rank_class,
+                rank_level,
+                rank_percentile,
+                source="payload",
+            )
+
+
+def _handle_client_action_match_summary(event: Any, payload: dict[str, Any]) -> None:
+    match_id = _CONTEXT["current_match_id"]
+    game_number = _CONTEXT["current_game_number"]
+    if not match_id:
+        return
+
+    summary = _ensure_match_summary(match_id)
+    _set_first_last(summary, event)
+    action_type = payload.get("type", "")
+    _set_local_team(summary, _extract_local_team_from_client_action(payload))
+    if game_number not in (None, ""):
+        summary.touch_game(game_number, _safe_iso(event))
+
+    if action_type == "mulligan_resp":
+        decision = payload.get("decision")
+        if not _is_keep_decision(decision):
+            _record_discarded_mulligan_hand(summary, match_id, game_number)
+        summary.set_game_mulligans(
+            game_number,
+            _next_mulligan_count(match_id, game_number, decision),
+        )
+        return
+
+    if action_type == "submit_deck_resp":
+        summary.submit_deck_seen = True
+        return
+
+    if action_type != "generic_client_action":
+        return
+
+    msg_type = payload.get("message_type", "")
+    if msg_type == "ClientMessageType_ChooseStartingPlayerResp":
+        summary.set_game_starting_player(
+            game_number,
+            _extract_starting_player_from_client_action(payload),
+        )
+    elif msg_type == "ClientMessageType_EnterSideboardingReq":
+        summary.sideboarding_entered = True
+    elif msg_type == "ClientMessageType_SubmitDeckResp":
+        summary.submit_deck_seen = True
+    elif msg_type == "ClientMessageType_MulliganResp":
+        decision = payload.get("decision") or msg_type
+        if not _is_keep_decision(decision):
+            _record_discarded_mulligan_hand(summary, match_id, game_number)
+        summary.set_game_mulligans(
+            game_number,
+            _next_mulligan_count(match_id, game_number, decision),
+        )
+
+
+def _handle_game_result_match_summary(event: Any, payload: dict[str, Any]) -> None:
+    match_id, game_number, winning_team, result_type, reason = _extract_game_result_identity(payload, _CONTEXT)
+    if not match_id:
+        return
+
+    _CONTEXT["current_match_id"] = match_id
+    if game_number not in (None, ""):
+        _CONTEXT["current_game_number"] = game_number
+
+    summary = _ensure_match_summary(match_id)
+    _set_first_last(summary, event)
+    summary.ingest_game_info(payload.get("game_info") or {})
+
+    if _CONTEXT["current_player_team"] not in (None, ""):
+        summary.player_team = _CONTEXT["current_player_team"]
+
+    summary.touch_game(game_number, _safe_iso(event))
+    has_nested_results = isinstance(payload.get("results"), list)
+    game_result = _extract_game_result_scope_result(payload, "Game", require_known_winner=True)
+    game_winner = _result_winner(game_result) if game_result is not None else winning_team
+    if (game_result is not None or not has_nested_results) and _is_known_winner(game_winner):
+        summary.set_game_winner(game_number, game_winner)
+
+    match_result = _extract_game_result_scope_result(payload, "Match", require_known_winner=True)
+    match_result_fallback = _extract_game_result_scope_result(payload, "Match", require_known_winner=False)
+    if match_result is not None:
+        summary.match_winner_team = _result_winner(match_result)
+        summary.match_result_type = match_result.get("result", "")
+        summary.match_result_reason = match_result.get("reason", "")
+        return
+
+    if str(payload.get("match_state", "")) == "MatchState_MatchComplete" and _is_known_winner(winning_team):
+        summary.match_winner_team = winning_team
+        if match_result_fallback is not None:
+            summary.match_result_type = match_result_fallback.get("result", "")
+            summary.match_result_reason = match_result_fallback.get("reason", "")
+        else:
+            summary.match_result_type = result_type
+            summary.match_result_reason = reason
 
 
 def _match_summary_ready(summary: MatchSummary) -> bool:
