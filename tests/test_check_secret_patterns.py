@@ -40,6 +40,25 @@ def _credential_value() -> str:
     return "sk_live_" + ("B" * 28)
 
 
+def test_facade_preserves_scanner_contract_symbols() -> None:
+    finding = scanner.Finding(
+        severity=scanner.SEVERITY_WARNING,
+        category_id="placeholder_secret_reference",
+        path="docs/example.md",
+        line=1,
+        reason="example",
+        excerpt="<redacted:credential_value>",
+        rule_id="example-rule",
+    )
+
+    scan_findings = scanner.scan_text("docs/example.md", "API_KEY=<placeholder-token>\n")
+
+    assert finding.severity == "warning"
+    assert scanner.MODE_STDIN == "paths-from-stdin"
+    assert scanner.RESULT_FAILED == "failed"
+    assert scan_findings[0].category_id == "placeholder_secret_reference"
+
+
 def test_missing_base_is_usage_error(capsys) -> None:
     assert scanner.main([]) == 2
 
