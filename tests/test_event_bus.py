@@ -2,12 +2,30 @@ import asyncio
 
 import pytest
 
+import mythic_edge_parser
+import mythic_edge_parser.event_bus as event_bus_module
 from mythic_edge_parser.event_bus import EventBus
 from mythic_edge_parser.events import EventMetadata, SessionEvent
 
 
 def _event(label: str) -> SessionEvent:
     return SessionEvent(EventMetadata.empty(), {"type": label})
+
+
+def test_public_event_bus_facade_preserves_import_surface() -> None:
+    expected_module = "mythic_edge_parser.event_bus"
+    public_names = (
+        "EventBus",
+        "Subscriber",
+        "EventBusPublishWaitSummary",
+        "EventBusEventRateSummary",
+        "EventBusSubscriberPressure",
+        "EventBusQueuePressureSnapshot",
+    )
+
+    for public_name in public_names:
+        assert getattr(event_bus_module, public_name).__module__ == expected_module
+    assert mythic_edge_parser.Subscriber is event_bus_module.Subscriber
 
 
 async def _assert_publish_blocks(task: asyncio.Task[None]) -> None:
