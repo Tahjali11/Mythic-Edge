@@ -5,37 +5,19 @@ from dataclasses import dataclass
 from time import monotonic
 from typing import Callable, Generic, TypeVar
 
+from .event_bus_metrics import (
+    CONSUMER_CLASSIFICATION_SOURCE,
+    NON_CLAIMS,
+    SCHEMA_VERSION,
+    SubscriberMetrics,
+    consumer_metadata,
+    event_rate_bucket,
+    wait_bucket,
+)
 from .events import GameEvent
 
 T = TypeVar("T")
 _SENTINEL = object()
-_SCHEMA_VERSION = "event_bus_queue_pressure_metrics.v1"
-_CONSUMER_CLASSIFICATION_SOURCE = "event_bus_consumer_delivery_classification.v1"
-_NON_CLAIMS = (
-    "not_runtime_reliability_readiness",
-    "not_release_readiness",
-    "not_deploy_readiness",
-    "not_production_readiness",
-    "not_parser_truth",
-    "not_delivery_policy_authorization",
-    "not_consumer_classification_change",
-    "not_workbook_truth",
-    "not_webhook_truth",
-    "not_api_contract",
-    "not_ci_gate",
-    "not_security_assurance",
-    "not_privacy_assurance",
-    "not_analytics_truth",
-    "not_ai_truth",
-    "not_coaching_truth",
-)
-_CONSUMER_CLASSIFICATIONS = {
-    "parser_runner_main_loop": ("truth_critical", "classified"),
-    "local_app_live_capture_supervisor": ("mixed", "classified"),
-    "mtga_event_stream_start": ("publisher_or_factory", "publisher_or_factory"),
-    "event_bus_test_subscriber": ("test_fixture_only", "test_fixture_only"),
-    "unknown_subscriber": ("unknown", "classification_required"),
-}
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,16 +67,6 @@ class EventBusQueuePressureSnapshot:
     event_rate_summary: EventBusEventRateSummary
     publish_wait_summary: EventBusPublishWaitSummary
     non_claims: tuple[str, ...]
-
-
-@dataclass(slots=True)
-class _SubscriberMetrics:
-    subscriber_ref: str
-    consumer_id: str
-    consumer_class: str
-    classification_status: str
-    max_queue_depth: int = 0
-    publish_wait_count: int = 0
 
 
 @dataclass(slots=True)
@@ -154,7 +126,7 @@ class EventBus:
         self._space_available = asyncio.Condition()
         self._time_source = time_source or monotonic
         self._subscriber_sequence = 0
-        self._subscriber_metrics: dict[asyncio.Queue[object], _SubscriberMetrics] = {}
+        self._subscriber_metrics: dict[asyncio.Queue[object], SubscriberMetrics] = {}
         self._active_waiters: dict[asyncio.Queue[object], int] = {}
         self._total_publish_calls = 0
         self._publish_wait_count = 0
@@ -173,8 +145,8 @@ class EventBus:
         q: asyncio.Queue[object] = asyncio.Queue(maxsize=self._capacity)
         self._queues.append(q)
         self._subscriber_sequence += 1
-        normalized_id, consumer_class, classification_status = _consumer_metadata(consumer_id)
-        self._subscriber_metrics[q] = _SubscriberMetrics(
+        normalized_id, consumer_class, classification_status = consumer_metadata(consumer_id)
+        self._subscriber_metrics[q] = SubscriberMetrics(
             subscriber_ref=f"subscriber_{self._subscriber_sequence}",
             consumer_id=normalized_id,
             consumer_class=consumer_class,
@@ -226,7 +198,7 @@ class EventBus:
         current_total_queue_depth = sum(current_depths)
         current_max_subscriber_depth = max(current_depths, default=0)
         return EventBusQueuePressureSnapshot(
-            schema_version=_SCHEMA_VERSION,
+            schema_version=SCHEMA_VERSION,
             metrics_status=self._metrics_status(),
             subscriber_count=len(self._queues),
             queue_capacity=self._capacity,
@@ -237,11 +209,11 @@ class EventBus:
             current_max_subscriber_depth=current_max_subscriber_depth,
             max_subscriber_depth=self._max_subscriber_depth,
             subscriber_pressure=tuple(self._subscriber_pressure(q) for q in self._queues),
-            consumer_classification_source=_CONSUMER_CLASSIFICATION_SOURCE,
+            consumer_classification_source=CONSUMER_CLASSIFICATION_SOURCE,
             classification_status=self._classification_status(),
             event_rate_summary=self._event_rate_summary(),
             publish_wait_summary=self._publish_wait_summary(),
-            non_claims=_NON_CLAIMS,
+            non_claims=NON_CLAIMS,
         )
 
     def reset_queue_pressure_metrics(self) -> None:
@@ -320,7 +292,7 @@ class EventBus:
     def _pressure_status(
         self,
         q: asyncio.Queue[object],
-        subscriber_metrics: _SubscriberMetrics,
+        subscriber_metrics: SubscriberMetrics,
         current_depth: int,
     ) -> str:
         if self._closed:
@@ -359,7 +331,7 @@ class EventBus:
         return EventBusEventRateSummary(
             window_publish_calls=self._total_publish_calls,
             window_elapsed_seconds=elapsed,
-            events_per_second_bucket=_event_rate_bucket(self._total_publish_calls, elapsed),
+            events_per_second_bucket=event_rate_bucket(self._total_publish_calls, elapsed),
         )
 
     def _publish_wait_summary(self) -> EventBusPublishWaitSummary:
@@ -368,43 +340,8 @@ class EventBus:
             publish_wait_count=self._publish_wait_count,
             total_wait_seconds=self._total_wait_seconds,
             max_wait_seconds=self._max_wait_seconds,
-            wait_bucket=_wait_bucket(self._publish_wait_count, self._max_wait_seconds),
+            wait_bucket=wait_bucket(self._publish_wait_count, self._max_wait_seconds),
         )
 
     def _now(self) -> float:
         return self._time_source()
-
-
-def _consumer_metadata(consumer_id: str) -> tuple[str, str, str]:
-    if not isinstance(consumer_id, str):
-        return "unknown_subscriber", "unknown", "classification_unknown_fail_closed"
-    metadata = _CONSUMER_CLASSIFICATIONS.get(consumer_id)
-    if metadata is None:
-        return "unknown_subscriber", "unknown", "classification_unknown_fail_closed"
-    consumer_class, classification_status = metadata
-    return consumer_id, consumer_class, classification_status
-
-
-def _wait_bucket(publish_wait_count: int, max_wait_seconds: float) -> str:
-    if publish_wait_count <= 0:
-        return "wait_none"
-    if max_wait_seconds <= 0.05:
-        return "wait_observed_short"
-    if max_wait_seconds <= 1.0:
-        return "wait_observed_moderate"
-    return "wait_observed_long"
-
-
-def _event_rate_bucket(publish_calls: int, elapsed_seconds: float) -> str:
-    if publish_calls <= 0:
-        return "rate_not_observed"
-    if elapsed_seconds <= 0:
-        return "rate_unknown"
-    events_per_second = publish_calls / elapsed_seconds
-    if events_per_second < 1:
-        return "rate_low"
-    if events_per_second < 10:
-        return "rate_moderate"
-    if events_per_second < 100:
-        return "rate_high"
-    return "rate_burst"
