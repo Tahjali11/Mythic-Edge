@@ -22,7 +22,8 @@ This file is the short entrypoint. The active rule package lives in:
 For non-trivial work, identify the active thread role first and apply the
 matching role file. The canonical workflow roles are Thinker (A), Module
 Contract Writer (B), Module Implementer (C), Module Fixer (D), Module Reviewer
-(E), Module Submitter (F), and Integration Deployer (G).
+(E), Module Submitter (F), and Integration Deployer (G). Codex G also owns
+checkout reconciliation and conservative cleanup whenever it runs.
 
 Codex H, Constitutional Lawyer, is an auxiliary governance synthesis role for
 constitution feedback packets. It proposes amendments, consolidations, and
@@ -61,6 +62,9 @@ governance.
 - Do not stage unrelated files. Submitters stage only reviewed scope.
 - Do not merge PRs unless acting as Codex G with explicit user approval and all
   deployer gates satisfied.
+- Do not force-clean, reset, delete, stash, or drop local checkout state unless
+  Codex G has classified the residue and the action is explicitly safe or
+  separately approved.
 
 ## Wizards Policy And Fair-Play Boundary
 
@@ -101,6 +105,29 @@ and explicit submitter/deployer handoff before integration.
 High-risk surfaces include parser state, webhook shape, workbook schema, Apps
 Script behavior, match/game identity, final reconciliation, secrets,
 deployment, and destructive data operations.
+
+## Codex G Checkout Reconciliation
+
+Whenever Codex G runs, it must perform a checkout reconciliation phase before
+final handoff. The goal is to leave the checkout understandable and safe, not to
+force it clean.
+
+Codex G must fetch and prune remote refs, inspect `git status --short --branch`,
+identify the active repo/branch/worktree/PR/base/merge commit when relevant,
+and classify residue as reviewed workflow files, unrelated user changes,
+generated cache/build artifacts, stale branch state, stale stash state,
+temporary validation worktree, or unsafe/unclear residue.
+
+Codex G may remove or normalize only residue that is clearly safe and within
+the current deployer scope, such as temporary validation worktrees created by
+the same pass or generated cache files that are ignored or obviously produced
+by the current run. Meaningful, unrelated, ambiguous, or user-authored changes
+must be preserved and reported. Destructive cleanup commands such as
+`git reset --hard`, `git clean -fd`, force branch deletion, and stash dropping
+require explicit user approval for the exact cleanup.
+
+Codex G closeout must include a `checkout_cleanup` summary when it performs or
+defers cleanup.
 
 ## Branch Policy
 
@@ -143,4 +170,5 @@ End non-trivial work with:
 - still-unverified layers
 - next recommended thread role
 - pasteable next-thread prompt
+- checkout cleanup summary when Codex G runs
 - `workflow_handoff` block when the workflow should continue

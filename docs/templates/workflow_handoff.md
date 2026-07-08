@@ -89,6 +89,27 @@ workflow_handoff:
     freshness_verdict: ""
     recommended_route: ""
     verified_at: ""
+  checkout_cleanup:
+    performed: false
+    repo: ""
+    starting_branch: ""
+    ending_branch: ""
+    target_branch: ""
+    merge_commit: ""
+    git_status_after: ""
+    remote_refs_pruned: false
+    remote_source_branch_deleted: false
+    local_branch_deleted: false
+    temporary_worktrees_removed:
+      - ""
+    generated_files_removed:
+      - ""
+    preserved_changes:
+      - ""
+    unresolved_residue:
+      - ""
+    destructive_cleanup_used: false
+    user_approval_required_for_remaining_cleanup: false
   validation:
     - ""
   stop_conditions:
@@ -135,6 +156,12 @@ valid historical artifacts, but continuing threads should verify freshness live
 before editing or submitting work. See
 `docs/contracts/workflow_freshness_guard.md` for the advisory verdict and route
 vocabulary.
+
+The `checkout_cleanup` block is required when `completed_thread` is `G`.
+Codex G should use it to report checkout reconciliation, safe cleanup performed,
+preserved changes, unresolved residue, and whether more user approval is needed.
+It must not be used to justify destructive cleanup. Meaningful, unrelated,
+ambiguous, or user-authored changes must be preserved and reported.
 
 If repository identity is missing, ambiguous, or mismatched, stop before
 reading beyond approved reference scope, editing, staging, committing, pushing,

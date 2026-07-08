@@ -136,6 +136,9 @@ An agent must not:
 - target `main` for module PR work unless explicitly approved
 - merge pull requests unless acting as Codex G with explicit user approval and
   all deployer gates satisfied
+- force-clean, reset, delete, stash, or drop local checkout state unless Codex G
+  has classified the residue and the exact cleanup is safe or separately
+  approved
 
 ## Project Truth Model
 
@@ -285,7 +288,8 @@ roles are A through G.
   - maps to `docs/agent_threads/module_submitter.md`
 - G. Integration Deployer
   - marks approved PRs ready when appropriate, merges into the approved base,
-    closes completed issues, updates trackers, and records completion evidence
+    closes completed issues, updates trackers, records completion evidence, and
+    performs checkout reconciliation/conservative cleanup
   - maps to `docs/agent_threads/integration_deployer.md`
 
 Normal path:
@@ -419,7 +423,9 @@ blocking findings, relevant checks have passed or failures are explained, and
 the PR target is not production unless explicitly approved.
 
 Integration Deployer may merge only when explicitly asked to deploy or merge
-and all merge gates pass.
+and all merge gates pass. Whenever Codex G runs, it must also reconcile local
+checkout state, classify residue, preserve meaningful or ambiguous user work,
+and include checkout cleanup status in the closeout.
 
 ## Routing Rules
 
@@ -631,6 +637,8 @@ After merge, G must:
 - sync the local integration branch when working locally
 - close fully satisfied issues with completion comments
 - update trackers
+- perform checkout reconciliation/conservative cleanup
+- report any preserved changes or unresolved checkout residue
 - name the next workflow step
 
 ## Tracker Hygiene

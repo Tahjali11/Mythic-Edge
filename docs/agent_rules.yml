@@ -323,6 +323,8 @@ roles:
       - issue_closure
       - tracker_update
       - local_branch_sync_after_merge
+      - checkout_reconciliation
+      - conservative_checkout_cleanup
     may_edit_code: false
     may_commit: false
     may_merge: true
@@ -707,10 +709,13 @@ workflow_handoff_schema:
     - allowed_read_only_references
     - freshness
     - lane_activation
+    - checkout_cleanup
   public_path_rule: Do not include local absolute paths in public workflow_handoff blocks.
   local_prompt_rule: Generated local prompts may include Operating repo/worktree outside public workflow_handoff blocks.
   mismatch_behavior: Hard stop before repository mutation when the local checkout remote cannot be verified against repository_url.
   sibling_reference_rule: Sibling repositories are read-only unless explicitly listed in allowed_read_only_references or routed through their own repo-scoped handoff.
+  checkout_cleanup_rule: Codex G must classify checkout residue and preserve meaningful or ambiguous user work before cleanup.
+  destructive_cleanup_rule: Codex G must not reset, force-clean, force-delete, drop stashes, or delete private/local artifacts without exact user approval.
   lane_activation_schema:
     repo: string
     active_issue_or_lane: string
@@ -724,6 +729,24 @@ workflow_handoff_schema:
       expiration_condition: string
       authorized_by: string
       recorded_in: string
+
+checkout_cleanup_schema:
+  performed: boolean
+  repo: string
+  starting_branch: string
+  ending_branch: string
+  target_branch: string
+  merge_commit: string
+  git_status_after: string
+  remote_refs_pruned: boolean
+  remote_source_branch_deleted: boolean
+  local_branch_deleted: boolean
+  temporary_worktrees_removed: list
+  generated_files_removed: list
+  preserved_changes: list
+  unresolved_residue: list
+  destructive_cleanup_used: boolean
+  user_approval_required_for_remaining_cleanup: boolean
 
 current_status_schema:
   repo_status:

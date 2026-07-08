@@ -103,6 +103,7 @@ separate scoped authorization.
    - verifies merge gates, marks PRs ready when appropriate, merges into the
      approved base, closes completed issues, updates trackers, and records
      completion evidence
+   - performs checkout reconciliation and conservative cleanup whenever it runs
    - must not bypass review, CI, branch, issue, tracker, or scope gates
 
 Auxiliary governance role:
@@ -252,7 +253,35 @@ Merge gates:
 After merge, Codex G confirms merge method and commit, confirms source branch
 deletion or preservation, syncs the local integration branch when working
 locally, closes fully satisfied issues with completion comments, updates
-trackers, and names the next workflow step.
+trackers, performs checkout reconciliation/conservative cleanup, reports any
+preserved changes or unresolved residue, and names the next workflow step.
+
+## Codex G Checkout Reconciliation
+
+Whenever Codex G runs, it must perform a checkout reconciliation phase before
+final handoff. The goal is to leave the checkout understandable and safe, not to
+force it clean.
+
+Codex G must:
+
+- fetch and prune remote refs;
+- inspect `git status --short --branch`;
+- identify the active repo, branch, worktree, PR branch, target branch, and
+  merge commit when relevant;
+- classify residue as reviewed workflow files, unrelated user changes,
+  generated cache/build artifacts, stale branch state, stale stash state,
+  temporary validation worktree, or unsafe/unclear residue;
+- remove or normalize only residue that is clearly safe and within the current
+  deployer scope;
+- preserve and report anything meaningful, unrelated, ambiguous, or
+  user-authored;
+- include a `checkout_cleanup` summary in the closeout.
+
+Codex G must not run destructive cleanup commands such as `git reset --hard`,
+`git clean -fd`, force branch deletion, or stash dropping unless the user
+explicitly approves the exact cleanup. Raw logs, private artifacts, generated
+evidence, workbook exports, local runtime files, and other private/local-only
+data require exact approval before deletion.
 
 ## Tracker Hygiene
 
