@@ -120,6 +120,11 @@ import {
   PrivacyDetailsPanel,
   TrustPrivacyLayer
 } from "./app_static_panels";
+import {
+  readDashboardModuleViewPreferences,
+  selectedDashboardModuleView,
+  writeDashboardModuleViewPreferences
+} from "./app_dashboard_preferences";
 
 type LoadState =
   | { state: "loading" }
@@ -290,10 +295,7 @@ type CockpitInsight = {
 
 const UNATTACHED_SMOKE_NOTE_PREFIX = "MYTHIC_EDGE_SMOKE_TEST_DO_NOT_USE_AS_GAME_REVIEW";
 const UNATTACHED_SMOKE_NOTE_STORAGE_KEY = "mythic_edge.match_journal.unattached_smoke_note_id";
-const DASHBOARD_MODULE_VIEW_PREFERENCES_KEY = "mythic_edge.analytics.dashboard.module_view_preferences.v1";
 const ANALYTICS_AUTO_REFRESH_INTERVAL_MS = 25_000;
-const DASHBOARD_MODULE_IDS = new Set(["play_draw_win_rate", "game1_postboard", "mulligan_opening_hand_outcomes"]);
-const DASHBOARD_MODULE_VIEWS = new Set(["bar", "table"]);
 const ERROR_REPORT_AFFECTED_AREA_OPTIONS: Array<{ value: ErrorReportAffectedArea; label: string }> = [
   { value: "local_app_ui", label: "Local App UI" },
   { value: "install_launch", label: "Install / Launch" },
@@ -2187,17 +2189,6 @@ function fallbackDashboardModules(status: "unavailable" | "degraded", display: s
   }));
 }
 
-function selectedDashboardModuleView(
-  module: AnalyticsDashboardModule,
-  preferences: Record<string, AnalyticsDashboardModuleView>
-): AnalyticsDashboardModuleView {
-  const preferred = preferences[module.module_id];
-  if (preferred && module.allowed_views.includes(preferred)) {
-    return preferred;
-  }
-  return module.allowed_views.includes(module.default_view) ? module.default_view : module.allowed_views[0] ?? "table";
-}
-
 function dashboardBarMetric(metrics: AnalyticsDashboardModule["rows"][number]["metrics"]) {
   return (
     metrics.find((metric) => metric.metric_id === "win_rate" && metric.value_kind === "percentage") ??
@@ -2306,48 +2297,6 @@ const DASHBOARD_MODULE_FALLBACKS: Array<{
     default_view: "table"
   }
 ];
-
-function readDashboardModuleViewPreferences(): Record<string, AnalyticsDashboardModuleView> {
-  if (typeof window === "undefined") {
-    return {};
-  }
-  try {
-    const raw = window.localStorage.getItem(DASHBOARD_MODULE_VIEW_PREFERENCES_KEY);
-    if (!raw) {
-      return {};
-    }
-    const parsed: unknown = JSON.parse(raw);
-    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
-      return {};
-    }
-    const preferences: Record<string, AnalyticsDashboardModuleView> = {};
-    for (const [moduleId, view] of Object.entries(parsed)) {
-      if (DASHBOARD_MODULE_IDS.has(moduleId) && typeof view === "string" && DASHBOARD_MODULE_VIEWS.has(view)) {
-        preferences[moduleId] = view as AnalyticsDashboardModuleView;
-      }
-    }
-    return preferences;
-  } catch {
-    return {};
-  }
-}
-
-function writeDashboardModuleViewPreferences(preferences: Record<string, AnalyticsDashboardModuleView>) {
-  if (typeof window === "undefined") {
-    return;
-  }
-  try {
-    const safePreferences: Record<string, AnalyticsDashboardModuleView> = {};
-    for (const [moduleId, view] of Object.entries(preferences)) {
-      if (DASHBOARD_MODULE_IDS.has(moduleId) && DASHBOARD_MODULE_VIEWS.has(view)) {
-        safePreferences[moduleId] = view;
-      }
-    }
-    window.localStorage.setItem(DASHBOARD_MODULE_VIEW_PREFERENCES_KEY, JSON.stringify(safePreferences));
-  } catch {
-    // Browser storage is a preference surface only; rendering should continue without it.
-  }
-}
 
 function ErrorReportPanel({
   onPreview,
