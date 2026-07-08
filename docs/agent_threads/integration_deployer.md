@@ -56,7 +56,8 @@ such as `codex/parser-module-audit-suite` before any later PR targets `main`.
 - close an issue when follow-up implementation remains
 - stage or commit unrelated worktree changes
 - force-clean, reset, force-delete branches, drop stashes, or delete private or
-  local-only artifacts without exact user approval
+  local-only artifacts without exact user approval, except for verified
+  squash-merge local branch residue under the checklist below
 - treat workbook, Apps Script, or deployment state as verified unless it was
   actually checked
 
@@ -86,11 +87,27 @@ branches, removing temporary validation worktrees created by the same deployer
 pass when they are clean, and removing generated cache files only when they are
 clearly safe and scoped to the current run.
 
+Codex G may auto-prune verified squash-merge local branch residue with
+`git branch -D` without asking again only when every condition is true:
+
+1. The branch is the head branch of the PR Codex G just merged or a PR it just
+   live-verified as merged.
+2. The PR is live-verified as `MERGED`.
+3. The local branch tip exactly equals the PR head SHA that was merged or
+   reviewed.
+4. The merge commit is recorded.
+5. The branch is not the current branch.
+6. No dirty worktree is attached to that branch.
+7. The branch is not `main`, an integration branch, or a protected long-lived
+   branch.
+8. Codex G records the force-delete in `checkout_cleanup`.
+
 Forbidden cleanup actions without explicit user approval include
-`git reset --hard`, `git clean -fd`, force branch deletion, stash dropping,
-wholesale stale-stash application, and deletion of raw logs, private artifacts,
-generated evidence, workbook exports, local runtime files, or other private or
-local-only data.
+`git reset --hard`, `git clean -fd`, force branch deletion outside the verified
+squash-merge local branch checklist, stash dropping, wholesale stale-stash
+application, remote branch deletion, and deletion of raw logs, private
+artifacts, generated evidence, workbook exports, local runtime files, or other
+private or local-only data.
 
 If unrelated local changes appear meaningful, Codex G must preserve them,
 report them, and recommend a scoped issue, stash plan, or follow-up cleanup

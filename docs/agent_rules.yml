@@ -715,7 +715,7 @@ workflow_handoff_schema:
   mismatch_behavior: Hard stop before repository mutation when the local checkout remote cannot be verified against repository_url.
   sibling_reference_rule: Sibling repositories are read-only unless explicitly listed in allowed_read_only_references or routed through their own repo-scoped handoff.
   checkout_cleanup_rule: Codex G must classify checkout residue and preserve meaningful or ambiguous user work before cleanup.
-  destructive_cleanup_rule: Codex G must not reset, force-clean, force-delete, drop stashes, or delete private/local artifacts without exact user approval.
+  destructive_cleanup_rule: Codex G must not reset, force-clean, drop stashes, delete private/local artifacts, delete remote branches, or force-delete ambiguous branches without exact user approval; Codex G may force-delete verified squash-merge local branch residue only when the PR is live-verified as MERGED, the local branch tip exactly equals the merged/reviewed PR head SHA, the merge commit is recorded, the branch is not current/main/an integration branch/a protected long-lived branch, no dirty worktree is attached, and the force-delete is recorded in checkout_cleanup.
   lane_activation_schema:
     repo: string
     active_issue_or_lane: string

@@ -64,7 +64,9 @@ governance.
   deployer gates satisfied.
 - Do not force-clean, reset, delete, stash, or drop local checkout state unless
   Codex G has classified the residue and the action is explicitly safe or
-  separately approved.
+  separately approved. The only force-deletion action that may be explicitly
+  safe without a second approval is verified squash-merge local branch residue
+  under the Codex G checklist below.
 
 ## Wizards Policy And Fair-Play Boundary
 
@@ -125,6 +127,25 @@ by the current run. Meaningful, unrelated, ambiguous, or user-authored changes
 must be preserved and reported. Destructive cleanup commands such as
 `git reset --hard`, `git clean -fd`, force branch deletion, and stash dropping
 require explicit user approval for the exact cleanup.
+
+Exception: Codex G may auto-prune verified squash-merge local branch residue
+with `git branch -D` without asking again only when every condition is true:
+
+- the branch is the head branch of the PR Codex G just merged or a PR it just
+  live-verified as merged;
+- the PR is live-verified as `MERGED`;
+- the local branch tip exactly equals the PR head SHA that was merged or
+  reviewed;
+- the merge commit is recorded;
+- the branch is not the current branch;
+- no dirty worktree is attached to that branch;
+- the branch is not `main`, an integration branch, or a protected long-lived
+  branch;
+- Codex G records the force-delete in `checkout_cleanup`.
+
+This exception does not apply to `git reset --hard`, `git clean -fd`, stash
+drops, private/local artifact deletion, remote branch deletion, or ambiguous
+checkout residue; those still require exact approval.
 
 Codex G closeout must include a `checkout_cleanup` summary when it performs or
 defers cleanup.

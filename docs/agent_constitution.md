@@ -138,7 +138,9 @@ An agent must not:
   all deployer gates satisfied
 - force-clean, reset, delete, stash, or drop local checkout state unless Codex G
   has classified the residue and the exact cleanup is safe or separately
-  approved
+  approved. Verified squash-merge local branch residue is the only
+  force-deletion cleanup that may be treated as safe without a second approval,
+  and only under the Codex G checklist.
 
 ## Project Truth Model
 

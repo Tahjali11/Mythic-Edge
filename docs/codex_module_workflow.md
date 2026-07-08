@@ -283,6 +283,26 @@ explicitly approves the exact cleanup. Raw logs, private artifacts, generated
 evidence, workbook exports, local runtime files, and other private/local-only
 data require exact approval before deletion.
 
+The only force-deletion exception is verified squash-merge local branch
+residue. Codex G may use `git branch -D` without asking again only when every
+condition is true:
+
+- the branch is the head branch of the PR Codex G just merged or a PR it just
+  live-verified as merged;
+- the PR is live-verified as `MERGED`;
+- the local branch tip exactly equals the PR head SHA that was merged or
+  reviewed;
+- the merge commit is recorded;
+- the branch is not the current branch;
+- no dirty worktree is attached to that branch;
+- the branch is not `main`, an integration branch, or a protected long-lived
+  branch;
+- Codex G records the force-delete in `checkout_cleanup`.
+
+This exception does not apply to `git reset --hard`, `git clean -fd`, stash
+drops, private/local artifact deletion, remote branch deletion, or ambiguous
+checkout residue; those still require exact approval.
+
 ## Tracker Hygiene
 
 Update trackers when a child issue is created, child PR is opened, child PR is

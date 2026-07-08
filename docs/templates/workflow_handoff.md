@@ -160,8 +160,14 @@ vocabulary.
 The `checkout_cleanup` block is required when `completed_thread` is `G`.
 Codex G should use it to report checkout reconciliation, safe cleanup performed,
 preserved changes, unresolved residue, and whether more user approval is needed.
-It must not be used to justify destructive cleanup. Meaningful, unrelated,
-ambiguous, or user-authored changes must be preserved and reported.
+It must not be used to justify destructive cleanup, except to record
+auto-pruned verified squash-merge local branch residue after Codex G confirms
+the branch is the head branch of the PR just merged or live-verified as merged,
+the PR is `MERGED`, the local branch tip equals the merged/reviewed PR head
+SHA, the merge commit is recorded, the branch is not current/main/an
+integration branch/a protected long-lived branch, and no dirty worktree is
+attached. Meaningful, unrelated, ambiguous, or user-authored changes must be
+preserved and reported.
 
 If repository identity is missing, ambiguous, or mismatched, stop before
 reading beyond approved reference scope, editing, staging, committing, pushing,
