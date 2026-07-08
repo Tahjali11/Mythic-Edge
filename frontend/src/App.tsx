@@ -105,6 +105,14 @@ import {
   type SetupStatusTone,
   type SetupStatusResponse
 } from "./types";
+import {
+  appRouteHref,
+  LEFT_RAIL_COPY,
+  RAIL_ITEMS,
+  readAppRouteFromHash,
+  type AppRoute,
+  type RailItem
+} from "./app_navigation";
 
 type LoadState =
   | { state: "loading" }
@@ -273,25 +281,12 @@ type CockpitInsight = {
   emptyState?: string;
 };
 
-type AppRoute = "dashboard" | "coach" | "analytics" | "review" | "privacy" | "feedback" | "import" | "diagnostics";
-
 const UNATTACHED_SMOKE_NOTE_PREFIX = "MYTHIC_EDGE_SMOKE_TEST_DO_NOT_USE_AS_GAME_REVIEW";
 const UNATTACHED_SMOKE_NOTE_STORAGE_KEY = "mythic_edge.match_journal.unattached_smoke_note_id";
 const DASHBOARD_MODULE_VIEW_PREFERENCES_KEY = "mythic_edge.analytics.dashboard.module_view_preferences.v1";
 const ANALYTICS_AUTO_REFRESH_INTERVAL_MS = 25_000;
 const DASHBOARD_MODULE_IDS = new Set(["play_draw_win_rate", "game1_postboard", "mulligan_opening_hand_outcomes"]);
 const DASHBOARD_MODULE_VIEWS = new Set(["bar", "table"]);
-const APP_ROUTES: AppRoute[] = ["dashboard", "coach", "analytics", "review", "privacy", "feedback", "import", "diagnostics"];
-const RAIL_ITEMS: Array<{ route: AppRoute; label: string }> = [
-  { route: "dashboard", label: "Dashboard" },
-  { route: "coach", label: "Coach" },
-  { route: "analytics", label: "Analytics" },
-  { route: "review", label: "Review" },
-  { route: "feedback", label: "Feedback" },
-  { route: "import", label: "Import" },
-  { route: "diagnostics", label: "Diagnostics" },
-  { route: "privacy", label: "Privacy" }
-];
 const ERROR_REPORT_AFFECTED_AREA_OPTIONS: Array<{ value: ErrorReportAffectedArea; label: string }> = [
   { value: "local_app_ui", label: "Local App UI" },
   { value: "install_launch", label: "Install / Launch" },
@@ -1653,20 +1648,20 @@ export default SetupStatusApp;
 function Shell({ activeRoute = "dashboard", children }: { activeRoute?: AppRoute; children: ReactNode }) {
   return (
     <main className="appShell">
-      <aside className="leftRail" aria-label="Local app sections">
+      <aside className="leftRail" aria-label={LEFT_RAIL_COPY.asideAriaLabel}>
         <div>
-          <p className="leftRailKicker">Mythic Edge</p>
-          <p className="leftRailTitle">Local App</p>
+          <p className="leftRailKicker">{LEFT_RAIL_COPY.kicker}</p>
+          <p className="leftRailTitle">{LEFT_RAIL_COPY.title}</p>
         </div>
-        <nav className="leftRailNav" aria-label="Primary sections">
+        <nav className="leftRailNav" aria-label={LEFT_RAIL_COPY.navigationAriaLabel}>
           {RAIL_ITEMS.map((item) => (
             <RailLink activeRoute={activeRoute} item={item} key={item.route} />
           ))}
         </nav>
-        <div className="leftRailFooter" aria-label="Local app footer">
+        <div className="leftRailFooter" aria-label={LEFT_RAIL_COPY.footerAriaLabel}>
           <span className="railMetaLabel">
-            Settings
-            <span>Not configured</span>
+            {LEFT_RAIL_COPY.footerLabel}
+            <span>{LEFT_RAIL_COPY.footerValue}</span>
           </span>
         </div>
       </aside>
@@ -1680,7 +1675,7 @@ function RailLink({
   item
 }: {
   activeRoute: AppRoute;
-  item: { route: AppRoute; label: string };
+  item: RailItem;
 }) {
   const isActive = activeRoute === item.route;
   return (
@@ -1688,20 +1683,11 @@ function RailLink({
       aria-current={isActive ? "page" : undefined}
       aria-label={item.label}
       className={isActive ? "isActive" : undefined}
-      href={`#${item.route}`}
+      href={appRouteHref(item.route)}
     >
       <span>{item.label}</span>
     </a>
   );
-}
-
-function readAppRouteFromHash(): AppRoute {
-  const rawRoute = window.location.hash.replace(/^#\/?/, "").trim().toLowerCase();
-  return isAppRoute(rawRoute) ? rawRoute : "dashboard";
-}
-
-function isAppRoute(value: string): value is AppRoute {
-  return APP_ROUTES.includes(value as AppRoute);
 }
 
 function analyticsAutoRefreshNoticeContent(state: AnalyticsAutoRefreshState): {
@@ -2451,7 +2437,7 @@ function DashboardRouteCards() {
       </div>
       <div className="routeCardGrid">
         {cards.map((card) => (
-          <a className="routeCard" href={`#${card.route}`} key={card.route}>
+          <a className="routeCard" href={appRouteHref(card.route)} key={card.route}>
             <span>{card.title}</span>
             <p>{card.detail}</p>
           </a>
