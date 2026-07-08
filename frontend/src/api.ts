@@ -1,4 +1,54 @@
 import {
+  AnalyticsHistoryApiError,
+  ErrorReportApiError,
+  LiveStatusApiError,
+  ManualImportApiError,
+  MatchJournalApiError,
+  SetupStatusApiError
+} from "./api/errors";
+import {
+  ANALYTICS_DASHBOARD_MODULES_PATH,
+  ANALYTICS_REFRESH_STATE_PATH,
+  ERROR_REPORT_PREVIEW_PATH,
+  ERROR_REPORT_SUBMIT_PATH,
+  GAME1_POSTBOARD_SPLIT_REVIEW_PATH,
+  GAMEPLAY_ACTION_REVIEW_PATH,
+  GAME_HISTORY_PATH,
+  LIVE_CAPTURE_START_PATH,
+  LIVE_CAPTURE_STATUS_PATH,
+  LIVE_CAPTURE_STOP_PATH,
+  LIVE_PLAYER_LOG_STATUS_PATH,
+  LIVE_WATCHER_DIAGNOSTICS_STATUS_PATH,
+  LIVE_WATCHER_PROCESS_STATUS_PATH,
+  LIVE_WATCHER_STATUS_PATH,
+  MANUAL_IMPORT_JOB_PATH,
+  MANUAL_IMPORT_PATH,
+  MANUAL_IMPORT_UPLOAD_PATH,
+  MATCH_HISTORY_PATH,
+  MATCH_JOURNAL_DISPLAY_CORRECTIONS_PATH,
+  MATCH_JOURNAL_EXPERIMENT_LABEL_PATH,
+  MATCH_JOURNAL_NOTES_PATH,
+  MATCH_JOURNAL_OPPONENT_LABELS_PATH,
+  MATCH_JOURNAL_PATH,
+  MATCH_JOURNAL_REVIEW_FLAGS_PATH,
+  MULLIGAN_HISTORY_PATH,
+  OPENING_HAND_HISTORY_PATH,
+  OPPONENT_CARD_OBSERVATION_REVIEW_PATH,
+  PLAY_DRAW_SPLIT_REVIEW_PATH,
+  SETUP_STATUS_PATH
+} from "./api/paths";
+import { getApiBaseUrl, guardedFetch } from "./api/request";
+export {
+  AnalyticsHistoryApiError,
+  ErrorReportApiError,
+  LiveStatusApiError,
+  ManualImportApiError,
+  MatchJournalApiError,
+  SetupStatusApiError
+} from "./api/errors";
+export { getApiBaseUrl, resetLocalRequestGuardForTests } from "./api/request";
+
+import {
   ACTION_REVIEW_SCHEMA_VERSION,
   ANALYTICS_DASHBOARD_MODULES_OBJECT,
   ANALYTICS_DASHBOARD_MODULES_SCHEMA_VERSION,
@@ -39,11 +89,9 @@ import {
   SETUP_STATUS_OBJECT,
   SETUP_STATUS_SCHEMA_VERSION,
   SPLIT_REVIEW_SCHEMA_VERSION,
-  type AnalyticsHistoryErrorCode,
   type AnalyticsHistoryStatus,
   type AnalyticsDashboardModulesResponse,
   type AnalyticsRefreshStateResponse,
-  type ErrorReportApiErrorCode,
   type ErrorReportPreviewRequest,
   type ErrorReportPreviewResponse,
   type ErrorReportSubmissionResponse,
@@ -54,15 +102,12 @@ import {
   type LiveCaptureStartResult,
   type LiveCaptureStatusResponse,
   type LiveCaptureStopResult,
-  type LiveStatusErrorCode,
   type LiveWatcherDiagnosticsResponse,
   type LiveWatcherProcessStatusResponse,
   type LiveWatcherStatusResponse,
-  type ManualImportErrorCode,
   type ManualImportJob,
   type ManualImportRequest,
   type ManualImportUploadRequest,
-  type MatchJournalApiErrorCode,
   type MatchJournalContext,
   type MatchJournalDisplayCorrectionRequest,
   type MatchJournalExperimentLabelRequest,
@@ -77,43 +122,9 @@ import {
   type OpeningHandHistoryResponse,
   type OpponentCardObservationReviewResponse,
   type PlayDrawSplitReviewResponse,
-  type SetupStatusErrorCode,
   type SetupStatusResponse
 } from "./types";
 
-const SETUP_STATUS_PATH = "/api/app/setup-status";
-const LIVE_PLAYER_LOG_STATUS_PATH = "/api/live/player-log/status";
-const LIVE_WATCHER_STATUS_PATH = "/api/live/watcher/status";
-const LIVE_WATCHER_PROCESS_STATUS_PATH = "/api/live/watcher/process";
-const LIVE_WATCHER_DIAGNOSTICS_STATUS_PATH = "/api/live/watcher/diagnostics";
-const LIVE_CAPTURE_STATUS_PATH = "/api/live/capture/status";
-const LIVE_CAPTURE_START_PATH = "/api/live/capture/start";
-const LIVE_CAPTURE_STOP_PATH = "/api/live/capture/stop";
-const REQUEST_GUARD_PATH = "/api/app/request-guard";
-const REQUEST_GUARD_OBJECT = "mythic_edge_local_request_guard";
-const REQUEST_GUARD_SCHEMA_VERSION = 1;
-const REQUEST_GUARD_HEADER_NAME = "X-Mythic-Edge-Local-Request-Guard";
-const MATCH_HISTORY_PATH = "/api/analytics/matches";
-const GAME_HISTORY_PATH = "/api/analytics/games";
-const OPENING_HAND_HISTORY_PATH = "/api/analytics/opening-hands";
-const MULLIGAN_HISTORY_PATH = "/api/analytics/mulligans";
-const GAMEPLAY_ACTION_REVIEW_PATH = "/api/analytics/gameplay-actions";
-const OPPONENT_CARD_OBSERVATION_REVIEW_PATH = "/api/analytics/opponent-card-observations";
-const PLAY_DRAW_SPLIT_REVIEW_PATH = "/api/analytics/play-draw-splits";
-const GAME1_POSTBOARD_SPLIT_REVIEW_PATH = "/api/analytics/game1-postboard-splits";
-const ANALYTICS_DASHBOARD_MODULES_PATH = "/api/analytics/dashboard/modules";
-const ANALYTICS_REFRESH_STATE_PATH = "/api/analytics/refresh-state";
-const MANUAL_IMPORT_PATH = "/api/imports/jsonl";
-const MANUAL_IMPORT_UPLOAD_PATH = "/api/imports/jsonl/upload";
-const MANUAL_IMPORT_JOB_PATH = "/api/imports/jobs";
-const MATCH_JOURNAL_PATH = "/api/journal";
-const MATCH_JOURNAL_NOTES_PATH = "/api/journal/notes";
-const MATCH_JOURNAL_OPPONENT_LABELS_PATH = "/api/journal/opponent-labels";
-const MATCH_JOURNAL_REVIEW_FLAGS_PATH = "/api/journal/review-flags";
-const MATCH_JOURNAL_EXPERIMENT_LABEL_PATH = "/api/journal/experiment-label";
-const MATCH_JOURNAL_DISPLAY_CORRECTIONS_PATH = "/api/journal/display-corrections";
-const ERROR_REPORT_PREVIEW_PATH = "/api/feedback/error-report/preview";
-const ERROR_REPORT_SUBMIT_PATH = "/api/feedback/error-report/submit";
 const REQUIRED_SETUP_STATUS_FIELDS = [
   "object",
   "schema_version",
@@ -294,104 +305,6 @@ const AUTOMATION_READINESS_ITEM_KEYS = [
   "shutdown_privacy_boundary_verified",
   "readiness_recorded_in_contract_or_report"
 ] as const;
-
-type LocalRequestGuard = {
-  baseUrl: string;
-  headerName: typeof REQUEST_GUARD_HEADER_NAME;
-  guardValue: string;
-};
-
-let cachedLocalRequestGuard: LocalRequestGuard | null = null;
-let pendingLocalRequestGuard: Promise<LocalRequestGuard> | null = null;
-
-export class SetupStatusApiError extends Error {
-  code: SetupStatusErrorCode;
-
-  constructor(code: SetupStatusErrorCode, message: string) {
-    super(message);
-    this.name = "SetupStatusApiError";
-    this.code = code;
-  }
-}
-
-export class LiveStatusApiError extends Error {
-  code: LiveStatusErrorCode;
-
-  constructor(code: LiveStatusErrorCode, message: string) {
-    super(message);
-    this.name = "LiveStatusApiError";
-    this.code = code;
-  }
-}
-
-export class ManualImportApiError extends Error {
-  code: ManualImportErrorCode;
-
-  constructor(code: ManualImportErrorCode, message: string) {
-    super(message);
-    this.name = "ManualImportApiError";
-    this.code = code;
-  }
-}
-
-export class AnalyticsHistoryApiError extends Error {
-  code: AnalyticsHistoryErrorCode;
-
-  constructor(code: AnalyticsHistoryErrorCode, message: string) {
-    super(message);
-    this.name = "AnalyticsHistoryApiError";
-    this.code = code;
-  }
-}
-
-export class MatchJournalApiError extends Error {
-  code: MatchJournalApiErrorCode;
-
-  constructor(code: MatchJournalApiErrorCode, message: string) {
-    super(message);
-    this.name = "MatchJournalApiError";
-    this.code = code;
-  }
-}
-
-export class ErrorReportApiError extends Error {
-  code: ErrorReportApiErrorCode;
-
-  constructor(code: ErrorReportApiErrorCode, message: string) {
-    super(message);
-    this.name = "ErrorReportApiError";
-    this.code = code;
-  }
-}
-
-export function getApiBaseUrl(value: string | undefined = import.meta.env.VITE_MYTHIC_EDGE_API_BASE_URL): string {
-  const trimmed = (value ?? "").trim().replace(/\/+$/, "");
-  if (!trimmed) {
-    return "";
-  }
-
-  let parsed: URL;
-  try {
-    parsed = new URL(trimmed);
-  } catch {
-    throw new SetupStatusApiError("unsafe_api_base_url", "API base URL must be a local loopback HTTP origin.");
-  }
-
-  const isLoopback = parsed.protocol === "http:" && (parsed.hostname === "127.0.0.1" || parsed.hostname === "localhost");
-  const port = Number(parsed.port);
-  const hasValidPort = Number.isInteger(port) && port >= 1 && port <= 65535;
-  const hasOnlyOrigin = parsed.pathname === "/" && parsed.search === "" && parsed.hash === "";
-  if (!isLoopback || !hasValidPort || !hasOnlyOrigin) {
-    throw new SetupStatusApiError("unsafe_api_base_url", "API base URL must be a local loopback HTTP origin.");
-  }
-
-  return parsed.origin;
-}
-
-export function resetLocalRequestGuardForTests(): void {
-  cachedLocalRequestGuard = null;
-  pendingLocalRequestGuard = null;
-}
 
 export async function fetchSetupStatus(fetchImpl: typeof fetch = fetch): Promise<SetupStatusResponse> {
   const baseUrl = getApiBaseUrl();
@@ -957,57 +870,6 @@ async function postLiveCaptureControl(
   } catch {
     throw new LiveStatusApiError("malformed_response", `${label} returned malformed JSON.`);
   }
-}
-
-async function guardedFetch(
-  baseUrl: string,
-  path: string,
-  init: RequestInit & { headers: Record<string, string> },
-  fetchImpl: typeof fetch
-): Promise<Response> {
-  const guard = await fetchLocalRequestGuard(baseUrl, fetchImpl);
-  return fetchImpl(`${baseUrl}${path}`, {
-    ...init,
-    headers: { ...init.headers, [guard.headerName]: guard.guardValue }
-  });
-}
-
-async function fetchLocalRequestGuard(baseUrl: string, fetchImpl: typeof fetch): Promise<LocalRequestGuard> {
-  if (cachedLocalRequestGuard?.baseUrl === baseUrl) {
-    return cachedLocalRequestGuard;
-  }
-  pendingLocalRequestGuard ??= fetchAndValidateLocalRequestGuard(baseUrl, fetchImpl);
-  try {
-    cachedLocalRequestGuard = await pendingLocalRequestGuard;
-    return cachedLocalRequestGuard;
-  } finally {
-    pendingLocalRequestGuard = null;
-  }
-}
-
-async function fetchAndValidateLocalRequestGuard(baseUrl: string, fetchImpl: typeof fetch): Promise<LocalRequestGuard> {
-  const response = await fetchImpl(`${baseUrl}${REQUEST_GUARD_PATH}`, {
-    headers: { Accept: "application/json" }
-  });
-  if (!response.ok) {
-    throw new Error("Local request guard is unavailable.");
-  }
-  const payload = await response.json();
-  if (
-    !isRecord(payload) ||
-    payload.object !== REQUEST_GUARD_OBJECT ||
-    payload.schema_version !== REQUEST_GUARD_SCHEMA_VERSION ||
-    payload.status !== "available" ||
-    payload.header_name !== REQUEST_GUARD_HEADER_NAME ||
-    typeof payload["token"] !== "string" ||
-    payload["token"].trim() === "" ||
-    payload.expires_on_backend_restart !== true ||
-    !Array.isArray(payload.warnings) ||
-    !Array.isArray(payload.errors)
-  ) {
-    throw new Error("Local request guard returned malformed JSON.");
-  }
-  return { baseUrl, headerName: REQUEST_GUARD_HEADER_NAME, guardValue: payload["token"] };
 }
 
 function validateSetupStatusResponse(payload: unknown): SetupStatusResponse {
