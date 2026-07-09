@@ -1,5 +1,8 @@
 # Problem Representation
 
+Use this for Codex A. It should define the problem clearly enough that Codex B
+can write a contract without reconstructing chat history.
+
 ## Summary
 
 One or two sentences describing the bug, feature, audit target, or confusing
@@ -34,25 +37,25 @@ lane_activation:
     recorded_in: ""
 ```
 
-Use an exception only for a named, scoped, expiring second lane. Valid
-exception names are `security_hotfix`, `privacy_or_raw_log_leak`,
-`data_loss_or_corruption`, `ci_blocking_all_work`,
-`dependency_security_update`, `blocked_lane_unblocker`,
-`repo_bootstrap_or_split`, and `explicit_user_override`.
+Use an exception only for a named, scoped, expiring second lane:
+`security_hotfix`, `privacy_or_raw_log_leak`, `data_loss_or_corruption`,
+`ci_blocking_all_work`, `dependency_security_update`,
+`blocked_lane_unblocker`, `repo_bootstrap_or_split`, or
+`explicit_user_override`.
 
-## What The Code Is Supposed To Do
+## Intended Behavior
 
-Describe the intended behavior in plain English.
+Describe what the code, document, workflow, or artifact is supposed to do.
 
-## What It Is Actually Doing
+## Actual Behavior
 
-Describe the current behavior. Include the exact bad output, missing output, or
-confusing state if known.
+Describe what is happening now. Include exact bad output, missing output, or
+confusing state when known.
 
 ## Why This Matters
 
-Explain the user impact, debugging impact, workbook impact, or downstream
-analytics impact.
+Explain the user impact, debugging impact, workbook impact, downstream
+analytics impact, governance risk, or maintenance cost.
 
 ## Project Layer
 
@@ -69,8 +72,7 @@ Choose the main layer:
 
 ## Internal Project Area
 
-Choose the main ADR-0006/internal-project-map area when it helps route the
-work:
+Choose the ADR-0006/internal-project-map area when it helps routing:
 
 - Parser
 - Corpus / Provenance
@@ -85,28 +87,25 @@ work:
 - N/A / unclear
 
 Future AI Integration is deferred vocabulary only. Naming it does not authorize
-OpenAI or model-provider runtime integration, AI coaching evaluation, AI-owned
-parser truth, AI-owned analytics truth, hidden-card truth, gameplay correctness
-truth, or strategic certainty.
+OpenAI/model-provider runtime integration, AI-owned truth, hidden-card truth,
+gameplay correctness truth, or strategic certainty.
 
-If this is bridge-code work, name both the source project area and the
-consuming project area.
+If this is bridge-code work, name both source and consuming project areas.
 
 ## First Bad Value
 
-Name the first observed place where the data becomes wrong or ambiguous.
-
-If unknown, list the places to inspect in order.
+Name the first observed place where data, state, authority, or routing becomes
+wrong or ambiguous. If unknown, list inspection points in order.
 
 ## Inputs
 
-List representative logs, payloads, fixture rows, workbook tabs, docs, prompts,
-or commands involved.
+List representative logs, payloads, fixtures, workbook tabs, docs, prompts,
+commands, issues, PRs, or artifacts involved.
 
 ## Expected Output
 
 List the final parser-managed fields, webhook rows, workbook columns, visible
-dashboard effect, docs artifact, or workflow decision expected.
+dashboard effect, docs artifact, workflow decision, or GitHub outcome expected.
 
 ## Scope
 
@@ -122,23 +121,22 @@ Out of scope:
 
 For validator, preflight, dry-run, report-only, review-ready, advisory, or
 no-blocking-finding states, state whether the status is prerequisite evidence
-only. Do not frame it as authority for durable writes, source-repo action,
-gate activation, protected-surface enforcement, readiness, or truth claims
-unless the current issue and role explicitly authorize that stronger state.
+only. Do not frame it as authority for durable writes, source-repo action, gate
+activation, protected-surface enforcement, readiness, or truth claims unless
+the current issue and role explicitly authorize that stronger state.
 
 If protected-surface enforcement may be relevant, name the current rollout
 phase: measurement, advisory baseline, candidate selection, report-only gate,
 or blocking enforcement.
 
-For public artifacts, name any public-safe/no-echo boundary. Unsafe private
+For public artifacts, name public-safe/no-echo boundaries. Unsafe private
 source values should become symbolic categories, redacted placeholders,
-bucketed values, or fail-closed rejections instead of being pasted back into
-the artifact.
+bucketed values, or fail-closed rejections instead of being pasted back.
 
 ## Risks And Likely Breakpoints
 
 List likely import, shared state, interface, workbook, deployment, issue,
-tracker, PR lifecycle, or data drift risks.
+tracker, PR lifecycle, authority, privacy, or data-drift risks.
 
 ## Validation Evidence Needed
 
@@ -192,6 +190,32 @@ workflow_handoff:
       recorded_in: ""
   validation:
     - ""
+  stop_conditions:
+    - ""
+```
+
+For medium-risk and high-risk work, include:
+
+```yaml
+instruction_context:
+  required_for_risk_tier: "medium_or_high"
+  deferred_for_low_risk: false
+  role: "A"
+  risk_tier: ""
+  global_router_read: false
+  repo_agents_read: false
+  repo_rules_read: false
+  repo_constitution_read: false
+  repo_workflow_read: false
+  role_doc_read: false
+  issue_or_tracker_read: false
+  contract_or_handoff_read: false
+  accepted_adrs_read:
+    - ""
+  protected_surfaces:
+    - ""
+  authority_conflicts_found: false
+  authority_conflict_notes: ""
   stop_conditions:
     - ""
 ```
