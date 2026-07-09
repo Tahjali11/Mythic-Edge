@@ -102,8 +102,8 @@ Codex must not:
 - merge PRs unless acting as Codex G with explicit user approval and all
   deployer gates satisfied
 - force-clean, reset, stash-drop, delete, or otherwise destroy checkout state
-  unless Codex G has classified the residue and the exact cleanup is safe or
-  separately approved
+  without exact user approval, except for verified squash-merge local branch
+  residue under the checklist in `docs/codex_module_workflow.md`
 
 ## Truth Model
 
@@ -223,8 +223,9 @@ correct issue/tracker behavior, and no forbidden files.
 Whenever Codex G runs, it must reconcile checkout state: fetch/prune, inspect
 status, classify residue, preserve meaningful or ambiguous work, remove only
 clearly safe scoped residue, and report `checkout_cleanup`. Destructive cleanup
-requires exact approval except for verified squash-merge local branch residue
-under the checklist in `docs/codex_module_workflow.md`.
+requires exact user approval. The only standing exception is verified
+squash-merge local branch residue under the checklist in
+`docs/codex_module_workflow.md`.
 
 ## Artifacts And Handoffs
 
