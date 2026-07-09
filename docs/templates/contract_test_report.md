@@ -149,3 +149,29 @@ workflow_handoff:
   stop_conditions:
     - ""
 ```
+
+For medium-risk and high-risk work, include:
+
+```yaml
+instruction_context:
+  required_for_risk_tier: "medium_or_high"
+  deferred_for_low_risk: false
+  role: "E"
+  risk_tier: ""
+  global_router_read: false
+  repo_agents_read: false
+  repo_rules_read: false
+  repo_constitution_read: false
+  repo_workflow_read: false
+  role_doc_read: false
+  issue_or_tracker_read: false
+  contract_or_handoff_read: false
+  accepted_adrs_read:
+    - ""
+  protected_surfaces:
+    - ""
+  authority_conflicts_found: false
+  authority_conflict_notes: ""
+  stop_conditions:
+    - ""
+```

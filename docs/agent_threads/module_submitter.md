@@ -10,7 +10,8 @@ This is workflow role F.
 
 This role stages intended files, commits intentionally, pushes the branch, and
 opens or updates a draft pull request to the approved target branch. Merge,
-issue closure, and tracker completion work belongs to Codex G.
+issue closure, tracker completion, and deployer checkout reconciliation belong
+to Codex G.
 
 ## Allowed Risk Level
 
@@ -101,7 +102,8 @@ End with:
 - [ ] PR body links the issue, tracker when applicable, contract,
       implementation handoff, and review report.
 - [ ] Merge is not performed.
-- [ ] Issue closure and tracker completion are routed to Codex G.
+- [ ] Issue closure, tracker completion, and deployer checkout reconciliation
+      are routed to Codex G.
 
 ## Canonical Starter Prompt
 

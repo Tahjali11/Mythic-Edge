@@ -73,7 +73,8 @@ End with:
 - [ ] Missing tests are named.
 - [ ] Remaining risk is stated.
 - [ ] Next role is Module Fixer, Module Contract Writer, Thinker, Module Submitter, or none.
-- [ ] Deployer work is routed to Codex G after submitter work creates or updates a PR.
+- [ ] Deployer work, including checkout reconciliation, is routed to Codex G
+      after submitter work creates or updates a PR.
 - [ ] Public-safe/no-echo, vocabulary coherence, authority semantics,
       fail-closed schema behavior, and protected-surface rollout phase were
       considered when relevant.
