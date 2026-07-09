@@ -33,50 +33,31 @@ source_priority:
   synthesis:
     - system_and_developer
     - current_user_instruction
-    - docs/problem_representations/agent_constitution_v2_synthesis.md
     - AGENTS.md
     - docs/agent_constitution.md
     - docs/codex_module_workflow.md
     - docs/agent_threads
     - docs/templates
-    - docs/decisions/README.md
     - docs/decisions/ADR-*.md
-    - .github/pull_request_template.md
-    - .github/ISSUE_TEMPLATE/module_workflow.yml
-    - role_labeled_v2_drafts
     - older_docs_examples_memory
 
 conflict_triage:
   order:
-    - id: preserve_active_instructions
-      rule: Preserve active system, developer, and user instructions.
-    - id: preserve_contract_decisions
-      rule: Preserve accepted decisions in the current contract.
-    - id: preserve_accepted_adrs
-      rule: Preserve accepted Architecture Decision Records unless a current issue and contract explicitly authorize an amendment or supersession path.
-    - id: preserve_v1_sacred_rules
-      rule: Preserve V1 sacred safety rules.
-    - id: preserve_parser_truth_ownership
-      rule: Preserve parser truth ownership.
-    - id: prevent_high_risk_drift
-      rule: Prefer the rule that prevents irreversible or high-risk drift.
-    - id: prefer_proven_repo_workflow
-      rule: Prefer current repo workflow proven by successful issues and PRs.
-    - id: prefer_terse_machine_readable_rules
-      rule: Prefer shorter machine-readable rules when they are equally safe.
-    - id: prefer_canonical_source_links
-      rule: Prefer one canonical source plus links over duplicated prose.
-    - id: preserve_high_risk_open_questions
-      rule: Preserve minority or high-risk concerns as open questions rather than silently dropping them.
+    - active_instructions
+    - contract_decisions
+    - accepted_adrs
+    - v1_safety_rules
+    - parser_truth_ownership
+    - high_risk_drift_prevention
+    - proven_repo_workflow
+    - terse_machine_rules
+    - canonical_source_links
+    - high_risk_open_questions
   error_behavior:
-    - apply_conflict_triage_order
-    - preserve_safety_or_authority_disagreements_as_open_risks
-    - route_to_A_or_B_when_current_issue_or_contract_conflicts_with_accepted_ADR
-    - route_to_B_when_resolution_requires_contract_change
-  examples:
-    deployer_role_name: Codex G overrides draft F2 deployer naming.
-    per_role_yaml: Per-role YAML schema is defined, but per-role YAML files are not required in the first adoption PR.
-    role_labeled_drafts: Role-labeled V2 drafts are archived after adoption instead of left beside active rule files.
+    - apply_order
+    - preserve_safety_or_authority_risks
+    - route_to_A_or_B_for_ADR_conflicts
+    - route_to_B_for_contract_changes
 
 sacred_rules:
   parser_truth_ownership:
@@ -160,26 +141,21 @@ external_integration_surfaces:
     - external_data_sources
     - ai_or_llm_output
   must_not_own:
-    - parser_state_truth
-    - deterministic_scoring_or_evaluation_without_contract
-    - workbook_schema_truth
+    - parser_truth
+    - deterministic_scoring_without_contract
     - repo_authority
     - merge_or_deploy_readiness
-    - secret_or_credential_policy
   separate_issue_and_contract_required_for:
     - openai_api_runtime_integration
     - model_provider_runtime_integration
     - coaching_evaluation
-    - credential_or_environment_contract_changes
+    - credential_or_environment_changes
     - sensitive_external_data_sharing
-    - live_google_docs_or_sheets_writes
-    - connector_plugin_mcp_installation_or_permission_expansion
-  human_approval_required_for:
     - live_external_writes
+    - connector_or_permission_expansion
+  human_approval_required_for:
     - permission_or_sharing_changes
-    - credential_secret_or_oauth_changes
-    - broader_connector_authorization
-    - sensitive_external_data_sharing
+    - credential_or_oauth_changes
     - destructive_external_operations
     - production_deployment_changes
 
@@ -207,23 +183,20 @@ architecture_decision_records:
   required_when:
     - durable_truth_ownership_policy_changes
     - protected_surface_policy_changes
-    - schema_snapshot_fixture_or_drift_budget_policy_changes
-    - parser_resilience_or_player_log_drift_policy
+    - schema_fixture_or_drift_policy_changes
     - ai_analytics_boundary_policy
-    - external_integration_privacy_secret_or_retention_policy
-    - branch_merge_deploy_or_production_safety_policy
-    - durable_dependency_tooling_codegen_or_validation_gate_strategy
-    - superseding_rejecting_or_materially_amending_prior_ADR
+    - external_integration_privacy_or_secret_policy
+    - branch_merge_deploy_or_production_policy
+    - durable_tooling_or_validation_strategy
+    - material_prior_ADR_change
   not_required_when:
     - typo_or_formatting_fix
     - local_wording_without_rule_change
     - scoped_module_implementation_under_current_contract
-    - focused_tests_preserving_existing_behavior
-    - pr_specific_drift_without_future_policy
   conflict_behavior:
-    - do_not_treat_ADRs_as_automatic_protected_surface_authorization
-    - cite_relevant_ADRs_in_issues_contracts_reviews_handoffs_and_PRs
-    - route_to_A_or_B_when_scoped_work_conflicts_with_accepted_ADR
+    - no_automatic_protected_surface_authorization
+    - cite_relevant_ADRs
+    - route_conflicts_to_A_or_B
 
 roles:
   A:
@@ -372,7 +345,6 @@ constitution_feedback:
   preferred_formal_storage_path: docs/constitution_feedback/rounds/YYYY-MM-DD/packets/
   source_coverage_table_required_when:
     - multiple_packets_supplied
-    - seven_or_more_packets_supplied
   current_status_classification_required_before_synthesis: true
   current_status_labels:
     - active
@@ -385,21 +357,20 @@ constitution_feedback:
   current_status_sources:
     - current_repo_governance_docs
     - accepted_architecture_decision_records
-    - relevant_issues
-    - relevant_pull_requests
+    - issues_and_prs
     - active_contracts
   amendment_quality_test:
     adopt_or_route_when:
-      - prevents_real_or_credible_failure_mode
-      - clarifies_authority_truth_role_or_protected_surface
-      - improves_human_oversight_of_high_risk_or_irreversible_actions
-      - improves_validation_auditability_or_evidence_quality
-      - reduces_stale_duplicated_or_conflicting_governance
-      - preserves_or_improves_low_risk_escape_hatches
+      - prevents_failure
+      - clarifies_authority_truth_role_or_surface
+      - improves_high_risk_oversight
+      - improves_validation_or_evidence
+      - reduces_governance_duplication
+      - preserves_low_risk_escape_hatches
     watch_list_or_no_action_when:
-      - mainly_adds_ceremony
-      - duplicates_existing_rule
-      - hides_safety_rule_behind_vague_reference
+      - ceremony_only
+      - duplicate_rule
+      - vague_safety_reference
       - lacks_concrete_failure_mode
   rule_type_labels:
     - hard_rule
@@ -415,27 +386,7 @@ constitution_feedback:
     - same
     - higher_justified
     - higher_not_justified
-  ceremony_budget_rule: New required process must be justified by risk, repeated drift, external side effects, authority changes, or protected-surface impact.
-  tool_surface_boundary:
-    surfaces:
-      - local_codex_skills
-      - mcp_servers
-      - plugins
-      - connectors
-      - github_connector
-      - google_drive_sheets_docs_connectors
-      - openai_developer_docs_connector
-      - openai_api_runtime_integrations
-      - browser_shell_and_local_automation_helpers
-    default_authority: access_or_collaboration_layer_not_project_truth
-    must_not_supersede:
-      - repo_governance_docs
-      - accepted_architecture_decision_records
-      - parser_state_truth
-      - deterministic_analytics
-      - protected_surface_gates
-      - secret_policy
-      - human_approval_gates
+  ceremony_budget_rule: justify_required_process_by_risk_or_repeated_drift
   raw_packets_are_authority: false
   codex_h_synthesis_is_authority: false
 
@@ -516,11 +467,11 @@ issue_lifecycle:
   v2_synthesis_issue: https://github.com/Tahjali11/Mythic-Edge/issues/18
   v1_tracker_issue: https://github.com/Tahjali11/Mythic-Edge/issues/1
   close_rules:
-    tracker: Close only when entire tracked queue or phase is complete.
-    module_audit: Close after artifacts exist, review is clean or accepted, PR is merged to approved base, validation is recorded, and tracker is updated.
-    bug: Close after fix PR is merged, validation is recorded, and no follow-up implementation is implied.
-    planning_docs: Close when requested artifacts are complete or follow-up implementation issue is linked.
-    constitution: Close when rule changes are merged, affected role docs/templates are updated if needed, validation is recorded, and no amendment work remains.
+    tracker: tracked_queue_or_phase_complete
+    module_audit: artifacts_review_merge_validation_tracker_done
+    bug: fix_merged_validated_no_followup
+    planning_docs: artifacts_complete_or_followup_linked
+    constitution: rule_changes_merged_validated_no_amendment_work
   completion_comment_fields:
     - pr_number
     - merge_commit
@@ -580,14 +531,14 @@ lane_activation_policy:
     - authorized_by
     - recorded_in
   clearing_conditions:
-    - source_issue_closed_after_merge_or_deployer_closeout
-    - source_pr_merged_and_completion_evidence_recorded
-    - source_pr_closed_and_issue_cancelled_parked_deferred_or_reassigned
-    - lane_explicitly_parked_or_deferred_with_no_current_work
-    - lane_blocked_awaiting_external_or_user_evidence_and_current_work_paused
-    - narrow_blocked_lane_unblocker_exception_recorded
-    - user_explicitly_cancels_reassigns_or_overrides_active_slot
-    - repo_bootstrap_or_split_expiration_condition_reached
+    - issue_closed_after_merge_or_closeout
+    - pr_merged_with_completion_evidence
+    - pr_closed_and_issue_parked_deferred_cancelled_or_reassigned
+    - parked_or_deferred_with_no_current_work
+    - blocked_and_current_work_paused
+    - blocked_lane_unblocker_exception_recorded
+    - user_cancels_reassigns_or_overrides
+    - bootstrap_exception_expired
     - stale_worktree_classified_as_local_cleanup_only
   tracker_selected_next_lane_rule: queued_not_active_until_started_or_assigned
   active_pr_rule: open_pr_keeps_source_lane_active_until_merged_closed_parked_or_deferred
@@ -595,8 +546,8 @@ lane_activation_policy:
   error_behavior:
     missing_repository_identity: hard_stop_before_mutation
     remote_mismatch: hard_stop_before_mutation
-    ambiguous_parked_or_deferred_status: treat_as_active_until_current_authority_records_otherwise
-    existing_active_lane_without_exception: route_to_A_or_B_or_ask_for_explicit_override
+    ambiguous_parked_or_deferred_status: treat_as_active
+    existing_active_lane_without_exception: route_or_request_override
 
 pr_lifecycle:
   default_state: draft
@@ -710,12 +661,21 @@ workflow_handoff_schema:
     - freshness
     - lane_activation
     - checkout_cleanup
-  public_path_rule: Do not include local absolute paths in public workflow_handoff blocks.
-  local_prompt_rule: Generated local prompts may include Operating repo/worktree outside public workflow_handoff blocks.
+  public_path_rule: no_local_absolute_paths
+  local_prompt_rule: local_paths_allowed_only_outside_public_handoff_blocks
   mismatch_behavior: Hard stop before repository mutation when the local checkout remote cannot be verified against repository_url.
-  sibling_reference_rule: Sibling repositories are read-only unless explicitly listed in allowed_read_only_references or routed through their own repo-scoped handoff.
-  checkout_cleanup_rule: Codex G must classify checkout residue and preserve meaningful or ambiguous user work before cleanup.
-  destructive_cleanup_rule: Codex G must not reset, force-clean, drop stashes, delete private/local artifacts, delete remote branches, or force-delete ambiguous branches without exact user approval; Codex G may force-delete verified squash-merge local branch residue only when the PR is live-verified as MERGED, the local branch tip exactly equals the merged/reviewed PR head SHA, the merge commit is recorded, the branch is not current/main/an integration branch/a protected long-lived branch, no dirty worktree is attached, and the force-delete is recorded in checkout_cleanup.
+  sibling_reference_rule: read_only_unless_authorized
+  checkout_cleanup_rule: classify_residue_preserve_meaningful_or_ambiguous_work
+  destructive_cleanup_rule:
+    default: exact_user_approval_required
+    exception: verified_squash_merge_local_branch_residue
+    exception_conditions:
+      - pr_merged
+      - local_tip_equals_pr_head
+      - merge_commit_recorded
+      - branch_not_current_main_integration_or_protected
+      - no_dirty_worktree_attached
+      - recorded_in_checkout_cleanup
   lane_activation_schema:
     repo: string
     active_issue_or_lane: string
@@ -752,25 +712,11 @@ current_status_schema:
   repo_status:
     branch: string
     open_issues:
-      fields:
-        - number
-        - title
-        - purpose
-        - next_action
+      fields: [number, title, purpose, next_action]
     open_prs:
-      fields:
-        - number
-        - title
-        - base
-        - draft
-        - checks
-        - next_action
+      fields: [number, title, base, draft, checks, next_action]
     recently_merged:
-      fields:
-        - pr
-        - merge_commit
-        - issue_closed
-        - tracker_updated
+      fields: [pr, merge_commit, issue_closed, tracker_updated]
     active_tracker: string
     next_recommended_action: string
 
