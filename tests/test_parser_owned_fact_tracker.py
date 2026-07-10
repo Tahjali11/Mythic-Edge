@@ -5,7 +5,48 @@ import json
 
 import pytest
 
-from mythic_edge_parser.app import field_recovery_matrix, parser_owned_fact_tracker
+from mythic_edge_parser.app import field_recovery_matrix, parser_owned_fact_tracker, parser_owned_fact_tracker_schema
+
+MOVED_SCHEMA_CONSTANT_NAMES = (
+    "SOURCE_ISSUE",
+    "PIPELINE_TRACKER",
+    "PARENT_PRIVATE_EVIDENCE_ISSUE",
+    "CONTRACT_PATH",
+    "FACT_TARGET_MATRIX_OBJECT",
+    "FACT_TARGET_MATRIX_SCHEMA_VERSION",
+    "SESSION_CAPTURE_LEDGER_OBJECT",
+    "SESSION_CAPTURE_LEDGER_SCHEMA_VERSION",
+    "COVERAGE_PROGRESS_REPORT_OBJECT",
+    "COVERAGE_PROGRESS_REPORT_SCHEMA_VERSION",
+    "DEFAULT_CREATED_AT_UTC",
+    "DEFAULT_MATRIX_ID",
+    "DEFAULT_LEDGER_ID",
+    "DEFAULT_REPORT_ID",
+    "DEFAULT_SCOPE",
+    "TARGET_MATRIX_STATUSES",
+    "COMPETITIVE_SCOPES",
+    "DEFERRED_REASONS",
+    "PRIORITIES",
+    "FACT_FAMILIES",
+    "LIFECYCLE_STATUSES",
+    "PLATFORM_KEYS",
+    "PLATFORM_STATUSES",
+    "SOURCE_KINDS",
+    "SYNTHETIC_SOURCE_KINDS",
+    "PRIVATE_SOURCE_KINDS",
+    "FORMAT_FAMILIES",
+    "QUEUE_FAMILIES",
+    "MATCH_TYPES",
+    "FALSE_FLAG_FIELDS",
+    "READINESS_FLAG_FIELDS",
+    "AUTHORIZATION_FLAG_FIELDS",
+    "REQUIRED_NON_CLAIMS",
+    "MATRIX_REQUIRED_FIELDS",
+    "FACT_REQUIRED_FIELDS",
+    "LEDGER_REQUIRED_FIELDS",
+    "SESSION_REQUIRED_FIELDS",
+    "REPORT_REQUIRED_FIELDS",
+)
 
 
 def _fact_by_id(matrix: dict, fact_id: str) -> dict:
@@ -70,6 +111,27 @@ def _session(
         },
         "non_claims": list(parser_owned_fact_tracker.REQUIRED_NON_CLAIMS),
     }
+
+
+def test_schema_constants_remain_identical_through_public_facade() -> None:
+    for name in MOVED_SCHEMA_CONSTANT_NAMES:
+        assert getattr(parser_owned_fact_tracker, name) is getattr(
+            parser_owned_fact_tracker_schema,
+            name,
+        )
+
+    for facade_only_name in (
+        "FACT_STATUS_REQUIRED_REF_FIELDS",
+        "ALLOWED_TRANSITIONS",
+        "SIDE_TRANSITIONS",
+        "SESSION_STATUS_REQUIRED_REF_FIELDS",
+        "SYMBOLIC_ID_RE",
+        "FACT_ID_RE",
+        "LOCAL_OR_PRIVATE_TEXT_RE",
+        "FORBIDDEN_KEY_RE",
+        "SAFE_KEY_ALLOWLIST",
+    ):
+        assert not hasattr(parser_owned_fact_tracker_schema, facade_only_name)
 
 
 def test_default_target_matrix_builds_from_field_recovery_rows() -> None:
