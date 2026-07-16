@@ -4,13 +4,14 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=20"
+    "node": ">=22.12.0"
   },
   "scripts": {
     "dev": "vite",
     "typecheck": "tsc --noEmit",
-    "test": "vitest",
-    "build": "tsc --noEmit && vite build",
+    "typecheck:sites": "tsc --noEmit -p tsconfig.sites.json",
+    "test": "vitest --exclude tests/sites-build-shape.test.mjs",
+    "build": "npm run typecheck && npm run typecheck:sites && vite build --config vite.sites.config.ts && node --test tests/sites-build-shape.test.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -18,14 +19,17 @@
     "react-dom": "^19.2.6"
   },
   "devDependencies": {
+    "@cloudflare/vite-plugin": "1.37.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
+    "@types/node": "22.19.19",
     "@types/react": "^19.2.15",
     "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.2",
+    "@vitejs/plugin-react": "6.0.2",
     "jsdom": "^29.1.1",
-    "typescript": "^6.0.3",
-    "vite": "^8.0.14",
-    "vitest": "^4.1.7"
+    "typescript": "6.0.3",
+    "vite": "8.0.14",
+    "vitest": "^4.1.7",
+    "wrangler": "4.92.0"
   }
 }
