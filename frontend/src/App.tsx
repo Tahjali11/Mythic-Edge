@@ -253,8 +253,23 @@ type CockpitStatusItem = {
   status: string;
   tone: SetupStatusTone;
   detail: string;
+  action?: {
+    href: string;
+    label: string;
+  };
   liveActive?: boolean;
 };
+
+type CockpitStatusSummary = Pick<CockpitStatusItem, "status" | "tone" | "detail" | "action">;
+
+const COCKPIT_STATUS_ACTIONS = {
+  analytics: { href: "#analytics", label: "Open analytics" },
+  diagnostics: { href: "#diagnostics", label: "View diagnostics" },
+  import: { href: "#import", label: "Import history" },
+  privacy: { href: "#privacy", label: "Review privacy" }
+} as const;
+
+const COCKPIT_NEEDS_REVIEW = { label: "Needs review", tone: "degraded" as const };
 
 type CockpitChartBar = {
   label: string;
@@ -1790,6 +1805,10 @@ function CockpitStatusRail({
                 onStartCapture={onStartCapture}
                 onStopCapture={onStopCapture}
               />
+            ) : item.action ? (
+              <a className="cockpitActionLink" href={item.action.href}>
+                {item.action.label}
+              </a>
             ) : null}
           </div>
         </article>
@@ -4523,17 +4542,17 @@ function buildCockpitStatusItems(
   historyState: HistoryState,
   liveCaptureControlState: LiveCaptureControlState
 ): CockpitStatusItem[] {
-  const app = unsafeCount > 0 ? { label: "Needs review", tone: "degraded" as const } : cockpitStatusFromRawStatus(payload.status, "app");
   const liveCapture = liveCaptureStatusFromControlOrSetup(liveCaptureControlState, payload);
-  const analytics = cockpitStatusFromRawStatus(analyticsHistoryStatus(historyState), "analytics");
+  const analytics = analyticsDatabaseCockpitSummary(payload.analytics_database, historyState);
 
   return [
     {
       cue: "APP",
       label: "App connection",
-      status: app.label,
-      tone: app.tone,
-      detail: app.label === "Ready" ? "Backend reachable." : "Backend response needs review."
+      status: "Connected",
+      tone: "ok",
+      detail: unsafeCount > 0 ? "Backend connected; some display values were hidden." : "Backend connected and responding.",
+      action: unsafeCount > 0 ? COCKPIT_STATUS_ACTIONS.privacy : COCKPIT_STATUS_ACTIONS.diagnostics
     },
     {
       cue: "LIVE",
@@ -4546,11 +4565,142 @@ function buildCockpitStatusItems(
     {
       cue: "DATA",
       label: "Analytics database",
-      status: analytics.label,
+      status: analytics.status,
       tone: analytics.tone,
-      detail: analytics.label === "Ready" ? "History available." : "No history yet."
+      detail: analytics.detail,
+      action: analytics.action
     }
   ];
+}
+
+function analyticsDatabaseCockpitSummary(
+  databaseSection: SectionStatus,
+  historyState: HistoryState
+): CockpitStatusSummary {
+  const database = cockpitStatusFromRawStatus(statusFromSection(databaseSection), "analytics");
+  const historyHasRecords =
+    historyState.state === "ready" && historyState.matches.rows.length + historyState.games.rows.length > 0;
+
+  if (database.label !== "Ready") {
+    if (historyHasRecords) {
+      const status = database.label === "Empty history" ? COCKPIT_NEEDS_REVIEW : database;
+      return cockpitStatusSummary(
+        status,
+        `History is available, but the analytics database reports ${database.label.toLowerCase()}.`
+      );
+    }
+    if (database.label === "Setup needed") {
+      return cockpitStatusSummary(database, "Analytics database setup is needed.", COCKPIT_STATUS_ACTIONS.import);
+    }
+    if (database.label === "Empty history") {
+      const historyConfirmedEmpty =
+        historyState.state === "ready" && analyticsHistoryStatus(historyState) === "empty";
+      return historyConfirmedEmpty
+        ? cockpitStatusSummary(
+            database,
+            "Analytics database is ready, but no history is recorded yet.",
+            COCKPIT_STATUS_ACTIONS.import
+          )
+        : cockpitStatusSummary(
+            COCKPIT_NEEDS_REVIEW,
+            "Analytics database reports empty, but history has not confirmed it."
+          );
+    }
+    if (database.label === "Blocked") {
+      return cockpitStatusSummary(database, "Analytics database is blocked.");
+    }
+    if (database.label === "Unavailable") {
+      return cockpitStatusSummary(database, "Analytics database is unavailable.");
+    }
+    if (database.label === "Limited data") {
+      return cockpitStatusSummary(database, "Analytics database access is limited.");
+    }
+    return cockpitStatusSummary(database, "Analytics database status needs review.");
+  }
+
+  if (historyState.state === "loading") {
+    return cockpitStatusSummary(database, "Database ready; checking history.", COCKPIT_STATUS_ACTIONS.analytics);
+  }
+
+  if (historyState.state === "error") {
+    const history = cockpitStatusFromRawStatus(errorTone(historyState.code), "analytics");
+    return cockpitStatusSummary(history, "Database ready; history could not be loaded.");
+  }
+
+  const history = cockpitStatusFromRawStatus(analyticsHistoryStatus(historyState), "analytics");
+  const matchCount = historyState.matches.rows.length;
+  const gameCount = historyState.games.rows.length;
+  const recordCountDetail = `${countLabel(matchCount, "match", "matches")} and ${countLabel(gameCount, "game", "games")} available.`;
+
+  if (historyState.unsafeCount > 0 && history.label === "Needs review") {
+    const detail =
+      matchCount + gameCount > 0
+        ? "History is available, but some display values were hidden."
+        : "History contains hidden display values and needs review.";
+    return cockpitStatusSummary(COCKPIT_NEEDS_REVIEW, detail, COCKPIT_STATUS_ACTIONS.privacy);
+  }
+
+  if (history.label === "Ready") {
+    if (matchCount + gameCount === 0) {
+      return cockpitStatusSummary(COCKPIT_NEEDS_REVIEW, "Database is ready, but history availability needs review.");
+    }
+    return cockpitStatusSummary(history, recordCountDetail, COCKPIT_STATUS_ACTIONS.analytics);
+  }
+
+  if (history.label === "Empty history") {
+    if (matchCount + gameCount > 0) {
+      return cockpitStatusSummary(
+        COCKPIT_NEEDS_REVIEW,
+        "History rows are present, but their availability status needs review."
+      );
+    }
+    return cockpitStatusSummary(
+      history,
+      "Database ready; no history recorded yet.",
+      COCKPIT_STATUS_ACTIONS.import
+    );
+  }
+
+  if (history.label === "Needs review" && matchCount + gameCount > 0) {
+    return cockpitStatusSummary(history, "History is available, but some analytics need review.");
+  }
+
+  if (matchCount + gameCount > 0) {
+    return cockpitStatusSummary(
+      history,
+      `History rows are available, but history reports ${history.label.toLowerCase()}.`
+    );
+  }
+
+  return cockpitStatusSummary(history, analyticsHistoryFallbackDetail(history.label));
+}
+
+function cockpitStatusSummary(
+  status: { label: string; tone: SetupStatusTone },
+  detail: string,
+  action: NonNullable<CockpitStatusItem["action"]> = COCKPIT_STATUS_ACTIONS.diagnostics
+): CockpitStatusSummary {
+  return { status: status.label, tone: status.tone, detail, action };
+}
+
+function analyticsHistoryFallbackDetail(label: string): string {
+  if (label === "Setup needed") {
+    return "Database ready; history setup is incomplete.";
+  }
+  if (label === "Blocked") {
+    return "Database ready; history access is blocked.";
+  }
+  if (label === "Unavailable") {
+    return "Database ready; history is unavailable.";
+  }
+  if (label === "Limited data") {
+    return "Database ready; history access is limited.";
+  }
+  return "Database ready; history status needs review.";
+}
+
+function countLabel(count: number, singular: string, plural: string): string {
+  return `${count} ${count === 1 ? singular : plural}`;
 }
 
 const LIVE_CAPTURE_RECORDED_MATCH_DETAIL = "Most recent completed match was recorded.";
@@ -5477,15 +5627,15 @@ function analyticsHistoryStatus(historyState: HistoryState): string {
   if (historyState.state === "error") {
     return errorTone(historyState.code);
   }
-  if (historyState.unsafeCount > 0) {
-    return "degraded";
-  }
   const statuses: AnalyticsHistoryStatus[] = [historyState.matches.status, historyState.games.status];
   const priorityStatuses: AnalyticsHistoryStatus[] = ["error", "unavailable", "degraded", "missing"];
   for (const status of priorityStatuses) {
     if (statuses.includes(status)) {
       return status;
     }
+  }
+  if (historyState.unsafeCount > 0) {
+    return "degraded";
   }
   if (statuses.every((status) => status === "empty")) {
     return "empty";

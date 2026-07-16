@@ -111,6 +111,13 @@ describe("SetupStatusApp", () => {
     const cockpitHealth = screen.getByRole("region", { name: "Cockpit health status" });
     expect(within(cockpitHealth).getAllByRole("article")).toHaveLength(3);
     expect(within(cockpitHealth).getByRole("heading", { name: "App connection" })).toBeInTheDocument();
+    const appConnectionCard = cockpitCard("App connection");
+    expect(within(appConnectionCard).getByLabelText("status Connected")).toBeInTheDocument();
+    expect(within(appConnectionCard).getByText("Backend connected and responding.")).toBeInTheDocument();
+    expect(within(appConnectionCard).getByRole("link", { name: "View diagnostics" })).toHaveAttribute(
+      "href",
+      "#diagnostics"
+    );
     expect(within(cockpitHealth).queryByRole("heading", { name: "Player.log monitor" })).not.toBeInTheDocument();
     expect(within(cockpitHealth).getByRole("heading", { name: "Live capture" })).toBeInTheDocument();
     const liveCaptureCard = cockpitCard("Live capture");
@@ -120,6 +127,14 @@ describe("SetupStatusApp", () => {
     expect(within(liveCaptureCard).queryByRole("button", { name: "Start capture" })).not.toBeInTheDocument();
     expect(within(liveCaptureCard).queryByRole("button", { name: "Stop capture" })).not.toBeInTheDocument();
     expect(within(cockpitHealth).getByRole("heading", { name: "Analytics database" })).toBeInTheDocument();
+    const analyticsDatabaseCard = cockpitCard("Analytics database");
+    expect(within(analyticsDatabaseCard).getByLabelText("status Setup needed")).toBeInTheDocument();
+    expect(within(analyticsDatabaseCard).getByText("Analytics database setup is needed.")).toBeInTheDocument();
+    expect(within(analyticsDatabaseCard).getByRole("link", { name: "Import history" })).toHaveAttribute(
+      "href",
+      "#import"
+    );
+    expect(within(analyticsDatabaseCard).queryByText("No history yet.")).not.toBeInTheDocument();
     expect(within(cockpitHealth).queryByRole("heading", { name: "Data trust" })).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Decision Support" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Win Rate By Play/Draw" })).toBeInTheDocument();
@@ -189,6 +204,192 @@ describe("SetupStatusApp", () => {
     expect(screen.queryByRole("button", { name: "Import JSONL" })).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Live Capture Control" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: unsafeControlName })).not.toBeInTheDocument();
+  });
+
+  it("separates a healthy app connection from ready analytics history", async () => {
+    render(
+      <SetupStatusApp
+        fetchGames={() => Promise.resolve(buildGameHistoryPayload())}
+        fetchMatches={() => Promise.resolve(buildMatchHistoryPayload())}
+        fetchStatus={() => Promise.resolve(buildPayload({ analytics_database: buildReadyAnalyticsDatabaseStatus() }))}
+      />
+    );
+
+    expect(await screen.findByRole("heading", { name: "Mythic Edge Cockpit" })).toBeInTheDocument();
+    const appConnectionCard = cockpitCard("App connection");
+    const analyticsDatabaseCard = cockpitCard("Analytics database");
+
+    expect(within(appConnectionCard).getByLabelText("status Connected")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(within(analyticsDatabaseCard).getByLabelText("status Ready")).toBeInTheDocument();
+      expect(within(analyticsDatabaseCard).getByText("1 match and 1 game available.")).toBeInTheDocument();
+    });
+    expect(within(analyticsDatabaseCard).getByRole("link", { name: "Open analytics" })).toHaveAttribute(
+      "href",
+      "#analytics"
+    );
+    expect(within(analyticsDatabaseCard).queryByText("No history yet.")).not.toBeInTheDocument();
+  });
+
+  it("does not call available history empty when database setup reports missing", async () => {
+    render(
+      <SetupStatusApp
+        fetchGames={() => Promise.resolve(buildGameHistoryPayload())}
+        fetchMatches={() => Promise.resolve(buildMatchHistoryPayload())}
+        fetchStatus={() => Promise.resolve(buildPayload())}
+      />
+    );
+
+    expect(await screen.findByRole("heading", { name: "Mythic Edge Cockpit" })).toBeInTheDocument();
+    const analyticsDatabaseCard = cockpitCard("Analytics database");
+    await waitFor(() => {
+      expect(within(analyticsDatabaseCard).getByLabelText("status Setup needed")).toBeInTheDocument();
+      expect(
+        within(analyticsDatabaseCard).getByText(
+          "History is available, but the analytics database reports setup needed."
+        )
+      ).toBeInTheDocument();
+    });
+    expect(within(analyticsDatabaseCard).getByRole("link", { name: "View diagnostics" })).toHaveAttribute(
+      "href",
+      "#diagnostics"
+    );
+    expect(within(analyticsDatabaseCard).queryByRole("link", { name: "Import history" })).not.toBeInTheDocument();
+    expect(within(analyticsDatabaseCard).queryByText("No history yet.")).not.toBeInTheDocument();
+  });
+
+  it("fails closed when the database reports empty but history rows are present", async () => {
+    render(
+      <SetupStatusApp
+        fetchGames={() => Promise.resolve(buildGameHistoryPayload())}
+        fetchMatches={() => Promise.resolve(buildMatchHistoryPayload())}
+        fetchStatus={() =>
+          Promise.resolve(
+            buildPayload({
+              analytics_database: {
+                ...buildReadyAnalyticsDatabaseStatus(),
+                status: "empty"
+              }
+            })
+          )
+        }
+      />
+    );
+
+    expect(await screen.findByRole("heading", { name: "Mythic Edge Cockpit" })).toBeInTheDocument();
+    const analyticsDatabaseCard = cockpitCard("Analytics database");
+    await waitFor(() => {
+      expect(within(analyticsDatabaseCard).getByLabelText("status Needs review")).toBeInTheDocument();
+      expect(
+        within(analyticsDatabaseCard).getByText(
+          "History is available, but the analytics database reports empty history."
+        )
+      ).toBeInTheDocument();
+    });
+    expect(within(analyticsDatabaseCard).queryByLabelText("status Empty history")).not.toBeInTheDocument();
+    expect(within(analyticsDatabaseCard).getByRole("link", { name: "View diagnostics" })).toHaveAttribute(
+      "href",
+      "#diagnostics"
+    );
+  });
+
+  it("uses Empty history only when ready history endpoints return no rows", async () => {
+    const emptyMatches: MatchHistoryResponse = {
+      ...buildMatchHistoryPayload(),
+      status: "empty",
+      pagination: { limit: 50, offset: 0, returned: 0 },
+      summary: { row_count: 0, degraded_row_count: 0, unavailable_row_count: 0, conflict_row_count: 0 },
+      rows: []
+    };
+    const emptyGames: GameHistoryResponse = {
+      ...buildGameHistoryPayload(),
+      status: "empty",
+      pagination: { limit: 50, offset: 0, returned: 0 },
+      summary: { row_count: 0, degraded_row_count: 0, unavailable_row_count: 0, conflict_row_count: 0 },
+      rows: []
+    };
+    render(
+      <SetupStatusApp
+        fetchGames={() => Promise.resolve(emptyGames)}
+        fetchMatches={() => Promise.resolve(emptyMatches)}
+        fetchStatus={() => Promise.resolve(buildPayload({ analytics_database: buildReadyAnalyticsDatabaseStatus() }))}
+      />
+    );
+
+    expect(await screen.findByRole("heading", { name: "Mythic Edge Cockpit" })).toBeInTheDocument();
+    const analyticsDatabaseCard = cockpitCard("Analytics database");
+    await waitFor(() => {
+      expect(within(analyticsDatabaseCard).getByLabelText("status Empty history")).toBeInTheDocument();
+      expect(within(analyticsDatabaseCard).getByText("Database ready; no history recorded yet.")).toBeInTheDocument();
+    });
+    expect(within(analyticsDatabaseCard).getByRole("link", { name: "Import history" })).toHaveAttribute(
+      "href",
+      "#import"
+    );
+  });
+
+  it("keeps available history visible when one analytics endpoint needs review", async () => {
+    const degradedGames: GameHistoryResponse = {
+      ...buildGameHistoryPayload(),
+      status: "degraded",
+      warnings: ["game history schema not current"]
+    };
+    render(
+      <SetupStatusApp
+        fetchGames={() => Promise.resolve(degradedGames)}
+        fetchMatches={() => Promise.resolve(buildMatchHistoryPayload())}
+        fetchStatus={() => Promise.resolve(buildPayload({ analytics_database: buildReadyAnalyticsDatabaseStatus() }))}
+      />
+    );
+
+    expect(await screen.findByRole("heading", { name: "Mythic Edge Cockpit" })).toBeInTheDocument();
+    const analyticsDatabaseCard = cockpitCard("Analytics database");
+    await waitFor(() => {
+      expect(within(analyticsDatabaseCard).getByLabelText("status Needs review")).toBeInTheDocument();
+      expect(
+        within(analyticsDatabaseCard).getByText("History is available, but some analytics need review.")
+      ).toBeInTheDocument();
+    });
+    expect(within(analyticsDatabaseCard).getByRole("link", { name: "View diagnostics" })).toHaveAttribute(
+      "href",
+      "#diagnostics"
+    );
+    expect(within(analyticsDatabaseCard).queryByText("No history yet.")).not.toBeInTheDocument();
+  });
+
+  it("preserves blocked history severity when display values are also redacted", async () => {
+    const rawDatabasePath = "Z:\\synthetic\\private\\analytics.sqlite3";
+    const blockedMatches: MatchHistoryResponse = {
+      ...buildMatchHistoryPayload(),
+      status: "error",
+      database: {
+        ...buildMatchHistoryPayload().database,
+        display_path: rawDatabasePath
+      },
+      errors: ["history blocked"]
+    };
+    render(
+      <SetupStatusApp
+        fetchGames={() => Promise.resolve(buildGameHistoryPayload())}
+        fetchMatches={() => Promise.resolve(blockedMatches)}
+        fetchStatus={() => Promise.resolve(buildPayload({ analytics_database: buildReadyAnalyticsDatabaseStatus() }))}
+      />
+    );
+
+    expect(await screen.findByRole("heading", { name: "Mythic Edge Cockpit" })).toBeInTheDocument();
+    const analyticsDatabaseCard = cockpitCard("Analytics database");
+    await waitFor(() => {
+      expect(within(analyticsDatabaseCard).getByLabelText("status Blocked")).toBeInTheDocument();
+      expect(
+        within(analyticsDatabaseCard).getByText("History rows are available, but history reports blocked.")
+      ).toBeInTheDocument();
+    });
+    expect(within(analyticsDatabaseCard).queryByLabelText("status Needs review")).not.toBeInTheDocument();
+    expect(within(analyticsDatabaseCard).getByRole("link", { name: "View diagnostics" })).toHaveAttribute(
+      "href",
+      "#diagnostics"
+    );
+    expect(screen.queryByText(rawDatabasePath)).not.toBeInTheDocument();
   });
 
   it("falls back to the dashboard for unknown routes without exposing long forms", async () => {
@@ -945,6 +1146,10 @@ describe("SetupStatusApp", () => {
     render(<SetupStatusApp fetchStatus={() => Promise.resolve(buildPayload({ live_player_log: livePlayerLog }))} />);
 
     expect(await screen.findByText("Unsafe display value redacted")).toBeInTheDocument();
+    const appConnectionCard = cockpitCard("App connection");
+    expect(within(appConnectionCard).getByLabelText("status Connected")).toBeInTheDocument();
+    expect(within(appConnectionCard).getByText("Backend connected; some display values were hidden.")).toBeInTheDocument();
+    expect(within(appConnectionCard).getByRole("link", { name: "Review privacy" })).toHaveAttribute("href", "#privacy");
     fireEvent.click(screen.getByRole("button", { name: "Show technical details" }));
     expect(screen.getAllByText("<redacted_path>").length).toBeGreaterThanOrEqual(1);
     expect(screen.queryByText(rawPath)).not.toBeInTheDocument();
@@ -2122,6 +2327,13 @@ function buildPayload(overrides: Partial<SetupStatusResponse> = {}): SetupStatus
       live_watcher: "disabled"
     },
     ...overrides
+  };
+}
+
+function buildReadyAnalyticsDatabaseStatus(): SetupStatusResponse["analytics_database"] {
+  return {
+    status: "ok",
+    database: { display_path: "<app_data>\\db\\mythic_edge.sqlite3", schema_status: "schema_current" }
   };
 }
 
