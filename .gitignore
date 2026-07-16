@@ -26,4 +26,6 @@ _review_*/
 frontend/node_modules/
 frontend/dist/
 frontend/.vite/
+frontend/.wrangler/
 frontend/coverage/
+frontend/.dev.vars*
