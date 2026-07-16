@@ -1,5 +1,208 @@
 # Analytics App First-Screen Competitive Cockpit Contract Test Report
 
+## Follow-Up After Fixer - 2026-07-16
+
+### Verdict
+
+No blocking findings. The dashboard status-truthfulness and action-clarity
+corrective pass matches the existing frontend-only contract.
+
+`report_lifecycle`: `followup_after_fixer`
+
+This fixed-state confirmation does not reopen issue #278, alter its merged PR,
+or authorize submission, merge, Sites publication, deployment, external
+writes, backend changes, or production behavior.
+
+### Fixed-State Finding Summary
+
+| finding_id | severity | finding_lifecycle | finding_status | blocking_status | original_evidence | verification_evidence | next_route |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| CT-278-FIX-001 | P1 | `fixed_state_followup` | fixed_confirmed | not_blocking | `buildCockpitStatusItems` emitted `Connected` but selected detail copy by testing for `Ready`, causing a successful setup response to say that the backend needed review. | The ready render remains gated by a successful validated setup response; the App connection now says `Connected`, uses fixed reachability copy, preserves redaction warning state, and routes to Diagnostics or Privacy. Focused tests passed. | F |
+| CT-278-FIX-002 | P1 | `fixed_state_followup` | fixed_confirmed | not_blocking | The Analytics database tile used only aggregate history status and collapsed loading, errors, setup gaps, degradation, and contradictory row evidence into `No history yet.` | `analyticsDatabaseCockpitSummary` now keeps setup-database status, endpoint status, returned-row evidence, and redaction evidence distinct. `Empty history` requires both endpoints to report empty with no rows; blocked endpoint severity wins over redaction degradation. Focused contradiction, empty, degraded, blocked, and redaction tests passed. | F |
+| CT-278-FIX-003 | P2 | `fixed_state_followup` | fixed_confirmed | not_blocking | App connection and Analytics database rail tiles lacked the contract-required details or recovery affordance. | Both tiles now expose keyboard-focusable links to existing Diagnostics, Analytics, Import, or Privacy routes. Tests verify the contextual hrefs, and the existing mobile breakpoint stacks the footer controls. | F |
+
+### Current Scope And Freshness
+
+- Branch: `codex/analytics-foundation`.
+- Fresh fetch result: local `HEAD` is `0` ahead and `0` behind
+  `origin/codex/analytics-foundation` before these uncommitted changes.
+- Issue #278 is closed; PR #279 is merged into
+  `codex/analytics-foundation`; this is an explicitly requested corrective
+  reentry.
+- Trackers #204 and #207 are closed. Release-readiness tracker #136 remains
+  open.
+- No open PR currently uses `codex/analytics-foundation` as its head branch.
+- The reviewed diff contains only the three frontend files and the untracked
+  fixer handoff named below. This report is the only file edited by Codex E.
+
+### Files Reviewed In The Follow-Up
+
+- `frontend/src/App.tsx`
+- `frontend/src/App.css`
+- `frontend/src/App.test.tsx`
+- `docs/implementation_handoffs/analytics_app_first_screen_competitive_cockpit_status_truthfulness_fixer.md`
+- `docs/contracts/analytics_app_first_screen_competitive_cockpit.md`
+- this contract-test report
+
+### Confirmed Contract Matches
+
+- A successful validated setup response is treated as backend reachability;
+  aggregate setup degradation no longer changes the App connection into a
+  false failure.
+- Setup-value redaction remains visible without falsely claiming that the
+  backend connection failed, and the action routes to Privacy.
+- Analytics database status does not infer source facts. It translates the
+  validated setup section and validated history responses into display-only
+  status, detail, and navigation.
+- Available history is not described as absent when database setup reports
+  missing or empty.
+- A database-level empty claim plus returned rows fails closed as
+  `Needs review`.
+- `Empty history` is emitted only when both history endpoints report empty and
+  both return no rows.
+- Endpoint error, unavailable, degraded, or missing status is evaluated before
+  a display-redaction warning, preventing a more serious status from being
+  downgraded to generic privacy degradation.
+- No backend payload shape, API route, database schema, parser interface,
+  environment contract, build contract, hosting contract, or protected truth
+  owner changed.
+
+### Follow-Up Validation
+
+```powershell
+npm.cmd --prefix frontend test -- --run src/App.test.tsx src/status.test.ts
+# 2 files passed; 67 tests passed
+
+npm.cmd --prefix frontend test -- --run
+# 4 files passed; 118 tests passed
+
+npm.cmd --prefix frontend run typecheck
+# passed
+
+npm.cmd --prefix frontend run build
+# passed; Sites-compatible server/client build and 5 hosting-shape tests passed
+
+git diff --check
+py tools\check_agent_docs.py
+# passed
+
+# Path-scoped protected-surface and secret/private-marker scans over the
+# three frontend files, fixer handoff, and this follow-up report:
+# passed; forbidden 0, warnings 0
+```
+
+`frontend/dist` and the build-touched ignored `frontend/.wrangler` helper
+directory were removed after validation. No generated artifact was kept, and
+no deployment or hosted resource was contacted.
+
+### Missing Tests And Residual Risk
+
+No blocking required test is missing. The focused suite covers the corrected
+ready, setup-missing, contradictory-empty, proven-empty, degraded, blocked,
+and redacted states. Loading and transport-error fallbacks were also inspected
+directly in `analyticsDatabaseCockpitSummary`; existing analytics error tests
+continue to pass.
+
+Still unverified:
+
+- Browser-level visual and responsive behavior was not exercised because this
+  review did not authorize browser visual QA.
+- The frontend was not run against private live app data.
+- No backend process, live capture, external write, Sites publication, or
+  deployment was started.
+
+### Drift Classification
+
+- Implementation drift: corrected; no remaining contract mismatch found.
+- Repo drift: none in reviewed scope.
+- Issue lifecycle: closed-issue corrective reentry, explicitly requested.
+- PR lifecycle: no follow-up PR exists and none was created by this review.
+- Deployment, workbook, Apps Script, live-data, and production drift: not
+  inspected and not claimed.
+
+### Follow-Up Recommendation
+
+Approve the corrective frontend package. The next workflow role is Codex F
+only after the owner directs submission packaging from a dedicated topic
+branch targeting `codex/analytics-foundation`; Codex E grants no GitHub or
+deployment authority.
+
+Pasteable Codex F prompt:
+
+```text
+Use the Mythic Edge agent constitution.
+Use $mythic-edge-workflow.
+
+Act as Codex F: Module Submitter for the independently reviewed #278 closed-issue corrective reentry.
+
+Current branch: codex/analytics-foundation
+Recommended topic branch: codex/analytics-cockpit-status-truthfulness-278-followup
+PR target: codex/analytics-foundation
+
+Reviewed source artifact:
+docs/implementation_handoffs/analytics_app_first_screen_competitive_cockpit_status_truthfulness_fixer.md
+
+Reviewed report:
+docs/contract_test_reports/analytics_app_first_screen_competitive_cockpit.md
+
+Stage only:
+- frontend/src/App.tsx
+- frontend/src/App.css
+- frontend/src/App.test.tsx
+- docs/implementation_handoffs/analytics_app_first_screen_competitive_cockpit_status_truthfulness_fixer.md
+- docs/contract_test_reports/analytics_app_first_screen_competitive_cockpit.md
+
+Create the dedicated topic branch, reverify the exact staged package, commit,
+push, and open a draft PR targeting codex/analytics-foundation. Use `Refs #278`;
+do not reopen or close #278 and do not use `Closes #278`.
+
+Do not target main, publish to Sites, deploy, merge, change implementation,
+stage unrelated files, start backend/live capture, or perform external writes
+beyond the explicitly requested branch push and draft PR creation.
+```
+
+### Follow-Up Workflow Handoff
+
+```yaml
+workflow_handoff:
+  role_performed: "Codex E: Module Reviewer / follow-up contract-test thread"
+  issue: "https://github.com/Tahjali11/Mythic-Edge/issues/278"
+  tracker: "https://github.com/Tahjali11/Mythic-Edge/issues/204"
+  completed_thread: "E"
+  next_thread: "F"
+  branch: "codex/analytics-foundation"
+  recommended_submitter_branch: "codex/analytics-cockpit-status-truthfulness-278-followup"
+  source_artifact: "docs/implementation_handoffs/analytics_app_first_screen_competitive_cockpit_status_truthfulness_fixer.md"
+  target_artifact: "docs/contract_test_reports/analytics_app_first_screen_competitive_cockpit.md"
+  report_lifecycle: "followup_after_fixer"
+  finding_status:
+    CT-278-FIX-001: "fixed_confirmed"
+    CT-278-FIX-002: "fixed_confirmed"
+    CT-278-FIX-003: "fixed_confirmed"
+  validation:
+    - "focused App/status tests -> 67 passed"
+    - "full frontend tests -> 118 passed"
+    - "frontend typecheck -> passed"
+    - "Sites-compatible frontend build -> passed; 5 hosting-shape tests passed"
+    - "git diff --check -> passed"
+    - "agent docs consistency -> passed"
+    - "path-scoped protected-surface scan -> forbidden 0, warnings 0"
+    - "path-scoped secret/private-marker scan -> forbidden 0, warnings 0"
+  generated_artifacts_kept: false
+  forbidden_scope_touched: false
+  deployment_authorized: false
+  external_writes_authorized: false
+  ready_for_codex_f: true
+  next_recommended_role: "Codex F: dedicated topic-branch submitter, after owner direction"
+```
+
+## Historical Initial Review
+
+The remainder of this report preserves the original Codex E review evidence
+for the cockpit implementation merged through PR #279. Its issue status,
+working-tree snapshot, validation counts, and `final_approval` lifecycle are
+historical observations, not the active 2026-07-16 follow-up state.
+
 ## Findings
 
 No blocking findings.
