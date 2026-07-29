@@ -1,0 +1,18 @@
+{
+  "created_at": "2026-07-13T11:57:00Z",
+  "digest": "70872bbfaf2ffd654da264cacb8a65477d6418c183bbc1ce9f697a75e9e39288",
+  "dispatch_authorized": false,
+  "fallback_condition": "repository_access_or_no_echo_authority_missing",
+  "issue": 101,
+  "lane_id": "tahjali11/mythic-edge#101",
+  "mode": "one_issue_one_role_old_workflow",
+  "mutation_authorized": false,
+  "prompt_ref": "artifact:old-workflow-prompt/101",
+  "raw_content_included": false,
+  "repository_id": "tahjali11/mythic-edge",
+  "role": "Codex B",
+  "route_id": "33333333-3333-4333-8333-333333333333",
+  "schema_version": "mythic_edge_old_workflow_prompt.v1",
+  "source_artifact_ref": "skill:mythic-edge-role-pool/scripts/pool_test_fixtures.py",
+  "source_artifact_sha256": "3a2a6cf0c712f773de03a4c4928ed68879811a76e95f188018f1d3ced7440dab"
+}
