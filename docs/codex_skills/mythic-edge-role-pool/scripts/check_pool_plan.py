@@ -11347,6 +11347,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.offline_synthetic_fixture
         else PRODUCTION_VALIDATION_MODE
     )
+    public_diagnostics: list[str] = []
     if version == PLAN_SCHEMA_VERSION:
         errors = validate_plan(
             document,
@@ -11355,14 +11356,22 @@ def main(argv: list[str] | None = None) -> int:
             launcher_receipts=launcher_receipts,
         )
         if _document_launch_readbacks(document) and launcher_receipts is None:
-            errors.append("cli: active launch readback requires --launcher-receipts")
+            diagnostic = "cli: active launch readback requires --launcher-receipts"
+            errors.append(diagnostic)
+            public_diagnostics.append(diagnostic)
         if discovery is None:
-            errors.append("cli: plan validation requires --discovery")
+            diagnostic = "cli: plan validation requires --discovery"
+            errors.append(diagnostic)
+            public_diagnostics.append(diagnostic)
         worktrees_required = document.get("phase") in {"preclaim", "prelaunch"} or bool(
             document.get("active_waves")
         )
         if worktrees_required and worktrees is None:
-            errors.append("cli: dispatch or active-wave plan validation requires --worktrees")
+            diagnostic = (
+                "cli: dispatch or active-wave plan validation requires --worktrees"
+            )
+            errors.append(diagnostic)
+            public_diagnostics.append(diagnostic)
         if discovery is not None and (
             worktrees is not None
             or (document.get("phase") == "inspect" and not document.get("active_waves"))
@@ -11395,7 +11404,9 @@ def main(argv: list[str] | None = None) -> int:
             )
         if document.get("phase") == "prelaunch":
             if preclaim is None:
-                errors.append("cli: prelaunch validation requires --preclaim")
+                diagnostic = "cli: prelaunch validation requires --preclaim"
+                errors.append(diagnostic)
+                public_diagnostics.append(diagnostic)
             else:
                 errors.extend(
                     validate_prelaunch_against_preclaim(
@@ -11413,11 +11424,15 @@ def main(argv: list[str] | None = None) -> int:
             launcher_receipts=launcher_receipts,
         )
         if launcher_receipts is None:
-            errors.append("cli: result validation requires --launcher-receipts")
+            diagnostic = "cli: result validation requires --launcher-receipts"
+            errors.append(diagnostic)
+            public_diagnostics.append(diagnostic)
         if not all([plan is not None, preclaim is not None, discovery is not None, worktrees is not None]):
-            errors.append(
+            diagnostic = (
                 "cli: result validation requires --plan, --preclaim, --discovery, and --worktrees"
             )
+            errors.append(diagnostic)
+            public_diagnostics.append(diagnostic)
         else:
             errors.extend(
                 validate_prelaunch_against_preclaim(
@@ -11445,7 +11460,9 @@ def main(argv: list[str] | None = None) -> int:
             )
             if document.get("role") in {"Codex F", "Codex G"}:
                 if outcome is None:
-                    errors.append("cli: F/G result validation requires --outcome")
+                    diagnostic = "cli: F/G result validation requires --outcome"
+                    errors.append(diagnostic)
+                    public_diagnostics.append(diagnostic)
                 else:
                     errors.extend(
                         validate_result_against_outcome_observation(
@@ -11475,8 +11492,11 @@ def main(argv: list[str] | None = None) -> int:
         )
     if errors:
         print("role-pool document invalid:", file=sys.stderr)
-        for error in errors:
-            print(f"- {error}", file=sys.stderr)
+        if public_diagnostics:
+            for diagnostic in public_diagnostics:
+                print(f"- {diagnostic}", file=sys.stderr)
+        else:
+            print("- validation details withheld", file=sys.stderr)
         return 1
     if validation_mode == OFFLINE_SYNTHETIC_FIXTURE_VALIDATION_MODE:
         print(

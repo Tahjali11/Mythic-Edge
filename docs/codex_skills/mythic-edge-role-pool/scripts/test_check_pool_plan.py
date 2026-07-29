@@ -1730,6 +1730,36 @@ def _native_resolution_event(
 
 
 class TrustedOwnerNativeProfileTests(unittest.TestCase):
+    def test_cli_emits_only_fixed_guidance_for_plan_validation_errors(self) -> None:
+        private_detail = "invented_" + "secret_" + "material"
+        document = inspect_plan()
+        document[private_detail] = False
+        self.assertTrue(
+            any(private_detail in error for error in validate_plan(document, NOW))
+        )
+
+        with tempfile.TemporaryDirectory() as directory:
+            document_path = Path(directory) / "plan.json"
+            document_path.write_text(json.dumps(document), encoding="utf-8")
+            stderr = io.StringIO()
+            with mock.patch.object(native.sys, "stderr", stderr):
+                exit_code = native.main(
+                    [
+                        str(document_path),
+                        "--offline-synthetic-fixture",
+                        "--now",
+                        OBSERVED,
+                    ]
+                )
+
+        self.assertEqual(exit_code, 1)
+        self.assertEqual(
+            stderr.getvalue(),
+            "role-pool document invalid:\n"
+            "- cli: plan validation requires --discovery\n",
+        )
+        self.assertNotIn(private_detail, stderr.getvalue())
+
     def test_cli_does_not_echo_trusted_native_validation_details(self) -> None:
         private_detail = "invented_" + "secret_" + "material"
         document = _native_request(_native_registry())

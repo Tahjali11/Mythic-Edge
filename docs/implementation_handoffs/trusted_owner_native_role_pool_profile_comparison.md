@@ -1412,3 +1412,156 @@ workflow_handoff:
   live_ready: false
   next_recommended_role: "Codex E: independent CodeQL alert 21 confirmation reviewer"
 ```
+
+## Codex D CodeQL Alert 21 Generic-Stderr Completion Addendum (2026-07-29)
+
+### Finding Outcome
+
+Role performed: Codex D, narrow generic validator-stderr dataflow fixer.
+
+Live CodeQL analysis of successor commit
+`f45e5db1ea975c1cbe961c9727ea7f1367e9a9d6` kept alert 21 open. The current
+trace still used `validate_document()` as its sensitive source and the shared
+`for error in errors` stderr loop as its sink. The prior trusted-native branch
+prevented a runtime echo on that branch, but the shared arbitrary-string sink
+remained visible to interprocedural analysis.
+
+This is an implementation/static-analysis finding. It does not require a
+contract, schema, authority, or truth-ownership change.
+
+### Narrow Fix
+
+Task changes are limited to:
+
+- `docs/codex_skills/mythic-edge-role-pool/scripts/check_pool_plan.py`;
+- `docs/codex_skills/mythic-edge-role-pool/scripts/test_check_pool_plan.py`;
+- this implementation handoff.
+
+Validator errors remain detailed in memory and continue to determine success
+or exit `1`, but no validator-returned string is written to stderr. The shared
+`for error in errors` sink is removed.
+
+The CLI now keeps a separate `public_diagnostics` list populated only from the
+seven fixed messages for missing CLI bindings:
+
+- active launch readback requires `--launcher-receipts`;
+- plan validation requires `--discovery`;
+- dispatch or active-wave validation requires `--worktrees`;
+- prelaunch validation requires `--preclaim`;
+- result validation requires `--launcher-receipts`;
+- result validation requires `--plan`, `--preclaim`, `--discovery`, and
+  `--worktrees`;
+- F/G result validation requires `--outcome`.
+
+When validation fails, the CLI emits those fixed messages when applicable.
+Otherwise it emits `validation details withheld`. Successful output, exit
+codes, validator APIs, sidecar requirements, and all validation decisions are
+unchanged.
+
+### Contract-Test-First Evidence
+
+The new regression first failed because a real invalid plan field appeared in
+stderr before the fixed `--discovery` guidance. The final test uses the real
+plan validator, proves the invented field is present in the in-memory
+validation errors, then proves the CLI emits only the fixed public guidance.
+
+The earlier trusted-native no-echo regression remains green. All four existing
+plan/result command-line gate tests also remain green.
+
+### Prospective Binding
+
+The E-reviewed and F-published predecessor manifest remains historical
+evidence:
+
+`00a4f44b08e6c528afea4058e06af0ac23d3a8e909ec6674216c06f98e2d3dab`
+
+The prospective post-fix 34-file candidate binding is:
+
+- file count: `34`;
+- byte count: `2,001,219`;
+- manifest byte count: `4,921`;
+- manifest SHA-256:
+  `6c9d9e4a5bf41c3bc5a33fa4f64ca1342f1f90f03cf03402577279a1686b1175`;
+- `check_pool_plan.py` SHA-256:
+  `cd85d9a33fbd92d8b29d8ec092a03492d7e05915a973796c5218a6eaf903fae0`;
+- `test_check_pool_plan.py` SHA-256:
+  `8ca31a9276d5bb092686010968dce8d7e98715a15d4a581616ec60c06a2b4243`.
+
+The contract remains unchanged at SHA-256
+`2389a3936b80fbc2fd83366df51bc1ae7a80f0a3ce46470e657aed54a4b09322`.
+This prospective binding is not accepted until independent Codex E review.
+
+### Validation
+
+- test-first plan-validator no-echo regression: failed before the fix, then
+  passed;
+- focused no-echo and command-line compatibility slice: `6 passed`;
+- canonical `test_check_pool_plan.py`: `94 passed`;
+- focused Ruff `F,I`: passed;
+- installed Role Pool release gate: `350 passed`, structural validation
+  passed, and `NOT LIVE-READY` retained;
+- agent-doc, protected-surface, private-marker, and whitespace checks: passed;
+- newly generated residue: `0`; the pre-existing `.ruff_cache` was left
+  untouched.
+
+CodeQL closure remains unverified until Codex E accepts these exact bytes and
+Codex F pushes a successor commit for GitHub analysis. The alert must not be
+dismissed.
+
+No installation, synchronization, native-task capability probe, dispatch,
+claim, canary, Stage 4 action, merge, deployment, or live operation occurred.
+
+### Next Workflow Action
+
+Next role: Codex E, independent generic-stderr no-echo confirmation reviewer.
+
+```text
+Use the Mythic Edge agent constitution and $mythic-edge-workflow.
+
+Act as Codex E: Independent CodeQL Alert 21 Generic-Stderr Confirmation
+Reviewer for issue #744 and draft PR #753.
+
+Review only the latest CodeQL generic-stderr addendum and:
+- docs/codex_skills/mythic-edge-role-pool/scripts/check_pool_plan.py
+- docs/codex_skills/mythic-edge-role-pool/scripts/test_check_pool_plan.py
+
+Require candidate manifest SHA-256
+6c9d9e4a5bf41c3bc5a33fa4f64ca1342f1f90f03cf03402577279a1686b1175.
+Confirm no validator-returned error string reaches stderr, only the seven
+fixed CLI binding messages remain public, the real-plan no-echo regression is
+meaningful, and the prior trusted-native no-echo behavior remains fixed.
+
+Run the focused and canonical tests, Ruff, agent-doc, protected-surface,
+private-marker, and whitespace checks. Update only
+docs/contract_test_reports/trusted_owner_native_role_pool_profile_windows_first_implementation.md.
+Do not install, synchronize, probe native-task capability, dispatch, run a
+canary, advance Stage 4, stage, commit, push, merge, deploy, dismiss CodeQL, or
+claim live readiness. Route accepted bytes to Codex F for a successor push and
+fresh CodeQL analysis.
+```
+
+```yaml
+workflow_handoff:
+  role_performed: "Codex D: generic validator-stderr dataflow fixer"
+  repository: "Tahjali11/Mythic-Edge"
+  issue: "https://github.com/Tahjali11/Mythic-Edge/issues/744"
+  tracker: "https://github.com/Tahjali11/Mythic-Edge/issues/746"
+  pr: "https://github.com/Tahjali11/Mythic-Edge/pull/753"
+  branch: "codex/trusted-owner-native-profile-contract-744"
+  completed_thread: "D"
+  next_thread: "E"
+  finding_status:
+    codeql_alert_21: "second_local_fix_candidate_ready_for_independent_confirmation"
+  predecessor_commit: "f45e5db1ea975c1cbe961c9727ea7f1367e9a9d6"
+  predecessor_manifest_sha256: "00a4f44b08e6c528afea4058e06af0ac23d3a8e909ec6674216c06f98e2d3dab"
+  prospective_manifest_sha256: "6c9d9e4a5bf41c3bc5a33fa4f64ca1342f1f90f03cf03402577279a1686b1175"
+  codeql_ci_confirmation: "pending_successor_commit_and_ci_rerun"
+  installed_skill_modified: false
+  installation_or_sync_performed: false
+  platform_capability_probed: false
+  generated_residue_count: 0
+  stage4_authorized: false
+  live_ready: false
+  forbidden_scope_touched: false
+  next_recommended_role: "Codex E: independent generic-stderr no-echo confirmation reviewer"
+```

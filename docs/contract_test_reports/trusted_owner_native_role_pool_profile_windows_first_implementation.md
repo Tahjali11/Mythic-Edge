@@ -27,12 +27,12 @@ Review authority:
 - Branch: `codex/trusted-owner-native-profile-contract-744`
 - Starting commit: `0e58eacfe5f0530880c36adfc529c64f08525e79`
 - Current PR head and local parent:
-  `5fed78739ad7c54a099685cfd46f695e19f42ce6`
+  `f45e5db1ea975c1cbe961c9727ea7f1367e9a9d6`
 - Canonical source file count: `34`
-- Canonical source byte count: `1,999,201`
+- Canonical source byte count: `2,001,219`
 - Canonical manifest byte count: `4,921`
 - Canonical manifest SHA-256:
-  `00a4f44b08e6c528afea4058e06af0ac23d3a8e909ec6674216c06f98e2d3dab`
+  `6c9d9e4a5bf41c3bc5a33fa4f64ca1342f1f90f03cf03402577279a1686b1175`
 
 The six contract-authorized canonical source paths are the only managed paths
 that differ from the accepted migration rows. The two Core installer paths are
@@ -93,11 +93,13 @@ scanned the two fixer paths, the implementation handoff, and this report.
 
 The Windows-first validator, state-transition, terminal-selector, release-rung,
 documentation, no-fallback behavior, and installer boundary are internally
-consistent. The three narrow Codex D corrections close the implementation
-preflight blocker, Git clean-filter byte-preservation blocker, and cached-diff
-CR-at-EOL policy blocker. A fourth narrow D correction removes trusted-native
-validator details from CLI stderr while preserving the in-process validator
-API and existing plan/result CLI diagnostics.
+consistent. The three earlier narrow Codex D corrections close the
+implementation preflight blocker, Git clean-filter byte-preservation blocker,
+and cached-diff CR-at-EOL policy blocker. The first no-echo correction removed
+trusted-native validator details from CLI stderr. This second no-echo
+correction removes the remaining shared validator-returned string sink while
+preserving validation decisions and the seven fixed plan/result CLI binding
+messages.
 
 ## Finding Lifecycle Summary
 
@@ -106,7 +108,7 @@ API and existing plan/result CLI diagnostics.
 | `ME-RP-744-E-012` | P1 | `fixed_state_followup` | `fixed_confirmed` | not_blocking | The initial review found that the installer checked only `_trusted_windows_host_observed()` even though the contract requires both trusted Windows host observation and exact native-task capability before installer staging or destination mutation. | Current bytes use `_role_pool_mutation_preflight_failure_reason()` at initial install, public sync, and internal sync boundaries. Seven focused tests prove each missing half blocks before mutation, only both injected synthetic observations permit temporary install/sync, and read-only `--check` observes neither predicate. | F after a separate owner submission decision |
 | `ME-RP-744-F-001` | P1 | `fixed_state_followup` | `fixed_confirmed` | not_blocking | Codex F found that the repository-wide LF clean filter would change two exact byte-bound candidate artifacts when written to the Git index. | Exact path-specific `-text` rules preserve both artifacts. Their accepted SHA-256 values and byte counts are unchanged, raw and filtered Git blob IDs match, all 34 candidate files have zero clean-filter mismatches, and the real index remains unstaged. | F |
 | `ME-RP-744-F-002` | P1 | `fixed_state_followup` | `fixed_confirmed` | not_blocking | After F-001, the two byte-bound artifacts staged byte-for-byte, but `git diff --cached --check` still classified their intentional CRLF carriage returns as trailing whitespace. | Both exact rules retain `-text` and add only `whitespace=cr-at-eol`. An isolated index containing all 42 submission paths produced zero candidate blob mismatches and `git diff --cached --check` exit `0` with zero output. The isolated index and lock were removed; the real index remains empty. | F |
-| `codeql_alert_21` | high | `fixed_state_followup` | `local_fix_confirmed_ci_pending` | non_blocking | CodeQL on PR head `5fed7873...ce6` traced operator-supplied trusted-native validator detail to the generic stderr loop in `check_pool_plan.py` and opened `py/clear-text-logging-sensitive-data`. | The CLI now intercepts only `trusted_owner_native_*` and `trusted_owner_repository_*` schemas, calls the existing validator, and emits one fixed withheld-detail message on rejection. Direct CLI execution proved the injected marker absent; the focused test, all 93 trusted-native tests, and four adjacent plan/result CLI tests pass. Alert closure remains pending a successor commit and CodeQL rerun. | F, then GitHub CI; return to D only if the alert persists |
+| `codeql_alert_21` | high | `fixed_state_followup` | `second_local_fix_confirmed_ci_pending` | non_blocking | CodeQL first traced operator-supplied trusted-native validator detail to the generic stderr loop on PR head `5fed7873...ce6`. After the first local correction was published, CodeQL analyzed `f45e5db1...9d6` and still identified the shared validator-returned string sink. | The shared `for error in errors` stderr loop is now absent. A separate list contains exactly seven fixed CLI binding messages; validator-returned strings remain in memory for validation decisions but cannot enter that list. AST inspection found no `error` or `errors` value in a `print` call. Two focused regressions, three real subprocess probes, all 94 canonical tests, four adjacent command-line tests, and the full repository suite pass. Alert closure remains pending a successor commit and CodeQL rerun. | F, then GitHub CI; return to D only if the alert persists |
 
 ## Historical Contract Mismatch And Fix Verification
 
@@ -212,10 +214,12 @@ Current implementation SHA-256 values:
 
 - Focused installer preflight: `7 passed`.
 - Focused byte-preservation and cached-diff attribute regression: `1 passed`.
-- Focused trusted-native CLI no-echo regression: `1 passed`.
-- Actual trusted-native CLI marker probe: exit `1`, exact fixed stderr,
-  marker absent, stdout empty.
-- Focused Role Pool: `93 passed`.
+- Focused generic and trusted-native CLI no-echo regressions: `2 passed`.
+- Actual generic fixed-guidance, generic withheld-detail, and trusted-native
+  marker probes: exit `1`, exact expected stderr, marker absent, stdout empty.
+- Static generic-stderr audit: exactly seven literal public diagnostics,
+  no validator-error print site, and one bounded public-diagnostic print loop.
+- Focused Role Pool: `94 passed`.
 - Adjacent plan/result command-line gates: `4 passed`.
 - Installer: `22 passed, 3 skipped` for unavailable directory symlinks.
 - Full repository: `2094 passed, 4 skipped`; skips are the known unavailable
@@ -228,9 +232,9 @@ Current implementation SHA-256 values:
   process checks, residue checks, and `git diff --check`: passed.
 - Read-only installer comparison: expected `target_differs` / `drift`; no
   synchronization occurred.
-- Canonical source: `34` files, `1,999,201` bytes, `4,921` manifest bytes,
+- Canonical source: `34` files, `2,001,219` bytes, `4,921` manifest bytes,
   SHA-256
-  `00a4f44b08e6c528afea4058e06af0ac23d3a8e909ec6674216c06f98e2d3dab`.
+  `6c9d9e4a5bf41c3bc5a33fa4f64ca1342f1f90f03cf03402577279a1686b1175`.
 - Isolated 42-path cached-diff check: exit `0`, output line count `0`, candidate
   staged-blob mismatch count `0`.
 - Isolated review index and lock after cleanup: absent. Real index staged path
@@ -280,9 +284,11 @@ The reviewed artifact bytes remain:
 All `34` candidate files have identical raw and Git-filtered blob identities.
 At the F-002 confirmation point, the canonical manifest was
 `549a7157282401ba39898c187aa2d6a21aed0e9e01e5691597961faca1c2c4ba`.
-The later reviewed no-echo source and test changes retain the same 34-path
-inventory and produce the current manifest
+The first reviewed no-echo source and test changes produced manifest
 `00a4f44b08e6c528afea4058e06af0ac23d3a8e909ec6674216c06f98e2d3dab`.
+The second reviewed no-echo correction retains the same 34-path inventory and
+produces the current manifest
+`6c9d9e4a5bf41c3bc5a33fa4f64ca1342f1f90f03cf03402577279a1686b1175`.
 
 For cached-diff confirmation, a disposable `GIT_INDEX_FILE` was initialized
 from `HEAD` and populated with exactly the complete `42`-path submission set:
@@ -292,7 +298,12 @@ matched the reviewed working-tree bytes. `git diff --cached --check` exited
 `0` with zero output. The disposable index and lock were removed afterward,
 and the real index has zero staged files.
 
-## CodeQL Alert 21 No-Echo Confirmation
+## CodeQL Alert 21 First Local No-Echo Confirmation
+
+This section preserves the first local correction and its then-current
+evidence. GitHub later analyzed that correction at `f45e5db1...9d6` and kept
+alert `21` open on the remaining shared generic sink. The next section records
+the independent review of the second correction.
 
 **Observed**
 
@@ -340,11 +351,61 @@ tainted validator return value and proves it cannot reach stderr.
 The local source fix is independently confirmed. GitHub CodeQL closure is not
 yet confirmed because the local bytes have not been committed or pushed.
 
+## CodeQL Alert 21 Generic-Stderr Completion Confirmation
+
+**Observed**
+
+GitHub currently reports alert `21`,
+`py/clear-text-logging-sensitive-data`, as open on PR head
+`f45e5db1ea975c1cbe961c9727ea7f1367e9a9d6`. The latest Python analysis points
+to the shared validator-error stderr sink. The three language analysis jobs
+and both repository test jobs pass, while the aggregate CodeQL check fails
+because the alert remains open.
+
+The current local diff removes that sink. Validator-returned strings still
+determine validation success or failure, but none is printed. A separate
+`public_diagnostics` list is populated only by seven source literals for
+missing CLI sidecars or bindings. If that list is empty, the CLI emits only
+`validation details withheld`.
+
+**Independent verification**
+
+- AST inspection found exactly seven literal assignments to `diagnostic`, in
+  the contract-preserving order, and no `print` call that references `error`
+  or `errors`.
+- A real invalid plan containing an invented private marker emitted only the
+  fixed missing-`--discovery` message.
+- The same invalid plan with a valid discovery sidecar emitted only
+  `validation details withheld`.
+- A real invalid trusted-native request retained the same withheld-detail
+  behavior.
+- All three subprocess probes returned exit `1`, emitted no stdout, and did
+  not expose their markers.
+- The two focused no-echo regressions, four adjacent CLI gate tests, all `94`
+  canonical Role Pool tests, and the full `2,094`-test repository suite pass.
+
+**Bindings**
+
+- Published predecessor commit:
+  `f45e5db1ea975c1cbe961c9727ea7f1367e9a9d6`.
+- Published predecessor manifest:
+  `00a4f44b08e6c528afea4058e06af0ac23d3a8e909ec6674216c06f98e2d3dab`.
+- Prospective candidate manifest:
+  `6c9d9e4a5bf41c3bc5a33fa4f64ca1342f1f90f03cf03402577279a1686b1175`.
+- `check_pool_plan.py` SHA-256:
+  `cd85d9a33fbd92d8b29d8ec092a03492d7e05915a973796c5218a6eaf903fae0`.
+- `test_check_pool_plan.py` SHA-256:
+  `8ca31a9276d5bb092686010968dce8d7e98715a15d4a581616ec60c06a2b4243`.
+
+The second local source correction is independently confirmed. It is not yet
+GitHub-confirmed: alert `21` remains open against the predecessor commit until
+Codex F publishes these reviewed bytes and CodeQL analyzes the successor.
+
 ## Recommendation
 
 Accept the exact inert Windows-first implementation candidate.
 `ME-RP-744-E-012`, `ME-RP-744-F-001`, and `ME-RP-744-F-002` are
-fixed-confirmed. The source correction for `codeql_alert_21` is locally
+fixed-confirmed. The second source correction for `codeql_alert_21` is locally
 confirmed, with CI closure pending. No blocking implementation, staged-byte,
 cached-diff, or local no-echo finding remains. Route exactly the four reviewed
 local paths back to Codex F for a successor commit and PR push. Codex F must
@@ -378,9 +439,9 @@ codex/trusted-owner-native-profile-contract-744. Read the contract at SHA-256
 2389a3936b80fbc2fd83366df51bc1ae7a80f0a3ce46470e657aed54a4b09322,
 the implementation handoff, and the final Codex E report. Confirm
 ME-RP-744-E-012, ME-RP-744-F-001, and ME-RP-744-F-002 remain fixed and that
-the local source correction for CodeQL alert 21 is accepted by this report.
-Recompute the 34-file candidate manifest and require SHA-256
-00a4f44b08e6c528afea4058e06af0ac23d3a8e909ec6674216c06f98e2d3dab.
+the second local source correction for CodeQL alert 21 is accepted by this
+report. Recompute the 34-file candidate manifest and require SHA-256
+6c9d9e4a5bf41c3bc5a33fa4f64ca1342f1f90f03cf03402577279a1686b1175.
 
 Verify the current branch, base, issue, tracker, exact reviewed diff, and
 validation. Stage only:
@@ -403,21 +464,22 @@ workflow_handoff:
   repository_url: "https://github.com/Tahjali11/Mythic-Edge"
   issue: "https://github.com/Tahjali11/Mythic-Edge/issues/744"
   tracker: "https://github.com/Tahjali11/Mythic-Edge/issues/746"
-  role_performed: "Codex E: Independent Windows-First Implementation and Staged-Byte Confirmation Reviewer"
+  role_performed: "Codex E: Independent CodeQL Alert 21 Generic-Stderr Confirmation Reviewer"
   completed_thread: "E"
   next_thread: "F"
   source_artifact: "docs/implementation_handoffs/trusted_owner_native_role_pool_profile_comparison.md"
   target_artifact: "docs/contract_test_reports/trusted_owner_native_role_pool_profile_windows_first_implementation.md"
   branch: "codex/trusted-owner-native-profile-contract-744"
   contract_sha256: "2389a3936b80fbc2fd83366df51bc1ae7a80f0a3ce46470e657aed54a4b09322"
-  prior_reviewed_manifest_sha256: "549a7157282401ba39898c187aa2d6a21aed0e9e01e5691597961faca1c2c4ba"
-  reviewed_manifest_sha256: "00a4f44b08e6c528afea4058e06af0ac23d3a8e909ec6674216c06f98e2d3dab"
+  predecessor_commit: "f45e5db1ea975c1cbe961c9727ea7f1367e9a9d6"
+  prior_reviewed_manifest_sha256: "00a4f44b08e6c528afea4058e06af0ac23d3a8e909ec6674216c06f98e2d3dab"
+  reviewed_manifest_sha256: "6c9d9e4a5bf41c3bc5a33fa4f64ca1342f1f90f03cf03402577279a1686b1175"
   finding_status:
     ME-RP-744-E-012: "fixed_confirmed"
     ME-RP-744-F-001: "fixed_confirmed"
     ME-RP-744-F-002: "fixed_confirmed"
-    codeql_alert_21: "local_fix_confirmed_ci_pending"
-  implementation_verdict: "accepted_local_no_echo_fix_pending_successor_codeql"
+    codeql_alert_21: "second_local_fix_confirmed_ci_pending"
+  implementation_verdict: "accepted_generic_stderr_no_echo_fix_pending_successor_codeql"
   confirmed_scope_path_count: 8
   installer_fixer_scope_path_count: 2
   line_ending_fixer_scope_path_count: 2
@@ -432,7 +494,7 @@ workflow_handoff:
   affected_artifact_bytes_changed: false
   staged_files: []
   installed_skill_modified: false
-  codeql_alert_state_on_current_pr_head: "open"
+  codeql_alert_state_on_current_pr_head: "open_on_f45e5db1ea975c1cbe961c9727ea7f1367e9a9d6"
   codeql_ci_confirmation: "pending_successor_commit_and_ci_rerun"
   platform_capability_probed: false
   installation_or_sync_performed: false
@@ -449,9 +511,10 @@ workflow_handoff:
     - "focused byte-preservation and cached-diff attribute regression: 1 passed"
     - "focused installer preflight: 7 passed"
     - "installer: 22 passed, 3 skipped"
-    - "focused trusted-native CLI no-echo regression: 1 passed"
-    - "actual trusted-native CLI marker probe: passed"
-    - "canonical Role Pool: 93 passed"
+    - "focused generic and trusted-native CLI no-echo regressions: 2 passed"
+    - "three actual CLI marker probes: passed"
+    - "static generic-stderr audit: seven literals; no validator-error print site"
+    - "canonical Role Pool: 94 passed"
     - "adjacent plan/result command-line gates: 4 passed"
     - "repository: 2094 passed, 4 skipped"
     - "isolated 42-path cached diff check: exit 0, zero output"
