@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import io
 import json
 import tempfile
 import unittest
@@ -1729,6 +1730,32 @@ def _native_resolution_event(
 
 
 class TrustedOwnerNativeProfileTests(unittest.TestCase):
+    def test_cli_does_not_echo_trusted_native_validation_details(self) -> None:
+        private_detail = "invented_" + "secret_" + "material"
+        document = _native_request(_native_registry())
+        document["unexpected_detail"] = private_detail
+
+        with tempfile.TemporaryDirectory() as directory:
+            document_path = Path(directory) / "request.json"
+            document_path.write_text(json.dumps(document), encoding="utf-8")
+            stderr = io.StringIO()
+            with (
+                mock.patch.object(
+                    native,
+                    "validate_trusted_native_document",
+                    side_effect=lambda value: [str(value["unexpected_detail"])],
+                ),
+                mock.patch.object(native.sys, "stderr", stderr),
+            ):
+                exit_code = native.main([str(document_path)])
+
+        self.assertEqual(exit_code, 1)
+        self.assertEqual(
+            stderr.getvalue(),
+            "role-pool document invalid:\n- validation details withheld\n",
+        )
+        self.assertNotIn(private_detail, stderr.getvalue())
+
     def test_canonical_json_and_closed_schema_fail_closed(self) -> None:
         registry = _native_registry()
         text = native.trusted_native_canonical_bytes(registry).decode("utf-8")

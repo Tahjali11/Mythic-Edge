@@ -23,13 +23,16 @@ Review authority:
 
 ## Implementation Under Test
 
+- Pull request: https://github.com/Tahjali11/Mythic-Edge/pull/753
 - Branch: `codex/trusted-owner-native-profile-contract-744`
 - Starting commit: `0e58eacfe5f0530880c36adfc529c64f08525e79`
+- Current PR head and local parent:
+  `5fed78739ad7c54a099685cfd46f695e19f42ce6`
 - Canonical source file count: `34`
-- Canonical source byte count: `1,997,696`
+- Canonical source byte count: `1,999,201`
 - Canonical manifest byte count: `4,921`
 - Canonical manifest SHA-256:
-  `549a7157282401ba39898c187aa2d6a21aed0e9e01e5691597961faca1c2c4ba`
+  `00a4f44b08e6c528afea4058e06af0ac23d3a8e909ec6674216c06f98e2d3dab`
 
 The six contract-authorized canonical source paths are the only managed paths
 that differ from the accepted migration rows. The two Core installer paths are
@@ -92,7 +95,9 @@ The Windows-first validator, state-transition, terminal-selector, release-rung,
 documentation, no-fallback behavior, and installer boundary are internally
 consistent. The three narrow Codex D corrections close the implementation
 preflight blocker, Git clean-filter byte-preservation blocker, and cached-diff
-CR-at-EOL policy blocker.
+CR-at-EOL policy blocker. A fourth narrow D correction removes trusted-native
+validator details from CLI stderr while preserving the in-process validator
+API and existing plan/result CLI diagnostics.
 
 ## Finding Lifecycle Summary
 
@@ -101,6 +106,7 @@ CR-at-EOL policy blocker.
 | `ME-RP-744-E-012` | P1 | `fixed_state_followup` | `fixed_confirmed` | not_blocking | The initial review found that the installer checked only `_trusted_windows_host_observed()` even though the contract requires both trusted Windows host observation and exact native-task capability before installer staging or destination mutation. | Current bytes use `_role_pool_mutation_preflight_failure_reason()` at initial install, public sync, and internal sync boundaries. Seven focused tests prove each missing half blocks before mutation, only both injected synthetic observations permit temporary install/sync, and read-only `--check` observes neither predicate. | F after a separate owner submission decision |
 | `ME-RP-744-F-001` | P1 | `fixed_state_followup` | `fixed_confirmed` | not_blocking | Codex F found that the repository-wide LF clean filter would change two exact byte-bound candidate artifacts when written to the Git index. | Exact path-specific `-text` rules preserve both artifacts. Their accepted SHA-256 values and byte counts are unchanged, raw and filtered Git blob IDs match, all 34 candidate files have zero clean-filter mismatches, and the real index remains unstaged. | F |
 | `ME-RP-744-F-002` | P1 | `fixed_state_followup` | `fixed_confirmed` | not_blocking | After F-001, the two byte-bound artifacts staged byte-for-byte, but `git diff --cached --check` still classified their intentional CRLF carriage returns as trailing whitespace. | Both exact rules retain `-text` and add only `whitespace=cr-at-eol`. An isolated index containing all 42 submission paths produced zero candidate blob mismatches and `git diff --cached --check` exit `0` with zero output. The isolated index and lock were removed; the real index remains empty. | F |
+| `codeql_alert_21` | high | `fixed_state_followup` | `local_fix_confirmed_ci_pending` | non_blocking | CodeQL on PR head `5fed7873...ce6` traced operator-supplied trusted-native validator detail to the generic stderr loop in `check_pool_plan.py` and opened `py/clear-text-logging-sensitive-data`. | The CLI now intercepts only `trusted_owner_native_*` and `trusted_owner_repository_*` schemas, calls the existing validator, and emits one fixed withheld-detail message on rejection. Direct CLI execution proved the injected marker absent; the focused test, all 93 trusted-native tests, and four adjacent plan/result CLI tests pass. Alert closure remains pending a successor commit and CodeQL rerun. | F, then GitHub CI; return to D only if the alert persists |
 
 ## Historical Contract Mismatch And Fix Verification
 
@@ -206,7 +212,11 @@ Current implementation SHA-256 values:
 
 - Focused installer preflight: `7 passed`.
 - Focused byte-preservation and cached-diff attribute regression: `1 passed`.
-- Focused Role Pool: `92 passed`.
+- Focused trusted-native CLI no-echo regression: `1 passed`.
+- Actual trusted-native CLI marker probe: exit `1`, exact fixed stderr,
+  marker absent, stdout empty.
+- Focused Role Pool: `93 passed`.
+- Adjacent plan/result command-line gates: `4 passed`.
 - Installer: `22 passed, 3 skipped` for unavailable directory symlinks.
 - Full repository: `2094 passed, 4 skipped`; skips are the known unavailable
   symlink cases. One existing third-party Starlette deprecation warning
@@ -218,9 +228,9 @@ Current implementation SHA-256 values:
   process checks, residue checks, and `git diff --check`: passed.
 - Read-only installer comparison: expected `target_differs` / `drift`; no
   synchronization occurred.
-- Canonical source: `34` files, `1,997,696` bytes, `4,921` manifest bytes,
+- Canonical source: `34` files, `1,999,201` bytes, `4,921` manifest bytes,
   SHA-256
-  `549a7157282401ba39898c187aa2d6a21aed0e9e01e5691597961faca1c2c4ba`.
+  `00a4f44b08e6c528afea4058e06af0ac23d3a8e909ec6674216c06f98e2d3dab`.
 - Isolated 42-path cached-diff check: exit `0`, output line count `0`, candidate
   staged-blob mismatch count `0`.
 - Isolated review index and lock after cleanup: absent. Real index staged path
@@ -233,8 +243,14 @@ One exploratory `unittest discover` command used the over-broad
 the sibling repository-owned `mythic-edge-workflow` source, which is absent
 from this inert candidate tree. It reported `144` setup errors across `376`
 tests. This was a test-selection/setup error, not an implementation regression:
-the contract-required `test_check_pool_plan.py` suite passed all `92` tests,
-and the full repository suite passed all `2,094` runnable tests.
+the contract-required `test_check_pool_plan.py` suite passed all `92` tests at
+that review point, now passes `93` with the new no-echo regression, and the
+full repository suite passed all `2,094` runnable tests.
+
+The first focused no-echo invocation used a dotted module path that omitted
+the candidate script directory from `sys.path`; it failed during import before
+running a test. The corrected direct-script invocation passed. This was a
+review-command setup error, not candidate behavior.
 
 ## Staged-Byte Preservation Confirmation
 
@@ -262,8 +278,11 @@ The reviewed artifact bytes remain:
   `1b11d1f74d379e8f6b75ea2ae921e1c4ac11685b5d5f11ada39c68e7df8d7a32`.
 
 All `34` candidate files have identical raw and Git-filtered blob identities.
-The canonical manifest remains
+At the F-002 confirmation point, the canonical manifest was
 `549a7157282401ba39898c187aa2d6a21aed0e9e01e5691597961faca1c2c4ba`.
+The later reviewed no-echo source and test changes retain the same 34-path
+inventory and produce the current manifest
+`00a4f44b08e6c528afea4058e06af0ac23d3a8e909ec6674216c06f98e2d3dab`.
 
 For cached-diff confirmation, a disposable `GIT_INDEX_FILE` was initialized
 from `HEAD` and populated with exactly the complete `42`-path submission set:
@@ -273,14 +292,68 @@ matched the reviewed working-tree bytes. `git diff --cached --check` exited
 `0` with zero output. The disposable index and lock were removed afterward,
 and the real index has zero staged files.
 
+## CodeQL Alert 21 No-Echo Confirmation
+
+**Observed**
+
+GitHub currently reports alert `21`,
+`py/clear-text-logging-sensitive-data`, as open on PR head
+`5fed78739ad7c54a099685cfd46f695e19f42ce6`. The three language analysis jobs
+passed on that head, but the aggregate CodeQL check failed because the alert
+was introduced there.
+
+The source alert is real: the old generic CLI path passed the list returned by
+`validate_trusted_native_document()` into `print(f"- {error}")`. Trusted-native
+errors can derive from operator-supplied document content.
+
+**Current behavior**
+
+The local candidate adds one earlier CLI branch for schema versions beginning
+with `trusted_owner_native_` or `trusted_owner_repository_`. It retains the
+existing validator and its return values for in-process callers. On any CLI
+validation error it now emits exactly:
+
+```text
+role-pool document invalid:
+- validation details withheld
+```
+
+and exits `1`. The generic diagnostic loop remains unchanged for plan and
+result schemas, preserving their fixed sidecar and binding guidance.
+
+An independent actual-process probe supplied a private marker in an invalid
+trusted-native document. The command returned the exact fixed message, emitted
+no stdout, and did not expose the marker. The focused regression also forces a
+tainted validator return value and proves it cannot reach stderr.
+
+**Bindings**
+
+- Historical reviewed manifest:
+  `549a7157282401ba39898c187aa2d6a21aed0e9e01e5691597961faca1c2c4ba`.
+- Prospective accepted local manifest:
+  `00a4f44b08e6c528afea4058e06af0ac23d3a8e909ec6674216c06f98e2d3dab`.
+- `check_pool_plan.py` SHA-256:
+  `bbc5b7e1999a2f0b14e2cc35eb2e43fdbe0d38c3a75618f6f5be05c368306fc6`.
+- `test_check_pool_plan.py` SHA-256:
+  `c7346aa5ae5634ac40aaab541eca58ad75803b4852452dd72ae76e81d4d3edc2`.
+
+The local source fix is independently confirmed. GitHub CodeQL closure is not
+yet confirmed because the local bytes have not been committed or pushed.
+
 ## Recommendation
 
 Accept the exact inert Windows-first implementation candidate.
 `ME-RP-744-E-012`, `ME-RP-744-F-001`, and `ME-RP-744-F-002` are
-fixed-confirmed and no blocking implementation, staged-byte, or cached-diff
-findings remain. Route the candidate back to Codex F. This review grants no
-new submission authority; Codex F must verify the current owner submission
-authority before staging.
+fixed-confirmed. The source correction for `codeql_alert_21` is locally
+confirmed, with CI closure pending. No blocking implementation, staged-byte,
+cached-diff, or local no-echo finding remains. Route exactly the four reviewed
+local paths back to Codex F for a successor commit and PR push. Codex F must
+verify current owner submission authority before staging.
+
+Do not call alert `21` fixed or the PR merge-ready until CodeQL analyzes the
+successor commit and the aggregate CodeQL check passes. If the alert remains,
+route its new exact evidence back to Codex D. If it closes, route the draft PR
+to Codex G only after a separate owner integration request.
 
 Installation, registry population, claims, task/worktree creation, dispatch,
 canaries, rung advancement, Stage 4, submission, merge, deployment, and live
@@ -304,18 +377,24 @@ native Role Pool candidate on branch
 codex/trusted-owner-native-profile-contract-744. Read the contract at SHA-256
 2389a3936b80fbc2fd83366df51bc1ae7a80f0a3ce46470e657aed54a4b09322,
 the implementation handoff, and the final Codex E report. Confirm
-ME-RP-744-E-012, ME-RP-744-F-001, and ME-RP-744-F-002 remain fixed. Recompute
-the 34-file candidate manifest and require SHA-256
-549a7157282401ba39898c187aa2d6a21aed0e9e01e5691597961faca1c2c4ba.
+ME-RP-744-E-012, ME-RP-744-F-001, and ME-RP-744-F-002 remain fixed and that
+the local source correction for CodeQL alert 21 is accepted by this report.
+Recompute the 34-file candidate manifest and require SHA-256
+00a4f44b08e6c528afea4058e06af0ac23d3a8e909ec6674216c06f98e2d3dab.
 
 Verify the current branch, base, issue, tracker, exact reviewed diff, and
-validation before staging explicit reviewed paths. Recheck that all 34 staged
-blob identities equal the reviewed working-tree bytes and that `git diff
---cached --check` passes with zero output over the complete 42-path staged
-set. Open or update only a draft PR to the approved base. Do not install or
-synchronize the skill, probe platform capability, populate registry or release
-state, dispatch, publish a claim, run a canary, advance Stage 4, merge, deploy,
-or claim live readiness.
+validation. Stage only:
+- docs/codex_skills/mythic-edge-role-pool/scripts/check_pool_plan.py
+- docs/codex_skills/mythic-edge-role-pool/scripts/test_check_pool_plan.py
+- docs/implementation_handoffs/trusted_owner_native_role_pool_profile_comparison.md
+- docs/contract_test_reports/trusted_owner_native_role_pool_profile_windows_first_implementation.md
+
+Commit and push those exact reviewed paths to update existing draft PR #753.
+Then require the successor CodeQL analysis and aggregate CodeQL check to pass
+and verify alert 21 no longer applies to the successor head. Do not dismiss the
+alert. Do not install or synchronize the skill, probe platform capability,
+populate registry or release state, dispatch, publish a claim, run a canary,
+advance Stage 4, merge, deploy, or claim live readiness.
 ```
 
 ```yaml
@@ -331,15 +410,19 @@ workflow_handoff:
   target_artifact: "docs/contract_test_reports/trusted_owner_native_role_pool_profile_windows_first_implementation.md"
   branch: "codex/trusted-owner-native-profile-contract-744"
   contract_sha256: "2389a3936b80fbc2fd83366df51bc1ae7a80f0a3ce46470e657aed54a4b09322"
-  reviewed_manifest_sha256: "549a7157282401ba39898c187aa2d6a21aed0e9e01e5691597961faca1c2c4ba"
+  prior_reviewed_manifest_sha256: "549a7157282401ba39898c187aa2d6a21aed0e9e01e5691597961faca1c2c4ba"
+  reviewed_manifest_sha256: "00a4f44b08e6c528afea4058e06af0ac23d3a8e909ec6674216c06f98e2d3dab"
   finding_status:
     ME-RP-744-E-012: "fixed_confirmed"
     ME-RP-744-F-001: "fixed_confirmed"
     ME-RP-744-F-002: "fixed_confirmed"
-  implementation_verdict: "accepted_inert_windows_first_candidate"
+    codeql_alert_21: "local_fix_confirmed_ci_pending"
+  implementation_verdict: "accepted_local_no_echo_fix_pending_successor_codeql"
   confirmed_scope_path_count: 8
   installer_fixer_scope_path_count: 2
   line_ending_fixer_scope_path_count: 2
+  no_echo_fixer_scope_path_count: 3
+  e_reviewed_local_path_count: 4
   candidate_file_count: 34
   git_filter_mismatch_count: 0
   staged_blob_mismatch_count: 0
@@ -349,6 +432,8 @@ workflow_handoff:
   affected_artifact_bytes_changed: false
   staged_files: []
   installed_skill_modified: false
+  codeql_alert_state_on_current_pr_head: "open"
+  codeql_ci_confirmation: "pending_successor_commit_and_ci_rerun"
   platform_capability_probed: false
   installation_or_sync_performed: false
   dispatch_authorized: false
@@ -364,13 +449,17 @@ workflow_handoff:
     - "focused byte-preservation and cached-diff attribute regression: 1 passed"
     - "focused installer preflight: 7 passed"
     - "installer: 22 passed, 3 skipped"
-    - "canonical Role Pool: 92 passed"
+    - "focused trusted-native CLI no-echo regression: 1 passed"
+    - "actual trusted-native CLI marker probe: passed"
+    - "canonical Role Pool: 93 passed"
+    - "adjacent plan/result command-line gates: 4 passed"
     - "repository: 2094 passed, 4 skipped"
     - "isolated 42-path cached diff check: exit 0, zero output"
     - "installed offline gate: 350 passed; structural validation passed"
   stop_conditions:
     - "Do not treat this review as installation, sync, dispatch, canary, Stage 4, merge, deployment, or live authority."
     - "Codex F must verify current owner submission authority before staging."
+    - "Do not mark CodeQL alert 21 fixed until the successor commit is analyzed and the aggregate CodeQL check passes."
 instruction_context:
   required_for_risk_tier: "medium_or_high"
   deferred_for_low_risk: false
@@ -382,9 +471,10 @@ instruction_context:
   repo_constitution_read: true
   repo_workflow_read: true
   role_doc_read: true
-  issue_or_tracker_read: false
+  issue_or_tracker_read: true
   contract_or_handoff_read: true
-  accepted_adrs_read: []
+  accepted_adrs_read:
+    - "ADR-0008"
   protected_surfaces:
     - "installation and synchronization boundary"
     - "native task capability boundary"

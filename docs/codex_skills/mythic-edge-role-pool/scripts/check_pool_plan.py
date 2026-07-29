@@ -11457,6 +11457,15 @@ def main(argv: list[str] | None = None) -> int:
                             launcher_receipts=launcher_receipts,
                         )
                     )
+    elif isinstance(version, str) and (
+        version.startswith("trusted_owner_native_")
+        or version.startswith("trusted_owner_repository_")
+    ):
+        if validate_trusted_native_document(document):
+            print("role-pool document invalid:", file=sys.stderr)
+            print("- validation details withheld", file=sys.stderr)
+            return 1
+        errors = []
     else:
         errors = validate_document(
             document,

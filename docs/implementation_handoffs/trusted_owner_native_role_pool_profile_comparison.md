@@ -1291,3 +1291,124 @@ workflow_handoff:
   live_ready: false
   next_recommended_role: "Codex E: independent ME-RP-744-F-002 confirmation reviewer"
 ```
+
+## Codex D CodeQL Alert 21 Completion Addendum (2026-07-29)
+
+### Finding Outcome
+
+Role performed: Codex D, narrow trusted-native CLI no-echo fixer.
+
+The local fix candidate addresses the required CodeQL
+`py/clear-text-logging-sensitive-data` alert at
+`scripts/check_pool_plan.py`. The reviewed commit routed detailed strings
+returned by trusted-native document validators into stderr. Those strings can
+be derived from operator-supplied document content.
+
+CodeQL alert 21 remains open against reviewed commit
+`5fed78739ad7c54a099685cfd46f695e19f42ce6` until Codex E accepts the new
+bytes and Codex F pushes a successor commit for CI analysis.
+
+### Narrow Fix
+
+The implementation and test scope is:
+
+- `docs/codex_skills/mythic-edge-role-pool/scripts/check_pool_plan.py`;
+- `docs/codex_skills/mythic-edge-role-pool/scripts/test_check_pool_plan.py`;
+- this implementation handoff.
+
+The CLI now handles trusted-owner native and trusted-owner repository schemas
+through their existing dedicated validator and emits only:
+
+```text
+role-pool document invalid:
+- validation details withheld
+```
+
+when that validator rejects the document. The detailed validator return values
+remain unchanged for in-process callers. Plan and result validation continue
+to emit their existing fixed sidecar and binding diagnostics, including
+missing `--discovery`, `--worktrees`, `--plan`, and `--preclaim` messages.
+Exit codes and successful output are unchanged.
+
+### Contract-Test-First Evidence
+
+The new focused test routes an invented sensitive detail through the
+trusted-native validator path. Before the implementation change, the test
+failed because stderr contained that detail. After the change, it passes and
+requires the exact fixed public message above.
+
+The initial all-error redaction was narrowed after adjacent CLI tests proved
+that plan and result sidecar diagnostics are part of the existing interface.
+All four command-line gate tests pass with those diagnostics preserved.
+
+### Prospective Binding
+
+The accepted pre-fix 34-file candidate manifest remains historical review
+evidence:
+
+`549a7157282401ba39898c187aa2d6a21aed0e9e01e5691597961faca1c2c4ba`
+
+The prospective post-fix candidate binding is:
+
+- file count: `34`;
+- byte count: `1,999,201`;
+- manifest byte count: `4,921`;
+- manifest SHA-256:
+  `00a4f44b08e6c528afea4058e06af0ac23d3a8e909ec6674216c06f98e2d3dab`;
+- `check_pool_plan.py` SHA-256:
+  `bbc5b7e1999a2f0b14e2cc35eb2e43fdbe0d38c3a75618f6f5be05c368306fc6`;
+- `test_check_pool_plan.py` SHA-256:
+  `c7346aa5ae5634ac40aaab541eca58ad75803b4852452dd72ae76e81d4d3edc2`.
+
+The contract remains unchanged at SHA-256
+`2389a3936b80fbc2fd83366df51bc1ae7a80f0a3ce46470e657aed54a4b09322`.
+The prospective manifest is not accepted until independent Codex E review.
+
+### Validation
+
+- focused trusted-native CLI no-echo test: failed before the implementation
+  change, then passed;
+- canonical `test_check_pool_plan.py`: `93 passed`;
+- adjacent command-line gate tests: `4 passed`;
+- exact Windows-first inert contract check: `1 passed`;
+- installer suite: `22 passed`, `3` platform-dependent symlink skips;
+- focused Ruff `F,I` scope: passed;
+- working-tree whitespace check: passed;
+- installed Role Pool release gate: `350 passed`, structural validation passed,
+  and `NOT LIVE-READY` retained.
+
+The candidate release runner stops before unit tests because this repository
+copy does not contain its required sibling
+`docs/codex_skills/mythic-edge-workflow/SKILL.md`. Direct candidate discovery
+runs `377` tests with zero assertion failures and `144` setup errors, all from
+that one missing sibling path. This packaging limitation predates and is
+independent of the CodeQL fix.
+
+No installation, synchronization, platform capability probe, dispatch, claim,
+canary, Stage 4 action, merge, deployment, or live operation occurred.
+
+### Next Workflow Action
+
+Next role: Codex E, independent CodeQL alert 21 no-echo confirmation reviewer.
+
+```yaml
+workflow_handoff:
+  role_performed: "Codex D: narrow trusted-native CLI no-echo fixer"
+  repository: "Tahjali11/Mythic-Edge"
+  issue: "https://github.com/Tahjali11/Mythic-Edge/issues/744"
+  tracker: "https://github.com/Tahjali11/Mythic-Edge/issues/746"
+  pr: "https://github.com/Tahjali11/Mythic-Edge/pull/753"
+  branch: "codex/trusted-owner-native-profile-contract-744"
+  completed_thread: "D"
+  next_thread: "E"
+  finding_status:
+    codeql_alert_21: "local_fix_candidate_ready_for_independent_confirmation"
+  prior_reviewed_manifest_sha256: "549a7157282401ba39898c187aa2d6a21aed0e9e01e5691597961faca1c2c4ba"
+  prospective_manifest_sha256: "00a4f44b08e6c528afea4058e06af0ac23d3a8e909ec6674216c06f98e2d3dab"
+  codeql_ci_confirmation: "pending_successor_commit_and_ci_rerun"
+  installation_or_sync_performed: false
+  platform_capability_probed: false
+  stage4_authorized: false
+  live_ready: false
+  next_recommended_role: "Codex E: independent CodeQL alert 21 confirmation reviewer"
+```
