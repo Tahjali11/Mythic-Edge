@@ -1,0 +1,7 @@
+interface:
+  display_name: "Mythic Edge Workflow"
+  short_description: "Mythic Edge workflow guardrails"
+  default_prompt: "Use $mythic-edge-workflow for this Mythic Edge repo task."
+
+policy:
+  allow_implicit_invocation: true
