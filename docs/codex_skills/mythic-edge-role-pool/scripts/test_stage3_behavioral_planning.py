@@ -18,13 +18,24 @@ from unittest import mock
 import check_stage3_behavioral_planning as stage3
 from check_pool_plan import validate_plan
 from check_stage3_behavioral_planning import (
+    ACCEPTED_PRE_APP_SERVER_MANIFEST_FILE_COUNT,
     ALLOWED_ADDED_PATHS,
     ALLOWED_MODIFIED_PATHS,
+    APP_SERVER_ADAPTER_MANIFEST_PATH,
+    APP_SERVER_ADAPTER_SHA256,
+    APP_SERVER_ADAPTER_SKILL_RELATIVE_PATH,
+    APP_SERVER_ADAPTER_TEST_MANIFEST_PATH,
+    APP_SERVER_ADAPTER_TEST_SHA256,
+    APP_SERVER_ADAPTER_TEST_SKILL_RELATIVE_PATH,
+    APP_SERVER_ADDED_PATHS,
     ASSERTION_FIELDS,
     EFFECT_COUNTER_FIELDS,
     EXPECTED_SCENARIO,
     FINDING_ID,
     PINNED_SUCCESSOR_DIGESTS,
+    PRE_APP_SERVER_ALLOWED_ADDED_PATHS,
+    PRE_APP_SERVER_PINNED_SUCCESSOR_DIGESTS,
+    REVIEWED_APP_SERVER_MODIFIED_DIGESTS,
     SCHEMA_VERSION,
     STAGE2_BASELINE_FILES,
     STAGE2_ENTRY_EVIDENCE,
@@ -520,7 +531,7 @@ V5_REBIND_V5_TARGET_SHA256 = (
     "8b8d5f1631f8d546ee7c477a7bf626f6d73f4f460827a92550e7712f3cfe35b7"
 )
 V5_REBIND_V5_PINNED_SUCCESSOR_DIGESTS = {
-    **PINNED_SUCCESSOR_DIGESTS,
+    **PRE_APP_SERVER_PINNED_SUCCESSOR_DIGESTS,
     V5_SUCCESSOR_MANIFEST_PATH: V5_REBIND_V5_TARGET_SHA256,
 }
 V5_REBIND_V5_REVIEW_EVIDENCE_SHA256 = (
@@ -605,7 +616,7 @@ V5_REBIND_V6_TARGET_SHA256 = (
     "48d7c28599ed6a26b48749eaae96ec51dd38fff680104b3c059b29da3cff51be"
 )
 V5_REBIND_V6_PINNED_SUCCESSOR_DIGESTS = {
-    **PINNED_SUCCESSOR_DIGESTS,
+    **PRE_APP_SERVER_PINNED_SUCCESSOR_DIGESTS,
     V5_SUCCESSOR_MANIFEST_PATH: V5_REBIND_V6_TARGET_SHA256,
 }
 V5_REBIND_V6_REVIEW_EVIDENCE_SHA256 = (
@@ -941,9 +952,9 @@ def _v5_rebind_binding(receipt: dict[str, object]) -> dict[str, object]:
         "transition_kind": "37_to_37_digest_rebind",
         "stage2_change_set_kind": "added_preserved",
         "manifest_file_count_before": 37,
-        "manifest_file_count_after": stage3.EXPECTED_CURRENT_MANIFEST_FILE_COUNT,
+        "manifest_file_count_after": ACCEPTED_PRE_APP_SERVER_MANIFEST_FILE_COUNT,
         "path_set_change": "none",
-        "allowed_added_paths": tuple(sorted(ALLOWED_ADDED_PATHS)),
+        "allowed_added_paths": tuple(sorted(PRE_APP_SERVER_ALLOWED_ADDED_PATHS)),
         "allowed_modified_paths": tuple(sorted(ALLOWED_MODIFIED_PATHS)),
         "v3_sha256": SUCCESSOR_SHA256,
         "v4_sha256": V4_SUCCESSOR_SHA256,
@@ -1298,7 +1309,7 @@ def _v5_rebind_v2_binding(receipt: dict[str, object]) -> dict[str, object]:
         "transition_kind": "37_to_37_digest_rebind",
         "stage2_change_set_kind": "added_preserved",
         "manifest_file_count_before": 37,
-        "manifest_file_count_after": stage3.EXPECTED_CURRENT_MANIFEST_FILE_COUNT,
+        "manifest_file_count_after": ACCEPTED_PRE_APP_SERVER_MANIFEST_FILE_COUNT,
         "path_set_change": "none",
         "recipe_schema": receipt["build_recipe_schema"],
         "recipe_sha256": receipt["build_recipe_sha256"],
@@ -1310,7 +1321,7 @@ def _v5_rebind_v2_binding(receipt: dict[str, object]) -> dict[str, object]:
         "v1_target_sha256": V5_REBIND_TARGET_SHA256,
         "v1_review_ref": V5_REBIND_REVIEW_REF,
         "v1_receipt_digest": V5_REBIND_RECEIPT_DIGEST,
-        "allowed_added_paths": tuple(sorted(ALLOWED_ADDED_PATHS)),
+        "allowed_added_paths": tuple(sorted(PRE_APP_SERVER_ALLOWED_ADDED_PATHS)),
         "allowed_modified_paths": tuple(sorted(ALLOWED_MODIFIED_PATHS)),
         "v3_sha256": SUCCESSOR_SHA256,
         "v4_sha256": V4_SUCCESSOR_SHA256,
@@ -1404,7 +1415,7 @@ def _v5_rebind_v3_binding(evidence: dict[str, object]) -> dict[str, object]:
         "transition_kind": "37_to_37_digest_rebind",
         "stage2_change_set_kind": "added_preserved",
         "manifest_file_count_before": 37,
-        "manifest_file_count_after": stage3.EXPECTED_CURRENT_MANIFEST_FILE_COUNT,
+        "manifest_file_count_after": ACCEPTED_PRE_APP_SERVER_MANIFEST_FILE_COUNT,
         "path_set_change": "none",
         "review_evidence_schema": evidence["review_evidence_schema"],
         "review_evidence_sha256": hashlib.sha256(
@@ -1419,7 +1430,7 @@ def _v5_rebind_v3_binding(evidence: dict[str, object]) -> dict[str, object]:
         "v2_amendment_sha256": V5_REBIND_V2_AMENDMENT_SHA256,
         "v2_predecessor_sha256": V5_REBIND_V2_PREDECESSOR_SHA256,
         "v2_target_sha256": V5_REBIND_V2_TARGET_SHA256,
-        "allowed_added_paths": tuple(sorted(ALLOWED_ADDED_PATHS)),
+        "allowed_added_paths": tuple(sorted(PRE_APP_SERVER_ALLOWED_ADDED_PATHS)),
         "allowed_modified_paths": tuple(sorted(ALLOWED_MODIFIED_PATHS)),
         "v3_sha256": SUCCESSOR_SHA256,
         "v4_sha256": V4_SUCCESSOR_SHA256,
@@ -1572,7 +1583,7 @@ def _v5_rebind_v4_binding(receipt: dict[str, object]) -> dict[str, object]:
         "contract_sha256": contract_sha256,
         "transition_kind": "37_to_37_review_receipt_binding",
         "manifest_file_count_before": 37,
-        "manifest_file_count_after": stage3.EXPECTED_CURRENT_MANIFEST_FILE_COUNT,
+        "manifest_file_count_after": ACCEPTED_PRE_APP_SERVER_MANIFEST_FILE_COUNT,
         "path_set_change": "none",
         "v5_contract_sha256_before": V5_REBIND_V3_TARGET_SHA256,
         "v5_contract_sha256_after": V5_REBIND_V3_TARGET_SHA256,
@@ -1594,9 +1605,11 @@ def _v5_rebind_v4_binding(receipt: dict[str, object]) -> dict[str, object]:
         "v1_amendment_sha256": V5_REBIND_AMENDMENT_SHA256,
         "v2_amendment_sha256": V5_REBIND_V2_AMENDMENT_SHA256,
         "v3_amendment_sha256": V5_REBIND_V3_AMENDMENT_SHA256,
-        "allowed_added_paths": tuple(sorted(ALLOWED_ADDED_PATHS)),
+        "allowed_added_paths": tuple(sorted(PRE_APP_SERVER_ALLOWED_ADDED_PATHS)),
         "allowed_modified_paths": tuple(sorted(ALLOWED_MODIFIED_PATHS)),
-        "pinned_successor_digests": tuple(sorted(PINNED_SUCCESSOR_DIGESTS.items())),
+        "pinned_successor_digests": tuple(
+            sorted(PRE_APP_SERVER_PINNED_SUCCESSOR_DIGESTS.items())
+        ),
         "current_recipe_review_receipt_bound_for_execution": True,
         "false_authority": {
             field: False for field in V5_REBIND_V4_FALSE_AUTHORITY_FIELDS
@@ -1641,9 +1654,11 @@ def _expected_v5_rebind_v4_binding() -> dict[str, object]:
         "v1_amendment_sha256": V5_REBIND_AMENDMENT_SHA256,
         "v2_amendment_sha256": V5_REBIND_V2_AMENDMENT_SHA256,
         "v3_amendment_sha256": V5_REBIND_V3_AMENDMENT_SHA256,
-        "allowed_added_paths": tuple(sorted(ALLOWED_ADDED_PATHS)),
+        "allowed_added_paths": tuple(sorted(PRE_APP_SERVER_ALLOWED_ADDED_PATHS)),
         "allowed_modified_paths": tuple(sorted(ALLOWED_MODIFIED_PATHS)),
-        "pinned_successor_digests": tuple(sorted(PINNED_SUCCESSOR_DIGESTS.items())),
+        "pinned_successor_digests": tuple(
+            sorted(PRE_APP_SERVER_PINNED_SUCCESSOR_DIGESTS.items())
+        ),
         "current_recipe_review_receipt_bound_for_execution": True,
         "false_authority": {
             field: False for field in V5_REBIND_V4_FALSE_AUTHORITY_FIELDS
@@ -1730,7 +1745,7 @@ def _v5_rebind_v5_binding(evidence: dict[str, object]) -> dict[str, object]:
         "contract_sha256": V5_REBIND_V5_TARGET_SHA256,
         "transition_kind": "37_to_37_digest_rebind",
         "manifest_file_count_before": 37,
-        "manifest_file_count_after": stage3.EXPECTED_CURRENT_MANIFEST_FILE_COUNT,
+        "manifest_file_count_after": ACCEPTED_PRE_APP_SERVER_MANIFEST_FILE_COUNT,
         "path_set_change": "none",
         "v5_contract_sha256_before": V5_REBIND_V5_PREDECESSOR_SHA256,
         "v5_contract_sha256_after": V5_REBIND_V5_TARGET_SHA256,
@@ -1755,7 +1770,7 @@ def _v5_rebind_v5_binding(evidence: dict[str, object]) -> dict[str, object]:
         "v2_amendment_sha256": V5_REBIND_V2_AMENDMENT_SHA256,
         "v3_amendment_sha256": V5_REBIND_V3_AMENDMENT_SHA256,
         "v4_amendment_sha256": V5_REBIND_V4_AMENDMENT_SHA256,
-        "allowed_added_paths": tuple(sorted(ALLOWED_ADDED_PATHS)),
+        "allowed_added_paths": tuple(sorted(PRE_APP_SERVER_ALLOWED_ADDED_PATHS)),
         "allowed_modified_paths": tuple(sorted(ALLOWED_MODIFIED_PATHS)),
         "pinned_successor_digests": tuple(
             sorted(V5_REBIND_V5_PINNED_SUCCESSOR_DIGESTS.items())
@@ -1806,7 +1821,7 @@ def _expected_v5_rebind_v5_binding() -> dict[str, object]:
         "v2_amendment_sha256": V5_REBIND_V2_AMENDMENT_SHA256,
         "v3_amendment_sha256": V5_REBIND_V3_AMENDMENT_SHA256,
         "v4_amendment_sha256": V5_REBIND_V4_AMENDMENT_SHA256,
-        "allowed_added_paths": tuple(sorted(ALLOWED_ADDED_PATHS)),
+        "allowed_added_paths": tuple(sorted(PRE_APP_SERVER_ALLOWED_ADDED_PATHS)),
         "allowed_modified_paths": tuple(sorted(ALLOWED_MODIFIED_PATHS)),
         "pinned_successor_digests": tuple(
             sorted(V5_REBIND_V5_PINNED_SUCCESSOR_DIGESTS.items())
@@ -1954,7 +1969,7 @@ def _v5_rebind_v6_binding(
         "contract_sha256": V5_REBIND_V6_TARGET_SHA256,
         "transition_kind": "37_to_37_digest_rebind",
         "manifest_file_count_before": 37,
-        "manifest_file_count_after": stage3.EXPECTED_CURRENT_MANIFEST_FILE_COUNT,
+        "manifest_file_count_after": ACCEPTED_PRE_APP_SERVER_MANIFEST_FILE_COUNT,
         "path_set_change": "none",
         "v5_contract_sha256_before": V5_REBIND_V6_PREDECESSOR_SHA256,
         "v5_contract_sha256_after": V5_REBIND_V6_TARGET_SHA256,
@@ -2029,7 +2044,7 @@ def _v5_rebind_v6_binding(
         "v3_amendment_sha256": V5_REBIND_V3_AMENDMENT_SHA256,
         "v4_amendment_sha256": V5_REBIND_V4_AMENDMENT_SHA256,
         "v5_amendment_sha256": V5_REBIND_V5_AMENDMENT_SHA256,
-        "allowed_added_paths": tuple(sorted(ALLOWED_ADDED_PATHS)),
+        "allowed_added_paths": tuple(sorted(PRE_APP_SERVER_ALLOWED_ADDED_PATHS)),
         "allowed_modified_paths": tuple(sorted(ALLOWED_MODIFIED_PATHS)),
         "pinned_successor_digests": tuple(
             sorted(V5_REBIND_V6_PINNED_SUCCESSOR_DIGESTS.items())
@@ -2124,7 +2139,7 @@ def _expected_v5_rebind_v6_binding() -> dict[str, object]:
         "v3_amendment_sha256": V5_REBIND_V3_AMENDMENT_SHA256,
         "v4_amendment_sha256": V5_REBIND_V4_AMENDMENT_SHA256,
         "v5_amendment_sha256": V5_REBIND_V5_AMENDMENT_SHA256,
-        "allowed_added_paths": tuple(sorted(ALLOWED_ADDED_PATHS)),
+        "allowed_added_paths": tuple(sorted(PRE_APP_SERVER_ALLOWED_ADDED_PATHS)),
         "allowed_modified_paths": tuple(sorted(ALLOWED_MODIFIED_PATHS)),
         "pinned_successor_digests": tuple(
             sorted(V5_REBIND_V6_PINNED_SUCCESSOR_DIGESTS.items())
@@ -2415,7 +2430,7 @@ def _v5_rebind_v7_binding(
         ).hexdigest(),
         "transition_kind": "37_to_37_digest_rebind",
         "manifest_file_count_before": 37,
-        "manifest_file_count_after": stage3.EXPECTED_CURRENT_MANIFEST_FILE_COUNT,
+        "manifest_file_count_after": ACCEPTED_PRE_APP_SERVER_MANIFEST_FILE_COUNT,
         "path_set_change": "none",
         "v5_contract_sha256_before": V5_REBIND_V7_PREDECESSOR_SHA256,
         "v5_contract_sha256_after": V5_REBIND_V7_TARGET_SHA256,
@@ -2527,9 +2542,11 @@ def _v5_rebind_v7_binding(
         "v4_amendment_sha256": V5_REBIND_V4_AMENDMENT_SHA256,
         "v5_amendment_sha256": V5_REBIND_V5_AMENDMENT_SHA256,
         "v6_amendment_sha256": V5_REBIND_V6_AMENDMENT_SHA256,
-        "allowed_added_paths": tuple(sorted(ALLOWED_ADDED_PATHS)),
+        "allowed_added_paths": tuple(sorted(PRE_APP_SERVER_ALLOWED_ADDED_PATHS)),
         "allowed_modified_paths": tuple(sorted(ALLOWED_MODIFIED_PATHS)),
-        "pinned_successor_digests": tuple(sorted(PINNED_SUCCESSOR_DIGESTS.items())),
+        "pinned_successor_digests": tuple(
+            sorted(PRE_APP_SERVER_PINNED_SUCCESSOR_DIGESTS.items())
+        ),
         "false_authority": {
             field: False for field in V5_REBIND_V7_FALSE_AUTHORITY_FIELDS
         },
@@ -2652,9 +2669,11 @@ def _expected_v5_rebind_v7_binding() -> dict[str, object]:
         "v4_amendment_sha256": V5_REBIND_V4_AMENDMENT_SHA256,
         "v5_amendment_sha256": V5_REBIND_V5_AMENDMENT_SHA256,
         "v6_amendment_sha256": V5_REBIND_V6_AMENDMENT_SHA256,
-        "allowed_added_paths": tuple(sorted(ALLOWED_ADDED_PATHS)),
+        "allowed_added_paths": tuple(sorted(PRE_APP_SERVER_ALLOWED_ADDED_PATHS)),
         "allowed_modified_paths": tuple(sorted(ALLOWED_MODIFIED_PATHS)),
-        "pinned_successor_digests": tuple(sorted(PINNED_SUCCESSOR_DIGESTS.items())),
+        "pinned_successor_digests": tuple(
+            sorted(PRE_APP_SERVER_PINNED_SUCCESSOR_DIGESTS.items())
+        ),
         "false_authority": {
             field: False for field in V5_REBIND_V7_FALSE_AUTHORITY_FIELDS
         },
@@ -2704,10 +2723,13 @@ class Stage3BehavioralPlanningTests(unittest.TestCase):
             f"expected {expected_error!r} in {errors!r}",
         )
 
-    def assert_v5_metadata_rejected_before_target_access(
-        self, metadata: object, expected_error: str
+    def assert_pinned_metadata_rejected_before_target_access(
+        self,
+        skill_relative_path: str,
+        metadata: object,
+        expected_error: str,
     ) -> None:
-        successor_path = SKILL_ROOT / stage3.V5_SUCCESSOR_SKILL_RELATIVE_PATH
+        successor_path = SKILL_ROOT / skill_relative_path
         original_lstat = Path.lstat
 
         def synthetic_lstat(path: Path) -> object:
@@ -2722,32 +2744,84 @@ class Stage3BehavioralPlanningTests(unittest.TestCase):
             mock.patch.object(
                 stage3,
                 "_manifest_row",
-                side_effect=AssertionError("v5 target must not be hashed"),
+                side_effect=AssertionError("pinned target must not be hashed"),
             ),
             mock.patch.object(
                 Path,
                 "resolve",
-                side_effect=AssertionError("v5 target must not be followed"),
+                side_effect=AssertionError("pinned target must not be followed"),
             ),
             mock.patch.object(
                 Path,
                 "open",
-                side_effect=AssertionError("v5 target must not be opened"),
+                side_effect=AssertionError("pinned target must not be opened"),
             ),
             mock.patch.object(
                 Path,
                 "read_bytes",
-                side_effect=AssertionError("v5 target must not be read"),
+                side_effect=AssertionError("pinned target must not be read"),
             ),
             mock.patch.object(
                 Path,
                 "replace",
-                side_effect=AssertionError("v5 target must not be replaced"),
+                side_effect=AssertionError("pinned target must not be replaced"),
             ),
             mock.patch.object(
                 stage3.hashlib,
                 "sha256",
-                side_effect=AssertionError("v5 target must not be hashed"),
+                side_effect=AssertionError("pinned target must not be hashed"),
+            ),
+        ):
+            with self.assertRaisesRegex(stage3.ManifestTransitionError, expected_error):
+                expected_contract_transition()
+
+    def assert_v5_metadata_rejected_before_target_access(
+        self, metadata: object, expected_error: str
+    ) -> None:
+        self.assert_pinned_metadata_rejected_before_target_access(
+            stage3.V5_SUCCESSOR_SKILL_RELATIVE_PATH,
+            metadata,
+            expected_error,
+        )
+
+    def assert_pinned_case_representation_rejected(
+        self,
+        skill_relative_path: str,
+        *,
+        duplicate: bool,
+        expected_error: str,
+    ) -> None:
+        target_path = SKILL_ROOT / skill_relative_path
+        parent = target_path.parent
+        entries = list(parent.iterdir())
+        if not duplicate:
+            entries = [item for item in entries if item.name != target_path.name]
+        case_variant = parent / target_path.name.swapcase()
+        original_iterdir = Path.iterdir
+
+        def synthetic_iterdir(path: Path) -> object:
+            if path == parent:
+                return iter([*entries, case_variant])
+            return original_iterdir(path)
+
+        with (
+            mock.patch.object(
+                Path, "iterdir", autospec=True, side_effect=synthetic_iterdir
+            ),
+            mock.patch.object(
+                stage3,
+                "_manifest_row",
+                side_effect=AssertionError("case-varied target must not be hashed"),
+            ),
+            mock.patch.object(
+                Path,
+                "read_bytes",
+                side_effect=AssertionError("case-varied target must not be read"),
+            ),
+            mock.patch.object(
+                stage3.hashlib,
+                "sha256",
+                side_effect=AssertionError("case-varied target must not be hashed"),
             ),
         ):
             with self.assertRaisesRegex(stage3.ManifestTransitionError, expected_error):
@@ -2779,7 +2853,7 @@ class Stage3BehavioralPlanningTests(unittest.TestCase):
     def test_contract_transition_is_exact_and_fail_closes_v3_validator(self) -> None:
         transition = expected_contract_transition()
         self.assertEqual(transition["entry_manifest_file_count"], 30)
-        self.assertEqual(transition["current_manifest_file_count"], 37)
+        self.assertEqual(transition["current_manifest_file_count"], 39)
         self.assertEqual(transition["removed_paths"], [])
         self.assertIs(transition["production_plan_validator_unchanged"], False)
         plan_path = "mythic-edge-role-pool/scripts/check_pool_plan.py"
@@ -2840,9 +2914,29 @@ class Stage3BehavioralPlanningTests(unittest.TestCase):
                 }
             ],
         )
+        for path, digest in {
+            APP_SERVER_ADAPTER_MANIFEST_PATH: APP_SERVER_ADAPTER_SHA256,
+            APP_SERVER_ADAPTER_TEST_MANIFEST_PATH: APP_SERVER_ADAPTER_TEST_SHA256,
+        }.items():
+            with self.subTest(path=path):
+                self.assertEqual(
+                    [
+                        row
+                        for row in transition["change_set"]
+                        if row["path"] == path
+                    ],
+                    [
+                        {
+                            "path": path,
+                            "change_kind": "added",
+                            "before_sha256": None,
+                            "after_sha256": digest,
+                        }
+                    ],
+                )
         transition_paths = [row["path"] for row in transition["change_set"]]
         self.assertEqual(transition_paths, sorted(transition_paths))
-        self.assertEqual(len(ALLOWED_ADDED_PATHS), 7)
+        self.assertEqual(len(ALLOWED_ADDED_PATHS), 9)
         self.assertEqual(len(ALLOWED_MODIFIED_PATHS), 13)
         self.assertEqual(
             PINNED_SUCCESSOR_DIGESTS,
@@ -2850,7 +2944,98 @@ class Stage3BehavioralPlanningTests(unittest.TestCase):
                 SUCCESSOR_MANIFEST_PATH: SUCCESSOR_SHA256,
                 V4_SUCCESSOR_MANIFEST_PATH: V4_SUCCESSOR_SHA256,
                 V5_SUCCESSOR_MANIFEST_PATH: V5_SUCCESSOR_SHA256,
+                APP_SERVER_ADAPTER_MANIFEST_PATH: APP_SERVER_ADAPTER_SHA256,
+                APP_SERVER_ADAPTER_TEST_MANIFEST_PATH: (
+                    APP_SERVER_ADAPTER_TEST_SHA256
+                ),
             },
+        )
+
+    def test_app_server_predecessor_and_reviewed_candidate_manifests_are_exact(
+        self,
+    ) -> None:
+        rows = current_skill_manifest()
+        self.assertEqual(len(rows), 39)
+        self.assertEqual(
+            [row["path"] for row in rows],
+            sorted(row["path"] for row in rows),
+        )
+
+        reviewed_candidate = copy.deepcopy(rows)
+        reviewed_candidate_by_path = {
+            row["path"]: row for row in reviewed_candidate
+        }
+        stage3_pre_edit_digests = {
+            (
+                "mythic-edge-role-pool/scripts/"
+                "check_stage3_behavioral_planning.py"
+            ): "0c82bab47e45d87d66cd317027a2a7c63b11341bb734d75f5f780c7c7ac72b2e",
+            (
+                "mythic-edge-role-pool/scripts/"
+                "test_stage3_behavioral_planning.py"
+            ): "f334ebbe67d5fff8f68797e0709770d00cb254215e710d59e9fb331daca7ab08",
+        }
+        for path, digest in stage3_pre_edit_digests.items():
+            reviewed_candidate_by_path[path]["sha256"] = digest
+        reviewed_candidate = sorted(reviewed_candidate, key=lambda row: row["path"])
+        self.assertEqual(len(stage3.canonical_bytes(reviewed_candidate)), 5729)
+        self.assertEqual(
+            stage3.canonical_digest(reviewed_candidate),
+            "b0a0dfeae17aa4c56e3b9abe8e3104e3f8893f38387a31c577cf3b54401de2a4",
+        )
+
+        predecessor = [
+            copy.deepcopy(row)
+            for row in reviewed_candidate
+            if row["path"] not in APP_SERVER_ADDED_PATHS
+        ]
+        predecessor_by_path = {row["path"]: row for row in predecessor}
+        predecessor_by_path[
+            "mythic-edge-role-pool/scripts/check_pool_plan.py"
+        ]["sha256"] = (
+            "cd85d9a33fbd92d8b29d8ec092a03492d7e05915a973796c5218a6eaf903fae0"
+        )
+        predecessor_by_path[
+            "mythic-edge-role-pool/scripts/test_check_pool_plan.py"
+        ]["sha256"] = (
+            "8ca31a9276d5bb092686010968dce8d7e98715a15d4a581616ec60c06a2b4243"
+        )
+        predecessor = sorted(predecessor, key=lambda row: row["path"])
+        self.assertEqual(len(predecessor), ACCEPTED_PRE_APP_SERVER_MANIFEST_FILE_COUNT)
+        self.assertEqual(len(stage3.canonical_bytes(predecessor)), 5416)
+        self.assertEqual(
+            stage3.canonical_digest(predecessor),
+            "2c6e3772fcfbd2eb68618486520d2d309b0594f8a1a7dafd2d3f32fd6ee76bcb",
+        )
+
+        predecessor_digests = {row["path"]: row["sha256"] for row in predecessor}
+        candidate_digests = {
+            row["path"]: row["sha256"] for row in reviewed_candidate
+        }
+        self.assertEqual(
+            set(candidate_digests) - set(predecessor_digests),
+            APP_SERVER_ADDED_PATHS,
+        )
+        self.assertEqual(
+            {
+                path
+                for path in set(candidate_digests) & set(predecessor_digests)
+                if candidate_digests[path] != predecessor_digests[path]
+            },
+            set(REVIEWED_APP_SERVER_MODIFIED_DIGESTS),
+        )
+        self.assertEqual(
+            set(predecessor_digests) - set(candidate_digests),
+            set(),
+        )
+        self.assertEqual(
+            {
+                path
+                for path, digest in reviewed_candidate_by_path.items()
+                if digest["sha256"]
+                != {row["path"]: row["sha256"] for row in rows}[path]
+            },
+            set(stage3_pre_edit_digests),
         )
 
     def test_v5_rebind_v1_lineage_recipe_and_receipt_remain_exact(self) -> None:
@@ -2961,9 +3146,9 @@ class Stage3BehavioralPlanningTests(unittest.TestCase):
             v2_binding["target_sha256"],
             V5_REBIND_V2_TARGET_SHA256,
         )
-        self.assertEqual(len(ALLOWED_ADDED_PATHS), 7)
+        self.assertEqual(len(PRE_APP_SERVER_ALLOWED_ADDED_PATHS), 7)
         self.assertEqual(len(ALLOWED_MODIFIED_PATHS), 13)
-        self.assertEqual(len(PINNED_SUCCESSOR_DIGESTS), 3)
+        self.assertEqual(len(PRE_APP_SERVER_PINNED_SUCCESSOR_DIGESTS), 3)
 
     def test_v5_rebind_v2_receipt_rejects_every_field_and_shape_drift(
         self,
@@ -3175,7 +3360,7 @@ class Stage3BehavioralPlanningTests(unittest.TestCase):
         )
         binding = _v5_rebind_v3_binding(evidence)
         predecessor_state = {
-            **PINNED_SUCCESSOR_DIGESTS,
+            **PRE_APP_SERVER_PINNED_SUCCESSOR_DIGESTS,
             V5_SUCCESSOR_MANIFEST_PATH: V5_REBIND_V3_PREDECESSOR_SHA256,
         }
 
@@ -3715,8 +3900,8 @@ class Stage3BehavioralPlanningTests(unittest.TestCase):
             self.assertEqual(predecessor[field], successor[field], field)
 
         rows = current_skill_manifest()
-        self.assertEqual(len(rows), 37)
-        self.assertEqual(len({row["path"] for row in rows}), 37)
+        self.assertEqual(len(rows), 39)
+        self.assertEqual(len({row["path"] for row in rows}), 39)
         current_by_path = {row["path"]: row["sha256"] for row in rows}
         self.assertEqual(
             current_by_path[STAGE3_PLANNING_MANIFEST_PATH],
@@ -3727,7 +3912,7 @@ class Stage3BehavioralPlanningTests(unittest.TestCase):
             V5_REBIND_V7_TARGET_SHA256,
         )
         transition = expected_contract_transition()
-        self.assertEqual(transition["current_manifest_file_count"], 37)
+        self.assertEqual(transition["current_manifest_file_count"], 39)
         self.assertEqual(
             [
                 row
@@ -3950,9 +4135,9 @@ class Stage3BehavioralPlanningTests(unittest.TestCase):
         )["sha256"] = V5_REBIND_V6_AMENDMENT_SHA256
         self.assert_manifest_rows_rejected(changed_rows, "amendment digest")
         self.assertEqual(current_skill_manifest(), before)
-        self.assertEqual(len(ALLOWED_ADDED_PATHS), 7)
+        self.assertEqual(len(PRE_APP_SERVER_ALLOWED_ADDED_PATHS), 7)
         self.assertEqual(len(ALLOWED_MODIFIED_PATHS), 13)
-        self.assertEqual(len(PINNED_SUCCESSOR_DIGESTS), 3)
+        self.assertEqual(len(PRE_APP_SERVER_PINNED_SUCCESSOR_DIGESTS), 3)
         self.assertEqual(
             dict(binding["pinned_successor_digests"])[V5_SUCCESSOR_MANIFEST_PATH],
             V5_REBIND_V7_TARGET_SHA256,
@@ -3963,7 +4148,7 @@ class Stage3BehavioralPlanningTests(unittest.TestCase):
 
     def test_manifest_transition_preserves_legacy_sets(self) -> None:
         self.assertEqual(
-            ALLOWED_ADDED_PATHS
+            PRE_APP_SERVER_ALLOWED_ADDED_PATHS
             - {
                 SUCCESSOR_MANIFEST_PATH,
                 V4_SUCCESSOR_MANIFEST_PATH,
@@ -3972,12 +4157,148 @@ class Stage3BehavioralPlanningTests(unittest.TestCase):
             LEGACY_ALLOWED_ADDED_PATHS,
         )
         self.assertEqual(
-            ALLOWED_ADDED_PATHS - {V5_SUCCESSOR_MANIFEST_PATH},
+            PRE_APP_SERVER_ALLOWED_ADDED_PATHS - {V5_SUCCESSOR_MANIFEST_PATH},
             LEGACY_ALLOWED_ADDED_PATHS
             | {SUCCESSOR_MANIFEST_PATH, V4_SUCCESSOR_MANIFEST_PATH},
         )
+        self.assertEqual(
+            ALLOWED_ADDED_PATHS,
+            PRE_APP_SERVER_ALLOWED_ADDED_PATHS | APP_SERVER_ADDED_PATHS,
+        )
+        self.assertEqual(
+            PINNED_SUCCESSOR_DIGESTS,
+            {
+                **PRE_APP_SERVER_PINNED_SUCCESSOR_DIGESTS,
+                APP_SERVER_ADAPTER_MANIFEST_PATH: APP_SERVER_ADAPTER_SHA256,
+                APP_SERVER_ADAPTER_TEST_MANIFEST_PATH: (
+                    APP_SERVER_ADAPTER_TEST_SHA256
+                ),
+            },
+        )
         self.assertEqual(ALLOWED_MODIFIED_PATHS, LEGACY_ALLOWED_MODIFIED_PATHS)
         self.assertEqual(len(STAGE2_BASELINE_FILES), 30)
+
+    def test_app_server_added_rows_reject_each_membership_and_digest_drift(
+        self,
+    ) -> None:
+        for path in sorted(APP_SERVER_ADDED_PATHS):
+            with self.subTest(path=path, drift="missing"):
+                rows = [
+                    row
+                    for row in current_skill_manifest()
+                    if row["path"] != path
+                ]
+                self.assertEqual(len(rows), 38)
+                self.assert_manifest_rows_rejected(rows, "file count")
+
+            with self.subTest(path=path, drift="renamed"):
+                rows = copy.deepcopy(current_skill_manifest())
+                row = next(row for row in rows if row["path"] == path)
+                row["path"] = path.replace(".py", "-renamed.py")
+                self.assert_manifest_rows_rejected(
+                    rows, "unexpected or missing added paths"
+                )
+
+            with self.subTest(path=path, drift="case_varied"):
+                rows = copy.deepcopy(current_skill_manifest())
+                row = next(row for row in rows if row["path"] == path)
+                row["path"] = path.replace("trusted_native", "Trusted_Native")
+                self.assert_manifest_rows_rejected(
+                    rows, "unexpected or missing added paths"
+                )
+
+            with self.subTest(path=path, drift="duplicate_exact"):
+                rows = copy.deepcopy(current_skill_manifest())
+                rows.append(next(row for row in rows if row["path"] == path).copy())
+                self.assert_manifest_rows_rejected(rows, "duplicate manifest paths")
+
+            with self.subTest(path=path, drift="duplicate_case_insensitive"):
+                rows = copy.deepcopy(current_skill_manifest())
+                duplicate = next(row for row in rows if row["path"] == path).copy()
+                duplicate["path"] = duplicate["path"].swapcase()
+                rows.append(duplicate)
+                self.assert_manifest_rows_rejected(rows, "duplicate manifest paths")
+
+            with self.subTest(path=path, drift="digest"):
+                rows = copy.deepcopy(current_skill_manifest())
+                next(row for row in rows if row["path"] == path)["sha256"] = "0" * 64
+                self.assert_manifest_rows_rejected(rows, "app-server adapter digest")
+
+    def test_reviewed_app_server_modified_rows_reject_each_digest_drift(self) -> None:
+        for path in sorted(REVIEWED_APP_SERVER_MODIFIED_DIGESTS):
+            with self.subTest(path=path):
+                rows = copy.deepcopy(current_skill_manifest())
+                next(row for row in rows if row["path"] == path)["sha256"] = "0" * 64
+                self.assert_manifest_rows_rejected(
+                    rows, "reviewed app-server modified digest"
+                )
+
+    def test_current_manifest_rows_must_remain_in_ordinal_path_order(self) -> None:
+        rows = copy.deepcopy(current_skill_manifest())
+        rows[0], rows[1] = rows[1], rows[0]
+        self.assert_manifest_rows_rejected(rows, "ordinal path order")
+
+    def test_app_server_added_paths_reject_case_insensitive_filesystem_duplicates(
+        self,
+    ) -> None:
+        for relative_path in (
+            APP_SERVER_ADAPTER_SKILL_RELATIVE_PATH,
+            APP_SERVER_ADAPTER_TEST_SKILL_RELATIVE_PATH,
+        ):
+            with self.subTest(relative_path=relative_path):
+                self.assert_pinned_case_representation_rejected(
+                    relative_path,
+                    duplicate=True,
+                    expected_error="duplicate representations",
+                )
+
+    def test_app_server_added_paths_reject_case_varied_filesystem_representations(
+        self,
+    ) -> None:
+        for relative_path in (
+            APP_SERVER_ADAPTER_SKILL_RELATIVE_PATH,
+            APP_SERVER_ADAPTER_TEST_SKILL_RELATIVE_PATH,
+        ):
+            with self.subTest(relative_path=relative_path):
+                self.assert_pinned_case_representation_rejected(
+                    relative_path,
+                    duplicate=False,
+                    expected_error="casing does not match",
+                )
+
+    def test_app_server_added_paths_reject_unsafe_metadata_before_target_access(
+        self,
+    ) -> None:
+        unsafe_metadata = {
+            "directory": (
+                SimpleNamespace(st_mode=stat.S_IFDIR, st_file_attributes=0),
+                "not an ordinary file",
+            ),
+            "reparse": (
+                SimpleNamespace(
+                    st_mode=stat.S_IFREG,
+                    st_file_attributes=getattr(
+                        stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400
+                    ),
+                ),
+                "reparse point",
+            ),
+            "symlink": (
+                SimpleNamespace(st_mode=stat.S_IFLNK, st_file_attributes=0),
+                "reparse point",
+            ),
+        }
+        for relative_path in (
+            APP_SERVER_ADAPTER_SKILL_RELATIVE_PATH,
+            APP_SERVER_ADAPTER_TEST_SKILL_RELATIVE_PATH,
+        ):
+            for label, (metadata, expected_error) in unsafe_metadata.items():
+                with self.subTest(relative_path=relative_path, label=label):
+                    self.assert_pinned_metadata_rejected_before_target_access(
+                        relative_path,
+                        metadata,
+                        expected_error,
+                    )
 
     def test_manifest_transition_rejects_successor_digest_mismatch(self) -> None:
         rows = copy.deepcopy(current_skill_manifest())
@@ -4082,13 +4403,13 @@ class Stage3BehavioralPlanningTests(unittest.TestCase):
         successor["sha256"] = "0" * 64
         self.assert_manifest_rows_rejected(rows, "v4 successor digest")
 
-    def test_missing_v4_successor_rejects_count_36(self) -> None:
+    def test_missing_v4_successor_rejects_count_38(self) -> None:
         rows = [
             row
             for row in current_skill_manifest()
             if row["path"] != V4_SUCCESSOR_MANIFEST_PATH
         ]
-        self.assertEqual(len(rows), 36)
+        self.assertEqual(len(rows), 38)
         self.assert_manifest_rows_rejected(rows, "file count")
 
     def test_renamed_v4_successor_is_rejected(self) -> None:
@@ -4120,7 +4441,7 @@ class Stage3BehavioralPlanningTests(unittest.TestCase):
         )
         self.assert_manifest_rows_rejected(rows, "duplicate manifest paths")
 
-    def test_extra_path_rejects_count_38(self) -> None:
+    def test_extra_path_rejects_count_40(self) -> None:
         rows = copy.deepcopy(current_skill_manifest())
         rows.append(
             {
@@ -4128,7 +4449,7 @@ class Stage3BehavioralPlanningTests(unittest.TestCase):
                 "sha256": "0" * 64,
             }
         )
-        self.assertEqual(len(rows), 38)
+        self.assertEqual(len(rows), 40)
         self.assert_manifest_rows_rejected(rows, "file count")
 
     def test_unexpected_modified_path_is_rejected(self) -> None:
@@ -4204,13 +4525,13 @@ class Stage3BehavioralPlanningTests(unittest.TestCase):
         successor["sha256"] = "0" * 64
         self.assert_manifest_rows_rejected(rows, "v5 successor digest")
 
-    def test_missing_v5_successor_rejects_count_36(self) -> None:
+    def test_missing_v5_successor_rejects_count_38(self) -> None:
         rows = [
             row
             for row in current_skill_manifest()
             if row["path"] != V5_SUCCESSOR_MANIFEST_PATH
         ]
-        self.assertEqual(len(rows), 36)
+        self.assertEqual(len(rows), 38)
         self.assert_manifest_rows_rejected(rows, "file count")
 
     def test_renamed_v5_successor_is_rejected(self) -> None:
@@ -4336,13 +4657,13 @@ class Stage3BehavioralPlanningTests(unittest.TestCase):
             "reparse point",
         )
 
-    def test_count_37_substitution_with_wrong_path_set_is_rejected(self) -> None:
+    def test_count_39_substitution_with_wrong_path_set_is_rejected(self) -> None:
         rows = copy.deepcopy(current_skill_manifest())
         successor = next(
             row for row in rows if row["path"] == V5_SUCCESSOR_MANIFEST_PATH
         )
         successor["path"] = "mythic-edge-role-pool/references/substitution.md"
-        self.assertEqual(len(rows), 37)
+        self.assertEqual(len(rows), 39)
         self.assert_manifest_rows_rejected(rows, "unexpected or missing added paths")
 
     def test_missing_modified_path_membership_is_rejected(self) -> None:
@@ -4359,7 +4680,7 @@ class Stage3BehavioralPlanningTests(unittest.TestCase):
         rows = [
             row for row in current_skill_manifest() if row["path"] != baseline_path
         ]
-        self.assertEqual(len(rows), 36)
+        self.assertEqual(len(rows), 38)
         self.assert_manifest_rows_rejected(rows, "file count")
 
     def test_legacy_transition_rules_cannot_be_weakened(self) -> None:

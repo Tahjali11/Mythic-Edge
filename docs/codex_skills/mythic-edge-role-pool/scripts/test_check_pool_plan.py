@@ -8,10 +8,12 @@ import tempfile
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Mapping
 from unittest import mock
 
 import check_pool_plan as native
 import codex_launcher_contract as launcher_contract
+import trusted_native_app_server_adapter as app_server
 from check_pool_plan import (
     BROKER_LAUNCHER_RECEIPT_SIDECARS_SCHEMA_VERSION,
     OFFLINE_SYNTHETIC_FIXTURE_VALIDATION_MODE,
@@ -1256,6 +1258,8 @@ def _native_release_record(
 def _native_lane(
     repository_id: int,
     role: str = "A",
+    *,
+    inspect_only: bool = False,
 ) -> dict[str, object]:
     return _native_signed(
         {
@@ -1271,11 +1275,11 @@ def _native_lane(
             "base_ref": "refs/heads/main",
             "base_sha": NATIVE_GIT_A,
             "predecessor_packet_sha256": None,
-            "command_ids": ["inspect"],
+            "command_ids": [] if inspect_only else ["inspect"],
             "read_scope": ["docs"],
             "mutation_scope": [],
             "protected_surfaces": ["parser_truth"],
-            "validation_command_ids": ["inspect"],
+            "validation_command_ids": [] if inspect_only else ["inspect"],
             "expected_artifact_paths": [],
             "stop_conditions": ["Stop on authority drift."],
             "lane_packet_sha256": "",
@@ -1289,6 +1293,8 @@ def _native_request(
     *,
     lane_count: int = 1,
     release_record: dict[str, object] | None = None,
+    role: str = "A",
+    inspect_only: bool = False,
 ) -> dict[str, object]:
     release_record = release_record or _native_release_record(
         registry_sha256=registry["registry_sha256"],
@@ -1300,13 +1306,18 @@ def _native_request(
             "mode": "safe",
             "automation_series_id": None,
             "predecessor_request_sha256": None,
-            "requested_role": "A",
+            "requested_role": role,
             "skill_tree_sha256": NATIVE_SHA_B,
             "registry_sha256": registry["registry_sha256"],
             "release_state_record_sha256": release_record["record_sha256"],
             "requested_at_utc": NATIVE_TIME,
             "lanes": [
-                _native_lane(index) for index in range(1, lane_count + 1)
+                _native_lane(
+                    index,
+                    role,
+                    inspect_only=inspect_only,
+                )
+                for index in range(1, lane_count + 1)
             ],
             "request_sha256": "",
         },
@@ -2391,6 +2402,157 @@ class TrustedOwnerNativeProfileTests(unittest.TestCase):
             synthetic_adapter=adapter,
         )
         self.assertEqual(retry, {"status": "failed_lane_known", "receipt": None})
+
+    def test_app_server_observer_remains_inert_until_real_evidence(self) -> None:
+        capability = native.unavailable_trusted_native_app_server_capability()
+        self.assertEqual(
+            capability.launcher_identity,
+            "codex:native-task-create/v1",
+        )
+        self.assertIs(capability.available, False)
+        self.assertIs(capability.compatible, False)
+        self.assertIs(capability.fallback_forbidden, True)
+        self.assertEqual(
+            capability.source,
+            "inert_app_server_r0_fake_transport_only",
+        )
+
+    def test_dedicated_app_server_integration_accepts_only_its_inert_adapter(
+        self,
+    ) -> None:
+        registry = _native_registry()
+        request = _native_request(registry)
+        worktree = _native_worktree()
+        task_request = _native_task_request(request, worktree)
+
+        self.assertEqual(
+            native.trusted_native_app_server_task_create_once(
+                task_request,
+                adapter=native.TrustedNativeSyntheticTaskAdapter(
+                    _native_task_receipt
+                ),
+            ),
+            {
+                "status": "blocked_request_or_packet_invalid",
+                "receipt": None,
+            },
+        )
+
+        class InertAppServerReceiptAdapter:
+            synthetic_only = True
+            adapter_identity = app_server.APP_SERVER_ADAPTER_ID
+
+            def __init__(self) -> None:
+                self.used = False
+
+            def create_once(
+                self,
+                value: Mapping[str, object],
+            ) -> object:
+                if self.used:
+                    raise app_server.AppServerAdapterError(
+                        "app_server_adapter_already_used"
+                    )
+                self.used = True
+                return _native_task_receipt(dict(value))
+
+        rejected_adapter = InertAppServerReceiptAdapter()
+        self.assertEqual(
+            native.trusted_native_app_server_task_create_once(
+                task_request,
+                adapter=rejected_adapter,
+            ),
+            {
+                "status": "blocked_request_or_packet_invalid",
+                "receipt": None,
+            },
+        )
+        self.assertIs(rejected_adapter.used, False)
+
+        inspect_registry = _native_registry(
+            role="B",
+            code_policy="forbidden",
+        )
+        inspect_request = _native_request(
+            inspect_registry,
+            role="B",
+            inspect_only=True,
+        )
+        inspect_task_request = _native_task_request(inspect_request, worktree)
+        adapter = InertAppServerReceiptAdapter()
+        accepted = native.trusted_native_app_server_task_create_once(
+            inspect_task_request,
+            adapter=adapter,
+        )
+        self.assertEqual(
+            native.validate_trusted_native_task_request(
+                inspect_task_request,
+                request=inspect_request,
+            ),
+            [],
+        )
+        self.assertEqual(
+            native.validate_trusted_native_task_receipt(
+                accepted["receipt"],
+                request=inspect_task_request,
+            ),
+            [],
+        )
+        self.assertEqual(
+            accepted["status"],
+            "synthetic_app_server_receipt_accepted_non_live",
+        )
+        self.assertEqual(
+            native.trusted_native_app_server_task_create_once(
+                inspect_task_request,
+                adapter=adapter,
+            ),
+            {"status": "failed_lane_known", "receipt": None},
+        )
+
+    def test_app_server_integration_preserves_known_and_unknown_projection(
+        self,
+    ) -> None:
+        registry = _native_registry(
+            role="B",
+            code_policy="forbidden",
+        )
+        request = _native_request(
+            registry,
+            role="B",
+            inspect_only=True,
+        )
+        task_request = _native_task_request(request, _native_worktree())
+
+        class FailingAppServerAdapter:
+            synthetic_only = True
+            adapter_identity = app_server.APP_SERVER_ADAPTER_ID
+
+            def __init__(self, lifecycle_case: str) -> None:
+                self.lifecycle_case = lifecycle_case
+
+            def create_once(self, value: Mapping[str, object]) -> object:
+                del value
+                raise app_server.AppServerAdapterError(self.lifecycle_case)
+
+        for lifecycle_case, expected_status in (
+            ("AS-POL-001", "failed_lane_known"),
+            (
+                "AS-TMO-UNK-001",
+                "unknown_outcome_reconciliation_required",
+            ),
+        ):
+            with self.subTest(lifecycle_case=lifecycle_case):
+                self.assertEqual(
+                    native.trusted_native_app_server_task_create_once(
+                        task_request,
+                        adapter=FailingAppServerAdapter(lifecycle_case),
+                    ),
+                    {
+                        "status": expected_status,
+                        "receipt": None,
+                    },
+                )
 
     def test_windows_preflight_accepts_only_exact_host_and_primitive(self) -> None:
         decision = _native_windows_preflight()
