@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import argparse
+import ctypes
 import hashlib
 import json
+import ntpath
 import os
 import shutil
 import stat
@@ -84,6 +86,10 @@ class OfflineR0SyncOutcome:
     status: str
     result: str
     exit_code: int
+
+
+class _OfflineR0TargetRootMismatchError(Exception):
+    pass
 
 
 OFFLINE_R0_SOURCE_BINDING = TreeManifestBinding(
@@ -527,6 +533,12 @@ def _run_offline_r0_sync(arguments: Sequence[str]) -> tuple[int, list[str]]:
     try:
         source_dir, target_dir = _offline_r0_default_paths()
         outcome = _offline_r0_sync_existing_target(source_dir, target_dir)
+    except _OfflineR0TargetRootMismatchError:
+        outcome = OfflineR0SyncOutcome(
+            status="blocked_request_or_packet_invalid",
+            result="refused",
+            exit_code=EXIT_USAGE_ERROR,
+        )
     except (OSError, RuntimeError):
         outcome = _offline_unknown()
     return _offline_r0_result_lines(outcome)
@@ -549,7 +561,10 @@ def _offline_r0_result_lines(
 
 def _offline_r0_default_paths() -> tuple[Path, Path]:
     repository_root = _default_repo_root()
-    codex_home = Path.home() / ".codex"
+    trusted_profile = _trusted_windows_current_user_profile()
+    if not _home_environment_matches_trusted_profile(trusted_profile):
+        raise _OfflineR0TargetRootMismatchError
+    codex_home = trusted_profile / ".codex"
     return (
         repository_root / SKILL_SOURCE_ROOT / TRUSTED_WINDOWS_SKILL_NAME,
         codex_home / "skills" / TRUSTED_WINDOWS_SKILL_NAME,
@@ -1093,6 +1108,45 @@ def _dry_run_action(action: str) -> str:
 
 def _trusted_windows_host_observed() -> bool:
     return os.name == "nt" and sys.platform == "win32"
+
+
+def _trusted_windows_current_user_profile() -> Path:
+    if not _trusted_windows_host_observed():
+        raise OSError("trusted Windows current-user profile unavailable")
+    buffer = ctypes.create_unicode_buffer(32768)
+    try:
+        result = ctypes.windll.shell32.SHGetFolderPathW(
+            None,
+            0x0028,
+            None,
+            0,
+            buffer,
+        )
+    except (AttributeError, OSError) as error:
+        raise OSError(
+            "trusted Windows current-user profile unavailable"
+        ) from error
+    if result != 0 or not buffer.value:
+        raise OSError("trusted Windows current-user profile unavailable")
+    return Path(buffer.value)
+
+
+def _home_environment_matches_trusted_profile(trusted_profile: Path) -> bool:
+    trusted_key = _windows_path_key(str(trusted_profile))
+    if trusted_key is None:
+        return False
+    for variable in ("HOME", "USERPROFILE"):
+        if variable not in os.environ:
+            continue
+        if _windows_path_key(os.environ[variable]) != trusted_key:
+            return False
+    return True
+
+
+def _windows_path_key(value: str) -> str | None:
+    if not value or not ntpath.isabs(value):
+        return None
+    return ntpath.normcase(ntpath.normpath(value))
 
 
 def _exact_native_task_capability_observed() -> bool:

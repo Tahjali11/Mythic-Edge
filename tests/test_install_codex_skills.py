@@ -737,6 +737,45 @@ def test_offline_r0_sync_rejects_codex_home_and_non_windows_before_path_access(
     assert "private-home" not in env_output
 
 
+@pytest.mark.parametrize("variable", ["HOME", "USERPROFILE"])
+def test_offline_r0_sync_rejects_home_environment_target_redirection(
+    variable: str,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    trusted_profile = tmp_path / "trusted-profile"
+    alternate_profile = tmp_path / "synthetic-alternate-owner-root"
+    monkeypatch.delenv("HOME", raising=False)
+    monkeypatch.delenv("USERPROFILE", raising=False)
+    monkeypatch.setenv(variable, str(alternate_profile))
+    monkeypatch.setattr(installer, "_trusted_windows_host_observed", lambda: True)
+    monkeypatch.setattr(
+        installer,
+        "_trusted_windows_current_user_profile",
+        lambda: trusted_profile,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        installer,
+        "_offline_r0_sync_existing_target",
+        lambda *_args: pytest.fail(
+            "environment divergence must stop before the mutating owner"
+        ),
+    )
+
+    code, output = _run(
+        ["--offline-r0-sync", "--skill", "mythic-edge-role-pool"],
+        capsys,
+    )
+
+    assert code == installer.EXIT_USAGE_ERROR
+    assert "status: blocked_request_or_packet_invalid" in output
+    assert "result: refused" in output
+    assert str(trusted_profile) not in output
+    assert str(alternate_profile) not in output
+
+
 def test_offline_r0_sync_rejects_missing_or_drifted_bound_tree_before_staging(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
@@ -843,14 +882,29 @@ def test_offline_r0_sync_rejects_reparse_ancestor_before_staging(
     )
 
 
-def test_offline_r0_default_paths_preserve_lexical_home_for_safety_checks(
+def test_offline_r0_default_paths_use_trusted_profile_for_safety_checks(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     repository_root = tmp_path / "repo"
     user_home = tmp_path / "user-home"
     monkeypatch.setattr(installer, "_default_repo_root", lambda: repository_root)
-    monkeypatch.setattr(Path, "home", staticmethod(lambda: user_home))
+    monkeypatch.setattr(
+        installer,
+        "_trusted_windows_current_user_profile",
+        lambda: user_home,
+    )
+    monkeypatch.setenv("HOME", str(user_home))
+    monkeypatch.setenv("USERPROFILE", str(user_home))
+    monkeypatch.setattr(
+        Path,
+        "home",
+        staticmethod(
+            lambda: pytest.fail(
+                "offline target derivation must not use environment-backed Path.home"
+            )
+        ),
+    )
     monkeypatch.setattr(
         installer,
         "_codex_home",
