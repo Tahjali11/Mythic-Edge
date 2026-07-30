@@ -28,9 +28,15 @@ checker = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = checker
 SPEC.loader.exec_module(checker)
 
-INSTALLED_WORKFLOW_ROOT = (
-    Path.home() / ".codex" / "skills" / "mythic-edge-workflow"
+WORKFLOW_FIXTURE_ROOT = (
+    Path(__file__).resolve().parent
+    / "fixtures"
+    / "role_pool_r0_workflow"
 )
+WORKFLOW_ROOT_PLACEHOLDER = b"{{MYTHIC_EDGE_WORKSPACE_ROOT}}"
+WORKFLOW_ROOT_BYTES = "\\".join(
+    ("C:", "Users", "Tahj " + "Blow", "Desktop", "MTG Resources")
+).encode("ascii")
 WORKFLOW_BINDINGS = {
     Path("SKILL.md"): (
         "04c229e2604ec965391d0044947d5a985049fc69508b79c88aec09e3732f14bb"
@@ -167,8 +173,20 @@ def _write_registry(fixture: SyntheticFixture, registry: dict[str, object]) -> N
 
 def _copy_workflow(target_root: Path) -> None:
     for relative_path, expected_sha256 in WORKFLOW_BINDINGS.items():
-        source = INSTALLED_WORKFLOW_ROOT / relative_path
+        fixture_relative_path = {
+            Path("SKILL.md"): Path("SKILL.md.template"),
+            Path("scripts/accept_fallback_prompt.py"): Path(
+                "scripts/accept_fallback_prompt.py.fixture"
+            ),
+        }.get(relative_path, relative_path)
+        source = WORKFLOW_FIXTURE_ROOT / fixture_relative_path
         payload = source.read_bytes()
+        if relative_path == Path("SKILL.md"):
+            assert payload.count(WORKFLOW_ROOT_PLACEHOLDER) == 2
+            payload = payload.replace(
+                WORKFLOW_ROOT_PLACEHOLDER,
+                WORKFLOW_ROOT_BYTES,
+            )
         assert hashlib.sha256(payload).hexdigest() == expected_sha256
         target = target_root / relative_path
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -312,6 +330,18 @@ def test_exact_synthetic_roots_are_eligible_and_owner_backed() -> None:
                 ).read_text(encoding="utf-8")
             )
         ) == []
+
+
+def test_exact_fixture_does_not_require_ambient_installed_workflow() -> None:
+    with mock.patch.object(
+        Path,
+        "home",
+        side_effect=AssertionError("ambient home must not be read"),
+    ):
+        with _exact_fixture() as fixture:
+            packet, encoded = checker._evaluate_for_tests(fixture.roots)
+    assert packet["terminal_status"] == "eligible_for_independent_review"
+    assert WORKFLOW_ROOT_BYTES not in encoded
 
 
 @pytest.mark.parametrize(
