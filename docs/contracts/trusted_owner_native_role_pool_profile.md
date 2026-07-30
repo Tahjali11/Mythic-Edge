@@ -16,6 +16,9 @@ https://github.com/Tahjali11/Mythic-Edge/issues/744#issuecomment-5109379065
 Windows-first owner directive:
 https://github.com/Tahjali11/Mythic-Edge/issues/744#issuecomment-5111260293
 
+App Server baseline amendment source:
+https://github.com/Tahjali11/Mythic-Edge/issues/758
+
 Accepted amendment predecessor SHA-256:
 `eb3742f433f345dfc8508847825b24e84d9c27bd3be0b88057d34e932e3255fc`
 
@@ -81,6 +84,13 @@ No implementation defect remains routed through D -> E for those bytes. This
 amendment changes platform scope only and does not reinterpret, edit, or
 supersede the accepted implementation evidence.
 
+Issue #757 and PR #759 are integrated on Core `origin/main`
+`26ca98ce81c0f393bf1ec9df470c10ae911c01f7`. The accepted metadata-only
+capability verdict remains `insufficient_evidence`: all nine production
+capability facts remain unestablished and all operational counts remain zero.
+Issue #758 supplies the separately activated contract lane for one candidate
+production realization. It does not reinterpret the #757 result as support.
+
 The current owner instruction is the required ADR-0008
 `explicit_user_override` for this bounded Codex B lane:
 
@@ -88,17 +98,18 @@ The current owner instruction is the required ADR-0008
 lane_activation:
   exception_name: "explicit_user_override"
   repository: "Tahjali11/Mythic-Edge"
-  active_issue_or_lane: "issue #744 trusted-owner native profile contract"
+  active_issue_or_lane: "issue #758 Windows App Server baseline contract"
   blocked_active_issue_or_pr:
     - "PR #374, open draft with no current parked/deferred record"
     - "PR #391, open Dependabot PR with no current parked/deferred record"
-  reason: "Owner waited for terminal C and E implementation evidence, then authorized one bounded Windows-first contract-only amendment."
+  reason: "The owner explicitly authorized one docs-only App Server profile amendment and companion lifecycle contract after #757 integration."
   allowed_scope:
-    - "read-only authority, issue, PR, and installed-skill inspection"
+    - "read-only authority, issue, PR, release-metadata, and source-schema inspection"
     - "revise only docs/contracts/trusted_owner_native_role_pool_profile.md"
+    - "create only docs/contracts/role_pool_codex_app_server_native_task_adapter.md"
     - "run local read-only validation"
     - "produce one independent Codex E review handoff"
-  expiration_condition: "The contract and its Codex E handoff are complete, or the owner revokes or redirects the lane."
+  expiration_condition: "Both contracts and the Codex E handoff are complete, or the owner revokes or redirects the lane."
   authorized_by: "Tahjali11 current user instruction"
   recorded_in: "this contract"
 ```
@@ -231,6 +242,69 @@ Native Mac support requires a separate issue, an accepted contract amendment
 or profile, independent Codex E review, a fresh owner activation decision, and
 its own graduated evidence. It does not inherit Windows installation,
 contention, canary, or `R0` through `R8` evidence automatically.
+
+## Dedicated App Server Process Realization
+
+The public launcher identity remains exactly
+`codex:native-task-create/v1`. The only candidate production realization
+admitted by this amendment is the Core-owned
+`codex:app-server-stdio-direct/v1` adapter defined by
+`docs/contracts/role_pool_codex_app_server_native_task_adapter.md`.
+The realization is an implementation behind the existing identity, not a
+fallback, alternate profile, repository command, or second task surface.
+
+That companion contract may authorize a later implementation to expose one
+private, dedicated, non-shell process-start function. The function has no
+caller-selected executable, arguments, environment, transport, working
+directory, or cardinality. It may start only the pinned Windows Codex
+`0.146.0` CLI asset with the exact argument vector `app-server`, `--listen`,
+`stdio://`, once for one validated lane. It is private to the adapter and must
+not be exported or reused as a general process, subprocess, command, SDK,
+broker, service, or launcher capability.
+
+This narrow process exception does not weaken the general prohibition on
+shells, `codex exec`, ambient executable discovery, repository executables,
+generic subagents, the external broker, or alternate App Server executables.
+A missing, drifting, failed, timed-out, or ambiguous pinned process never
+selects another launcher.
+
+The closed `trusted_owner_native_task_request.v1` remains unchanged. The
+companion derives one App Server execution binding from the validated request
+and the exact objects already reachable through its digests: the parent
+request, lane packet, worktree observation, registry entry and command
+records, profile, release-state record, skill tree, and predecessor packet.
+App Server-specific values that are fixed by contract or deterministically
+derived at runtime do not become caller-controlled request fields. The
+existing `trusted_owner_native_task_receipt.v1` also remains unchanged; its
+`platform_receipt_ref` and `platform_receipt_sha256` bind the companion's
+public-safe App Server lifecycle receipt.
+
+The initial App Server realization is a strict inspect-only baseline. It
+accepts only a B or E lane whose active registry entry has
+`repository_code_execution_policy=forbidden` and whose `command_ids`,
+`validation_command_ids`, `mutation_scope`, `expected_artifact_paths`,
+`maximum_mutation_scope`, and `approved_commands` arrays are all empty. Its
+turn is read-only. Its exact private runtime config disables the shell and
+other named effectful tool surfaces. The adapter grants no command or
+file-change approval, and any command, file-change, patch, diff, or changed
+file is a known lane failure.
+
+This restriction does not weaken the profile's exact repository-command or
+mutation rules: the candidate executes neither. A lane requiring either
+effect is unsupported by this realization and stops before consumption. A
+later effectful realization requires a separate issue, contract amendment,
+independent Codex E review, fresh owner decision, and graduated evidence. It
+cannot inherit the inspect-only observation as command or mutation evidence.
+
+The candidate does not satisfy #757 by definition. Support remains
+`insufficient_evidence` until the companion contract is independently
+accepted, its exact inert implementation and fake transport are independently
+accepted, installation custody is separately authorized and verified, and a
+separately authorized `R2` real-surface characterization establishes all nine
+#757 facts. `R0` permits only fake-transport validation and starts no Codex
+process. `R1` remains inspect-only and starts no Codex process. The R2
+characterization proves only the inspect-only task lifecycle. It grants no
+command, mutation, R3-R8, installation, dispatch, or readiness authority.
 
 ## Canonical Source And Installation Synchronization
 
@@ -845,11 +919,13 @@ all agree with the lane packet.
 
 On a supported Windows host, the only native launcher identity is
 `codex:native-task-create/v1`. It is a Core-owned adapter over the first-party
-Codex task-creation surface. It is not `codex exec`, a shell command, Python
-`subprocess`, a repository executable, or the external broker. No weaker
-fallback is permitted. The adapter may create one task only after the
-Windows/primitive preflight passes, a winning claim exists, and the worktree is
-verified.
+Codex task-creation surface. Its only admitted candidate production
+realization is the dedicated App Server process boundary above. It is not
+`codex exec`, a shell command, a caller-controlled process or subprocess
+facility, a repository executable, an SDK, a service, or the external broker.
+No weaker fallback is permitted. The adapter may create one task only after
+the Windows/primitive preflight passes, a winning claim exists, and the
+worktree is verified.
 
 Its request contains these fields in this exact order:
 
@@ -1269,18 +1345,22 @@ these existing implementation or test surfaces:
 | `docs/codex_skills/mythic-edge-role-pool/SKILL.md` | Replace the inert platform-neutral/Windows-and-Mac nonclaim with the accepted Windows-first host barrier, offline-validation exception, no-fallback rule, and future-Mac deferral. |
 | `docs/codex_skills/mythic-edge-role-pool/references/pool-state-schema.md` | Document the preclaim Windows/primitive barrier and unchanged packet schemas. |
 | `docs/codex_skills/mythic-edge-role-pool/references/role-readiness-and-safety.md` | Bind initial installation, live validation, canaries, and rung advancement to Windows without changing external-isolation claims. |
-| `docs/codex_skills/mythic-edge-role-pool/scripts/check_pool_plan.py` | Add trusted runtime host observation, exact Windows task-capability preflight, priority-1 projection, and pre-side-effect enforcement while preserving all existing packet fields and terminal outcomes. |
-| `docs/codex_skills/mythic-edge-role-pool/scripts/test_check_pool_plan.py` | Add host, primitive, no-fallback, remote-control classification, independent Windows contention, offline-only, and selector-regression tests. |
+| `docs/codex_skills/mythic-edge-role-pool/scripts/trusted_native_app_server_adapter.py` | Later companion-owned, private, dedicated inspect-only App Server process adapter; no generic launcher, command, or mutation API. |
+| `docs/codex_skills/mythic-edge-role-pool/scripts/test_trusted_native_app_server_adapter.py` | Later fake-transport lifecycle-registry, zero-command/zero-mutation, cardinality, receipt, timeout, no-retry, no-fallback, instruction-source, and resource-boundary tests. |
+| `docs/codex_skills/mythic-edge-role-pool/scripts/check_pool_plan.py` | Add trusted runtime host observation, exact Windows task-capability preflight, priority-1 projection, pre-side-effect enforcement, and the minimal call into the accepted dedicated adapter while preserving all existing public packet fields and terminal outcomes. |
+| `docs/codex_skills/mythic-edge-role-pool/scripts/test_check_pool_plan.py` | Add host, primitive, no-fallback, remote-control classification, independent Windows contention, offline-only, selector-regression, and minimal App Server integration tests. |
 | `docs/codex_skills/mythic-edge-role-pool/scripts/test_skill_contract.py` | Replace platform-neutral compatibility assertions with Windows-first, native-Mac-deferred, and no-fallback documentation assertions. |
 | `tools/install_codex_skills.py` | Keep `--check` read-only and platform-neutral; gate install and `--sync` mutation for this skill on trusted Windows observation before staging or destination mutation. |
 | `tests/test_install_codex_skills.py` | Prove non-Windows install/sync rejection occurs before staging or destination mutation while read-only `--check` remains available. |
 
-No other path is identified by the current accepted implementation as requiring
-this platform-only delta. In particular, the remaining managed migration rows,
-external-isolation references, C/E artifacts, production registry path, and
-release-state path remain untouched. If implementation proves another path is
-indispensable, Codex C must stop and route the exact mismatch to B rather than
-silently widening scope.
+The App Server companion narrows its later implementation envelope to its two
+new files and the two named `check_pool_plan.py` integration files. The other
+rows remain the already accepted Windows-first implementation inventory and
+are not automatically reopened by issue #758. In particular, the remaining
+managed migration rows, external-isolation references, C/E artifacts,
+production registry path, and release-state path remain untouched. If
+implementation proves another path is indispensable, Codex C must stop and
+route the exact mismatch to B rather than silently widening scope.
 
 ## Typed Validators And Deterministic Failures
 
@@ -1358,6 +1438,9 @@ Required focused tests include:
 - repository and issue resource conflicts across requests;
 - fresh issue, task, worktree, role, and predecessor binding;
 - native adapter field, digest, one-task, and no-fallback behavior;
+- App Server baseline acceptance only for B/E inspect-only lanes with empty
+  command, validation-command, mutation, and artifact arrays, disabled
+  effectful tools, and zero command or file-change observations;
 - cross-lane path, transcript, and packet leak rejection;
 - every Safe and automatic state and forbidden transition;
 - C, D, G, H stop behavior;
@@ -1387,6 +1470,10 @@ Independent Codex E must confirm:
 - the registry is separate, closed, identity-bound, and not populated;
 - every invocation names one to three exact active repositories;
 - command enforcement cannot fall back to arbitrary repository execution;
+- the initial App Server realization accepts only the exact inspect-only B/E
+  subset, mechanically exposes no command tool, grants no file change, and
+  cannot represent a nonempty command, validation, mutation, or artifact
+  request;
 - the trusted runtime, not caller input, owns host-platform identity;
 - initial installation, live validation, canaries, and all rung advancement are
   Windows-hosted, while a Mac remotely controlling Windows is correctly
@@ -1457,6 +1544,10 @@ This contract does not authorize:
 - populating or activating an allowlist entry;
 - creating the scheduling issue or claims;
 - dispatching tasks or creating worktrees;
+- acquiring, installing, starting, or characterizing the pinned Codex App
+  Server candidate;
+- creating a process, thread, turn, interrupt, App Server receipt, installation
+  receipt, generated-schema copy, or runtime credential binding;
 - native Mac dispatch or treating Mac evidence as inherited from Windows;
 - running native or external-isolation canaries;
 - acquiring, installing, or operating broker/verifier packages;
@@ -1472,12 +1563,20 @@ This contract does not authorize:
 Files owned by this Codex B task:
 
 - `docs/contracts/trusted_owner_native_role_pool_profile.md`
+- `docs/contracts/role_pool_codex_app_server_native_task_adapter.md`
 
-Side effects are limited to this one worktree file.
+Side effects are limited to those two worktree files.
 
-## Next Workflow Action
+## Historical Windows-First Review Handoff
 
-Next role: Codex E, independent Windows-first contract amendment reviewer.
+The prompt and handoff below record the predecessor Windows-first amendment
+cycle. They are immutable lineage, not the current issue #758 route, and must
+not be executed again. The sole current review handoff is the one in
+`docs/contracts/role_pool_codex_app_server_native_task_adapter.md`, which
+requires one independent Codex E review of both final contract artifacts.
+
+Historical next role: Codex E, independent Windows-first contract amendment
+reviewer.
 
 Pasteable prompt:
 

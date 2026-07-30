@@ -157,7 +157,7 @@ ALLOWED_MODIFIED_PATHS = {
     "mythic-edge-role-pool/scripts/test_pool_results.py",
     "mythic-edge-role-pool/scripts/test_skill_contract.py",
 }
-ALLOWED_ADDED_PATHS = {
+PRE_APP_SERVER_ALLOWED_ADDED_PATHS = {
     "mythic-edge-role-pool/references/external-isolation-broker.md",
     (
         "mythic-edge-role-pool/references/"
@@ -176,7 +176,8 @@ ALLOWED_ADDED_PATHS = {
     "mythic-edge-role-pool/scripts/test_stage3_behavioral_planning.py",
 }
 
-EXPECTED_CURRENT_MANIFEST_FILE_COUNT = 37
+ACCEPTED_PRE_APP_SERVER_MANIFEST_FILE_COUNT = 37
+EXPECTED_CURRENT_MANIFEST_FILE_COUNT = 39
 SUCCESSOR_SKILL_RELATIVE_PATH = (
     "references/external-isolation-broker-v3-corrective-successor.md"
 )
@@ -266,10 +267,46 @@ V5_REAL_SOURCE_ADAPTER_PREDECESSOR_STATIC_PREFLIGHT_SHA256 = (
 V5_REAL_SOURCE_ADAPTER_SUCCESSOR_STATIC_PREFLIGHT_SHA256 = (
     "e9a10d67ddc359d4b7275c49a5187727d9be02c59e852a7b3183a2a357b224f0"
 )
-PINNED_SUCCESSOR_DIGESTS = {
+APP_SERVER_ADAPTER_SKILL_RELATIVE_PATH = (
+    "scripts/trusted_native_app_server_adapter.py"
+)
+APP_SERVER_ADAPTER_MANIFEST_PATH = (
+    "mythic-edge-role-pool/" + APP_SERVER_ADAPTER_SKILL_RELATIVE_PATH
+)
+APP_SERVER_ADAPTER_SHA256 = (
+    "9a24c6b2f39a327aa6ad0728ba54263f0da134165e9c1bacf9414f50729f9a18"
+)
+APP_SERVER_ADAPTER_TEST_SKILL_RELATIVE_PATH = (
+    "scripts/test_trusted_native_app_server_adapter.py"
+)
+APP_SERVER_ADAPTER_TEST_MANIFEST_PATH = (
+    "mythic-edge-role-pool/" + APP_SERVER_ADAPTER_TEST_SKILL_RELATIVE_PATH
+)
+APP_SERVER_ADAPTER_TEST_SHA256 = (
+    "42e1d4d2e1edbf3c80b9d85e1b256afdc5f4475e18f0d662f7414c23af7a33be"
+)
+APP_SERVER_ADDED_PATHS = {
+    APP_SERVER_ADAPTER_MANIFEST_PATH,
+    APP_SERVER_ADAPTER_TEST_MANIFEST_PATH,
+}
+ALLOWED_ADDED_PATHS = PRE_APP_SERVER_ALLOWED_ADDED_PATHS | APP_SERVER_ADDED_PATHS
+PRE_APP_SERVER_PINNED_SUCCESSOR_DIGESTS = {
     SUCCESSOR_MANIFEST_PATH: SUCCESSOR_SHA256,
     V4_SUCCESSOR_MANIFEST_PATH: V4_SUCCESSOR_SHA256,
     V5_SUCCESSOR_MANIFEST_PATH: V5_SUCCESSOR_SHA256,
+}
+PINNED_SUCCESSOR_DIGESTS = {
+    **PRE_APP_SERVER_PINNED_SUCCESSOR_DIGESTS,
+    APP_SERVER_ADAPTER_MANIFEST_PATH: APP_SERVER_ADAPTER_SHA256,
+    APP_SERVER_ADAPTER_TEST_MANIFEST_PATH: APP_SERVER_ADAPTER_TEST_SHA256,
+}
+REVIEWED_APP_SERVER_MODIFIED_DIGESTS = {
+    (
+        "mythic-edge-role-pool/scripts/check_pool_plan.py"
+    ): "af9b9aed5b74bc508c08ce6ab51ce2ee9377aecef5657fca884145fa80c4e62d",
+    (
+        "mythic-edge-role-pool/scripts/test_check_pool_plan.py"
+    ): "60201804ed1700d5d75b615a39fc06ad0585b7073ca0a48d07e4fc99579f7b49",
 }
 
 
@@ -610,25 +647,29 @@ def _manifest_row(path: Path) -> dict[str, str]:
 
 
 def current_skill_manifest() -> list[dict[str, str]]:
-    successors = tuple(
+    pinned_paths = tuple(
         _exact_successor_path(relative_path)
         for relative_path in (
             SUCCESSOR_SKILL_RELATIVE_PATH,
             V4_SUCCESSOR_SKILL_RELATIVE_PATH,
             V5_SUCCESSOR_SKILL_RELATIVE_PATH,
+            APP_SERVER_ADAPTER_SKILL_RELATIVE_PATH,
+            APP_SERVER_ADAPTER_TEST_SKILL_RELATIVE_PATH,
         )
     )
-    successor_paths_casefolded = {
+    pinned_paths_casefolded = {
         SUCCESSOR_SKILL_RELATIVE_PATH.casefold(),
         V4_SUCCESSOR_SKILL_RELATIVE_PATH.casefold(),
         V5_SUCCESSOR_SKILL_RELATIVE_PATH.casefold(),
+        APP_SERVER_ADAPTER_SKILL_RELATIVE_PATH.casefold(),
+        APP_SERVER_ADAPTER_TEST_SKILL_RELATIVE_PATH.casefold(),
     }
     files: list[Path] = []
     for path in SKILL_ROOT.rglob("*", recurse_symlinks=False):
         relative = _skill_relative_path(path)
         if (
             relative is not None
-            and relative.casefold() in successor_paths_casefolded
+            and relative.casefold() in pinned_paths_casefolded
         ):
             continue
         if (
@@ -637,9 +678,9 @@ def current_skill_manifest() -> list[dict[str, str]]:
             and path.suffix.lower() not in {".pyc", ".pyo"}
         ):
             files.append(path)
-    for successor in successors:
-        _require_ordinary_non_reparse_successor(successor)
-        files.append(successor)
+    for pinned_path in pinned_paths:
+        _require_ordinary_non_reparse_successor(pinned_path)
+        files.append(pinned_path)
     files.extend(WORKFLOW_SNAPSHOT_FILES)
     return sorted((_manifest_row(path) for path in files), key=lambda row: row["path"])
 
@@ -655,10 +696,17 @@ def _manifest_state() -> tuple[
     rows = current_skill_manifest()
     current: dict[str, str] = {}
     duplicates: set[str] = set()
+    casefolded_paths: dict[str, str] = {}
     for row in rows:
         path = row["path"]
         if path in current:
             duplicates.add(path)
+        folded_path = path.casefold()
+        if folded_path in casefolded_paths:
+            duplicates.add(path)
+            duplicates.add(casefolded_paths[folded_path])
+        else:
+            casefolded_paths[folded_path] = path
         current[path] = row["sha256"]
     baseline_paths = set(STAGE2_BASELINE_FILES)
     current_paths = set(current)
@@ -679,13 +727,16 @@ def _validated_manifest_state() -> tuple[
     if duplicates:
         raise ManifestTransitionError("duplicate manifest paths")
     if len(rows) != EXPECTED_CURRENT_MANIFEST_FILE_COUNT:
-        raise ManifestTransitionError("current manifest file count is not 37")
+        raise ManifestTransitionError("current manifest file count is not 39")
     if added != ALLOWED_ADDED_PATHS:
         raise ManifestTransitionError("unexpected or missing added paths")
     if modified != ALLOWED_MODIFIED_PATHS:
         raise ManifestTransitionError("unexpected or missing modified paths")
     if removed:
         raise ManifestTransitionError("Stage-2 baseline paths were removed")
+    manifest_paths = [row["path"] for row in rows]
+    if manifest_paths != sorted(manifest_paths):
+        raise ManifestTransitionError("manifest rows are not in ordinal path order")
     if current.get(SUCCESSOR_MANIFEST_PATH) != SUCCESSOR_SHA256:
         raise ManifestTransitionError("successor digest does not match the pinned digest")
     if current.get(V4_SUCCESSOR_MANIFEST_PATH) != V4_SUCCESSOR_SHA256:
@@ -703,6 +754,16 @@ def _validated_manifest_state() -> tuple[
         raise ManifestTransitionError(
             "v5 real-source-adapter amendment digest does not match"
         )
+    for path in sorted(APP_SERVER_ADDED_PATHS):
+        if current.get(path) != PINNED_SUCCESSOR_DIGESTS[path]:
+            raise ManifestTransitionError(
+                "app-server adapter digest does not match the reviewed digest"
+            )
+    for path, digest in sorted(REVIEWED_APP_SERVER_MODIFIED_DIGESTS.items()):
+        if current.get(path) != digest:
+            raise ManifestTransitionError(
+                "reviewed app-server modified digest does not match"
+            )
     plan_path = "mythic-edge-role-pool/scripts/check_pool_plan.py"
     if current.get(plan_path) == STAGE2_BASELINE_FILES[plan_path]:
         raise ManifestTransitionError(

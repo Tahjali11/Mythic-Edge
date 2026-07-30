@@ -29,6 +29,10 @@ from codex_launcher_contract import (
 from codex_launcher_contract import (
     validate_preflight as validate_launcher_preflight,
 )
+from trusted_native_app_server_adapter import (
+    APP_SERVER_ADAPTER_ID,
+    AppServerAdapterError,
+)
 
 PLAN_SCHEMA_VERSION = "mythic_edge_role_pool_plan.v3"
 RESULT_SCHEMA_VERSION = "mythic_edge_role_pool_result.v3"
@@ -7517,6 +7521,25 @@ def unavailable_trusted_native_task_capability(
     )
 
 
+def unavailable_trusted_native_app_server_capability(
+) -> TrustedNativeTaskCapabilityObservation:
+    """Expose the implemented R0 adapter without claiming a live capability."""
+
+    return TrustedNativeTaskCapabilityObservation(
+        launcher_identity=TRUSTED_NATIVE_LAUNCHER_ID,
+        available=False,
+        compatible=False,
+        request_binding=False,
+        one_task_only=False,
+        receipt_binding=False,
+        timeout_enforced=False,
+        unknown_outcome_fail_closed=False,
+        automatic_retry_forbidden=False,
+        fallback_forbidden=True,
+        source="inert_app_server_r0_fake_transport_only",
+    )
+
+
 def _trusted_native_preflight_result(
     *,
     operation: object,
@@ -9681,8 +9704,28 @@ def trusted_native_task_create_once(
             "receipt": None,
         }
     assert isinstance(request, dict)
+    app_server_adapter = (
+        getattr(synthetic_adapter, "adapter_identity", None)
+        == APP_SERVER_ADAPTER_ID
+    )
+    if app_server_adapter and request["role"] not in {"B", "E"}:
+        return {
+            "status": "blocked_request_or_packet_invalid",
+            "receipt": None,
+        }
     try:
         receipt = synthetic_adapter.create_once(request)
+    except AppServerAdapterError as exc:
+        projection = (
+            exc.profile_projection
+            if app_server_adapter
+            and exc.profile_projection in TRUSTED_NATIVE_TERMINAL_OUTCOMES
+            else "failed_lane_known"
+        )
+        return {
+            "status": projection,
+            "receipt": None,
+        }
     except TrustedNativePacketError:
         return {
             "status": "failed_lane_known",
@@ -9698,9 +9741,34 @@ def trusted_native_task_create_once(
             "receipt": None,
         }
     return {
-        "status": "synthetic_task_receipt_accepted_non_live",
+        "status": (
+            "synthetic_app_server_receipt_accepted_non_live"
+            if app_server_adapter
+            else "synthetic_task_receipt_accepted_non_live"
+        ),
         "receipt": receipt,
     }
+
+
+def trusted_native_app_server_task_create_once(
+    request: object,
+    *,
+    adapter: object = None,
+) -> dict[str, object]:
+    """Invoke only the dedicated inert App Server adapter once."""
+
+    if (
+        getattr(adapter, "adapter_identity", None) != APP_SERVER_ADAPTER_ID
+        or getattr(adapter, "synthetic_only", False) is not True
+    ):
+        return {
+            "status": "blocked_request_or_packet_invalid",
+            "receipt": None,
+        }
+    return trusted_native_task_create_once(
+        request,
+        synthetic_adapter=adapter,
+    )
 
 
 def _native_validate_release_binding(
