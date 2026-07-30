@@ -19,8 +19,17 @@ https://github.com/Tahjali11/Mythic-Edge/issues/744#issuecomment-5111260293
 App Server baseline amendment source:
 https://github.com/Tahjali11/Mythic-Edge/issues/758
 
+Offline R0 synchronization amendment source:
+https://github.com/Tahjali11/Mythic-Edge/issues/766
+
+Completed offline-checker predecessor:
+https://github.com/Tahjali11/Mythic-Edge/issues/761
+
 Accepted amendment predecessor SHA-256:
 `eb3742f433f345dfc8508847825b24e84d9c27bd3be0b88057d34e932e3255fc`
+
+Offline R0 synchronization predecessor SHA-256:
+`4a0ba9efe5c987735c09df66f94f42924a92a40ca68fd15a84ffb2c41842c94d`
 
 Security cross-links:
 
@@ -91,6 +100,16 @@ capability facts remain unestablished and all operational counts remain zero.
 Issue #758 supplies the separately activated contract lane for one candidate
 production realization. It does not reinterpret the #757 result as support.
 
+Issue #761 and PR #765 are integrated on Core `origin/main`
+`1e36cb728dd84389569f1c9093f0909bfed7381a`. Its accepted checker reports
+`blocked_skill_source_drift`: source is 41 nodes, 36 files, 6,495 canonical
+bytes, SHA-256
+`18c71ce37f79c8984b992d263a549b0bf354b66bb898a1a00a6b28ca8c50251f`;
+the installed copy is 39 nodes, 34 files, 6,159 canonical bytes, SHA-256
+`ab56582b39474db9e2cb50f83e7e05a341376efa7c9a10f0b1ec306c94d2009e`.
+Registry is `absent`, release state is `absent_bootstrap_candidate`, and every
+operational authority is false.
+
 The current owner instruction is the required ADR-0008
 `explicit_user_override` for this bounded Codex B lane:
 
@@ -98,18 +117,18 @@ The current owner instruction is the required ADR-0008
 lane_activation:
   exception_name: "explicit_user_override"
   repository: "Tahjali11/Mythic-Edge"
-  active_issue_or_lane: "issue #758 Windows App Server baseline contract"
+  active_issue_or_lane: "issue #766 offline R0 installed-copy synchronization contract"
   blocked_active_issue_or_pr:
     - "PR #374, open draft with no current parked/deferred record"
     - "PR #391, open Dependabot PR with no current parked/deferred record"
-  reason: "The owner explicitly authorized one docs-only App Server profile amendment and companion lifecycle contract after #757 integration."
+  reason: "The owner explicitly authorized one compact profile amendment and one #761 binding successor after the binding dependency was proven."
   allowed_scope:
     - "read-only authority, issue, PR, release-metadata, and source-schema inspection"
-    - "revise only docs/contracts/trusted_owner_native_role_pool_profile.md"
-    - "create only docs/contracts/role_pool_codex_app_server_native_task_adapter.md"
+    - "amend only docs/contracts/trusted_owner_native_role_pool_profile.md"
+    - "create only docs/contracts/role_pool_trusted_owner_r0_post_sync_evidence_binding_successor.md"
     - "run local read-only validation"
-    - "produce one independent Codex E review handoff"
-  expiration_condition: "Both contracts and the Codex E handoff are complete, or the owner revokes or redirects the lane."
+    - "produce one consolidated independent Codex E review handoff"
+  expiration_condition: "Both #766 contract artifacts and the Codex E handoff are complete, or the owner revokes or redirects the lane."
   authorized_by: "Tahjali11 current user instruction"
   recorded_in: "this contract"
 ```
@@ -363,6 +382,75 @@ Its successor interface must provide:
 `--sync` is not authorized by this contract. A missing, drifting, unsafe, or
 unreviewed installed tree blocks native dispatch with
 `blocked_skill_source_drift`.
+
+### Offline R0 Existing-Target Synchronization
+
+The sole exception is operation `offline_r0_existing_target_sync`, exposed
+only as `--offline-r0-sync --skill mythic-edge-role-pool`. It may replace only
+the existing default current-user Role Pool deployment copy with exact
+reviewed source solely for another #761 offline measurement. It is
+Windows-only, single-use, separately owner-authorized, and unavailable through
+install or ordinary `--sync`.
+
+The mode rejects `CODEX_HOME`, `--codex-home`, `--repo-root`, another skill,
+search, wildcard, PATH, alternate root, missing target, nonordinary node,
+symlink, junction, reparse point, or path escape. A missing target remains
+first installation and retains exact native-task-capability gating.
+
+A fresh expiring owner decision must bind one attempt, the accepted profile
+amendment, accepted #761 binding successor, accepted four-file implementation
+commit, source snapshot commit
+`1e36cb728dd84389569f1c9093f0909bfed7381a`, exact source-tree digest, and
+exact predecessor installed-tree digest. Repository workflow owns commit
+validation; the installer mechanically reobserves both fixed tree digests
+before mutation and accepts no caller-controlled digest. For this route,
+source must remain exactly 41 nodes, 36 files, 6,495 canonical bytes and
+SHA-256
+`18c71ce37f79c8984b992d263a549b0bf354b66bb898a1a00a6b28ca8c50251f`.
+The predecessor installed tree must remain exactly 39 nodes, 34 files, 6,159
+canonical bytes and SHA-256
+`ab56582b39474db9e2cb50f83e7e05a341376efa7c9a10f0b1ec306c94d2009e`.
+Any mismatch stops before mutation.
+
+After exact Windows observation, this mode neither queries nor requires
+`codex:native-task-create/v1`. No other path inherits that omission. First
+installation, ordinary synchronization, live validation, process or task use,
+canaries, and every rung transition retain the complete host and capability
+gate.
+
+The installer reuses its existing same-parent staging, exact equality, atomic
+replacement, rollback, final equality, and cleanup owners. It must retain
+bounded source and predecessor snapshots; reobserve both immediately before
+replacement; reject concurrent mutation or identity change; validate staging;
+restore the bound predecessor after a known partial failure; prove final
+source equality and staging/backup cleanup; and reobserve equality before local
+success.
+
+There is no retry. Known binding, target, safety, concurrency, or restored
+rollback failure routes to `blocked_skill_source_drift`. Unobservable identity,
+ambiguous replacement, unproven rollback, uncertain final state, or uncertain
+cleanup routes to `unknown_outcome_reconciliation_required` without deleting
+an ambiguously owned object. Invalid authority or host input routes to
+`blocked_request_or_packet_invalid`. No new schema, digest family, or terminal
+status is needed.
+
+Output is local diagnostic evidence only and exposes no absolute source,
+target, staging, or backup path. The mode creates no public receipt, registry,
+release, process, task, command, network operation, GitHub object, claim,
+worktree, dispatch, canary, R2, R0 acceptance, or Stage 4 effect.
+
+The versioned companion
+`docs/contracts/role_pool_trusted_owner_r0_post_sync_evidence_binding_successor.md`
+keeps the #761 checker as public-safe evidence owner while binding the amended
+profile and successor installer. Before actual sync, the current checker must
+still select `blocked_skill_source_drift`. After exact sync, absent registry
+must become the first blocker,
+`blocked_registry_missing_or_invalid`, with release state still
+`absent_bootstrap_candidate`, zero effects, and every authority false.
+Independent Codex E review owns both conclusions.
+
+This contract authorizes neither the four-file implementation nor installed
+mutation. Each requires a later exact owner decision.
 
 ## Canonical Packet Rules
 
@@ -1350,8 +1438,14 @@ these existing implementation or test surfaces:
 | `docs/codex_skills/mythic-edge-role-pool/scripts/check_pool_plan.py` | Add trusted runtime host observation, exact Windows task-capability preflight, priority-1 projection, pre-side-effect enforcement, and the minimal call into the accepted dedicated adapter while preserving all existing public packet fields and terminal outcomes. |
 | `docs/codex_skills/mythic-edge-role-pool/scripts/test_check_pool_plan.py` | Add host, primitive, no-fallback, remote-control classification, independent Windows contention, offline-only, selector-regression, and minimal App Server integration tests. |
 | `docs/codex_skills/mythic-edge-role-pool/scripts/test_skill_contract.py` | Replace platform-neutral compatibility assertions with Windows-first, native-Mac-deferred, and no-fallback documentation assertions. |
-| `tools/install_codex_skills.py` | Keep `--check` read-only and platform-neutral; gate install and `--sync` mutation for this skill on trusted Windows observation before staging or destination mutation. |
-| `tests/test_install_codex_skills.py` | Prove non-Windows install/sync rejection occurs before staging or destination mutation while read-only `--check` remains available. |
+| `tools/install_codex_skills.py` | Keep `--check` read-only; add only digest-bound `--offline-r0-sync`; preserve capability gates for install, ordinary `--sync`, and every live path. |
+| `tests/test_install_codex_skills.py` | Prove exact host/binding/target/safety/concurrency/replacement/rollback/cleanup behavior and no capability query for the offline mode. |
+| `tools/check_role_pool_r0_bootstrap.py` | Rebind only the accepted profile, current R0 binding successor, and final installer hashes; preserve the evidence schema and evaluation behavior. |
+| `tests/test_check_role_pool_r0_bootstrap.py` | Prove exact successor bindings and both pre-sync drift and post-sync absent-registry projections without weakening existing cases. |
+
+For issue #766, only these final four Core rows form the complete later C
+scope. Every preceding row remains historical or separately governed and is
+not reopened by the offline synchronization amendment.
 
 The App Server companion narrows its later implementation envelope to its two
 new files and the two named `check_pool_plan.py` integration files. The other
@@ -1563,9 +1657,10 @@ This contract does not authorize:
 Files owned by this Codex B task:
 
 - `docs/contracts/trusted_owner_native_role_pool_profile.md`
-- `docs/contracts/role_pool_codex_app_server_native_task_adapter.md`
+- `docs/contracts/role_pool_trusted_owner_r0_post_sync_evidence_binding_successor.md`
 
-Side effects are limited to those two worktree files.
+The accepted App Server companion, #761 contract/checker/tests, canonical Role
+Pool source, implementation, and installed copy remain untouched.
 
 ## Historical Windows-First Review Handoff
 

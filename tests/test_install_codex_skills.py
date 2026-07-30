@@ -39,6 +39,50 @@ def _run(args: list[str], capsys: pytest.CaptureFixture[str]) -> tuple[int, str]
     return code, capsys.readouterr().out
 
 
+def _offline_sync_fixture(tmp_path: Path) -> tuple[Path, Path]:
+    repo_root = tmp_path / "repo"
+    source = _write_skill(repo_root, "mythic-edge-role-pool")
+    source.joinpath("version.txt").write_text("reviewed\n", encoding="utf-8")
+    target = tmp_path / "codex-home" / "skills" / "mythic-edge-role-pool"
+    shutil.copytree(source, target)
+    target.joinpath("version.txt").write_text("predecessor\n", encoding="utf-8")
+    return source, target
+
+
+def _configure_offline_sync(
+    monkeypatch: pytest.MonkeyPatch,
+    source: Path,
+    target: Path,
+) -> None:
+    source_state, source_observation = installer._offline_tree_observation(source)
+    target_state, target_observation = installer._offline_tree_observation(target)
+    assert source_state == "exact"
+    assert source_observation is not None
+    assert target_state == "exact"
+    assert target_observation is not None
+    monkeypatch.setattr(
+        installer,
+        "OFFLINE_R0_SOURCE_BINDING",
+        source_observation.binding,
+    )
+    monkeypatch.setattr(
+        installer,
+        "OFFLINE_R0_PREDECESSOR_BINDING",
+        target_observation.binding,
+    )
+    monkeypatch.setattr(
+        installer,
+        "_offline_r0_default_paths",
+        lambda: (source, target),
+    )
+    monkeypatch.setattr(installer, "_trusted_windows_host_observed", lambda: True)
+    monkeypatch.setattr(
+        installer,
+        "_exact_native_task_capability_observed",
+        lambda: pytest.fail("offline R0 sync must not query task capability"),
+    )
+
+
 def test_discovers_only_skill_directories_with_skill_md(tmp_path: Path) -> None:
     repo_root = tmp_path / "repo"
     _write_skill(repo_root, "session-checkout")
@@ -569,6 +613,605 @@ def test_role_pool_internal_sync_rejects_missing_native_task_capability(
     assert target.joinpath("SKILL.md").read_text(encoding="utf-8") == "old\n"
     assert not list(target.parent.glob(".mythic-edge-role-pool.sync-*"))
     assert not list(target.parent.glob(".mythic-edge-role-pool.backup-*"))
+
+
+def test_offline_r0_sync_exact_synthetic_target_is_single_use_and_no_echo(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source, target = _offline_sync_fixture(tmp_path)
+    _configure_offline_sync(monkeypatch, source, target)
+
+    code, output = _run(
+        [
+            "--offline-r0-sync",
+            "--skill",
+            "mythic-edge-role-pool",
+        ],
+        capsys,
+    )
+    replay_code, replay_output = _run(
+        [
+            "--offline-r0-sync",
+            "--skill",
+            "mythic-edge-role-pool",
+        ],
+        capsys,
+    )
+
+    assert code == installer.EXIT_SUCCESS
+    assert output.splitlines() == [
+        f"package: {installer.PACKAGE_NAME}",
+        "mode: offline-r0-sync",
+        "operation: offline_r0_existing_target_sync",
+        "status: synchronized",
+        "result: synchronized",
+    ]
+    assert str(tmp_path) not in output
+    assert installer._directories_match(source, target)
+    assert replay_code == installer.EXIT_TARGET_DIFFERS
+    assert "status: blocked_skill_source_drift" in replay_output
+    assert "result: refused" in replay_output
+    assert not list(target.parent.glob(".mythic-edge-role-pool.sync-*"))
+    assert not list(target.parent.glob(".mythic-edge-role-pool.backup-*"))
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        ["--offline-r0-sync", "--skill", "session-checkout"],
+        [
+            "--offline-r0-sync",
+            "--skill",
+            "mythic-edge-role-pool",
+            "--repo-root",
+            "private-root",
+        ],
+        [
+            "--offline-r0-sync",
+            "--skill",
+            "mythic-edge-role-pool",
+            "--codex-home",
+            "private-home",
+        ],
+        [
+            "--offline-r0-sync",
+            "--skill",
+            "mythic-edge-role-pool",
+            "--dry-run",
+        ],
+    ],
+)
+def test_offline_r0_sync_rejects_every_noncanonical_invocation_without_echo(
+    arguments: list[str],
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        installer,
+        "_offline_r0_default_paths",
+        lambda: pytest.fail("invalid invocation must stop before path derivation"),
+    )
+
+    code, output = _run(arguments, capsys)
+
+    assert code == installer.EXIT_USAGE_ERROR
+    assert output.splitlines() == [
+        f"package: {installer.PACKAGE_NAME}",
+        "mode: offline-r0-sync",
+        "operation: offline_r0_existing_target_sync",
+        "status: blocked_request_or_packet_invalid",
+        "result: refused",
+    ]
+    assert "private-root" not in output
+    assert "private-home" not in output
+
+
+def test_offline_r0_sync_rejects_codex_home_and_non_windows_before_path_access(
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        installer,
+        "_offline_r0_default_paths",
+        lambda: pytest.fail("preflight must stop before path derivation"),
+    )
+    monkeypatch.setenv("CODEX_HOME", "private-home")
+
+    env_code, env_output = _run(
+        ["--offline-r0-sync", "--skill", "mythic-edge-role-pool"],
+        capsys,
+    )
+    monkeypatch.delenv("CODEX_HOME")
+    monkeypatch.setattr(installer, "_trusted_windows_host_observed", lambda: False)
+    host_code, host_output = _run(
+        ["--offline-r0-sync", "--skill", "mythic-edge-role-pool"],
+        capsys,
+    )
+
+    assert env_code == installer.EXIT_USAGE_ERROR
+    assert host_code == installer.EXIT_USAGE_ERROR
+    assert "status: blocked_request_or_packet_invalid" in env_output
+    assert "status: blocked_request_or_packet_invalid" in host_output
+    assert "private-home" not in env_output
+
+
+def test_offline_r0_sync_rejects_missing_or_drifted_bound_tree_before_staging(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source, target = _offline_sync_fixture(tmp_path)
+    _configure_offline_sync(monkeypatch, source, target)
+    monkeypatch.setattr(
+        installer.tempfile,
+        "mkdtemp",
+        lambda **_kwargs: pytest.fail("staging must not be created"),
+    )
+
+    target.joinpath("version.txt").unlink()
+    drift_code, drift_output = _run(
+        ["--offline-r0-sync", "--skill", "mythic-edge-role-pool"],
+        capsys,
+    )
+    shutil.rmtree(target)
+    missing_code, missing_output = _run(
+        ["--offline-r0-sync", "--skill", "mythic-edge-role-pool"],
+        capsys,
+    )
+
+    assert drift_code == installer.EXIT_TARGET_DIFFERS
+    assert missing_code == installer.EXIT_TARGET_DIFFERS
+    assert "status: blocked_skill_source_drift" in drift_output
+    assert "status: blocked_skill_source_drift" in missing_output
+
+
+def test_offline_r0_sync_rejects_unsafe_tree_before_opening_or_staging(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source, target = _offline_sync_fixture(tmp_path)
+    _configure_offline_sync(monkeypatch, source, target)
+    real_target_check = installer._target_tree_unsafe_reason
+
+    def synthetic_reparse(path: Path, root: Path) -> str | None:
+        if path == target:
+            return "target_reparse_point"
+        return real_target_check(path, root)
+
+    monkeypatch.setattr(
+        installer,
+        "_target_tree_unsafe_reason",
+        synthetic_reparse,
+    )
+    monkeypatch.setattr(
+        installer.tempfile,
+        "mkdtemp",
+        lambda **_kwargs: pytest.fail("staging must not be created"),
+    )
+
+    code, output = _run(
+        ["--offline-r0-sync", "--skill", "mythic-edge-role-pool"],
+        capsys,
+    )
+
+    assert code == installer.EXIT_TARGET_DIFFERS
+    assert "status: blocked_skill_source_drift" in output
+    assert target.joinpath("version.txt").read_text(encoding="utf-8") == (
+        "predecessor\n"
+    )
+
+
+def test_offline_r0_sync_rejects_reparse_ancestor_before_staging(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source, target = _offline_sync_fixture(tmp_path)
+    _configure_offline_sync(monkeypatch, source, target)
+    ancestor_identity = installer._stat_identity(target.parent.parent.lstat())
+    real_reparse_check = installer._is_reparse_metadata
+
+    def mark_codex_home_as_reparse(metadata: os.stat_result) -> bool:
+        return (
+            installer._stat_identity(metadata) == ancestor_identity
+            or real_reparse_check(metadata)
+        )
+
+    monkeypatch.setattr(
+        installer,
+        "_is_reparse_metadata",
+        mark_codex_home_as_reparse,
+    )
+    monkeypatch.setattr(
+        installer.tempfile,
+        "mkdtemp",
+        lambda **_kwargs: pytest.fail("staging must not be created"),
+    )
+
+    code, output = _run(
+        ["--offline-r0-sync", "--skill", "mythic-edge-role-pool"],
+        capsys,
+    )
+
+    assert code == installer.EXIT_TARGET_DIFFERS
+    assert "status: blocked_skill_source_drift" in output
+    assert target.joinpath("version.txt").read_text(encoding="utf-8") == (
+        "predecessor\n"
+    )
+
+
+def test_offline_r0_default_paths_preserve_lexical_home_for_safety_checks(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    repository_root = tmp_path / "repo"
+    user_home = tmp_path / "user-home"
+    monkeypatch.setattr(installer, "_default_repo_root", lambda: repository_root)
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: user_home))
+    monkeypatch.setattr(
+        installer,
+        "_codex_home",
+        lambda _value: pytest.fail(
+            "offline path derivation must not resolve the target before safety checks"
+        ),
+    )
+
+    source, target = installer._offline_r0_default_paths()
+
+    assert source == (
+        repository_root
+        / installer.SKILL_SOURCE_ROOT
+        / installer.TRUSTED_WINDOWS_SKILL_NAME
+    )
+    assert target == (
+        user_home
+        / ".codex"
+        / "skills"
+        / installer.TRUSTED_WINDOWS_SKILL_NAME
+    )
+
+
+def test_offline_r0_sync_path_resolution_failure_is_unknown_and_no_echo(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source, target = _offline_sync_fixture(tmp_path)
+    _configure_offline_sync(monkeypatch, source, target)
+    real_resolve = Path.resolve
+
+    def fail_source_resolution(
+        path: Path,
+        *args: object,
+        **kwargs: object,
+    ) -> Path:
+        if path == source:
+            raise OSError("synthetic private path resolution failure")
+        return real_resolve(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "resolve", fail_source_resolution)
+    monkeypatch.setattr(
+        installer.tempfile,
+        "mkdtemp",
+        lambda **_kwargs: pytest.fail("staging must not be created"),
+    )
+
+    code, output = _run(
+        ["--offline-r0-sync", "--skill", "mythic-edge-role-pool"],
+        capsys,
+    )
+
+    assert code == installer.EXIT_INSTALL_FAILURE
+    assert "status: unknown_outcome_reconciliation_required" in output
+    assert str(tmp_path) not in output
+    assert "synthetic private path" not in output
+    assert target.joinpath("version.txt").read_text(encoding="utf-8") == (
+        "predecessor\n"
+    )
+
+
+def test_offline_r0_sync_rejects_changed_post_move_target_identity(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source, target = _offline_sync_fixture(tmp_path)
+    _configure_offline_sync(monkeypatch, source, target)
+    real_replace = installer.os.replace
+    calls = 0
+
+    def substitute_same_content_target(
+        source_path: Path,
+        destination_path: Path,
+    ) -> None:
+        nonlocal calls
+        calls += 1
+        real_replace(source_path, destination_path)
+        if calls == 2:
+            shutil.rmtree(destination_path)
+            shutil.copytree(source, destination_path)
+
+    monkeypatch.setattr(installer.os, "replace", substitute_same_content_target)
+
+    code, output = _run(
+        ["--offline-r0-sync", "--skill", "mythic-edge-role-pool"],
+        capsys,
+    )
+
+    backups = list(target.parent.glob(".mythic-edge-role-pool.backup-*"))
+    assert code == installer.EXIT_INSTALL_FAILURE
+    assert "status: unknown_outcome_reconciliation_required" in output
+    assert target.joinpath("version.txt").read_text(encoding="utf-8") == "reviewed\n"
+    assert len(backups) == 1
+    assert backups[0].joinpath("version.txt").read_text(encoding="utf-8") == (
+        "predecessor\n"
+    )
+
+
+def test_offline_r0_sync_preserves_unowned_backup_during_cleanup(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source, target = _offline_sync_fixture(tmp_path)
+    _configure_offline_sync(monkeypatch, source, target)
+    real_replace = installer.os.replace
+    calls = 0
+
+    def substitute_same_content_backup(
+        source_path: Path,
+        destination_path: Path,
+    ) -> None:
+        nonlocal calls
+        calls += 1
+        real_replace(source_path, destination_path)
+        if calls == 2:
+            backup = next(
+                target.parent.glob(".mythic-edge-role-pool.backup-*")
+            )
+            substitute = target.parent / ".synthetic-unowned-backup"
+            shutil.copytree(backup, substitute)
+            shutil.rmtree(backup)
+            real_replace(substitute, backup)
+
+    monkeypatch.setattr(installer.os, "replace", substitute_same_content_backup)
+
+    code, output = _run(
+        ["--offline-r0-sync", "--skill", "mythic-edge-role-pool"],
+        capsys,
+    )
+
+    backups = list(target.parent.glob(".mythic-edge-role-pool.backup-*"))
+    assert code == installer.EXIT_INSTALL_FAILURE
+    assert "status: unknown_outcome_reconciliation_required" in output
+    assert target.joinpath("version.txt").read_text(encoding="utf-8") == "reviewed\n"
+    assert len(backups) == 1
+    assert backups[0].joinpath("version.txt").read_text(encoding="utf-8") == (
+        "predecessor\n"
+    )
+
+
+def test_offline_r0_sync_staging_mismatch_is_known_and_cleans_up(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source, target = _offline_sync_fixture(tmp_path)
+    _configure_offline_sync(monkeypatch, source, target)
+    real_copytree = installer.shutil.copytree
+
+    def corrupt_staging(
+        source_path: Path,
+        destination_path: Path,
+        **kwargs: object,
+    ) -> Path:
+        result = real_copytree(source_path, destination_path, **kwargs)
+        Path(destination_path).joinpath("version.txt").write_text(
+            "staging-drift\n",
+            encoding="utf-8",
+        )
+        return result
+
+    monkeypatch.setattr(installer.shutil, "copytree", corrupt_staging)
+
+    code, output = _run(
+        ["--offline-r0-sync", "--skill", "mythic-edge-role-pool"],
+        capsys,
+    )
+
+    assert code == installer.EXIT_TARGET_DIFFERS
+    assert "status: blocked_skill_source_drift" in output
+    assert target.joinpath("version.txt").read_text(encoding="utf-8") == (
+        "predecessor\n"
+    )
+    assert not list(target.parent.glob(".mythic-edge-role-pool.sync-*"))
+    assert not list(target.parent.glob(".mythic-edge-role-pool.backup-*"))
+
+
+def test_offline_r0_sync_copy_failure_preserves_substituted_staging_path(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source, target = _offline_sync_fixture(tmp_path)
+    _configure_offline_sync(monkeypatch, source, target)
+
+    def substitute_staging_then_fail(
+        _source_path: Path,
+        destination_path: Path,
+        **_kwargs: object,
+    ) -> Path:
+        staging = Path(destination_path)
+        shutil.rmtree(staging)
+        staging.mkdir()
+        staging.joinpath("foreign.txt").write_text(
+            "foreign ordinary directory\n",
+            encoding="utf-8",
+        )
+        raise OSError("synthetic copy failure after staging substitution")
+
+    monkeypatch.setattr(installer.shutil, "copytree", substitute_staging_then_fail)
+
+    code, output = _run(
+        ["--offline-r0-sync", "--skill", "mythic-edge-role-pool"],
+        capsys,
+    )
+
+    staging_paths = list(target.parent.glob(".mythic-edge-role-pool.sync-*"))
+    assert code == installer.EXIT_INSTALL_FAILURE
+    assert "status: unknown_outcome_reconciliation_required" in output
+    assert str(tmp_path) not in output
+    assert target.joinpath("version.txt").read_text(encoding="utf-8") == (
+        "predecessor\n"
+    )
+    assert len(staging_paths) == 1
+    assert staging_paths[0].joinpath("foreign.txt").read_text(encoding="utf-8") == (
+        "foreign ordinary directory\n"
+    )
+    assert not list(target.parent.glob(".mythic-edge-role-pool.backup-*"))
+
+
+def test_offline_r0_sync_detects_concurrent_source_drift_and_restores_target(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source, target = _offline_sync_fixture(tmp_path)
+    _configure_offline_sync(monkeypatch, source, target)
+    real_replace = installer.os.replace
+    calls = 0
+
+    def drift_before_move(source_path: Path, destination_path: Path) -> None:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            source.joinpath("version.txt").write_text(
+                "concurrent-source-drift\n",
+                encoding="utf-8",
+            )
+        real_replace(source_path, destination_path)
+
+    monkeypatch.setattr(installer.os, "replace", drift_before_move)
+
+    code, output = _run(
+        ["--offline-r0-sync", "--skill", "mythic-edge-role-pool"],
+        capsys,
+    )
+
+    assert code == installer.EXIT_TARGET_DIFFERS
+    assert "status: blocked_skill_source_drift" in output
+    assert target.joinpath("version.txt").read_text(encoding="utf-8") == (
+        "predecessor\n"
+    )
+    assert not list(target.parent.glob(".mythic-edge-role-pool.sync-*"))
+    assert not list(target.parent.glob(".mythic-edge-role-pool.backup-*"))
+
+
+def test_offline_r0_sync_known_replacement_failure_rolls_back_and_cleans_up(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source, target = _offline_sync_fixture(tmp_path)
+    _configure_offline_sync(monkeypatch, source, target)
+    real_replace = installer.os.replace
+    calls = 0
+
+    def fail_second_move(source_path: Path, destination_path: Path) -> None:
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise OSError("synthetic replacement failure")
+        real_replace(source_path, destination_path)
+
+    monkeypatch.setattr(installer.os, "replace", fail_second_move)
+
+    code, output = _run(
+        ["--offline-r0-sync", "--skill", "mythic-edge-role-pool"],
+        capsys,
+    )
+
+    assert code == installer.EXIT_TARGET_DIFFERS
+    assert "status: blocked_skill_source_drift" in output
+    assert target.joinpath("version.txt").read_text(encoding="utf-8") == (
+        "predecessor\n"
+    )
+    assert not list(target.parent.glob(".mythic-edge-role-pool.sync-*"))
+    assert not list(target.parent.glob(".mythic-edge-role-pool.backup-*"))
+
+
+def test_offline_r0_sync_unproven_rollback_is_unknown_and_preserves_evidence(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source, target = _offline_sync_fixture(tmp_path)
+    _configure_offline_sync(monkeypatch, source, target)
+    real_replace = installer.os.replace
+    calls = 0
+
+    def fail_replacement_and_rollback(
+        source_path: Path,
+        destination_path: Path,
+    ) -> None:
+        nonlocal calls
+        calls += 1
+        if calls in {2, 3}:
+            raise OSError("synthetic ambiguous move")
+        real_replace(source_path, destination_path)
+
+    monkeypatch.setattr(installer.os, "replace", fail_replacement_and_rollback)
+    try:
+        code, output = _run(
+            ["--offline-r0-sync", "--skill", "mythic-edge-role-pool"],
+            capsys,
+        )
+
+        assert code == installer.EXIT_INSTALL_FAILURE
+        assert "status: unknown_outcome_reconciliation_required" in output
+        assert not target.exists()
+        assert len(list(target.parent.glob(".mythic-edge-role-pool.backup-*"))) == 1
+    finally:
+        monkeypatch.setattr(installer.os, "replace", real_replace)
+        for residue in target.parent.glob(".mythic-edge-role-pool.*-*"):
+            shutil.rmtree(residue)
+
+
+def test_offline_r0_sync_cleanup_failure_is_unknown_and_not_silently_successful(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source, target = _offline_sync_fixture(tmp_path)
+    _configure_offline_sync(monkeypatch, source, target)
+    real_remove = installer._remove_owned_tree
+
+    def fail_backup_cleanup(
+        path: Path,
+        expected: installer.OfflineTreeObservation | None = None,
+    ) -> bool:
+        if ".backup-" in path.name:
+            return False
+        return real_remove(path, expected)
+
+    monkeypatch.setattr(installer, "_remove_owned_tree", fail_backup_cleanup)
+    try:
+        code, output = _run(
+            ["--offline-r0-sync", "--skill", "mythic-edge-role-pool"],
+            capsys,
+        )
+
+        assert code == installer.EXIT_INSTALL_FAILURE
+        assert "status: unknown_outcome_reconciliation_required" in output
+        assert installer._directories_match(source, target)
+        assert len(list(target.parent.glob(".mythic-edge-role-pool.backup-*"))) == 1
+    finally:
+        monkeypatch.setattr(installer, "_remove_owned_tree", real_remove)
+        for residue in target.parent.glob(".mythic-edge-role-pool.backup-*"):
+            shutil.rmtree(residue)
 
 
 def test_sync_rolls_back_after_atomic_replacement_failure(

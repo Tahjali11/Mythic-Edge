@@ -22,13 +22,16 @@ ISSUE_URL = "https://github.com/Tahjali11/Mythic-Edge/issues/761"
 BASE_COMMIT = "10d4a4a79053fe33297a612599667d9b58bb4296"
 
 PROFILE_CONTRACT_SHA256 = (
-    "4a0ba9efe5c987735c09df66f94f42924a92a40ca68fd15a84ffb2c41842c94d"
+    "944c1a85d9e2454fb82a5df3e2a2ac572191e3cd135c7854e0c012ffc07ab43f"
 )
 APP_SERVER_CONTRACT_SHA256 = (
     "814ac91c4e099216ae4870458d7524a3d65bfba7459cbfda7de82a5fc79067e8"
 )
 R0_CONTRACT_SHA256 = (
-    "9793951fa1a5a2e6ca7d1bb6325e89e9c2ca185aa4609b19481891405ef32a03"
+    "07ab1c7153ba1312533bdc27d984789127fb7fc02190d26853ffae1849c2ac82"
+)
+INSTALLER_SHA256 = (
+    "dc5d4d609355a2cf790d3eff902af897b8561f5bfd38b40fd362dc2a6f4c7416"
 )
 STAGE3_MANIFEST_SHA256 = (
     "cc88860794f918afbb050d6149df3cd11d195fab098b907be06f44ed88de7e06"
@@ -76,7 +79,7 @@ FILE_BINDINGS = (
     (
         "installer",
         Path("tools/install_codex_skills.py"),
-        "7954d1c6b4cd816b4fb9d09be68a42ea89df9f6ffff20e13b76bab97e965dbda",
+        INSTALLER_SHA256,
     ),
     (
         "registry_validator",
@@ -104,7 +107,7 @@ FILE_BINDINGS = (
         "r0_contract",
         Path(
             "docs/contracts/"
-            "role_pool_trusted_owner_r0_offline_bootstrap_validation.md"
+            "role_pool_trusted_owner_r0_post_sync_evidence_binding_successor.md"
         ),
         R0_CONTRACT_SHA256,
     ),

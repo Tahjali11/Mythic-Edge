@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
 import os
 import shutil
 import stat
@@ -15,6 +17,12 @@ PACKAGE_NAME = "mythic-edge-repo-owned-codex-skills"
 SKILL_SOURCE_ROOT = Path("docs/codex_skills")
 SKILL_NAME_PREFIX = "name:"
 TRUSTED_WINDOWS_SKILL_NAME = "mythic-edge-role-pool"
+OFFLINE_R0_SYNC_OPERATION = "offline_r0_existing_target_sync"
+OFFLINE_R0_SYNC_ARGUMENTS = (
+    "--offline-r0-sync",
+    "--skill",
+    TRUSTED_WINDOWS_SKILL_NAME,
+)
 
 EXIT_SUCCESS = 0
 EXIT_USAGE_ERROR = 1
@@ -50,6 +58,46 @@ class InstallAction:
     source_dir: Path
     target_dir: Path
     reason: str
+
+
+@dataclass(frozen=True)
+class TreeManifestBinding:
+    node_count: int
+    file_count: int
+    canonical_byte_count: int
+    sha256: str
+
+
+@dataclass(frozen=True)
+class OfflineTreeObservation:
+    root_identity: tuple[int, int, int, int, int]
+    rows: tuple[tuple[str, str, bytes], ...]
+    identities: tuple[
+        tuple[str, str, tuple[int, int, int, int, int]],
+        ...,
+    ]
+    binding: TreeManifestBinding
+
+
+@dataclass(frozen=True)
+class OfflineR0SyncOutcome:
+    status: str
+    result: str
+    exit_code: int
+
+
+OFFLINE_R0_SOURCE_BINDING = TreeManifestBinding(
+    node_count=41,
+    file_count=36,
+    canonical_byte_count=6495,
+    sha256="18c71ce37f79c8984b992d263a549b0bf354b66bb898a1a00a6b28ca8c50251f",
+)
+OFFLINE_R0_PREDECESSOR_BINDING = TreeManifestBinding(
+    node_count=39,
+    file_count=34,
+    canonical_byte_count=6159,
+    sha256="ab56582b39474db9e2cb50f83e7e05a341376efa7c9a10f0b1ec306c94d2009e",
+)
 
 
 class SkillInstallArgumentParser(argparse.ArgumentParser):
@@ -103,6 +151,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Synchronize one reviewed existing skill using staging and rollback.",
     )
+    operation.add_argument(
+        "--offline-r0-sync",
+        action="store_true",
+        help="Run the exact reviewed existing-target offline R0 synchronization.",
+    )
     parser.add_argument("--dry-run", action="store_true", help="Print planned actions only.")
     parser.add_argument("--repo-root", type=Path, default=_default_repo_root())
     parser.add_argument("--codex-home", type=Path, default=None)
@@ -110,8 +163,18 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def run(argv: Sequence[str] | None = None) -> int:
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    if any(
+        argument == "--offline-r0-sync"
+        or argument.startswith("--offline-r0-sync=")
+        for argument in arguments
+    ):
+        result = _run_offline_r0_sync(arguments)
+        for line in result[1]:
+            print(line)
+        return result[0]
     parser = build_parser()
-    args = parser.parse_args(argv)
+    args = parser.parse_args(arguments)
     if (args.check or args.sync) and args.skill is None:
         parser.error("--check and --sync require --skill")
     if (args.check or args.sync) and args.dry_run:
@@ -446,6 +509,578 @@ def _synchronize_existing_skill(source_dir: Path, target_dir: Path) -> bool:
             shutil.rmtree(staging_dir, ignore_errors=True)
         if backup_dir.exists() and not target_moved:
             shutil.rmtree(backup_dir, ignore_errors=True)
+
+
+def _run_offline_r0_sync(arguments: Sequence[str]) -> tuple[int, list[str]]:
+    if (
+        tuple(arguments) != OFFLINE_R0_SYNC_ARGUMENTS
+        or "CODEX_HOME" in os.environ
+        or not _trusted_windows_host_observed()
+    ):
+        return _offline_r0_result_lines(
+            OfflineR0SyncOutcome(
+                status="blocked_request_or_packet_invalid",
+                result="refused",
+                exit_code=EXIT_USAGE_ERROR,
+            )
+        )
+    try:
+        source_dir, target_dir = _offline_r0_default_paths()
+        outcome = _offline_r0_sync_existing_target(source_dir, target_dir)
+    except (OSError, RuntimeError):
+        outcome = _offline_unknown()
+    return _offline_r0_result_lines(outcome)
+
+
+def _offline_r0_result_lines(
+    outcome: OfflineR0SyncOutcome,
+) -> tuple[int, list[str]]:
+    return (
+        outcome.exit_code,
+        [
+            f"package: {PACKAGE_NAME}",
+            "mode: offline-r0-sync",
+            f"operation: {OFFLINE_R0_SYNC_OPERATION}",
+            f"status: {outcome.status}",
+            f"result: {outcome.result}",
+        ],
+    )
+
+
+def _offline_r0_default_paths() -> tuple[Path, Path]:
+    repository_root = _default_repo_root()
+    codex_home = Path.home() / ".codex"
+    return (
+        repository_root / SKILL_SOURCE_ROOT / TRUSTED_WINDOWS_SKILL_NAME,
+        codex_home / "skills" / TRUSTED_WINDOWS_SKILL_NAME,
+    )
+
+
+def _offline_r0_sync_existing_target(
+    source_dir: Path,
+    target_dir: Path,
+) -> OfflineR0SyncOutcome:
+    target_root = target_dir.parent
+    codex_home = target_root.parent
+    source_ancestor_state = _ordinary_directory_chain_state(source_dir.parent)
+    target_ancestor_state = _ordinary_directory_chain_state(target_root)
+    if "unknown" in {source_ancestor_state, target_ancestor_state}:
+        return _offline_unknown()
+    if source_ancestor_state != "exact" or target_ancestor_state != "exact":
+        return _offline_known_block()
+    try:
+        source_unsafe = _source_tree_unsafe_reason(source_dir, source_dir.parent)
+        target_root_unsafe = _target_root_unsafe_reason(target_root, codex_home)
+        target_unsafe = _target_tree_unsafe_reason(target_dir, target_root)
+    except (OSError, RuntimeError):
+        return _offline_unknown()
+    if (
+        source_dir.name != TRUSTED_WINDOWS_SKILL_NAME
+        or target_dir.name != TRUSTED_WINDOWS_SKILL_NAME
+        or source_unsafe is not None
+        or target_root_unsafe is not None
+        or target_unsafe is not None
+    ):
+        return _offline_known_block()
+
+    source_state, source = _offline_tree_observation(source_dir)
+    target_state, predecessor = _offline_tree_observation(target_dir)
+    if source_state == "unknown" or target_state == "unknown":
+        return _offline_unknown()
+    if (
+        source_state != "exact"
+        or source is None
+        or source.binding != OFFLINE_R0_SOURCE_BINDING
+        or target_state != "exact"
+        or predecessor is None
+        or predecessor.binding != OFFLINE_R0_PREDECESSOR_BINDING
+    ):
+        return _offline_known_block()
+
+    try:
+        staging_dir = Path(
+            tempfile.mkdtemp(
+                prefix=f".{target_dir.name}.sync-",
+                dir=target_root,
+            )
+        )
+    except OSError:
+        return _offline_unknown()
+    staging_owner_state, staging_owner = _offline_tree_observation(staging_dir)
+    if (
+        staging_owner_state != "exact"
+        or staging_owner is None
+        or staging_owner.rows
+    ):
+        return _offline_unknown()
+    try:
+        staging_metadata = staging_dir.lstat()
+    except OSError:
+        return _offline_unknown()
+    if _stat_identity(staging_metadata) != staging_owner.root_identity:
+        return _offline_unknown()
+    staging_ownership_identity = _ownership_identity(staging_metadata)
+    backup_dir = target_root / f".{target_dir.name}.backup-{uuid.uuid4().hex}"
+    backup_state, _ = _offline_tree_observation(backup_dir)
+    if backup_state != "absent":
+        return (
+            _offline_known_block()
+            if _remove_owned_tree(
+                staging_dir,
+                expected_ownership_identity=staging_ownership_identity,
+            )
+            else _offline_unknown()
+        )
+
+    try:
+        shutil.copytree(source_dir, staging_dir, dirs_exist_ok=True)
+    except OSError:
+        return (
+            _offline_known_block()
+            if _remove_owned_tree(
+                staging_dir,
+                expected_ownership_identity=staging_ownership_identity,
+            )
+            else _offline_unknown()
+        )
+    staging_state, staging = _offline_tree_observation(staging_dir)
+    if staging_state == "unknown":
+        return _offline_unknown()
+    if (
+        staging_state != "exact"
+        or staging is None
+        or not _offline_same_content(staging, source)
+    ):
+        return (
+            _offline_known_block()
+            if _remove_owned_tree(
+                staging_dir,
+                expected_ownership_identity=staging_ownership_identity,
+            )
+            else _offline_unknown()
+        )
+
+    source_now_state, source_now = _offline_tree_observation(source_dir)
+    target_now_state, target_now = _offline_tree_observation(target_dir)
+    if source_now_state == "unknown" or target_now_state == "unknown":
+        return (
+            _offline_unknown()
+            if _remove_owned_tree(
+                staging_dir,
+                expected_ownership_identity=staging_ownership_identity,
+            )
+            else _offline_unknown()
+        )
+    if (
+        source_now_state != "exact"
+        or source_now != source
+        or target_now_state != "exact"
+        or target_now != predecessor
+    ):
+        return (
+            _offline_known_block()
+            if _remove_owned_tree(
+                staging_dir,
+                expected_ownership_identity=staging_ownership_identity,
+            )
+            else _offline_unknown()
+        )
+
+    try:
+        os.replace(target_dir, backup_dir)
+    except OSError:
+        return _offline_rollback_outcome(
+            source_dir=source_dir,
+            target_dir=target_dir,
+            staging_dir=staging_dir,
+            backup_dir=backup_dir,
+            source=source,
+            predecessor=predecessor,
+            replacement=staging,
+        )
+
+    backup_now_state, backup_now = _offline_tree_observation(backup_dir)
+    source_now_state, source_now = _offline_tree_observation(source_dir)
+    if (
+        backup_now_state == "unknown"
+        or source_now_state == "unknown"
+    ):
+        return _offline_unknown()
+    if (
+        backup_now_state != "exact"
+        or backup_now != predecessor
+        or source_now_state != "exact"
+        or source_now != source
+    ):
+        return _offline_rollback_outcome(
+            source_dir=source_dir,
+            target_dir=target_dir,
+            staging_dir=staging_dir,
+            backup_dir=backup_dir,
+            source=source,
+            predecessor=predecessor,
+            replacement=staging,
+        )
+
+    try:
+        os.replace(staging_dir, target_dir)
+    except OSError:
+        return _offline_rollback_outcome(
+            source_dir=source_dir,
+            target_dir=target_dir,
+            staging_dir=staging_dir,
+            backup_dir=backup_dir,
+            source=source,
+            predecessor=predecessor,
+            replacement=staging,
+        )
+
+    target_now_state, target_now = _offline_tree_observation(target_dir)
+    source_now_state, source_now = _offline_tree_observation(source_dir)
+    if (
+        target_now_state == "unknown"
+        or source_now_state == "unknown"
+    ):
+        return _offline_unknown()
+    if (
+        target_now_state != "exact"
+        or target_now != staging
+        or source_now_state != "exact"
+        or source_now != source
+    ):
+        return _offline_rollback_outcome(
+            source_dir=source_dir,
+            target_dir=target_dir,
+            staging_dir=staging_dir,
+            backup_dir=backup_dir,
+            source=source,
+            predecessor=predecessor,
+            replacement=staging,
+        )
+
+    cleanup_state, cleanup_backup = _offline_tree_observation(backup_dir)
+    if cleanup_state != "exact" or cleanup_backup != predecessor:
+        return _offline_unknown()
+    if not _remove_owned_tree(backup_dir, predecessor):
+        return _offline_unknown()
+    if not _path_is_absent(staging_dir):
+        return _offline_unknown()
+    final_source_state, final_source = _offline_tree_observation(source_dir)
+    final_target_state, final_target = _offline_tree_observation(target_dir)
+    if (
+        final_source_state != "exact"
+        or final_source != source
+        or final_target_state != "exact"
+        or final_target != staging
+        or not _path_is_absent(backup_dir)
+    ):
+        return _offline_unknown()
+    return OfflineR0SyncOutcome(
+        status="synchronized",
+        result="synchronized",
+        exit_code=EXIT_SUCCESS,
+    )
+
+
+def _offline_rollback_outcome(
+    *,
+    source_dir: Path,
+    target_dir: Path,
+    staging_dir: Path,
+    backup_dir: Path,
+    source: OfflineTreeObservation,
+    predecessor: OfflineTreeObservation,
+    replacement: OfflineTreeObservation,
+) -> OfflineR0SyncOutcome:
+    restored = _restore_offline_target(
+        target_dir,
+        backup_dir,
+        predecessor,
+        replacement,
+    )
+    staging_state, staging = _offline_tree_observation(staging_dir)
+    if staging_state == "absent":
+        staging_clean = True
+    elif staging_state == "exact" and staging == replacement:
+        staging_clean = _remove_owned_tree(staging_dir, replacement)
+    else:
+        staging_clean = False
+    source_state, source_now = _offline_tree_observation(source_dir)
+    if (
+        restored
+        and staging_clean
+        and source_state == "exact"
+        and source_now is not None
+    ):
+        return _offline_known_block()
+    return _offline_unknown()
+
+
+def _restore_offline_target(
+    target_dir: Path,
+    backup_dir: Path,
+    predecessor: OfflineTreeObservation,
+    replacement: OfflineTreeObservation,
+) -> bool:
+    target_state, target = _offline_tree_observation(target_dir)
+    backup_state, backup = _offline_tree_observation(backup_dir)
+    if backup_state == "absent":
+        return target_state == "exact" and target == predecessor
+    if backup_state != "exact" or backup != predecessor:
+        return False
+    if target_state == "exact":
+        if target != replacement:
+            return False
+        if not _remove_owned_tree(target_dir, replacement):
+            return False
+    elif target_state != "absent":
+        return False
+    try:
+        os.replace(backup_dir, target_dir)
+    except OSError:
+        return False
+    restored_state, restored = _offline_tree_observation(target_dir)
+    return (
+        restored_state == "exact"
+        and restored == predecessor
+        and _path_is_absent(backup_dir)
+    )
+
+
+def _offline_known_block() -> OfflineR0SyncOutcome:
+    return OfflineR0SyncOutcome(
+        status="blocked_skill_source_drift",
+        result="refused",
+        exit_code=EXIT_TARGET_DIFFERS,
+    )
+
+
+def _offline_unknown() -> OfflineR0SyncOutcome:
+    return OfflineR0SyncOutcome(
+        status="unknown_outcome_reconciliation_required",
+        result="unknown",
+        exit_code=EXIT_INSTALL_FAILURE,
+    )
+
+
+def _offline_same_content(
+    left: OfflineTreeObservation,
+    right: OfflineTreeObservation,
+) -> bool:
+    return left.rows == right.rows and left.binding == right.binding
+
+
+def _offline_tree_observation(
+    root: Path,
+) -> tuple[str, OfflineTreeObservation | None]:
+    try:
+        root_before = root.lstat()
+    except FileNotFoundError:
+        return "absent", None
+    except OSError:
+        return "unknown", None
+    if _is_reparse_metadata(root_before) or not stat.S_ISDIR(root_before.st_mode):
+        return "unsafe", None
+    case_state = _fixed_name_state(root)
+    if case_state != "exact":
+        return case_state, None
+
+    rows: list[tuple[str, str, bytes]] = []
+    identities: list[
+        tuple[str, str, tuple[int, int, int, int, int]]
+    ] = []
+    pending = [root]
+    try:
+        while pending:
+            directory = pending.pop()
+            with os.scandir(directory) as iterator:
+                entries = sorted(iterator, key=lambda entry: entry.name)
+            child_directories: list[Path] = []
+            for entry in entries:
+                entry_metadata = entry.stat(follow_symlinks=False)
+                if _is_reparse_metadata(entry_metadata):
+                    return "unsafe", None
+                path = Path(entry.path)
+                relative = path.relative_to(root).as_posix()
+                metadata = path.stat(follow_symlinks=False)
+                if _is_reparse_metadata(metadata):
+                    return "unsafe", None
+                identity = _stat_identity(metadata)
+                if stat.S_ISDIR(metadata.st_mode):
+                    rows.append((relative, "directory", b""))
+                    identities.append((relative, "directory", identity))
+                    child_directories.append(path)
+                    continue
+                if not stat.S_ISREG(metadata.st_mode):
+                    return "unsafe", None
+                with path.open("rb") as handle:
+                    opened = _stat_identity(os.fstat(handle.fileno()))
+                    if opened != identity:
+                        return "unknown", None
+                    payload = handle.read()
+                    after_read = _stat_identity(os.fstat(handle.fileno()))
+                after = path.stat(follow_symlinks=False)
+                if (
+                    after_read != identity
+                    or _stat_identity(after) != identity
+                ):
+                    return "unknown", None
+                rows.append((relative, "file", payload))
+                identities.append((relative, "file", identity))
+            pending.extend(reversed(child_directories))
+        root_after = root.lstat()
+    except OSError:
+        return "unknown", None
+    root_identity = _stat_identity(root_before)
+    if (
+        _is_reparse_metadata(root_after)
+        or _stat_identity(root_after) != root_identity
+    ):
+        return "unknown", None
+    ordered_rows = tuple(sorted(rows, key=lambda row: row[0]))
+    ordered_identities = tuple(sorted(identities, key=lambda row: row[0]))
+    binding = _offline_tree_binding(ordered_rows)
+    return (
+        "exact",
+        OfflineTreeObservation(
+            root_identity=root_identity,
+            rows=ordered_rows,
+            identities=ordered_identities,
+            binding=binding,
+        ),
+    )
+
+
+def _offline_tree_binding(
+    rows: tuple[tuple[str, str, bytes], ...],
+) -> TreeManifestBinding:
+    manifest_rows = [
+        {
+            "path": relative_path,
+            "kind": kind,
+            "byte_count": len(payload),
+            "sha256": hashlib.sha256(payload).hexdigest(),
+        }
+        for relative_path, kind, payload in rows
+    ]
+    document = {
+        "schema_version": "trusted_owner_role_pool_install_tree.v1",
+        "rows": manifest_rows,
+    }
+    encoded = (
+        json.dumps(
+            document,
+            ensure_ascii=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        + b"\n"
+    )
+    return TreeManifestBinding(
+        node_count=len(rows),
+        file_count=sum(kind == "file" for _, kind, _ in rows),
+        canonical_byte_count=len(encoded),
+        sha256=hashlib.sha256(encoded).hexdigest(),
+    )
+
+
+def _fixed_name_state(path: Path) -> str:
+    try:
+        with os.scandir(path.parent) as iterator:
+            matches = [
+                entry.name
+                for entry in iterator
+                if entry.name.casefold() == path.name.casefold()
+            ]
+    except OSError:
+        return "unknown"
+    return "exact" if matches == [path.name] else "unsafe"
+
+
+def _ordinary_directory_chain_state(path: Path) -> str:
+    try:
+        absolute = path.absolute()
+    except (OSError, RuntimeError):
+        return "unknown"
+    for directory in reversed((absolute, *absolute.parents)):
+        try:
+            metadata = directory.lstat()
+        except FileNotFoundError:
+            return "absent"
+        except OSError:
+            return "unknown"
+        if _is_reparse_metadata(metadata) or not stat.S_ISDIR(metadata.st_mode):
+            return "unsafe"
+    return "exact"
+
+
+def _is_reparse_metadata(metadata: os.stat_result) -> bool:
+    attributes = getattr(metadata, "st_file_attributes", 0)
+    marker = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
+    return stat.S_ISLNK(metadata.st_mode) or bool(attributes & marker)
+
+
+def _stat_identity(
+    metadata: os.stat_result,
+) -> tuple[int, int, int, int, int]:
+    return (
+        metadata.st_dev,
+        metadata.st_ino,
+        metadata.st_mode,
+        metadata.st_size,
+        metadata.st_mtime_ns,
+    )
+
+
+def _ownership_identity(
+    metadata: os.stat_result,
+) -> tuple[int, int, int]:
+    return (
+        metadata.st_dev,
+        metadata.st_ino,
+        metadata.st_mode,
+    )
+
+
+def _path_is_absent(path: Path) -> bool:
+    try:
+        path.lstat()
+    except FileNotFoundError:
+        return True
+    except OSError:
+        return False
+    return False
+
+
+def _remove_owned_tree(
+    path: Path,
+    expected: OfflineTreeObservation | None = None,
+    *,
+    expected_ownership_identity: tuple[int, int, int] | None = None,
+) -> bool:
+    if expected is not None:
+        state, observed = _offline_tree_observation(path)
+        if state != "exact" or observed != expected:
+            return False
+    try:
+        metadata = path.lstat()
+    except FileNotFoundError:
+        return True
+    except OSError:
+        return False
+    if _is_reparse_metadata(metadata) or not stat.S_ISDIR(metadata.st_mode):
+        return False
+    if expected is not None and _stat_identity(metadata) != expected.root_identity:
+        return False
+    if (
+        expected_ownership_identity is not None
+        and _ownership_identity(metadata) != expected_ownership_identity
+    ):
+        return False
+    try:
+        shutil.rmtree(path)
+    except OSError:
+        return False
+    return _path_is_absent(path)
 
 
 def _dry_run_action(action: str) -> str:
