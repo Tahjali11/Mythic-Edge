@@ -332,6 +332,81 @@ def test_exact_synthetic_roots_are_eligible_and_owner_backed() -> None:
         ) == []
 
 
+def test_successor_contract_and_profile_bindings_are_exact() -> None:
+    binding_by_name = {
+        name: (relative_path, digest)
+        for name, relative_path, digest in checker.FILE_BINDINGS
+    }
+
+    assert checker.PROFILE_CONTRACT_SHA256 == (
+        "944c1a85d9e2454fb82a5df3e2a2ac572191e3cd135c7854e0c012ffc07ab43f"
+    )
+    assert checker.R0_CONTRACT_SHA256 == (
+        "07ab1c7153ba1312533bdc27d984789127fb7fc02190d26853ffae1849c2ac82"
+    )
+    assert binding_by_name["profile_contract"] == (
+        Path("docs/contracts/trusted_owner_native_role_pool_profile.md"),
+        checker.PROFILE_CONTRACT_SHA256,
+    )
+    assert binding_by_name["r0_contract"] == (
+        Path(
+            "docs/contracts/"
+            "role_pool_trusted_owner_r0_post_sync_evidence_binding_successor.md"
+        ),
+        checker.R0_CONTRACT_SHA256,
+    )
+    assert binding_by_name["installer"] == (
+        Path("tools/install_codex_skills.py"),
+        checker.INSTALLER_SHA256,
+    )
+
+
+def test_successor_pre_sync_projection_retains_source_drift_as_first_blocker() -> None:
+    with _exact_fixture(with_registry=False) as fixture:
+        installed = (
+            fixture.installed_skills_root
+            / "mythic-edge-role-pool"
+            / "SKILL.md"
+        )
+        installed.write_text("synthetic predecessor drift\n", encoding="utf-8")
+
+        packet, _ = checker._evaluate_for_tests(fixture.roots)
+
+    assert packet["contract_binding_status"] == "exact"
+    assert packet["validator_bundle_status"] == "exact"
+    assert packet["manifest_status"] == "exact"
+    assert packet["source_install_status"] == "installed_drift"
+    assert packet["registry_status"] == "absent"
+    assert packet["release_state_status"] == "absent_bootstrap_candidate"
+    assert packet["offline_validation_status"] == "passed"
+    assert packet["terminal_status"] == "blocked_skill_source_drift"
+    assert packet["eligible_for_independent_review"] is False
+    assert set(packet["effect_counts"].values()) == {0}
+    assert set(packet["authority_flags"].values()) == {False}
+
+
+def test_successor_post_sync_projection_advances_only_to_registry_blocker() -> None:
+    with _exact_fixture(with_registry=False) as fixture:
+        packet, _ = checker._evaluate_for_tests(fixture.roots)
+
+    assert packet["contract_binding_status"] == "exact"
+    assert packet["validator_bundle_status"] == "exact"
+    assert packet["manifest_status"] == "exact"
+    assert packet["source_install_status"] == "identical"
+    assert packet["installed_tree_node_count"] == checker.SOURCE_TREE_NODE_COUNT
+    assert packet["installed_tree_file_count"] == checker.SOURCE_TREE_FILE_COUNT
+    assert packet["installed_tree_manifest_byte_count"] == (
+        checker.SOURCE_TREE_MANIFEST_BYTE_COUNT
+    )
+    assert packet["installed_tree_sha256"] == checker.SOURCE_TREE_SHA256
+    assert packet["registry_status"] == "absent"
+    assert packet["release_state_status"] == "absent_bootstrap_candidate"
+    assert packet["terminal_status"] == "blocked_registry_missing_or_invalid"
+    assert packet["eligible_for_independent_review"] is False
+    assert set(packet["effect_counts"].values()) == {0}
+    assert set(packet["authority_flags"].values()) == {False}
+
+
 def test_exact_fixture_does_not_require_ambient_installed_workflow() -> None:
     with mock.patch.object(
         Path,
