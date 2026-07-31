@@ -20,7 +20,7 @@
 
 ## Findings
 
-1. At `origin/main@5b81e4a1d9ee8628e238d428820ce0f8582e07a8`,
+1. At `origin/main@2417287195b19d418f72bac3be25dea80740287f`,
    the canonical registry is valid, the source and installed Role Pool trees
    are identical, and the fixed release-state path is absent.
 2. The production R0 checker returns
@@ -43,9 +43,9 @@
 6. Issue #769 is open with zero top-level comments. This contract and every
    later approval, review, and handoff must use issue #771, tracker #746, a
    pull request, or a repository artifact instead of commenting on #769.
-7. Open PRs #374 and #391 are unrelated. This user invocation is a
-   task-scoped ADR-0008 `explicit_user_override` for this Codex B contract
-   only and expires with the Codex B handoff.
+7. Open PRs #374 and #391 are unrelated. This correction continues the
+   already active #771 lane after its stopped Codex C preconsumption attempt;
+   it does not activate a second ADR-0008 WIP slot.
 
 ### Consolidated Review Corrections
 
@@ -70,6 +70,45 @@ This revision closes both together:
 The consumption receipt is the minimum new evidence shape proved necessary by
 review. It is not a release record, claim, task, registry entry, command,
 schedule, or general authority mechanism.
+
+### Preconsumption Sequencing Correction
+
+Codex C stopped cleanly against accepted contract SHA-256
+`c7c53b7f0bd7cb6a27b8fab49193d10ba58d3131e976bc3fcb4e1c4058dde90f`
+at base `2417287195b19d418f72bac3be25dea80740287f`. The exact
+blocking finding is:
+
+- `ME-RP-771-C-001`:
+  `blocking_preconsumption_index_receipt_reference_cycle`.
+
+The contract required complete refreshed-index bytes before consumption while
+also requiring those bytes to contain the consumption-comment URL. GitHub
+assigns that URL only after successful comment publication. No compliant
+implementation can satisfy both requirements simultaneously.
+
+The stopped attempt preserved:
+
+- owner decision
+  <https://github.com/Tahjali11/Mythic-Edge/issues/771#issuecomment-5139189967>
+  with exact body SHA-256
+  `c083406f87c31488eb7a3731e7d75406e7044c6e2855655e3f82e8ba824ad069`
+  as `approved_unconsumed`;
+- `consumption_receipt_created=false`;
+- `release_state_created=false`;
+- zero repository-file changes; and
+- a clean C worktree.
+
+This revision changes only sequencing. Before consumption, C validates the
+receipt, release record, and an exact index refresh plan with one deliberately
+unresolved scalar. After exact consumption-comment readback, C inserts the
+returned URL, validates the complete index bytes, and only then may attempt
+exclusive release creation.
+
+The observed eligibility and owner comments remain immutable historical
+lineage. They bind the predecessor contract and therefore do not transfer
+authority to this revision. Neither is edited, deleted, consumed, or
+reinterpreted. After this revision is independently accepted and integrated,
+fresh eligibility and a fresh owner decision are required.
 
 ## Module And Truth Ownership
 
@@ -107,10 +146,14 @@ Truth ownership is divided as follows:
 
 | Binding | Exact value |
 | --- | --- |
-| Contract base | `origin/main@5b81e4a1d9ee8628e238d428820ce0f8582e07a8` |
+| Contract base | `origin/main@2417287195b19d418f72bac3be25dea80740287f` |
 | Issue | `https://github.com/Tahjali11/Mythic-Edge/issues/771` |
 | Tracker | `https://github.com/Tahjali11/Mythic-Edge/issues/746` |
 | Coordination surface | `https://github.com/Tahjali11/Mythic-Edge/issues/769`, open, zero top-level comments |
+| Accepted predecessor bootstrap contract | `docs/contracts/role_pool_trusted_owner_r0_release_state_bootstrap.md`, SHA-256 `c7c53b7f0bd7cb6a27b8fab49193d10ba58d3131e976bc3fcb4e1c4058dde90f` |
+| Accepted predecessor review | `docs/contract_test_reports/role_pool_trusted_owner_r0_release_state_bootstrap.md`, SHA-256 `32defd765d98485830ce05ffdd438d377f6a059f37579bac8b1e9aabcd7fc24c` |
+| Historical eligibility comment | `https://github.com/Tahjali11/Mythic-Edge/issues/771#issuecomment-5139113990`, SHA-256 `c566d485c7a86b19d80c96f3b58567521a1de50544c8dfb850eb22ec3c25671e`, predecessor-only |
+| Historical owner decision | `https://github.com/Tahjali11/Mythic-Edge/issues/771#issuecomment-5139189967`, SHA-256 `c083406f87c31488eb7a3731e7d75406e7044c6e2855655e3f82e8ba824ad069`, `approved_unconsumed_predecessor_only` |
 | Trusted-owner profile | `docs/contracts/trusted_owner_native_role_pool_profile.md`, SHA-256 `944c1a85d9e2454fb82a5df3e2a2ac572191e3cd135c7854e0c012ffc07ab43f` |
 | R0 eligibility contract | `docs/contracts/role_pool_trusted_owner_r0_offline_bootstrap_validation.md`, SHA-256 `9793951fa1a5a2e6ca7d1bb6325e89e9c2ca185aa4609b19481891405ef32a03` |
 | Current R0 binding successor | SHA-256 `07ab1c7153ba1312533bdc27d984789127fb7fc02190d26853ffae1849c2ac82` |
@@ -141,9 +184,13 @@ Codex B creates only:
 
 - `docs/contracts/role_pool_trusted_owner_r0_release_state_bootstrap.md`
 
-Independent contract review may create the normal report:
+The accepted predecessor report remains immutable:
 
 - `docs/contract_test_reports/role_pool_trusted_owner_r0_release_state_bootstrap.md`
+
+Independent review of this revision may create exactly one versioned report:
+
+- `docs/contract_test_reports/role_pool_trusted_owner_r0_release_state_bootstrap_sequencing.md`
 
 After contract acceptance and integration, the fresh eligibility review is a
 public-safe GitHub issue-comment artifact on issue #771. It is not a comment
@@ -165,6 +212,10 @@ one consumption-receipt comment is not a fourth file and grants no issue,
 claim, or command authority beyond its own exclusive publication. If that one
 comment plus these three paths are insufficient, Codex C must stop and return
 to Codex B.
+
+The historical eligibility and owner comments listed above are not that future
+eligibility artifact or owner decision. They must not be used to enter
+consumption under this revised contract.
 
 ## Existing Release Record And Exact Bootstrap Projection
 
@@ -331,7 +382,7 @@ wrapper.
 This non-publishable vector proves the receipt algorithm only:
 
 ```json
-{"schema_version":"trusted_owner_r0_bootstrap_consumption.v1","owner_decision_ref":"https://github.com/Tahjali11/Mythic-Edge/issues/771#issuecomment-kat-owner","owner_decision_sha256":"2222222222222222222222222222222222222222222222222222222222222222","eligibility_review_ref":"https://github.com/Tahjali11/Mythic-Edge/issues/771#issuecomment-kat-review","eligibility_review_sha256":"1111111111111111111111111111111111111111111111111111111111111111","bootstrap_contract_sha256":"3333333333333333333333333333333333333333333333333333333333333333","owner_bound_base_commit":"5b81e4a1d9ee8628e238d428820ce0f8582e07a8","release_state_path":"docs/role_pool/trusted_owner_native_release_state.v1.jsonl","record_id":"r0.bootstrap.6413117c0ab4f2d8ec64ae978754e4dc","attempt_limit":1,"consumption_status":"consumed_nonreusable","consumption_sha256":"cfee681ddf13f37a4d5a1c726ef93e9de47f6261807f8e3e90d1827c0216bf3f"}
+{"schema_version":"trusted_owner_r0_bootstrap_consumption.v1","owner_decision_ref":"https://github.com/Tahjali11/Mythic-Edge/issues/771#issuecomment-kat-owner","owner_decision_sha256":"2222222222222222222222222222222222222222222222222222222222222222","eligibility_review_ref":"https://github.com/Tahjali11/Mythic-Edge/issues/771#issuecomment-kat-review","eligibility_review_sha256":"1111111111111111111111111111111111111111111111111111111111111111","bootstrap_contract_sha256":"3333333333333333333333333333333333333333333333333333333333333333","owner_bound_base_commit":"2417287195b19d418f72bac3be25dea80740287f","release_state_path":"docs/role_pool/trusted_owner_native_release_state.v1.jsonl","record_id":"r0.bootstrap.6413117c0ab4f2d8ec64ae978754e4dc","attempt_limit":1,"consumption_status":"consumed_nonreusable","consumption_sha256":"c1a27275f03f166ca52df60dc573c3e48fb40a92d63a9cefa545003a03247479"}
 ```
 
 The code block contains a final LF. Exact vector results are:
@@ -340,9 +391,9 @@ The code block contains a final LF. Exact vector results are:
 - self-digest preimage: `818` bytes;
 - complete receipt: `906` bytes;
 - self-digest:
-  `cfee681ddf13f37a4d5a1c726ef93e9de47f6261807f8e3e90d1827c0216bf3f`;
+  `c1a27275f03f166ca52df60dc573c3e48fb40a92d63a9cefa545003a03247479`;
 - complete artifact SHA-256:
-  `c5c6a798a7f4dfc8e0186b4f8bdf5a8faf611ebe105702f1f0399161ad81342c`.
+  `ad36c3ccf378d370a1ab5027857d852845ecdee9896b9da7df7f0f3330beb509`.
 
 Before publishing, C must enumerate all issue #771 comments and prove no
 receipt names the same `owner_decision_ref`. C then generates and validates
@@ -380,14 +431,61 @@ Before consumption, future Codex C must:
 10. observe `docs` and `docs/role_pool` as stable ordinary non-reparse
     directories;
 11. require the exact final release path to be absent;
-12. build the complete consumption receipt, release record, and refreshed
-    index in bounded memory;
+12. build the complete consumption receipt, complete release record, and exact
+    index refresh plan in bounded memory;
 13. validate both canonical receipts, the release record, one-record chain,
-    current rung, index structure, and all exact bindings in memory; and
+    current rung, source index, every fixed index edit, the one deferred index
+    scalar, and all exact bindings in memory; and
 14. require the worktree to have no unrelated changes.
 
 No broad search, alternate path, case variant, symlink, junction, caller path,
 environment override, registry change, or #769 comment is permitted.
+
+## Index Refresh Plan And Post-Consumption Finalization
+
+The preconsumption index refresh plan is bounded in-memory state, not a
+durable schema, artifact, placeholder file, or second implementation path. It
+must bind:
+
+1. the exact current index bytes and SHA-256
+   `4fd141f4abcd725ec18779e14b3d82bfb0a651f834b90bbe637235c411ace274`;
+2. every fixed edit required by `Current-Authority Index Refresh`;
+3. the already known consumption-receipt self-digest;
+4. exactly one unresolved public scalar named `consumption_receipt_ref`; and
+5. an exact renderer that places that scalar once in a new Snapshot Bindings
+   bullet and nowhere else.
+
+Before consumption, C must prove that the renderer accepts one well-formed
+issue #771 comment URL, rejects a different repository, issue, fragment,
+missing value, additional value, or second occurrence, and preserves the
+index title, six-column table, 12-family order, unrelated rows, and final LF.
+The synthetic URL used for this pure check is discarded in memory. It is never
+treated as evidence or placed in candidate bytes.
+
+No guessed URL, sentinel text, null, empty string, marker, later text
+replacement, partially rendered index, or publishable placeholder is valid.
+The unresolved scalar is allowed only in the in-memory plan and only until
+exact consumption readback.
+
+After `CP-01`, C must use the exact immutable `html_url` returned by readback
+of the sole matching consumption comment. It then renders the complete index
+exactly once and requires:
+
+- the URL identifies repository `Tahjali11/Mythic-Edge`, issue #771, and the
+  exact read-back comment;
+- the URL appears exactly once in Snapshot Bindings and nowhere else;
+- the receipt self-digest and every other fixed fact are exact;
+- no unresolved scalar or synthetic value remains;
+- the complete index parses under its existing structural rules;
+- the diff is limited to the contracted refresh; and
+- the complete bytes and SHA-256 are frozen before release publication.
+
+Known finalization failure selects
+`r0_bootstrap_index_finalization_invalid`. Unreadable, contradictory, or
+otherwise uncertain finalization selects
+`r0_bootstrap_index_finalization_unknown`. Both preserve the consumption
+comment, keep the owner decision spent, create no release state, perform no
+index write, and permit no retry.
 
 ## Exclusive Creation And Independent Readback
 
@@ -402,19 +500,21 @@ The ordered operation is:
 2. mark the owner decision consumed and nonreusable immediately before the
    one permitted issue #771 receipt-publication call;
 3. publish or fail-closed reconcile exactly one canonical consumption receipt;
-4. only after exact receipt readback, exclusively create the absent final
+4. only after exact receipt readback, finalize and validate the complete index
+   bytes as defined above;
+5. only after exact index finalization, exclusively create the absent final
    release path;
-5. write the complete canonical line once;
-6. flush, synchronize, and close the handle;
-7. reopen the fixed path read-only;
-8. require exact byte equality and exact complete SHA-256;
-9. strictly parse its only line;
-10. require the existing record and one-record chain validators to return no
+6. write the complete canonical line once;
+7. flush, synchronize, and close the handle;
+8. reopen the fixed path read-only;
+9. require exact byte equality and exact complete SHA-256;
+10. strictly parse its only line;
+11. require the existing record and one-record chain validators to return no
    errors;
-11. require current rung `R0`;
-12. update only the already prepared current-authority index;
-13. read back the index and require its exact prepared bytes; and
-14. write the implementation handoff with the exact consumption reference,
+12. require current rung `R0`;
+13. write only the frozen, finalized current-authority index bytes;
+14. read back the index and require exact frozen-byte equality; and
+15. write the implementation handoff with the exact consumption reference,
    consumption self-digest, result, and consumed decision disposition.
 
 No repository staging path, rename, overwrite, replacement, append to an
@@ -452,6 +552,11 @@ It must:
    `current_implementation_and_review_evidence`; and
 8. preserve every unrelated row and Security/watch-item disposition.
 
+The consumption-receipt reference appears exactly once in Snapshot Bindings.
+The evidence table may name the repository contract, review, and
+implementation-handoff paths but must not repeat that URL. This exact
+cardinality owns the single deferred scalar in the refresh plan.
+
 No change to `docs/contracts/role_pool_current_authority_index.md` is
 authorized. This contract supplies the narrow event-triggered successor
 instruction for the release-state appearance.
@@ -463,12 +568,13 @@ closed:
 
 1. `preflight`
 2. `consumption_publication`
-3. `release_publication`
-4. `release_readback`
-5. `index_refresh`
-6. `candidate_complete`
-7. `implementation_review`
-8. `integration`
+3. `index_finalization`
+4. `release_publication`
+5. `release_readback`
+6. `index_refresh`
+7. `candidate_complete`
+8. `implementation_review`
+9. `integration`
 
 An observation from an earlier or later phase is not eligible while another
 phase is active. A phase advances only through the exact transition row below.
@@ -482,7 +588,7 @@ The `preflight` phase evaluates these six Boolean predicates in order:
 2. `eligibility_exact`;
 3. `owner_decision_exact`;
 4. `destination_safe_and_absent`;
-5. `in_memory_candidates_exact`; and
+5. `preconsumption_candidates_and_plan_exact`; and
 6. `consumption_precondition_exact`.
 
 Its normalized observation is the first false predicate, or `all_exact` when
@@ -495,6 +601,11 @@ reconciliation `{exact_one, none, multiple_or_invalid, unreadable}`.
 `receipt_exact` requires `exact_one` with call result `reported_success` or
 `unknown`; `known_failure_absent` requires `known_failure` plus `none`; every
 other tuple is `publication_ambiguous`.
+
+The `index_finalization` domain is exactly
+`{exact, known_invalid, unknown_or_ambiguous}`. It begins only after `CP-01`.
+It uses the exact read-back comment URL to complete and freeze the index.
+Only `exact` advances to release publication.
 
 The `release_publication` raw domain is call result
 `{reported_success, known_collision, known_other_failure, unknown}` crossed
@@ -512,12 +623,15 @@ All remaining phases use only the exact observations shown:
 | `PF-02` | `preflight` | first false is `eligibility_exact` | Terminal `blocked_r0_bootstrap_eligibility_invalid`. |
 | `PF-03` | `preflight` | first false is `owner_decision_exact` | Terminal `blocked_r0_bootstrap_owner_decision_invalid`. |
 | `PF-04` | `preflight` | first false is `destination_safe_and_absent` | Terminal `blocked_r0_bootstrap_destination_unsafe`; preserve all objects. |
-| `PF-05` | `preflight` | first false is `in_memory_candidates_exact` | Terminal `blocked_r0_bootstrap_candidate_invalid`. |
+| `PF-05` | `preflight` | first false is `preconsumption_candidates_and_plan_exact` | Terminal `blocked_r0_bootstrap_candidate_invalid`. |
 | `PF-06` | `preflight` | first false is `consumption_precondition_exact` | Terminal `blocked_r0_bootstrap_consumption_precondition`; the decision is already spent if prior evidence makes reuse uncertain. |
 | `PF-07` | `preflight` | `all_exact` | Advance only to `consumption_publication`. |
-| `CP-01` | `consumption_publication` | `receipt_exact` | Advance only to `release_publication`; decision is durably spent. |
+| `CP-01` | `consumption_publication` | `receipt_exact` | Advance only to `index_finalization`; decision is durably spent. |
 | `CP-02` | `consumption_publication` | `known_failure_absent` | Terminal `r0_bootstrap_consumption_failed_known`; no release write and no retry. |
 | `CP-03` | `consumption_publication` | `publication_ambiguous` | Terminal `r0_bootstrap_consumption_ambiguous`; preserve comments, perform no release write, and never retry. |
+| `IF-01` | `index_finalization` | `exact` | Advance only to `release_publication`; complete index bytes and SHA-256 are frozen. |
+| `IF-02` | `index_finalization` | `known_invalid` | Terminal `r0_bootstrap_index_finalization_invalid`; preserve the comment, create no release, and never retry. |
+| `IF-03` | `index_finalization` | `unknown_or_ambiguous` | Terminal `r0_bootstrap_index_finalization_unknown`; preserve the comment, create no release, and never retry. |
 | `RP-01` | `release_publication` | `known_collision` | Terminal `r0_bootstrap_collision_after_consumption`; preserve the appeared object. |
 | `RP-02` | `release_publication` | `known_failure_final_absent` | Terminal `r0_bootstrap_release_failed_known_absent`; receipt and decision remain spent. |
 | `RP-03` | `release_publication` | `unknown_write_state` | Terminal `r0_bootstrap_unknown_write_state`; preserve every uncertain object. |
@@ -538,11 +652,12 @@ All remaining phases use only the exact observations shown:
 | `IN-02` | `integration` | `pending_or_not_authorized` | Terminal `r0_bootstrap_implementation_accepted_pending_integration`. |
 | `IN-03` | `integration` | `mismatched_or_unknown` | Terminal `r0_bootstrap_integration_unresolved`; do not infer R0. |
 
-The finite selector audit covers 103 raw tuples: 64 preflight predicate
-vectors, 12 consumption tuples, 12 release-publication tuples, and three
-observations for each of the five later phases. Exact results are
+The finite selector audit covers 106 raw tuples: 64 preflight predicate
+vectors, 12 consumption tuples, three index-finalization observations, 12
+release-publication tuples, and three observations for each of the five later
+phases. Exact results are
 `overlap_count=0`, `uncovered_count=0`, and `unreachable_row_count=0` across
-all 29 rows.
+all 32 rows.
 
 There is no cleanup of a consumption comment or a present or ambiguously
 present final release path. In-memory buffers are discarded after use. Any
@@ -588,8 +703,13 @@ Future C and implementation-review E must additionally:
   ending, review binding, owner binding, or fixed path;
 - verify exclusive create-new collision behavior without replacing the
   accepted candidate;
+- verify that the preconsumption index plan has exactly one deferred scalar,
+  rejects every malformed completion, and cannot emit publishable bytes before
+  exact receipt readback;
+- verify that exact receipt readback completes the index once, leaves no
+  placeholder, and freezes valid bytes before release publication;
 - verify the refreshed index against the exact release readback;
-- mechanically enumerate the 103 lifecycle tuples and require
+- mechanically enumerate the 106 lifecycle tuples and require
   `overlap_count=0`, `uncovered_count=0`, and
   `unreachable_row_count=0`;
 - run the complete existing Role Pool release gate and structural validation;
@@ -603,6 +723,12 @@ Contract acceptance, eligibility acceptance, owner decision, candidate
 creation, and implementation review are separate states. Only exact
 implementation acceptance followed by separately approved integration makes
 the R0 record current.
+
+The observed owner decision ending in comment `5139189967` remains
+`approved_unconsumed_predecessor_only`. It grants no authority under this
+revision and cannot be consumed, revived, edited, or transferred. A fresh
+eligibility review and fresh owner decision are required after this revision
+is accepted and integrated.
 
 Current and candidate authority remains:
 
@@ -640,48 +766,58 @@ readiness.
    and integration remain distinct.
 3. One canonical issue #771 receipt durably and non-reusably consumes the
    owner decision before any release write; unknown publication never retries.
-4. The release path must be absent and may be created exactly once without
+4. Preconsumption validates an exact index plan with one deferred receipt URL;
+   exact comment readback completes and freezes the index before any release
+   write.
+5. The release path must be absent and may be created exactly once without
    overwrite, replacement, append, or retry.
-5. The bootstrap line is one valid R0 record with null predecessor and
+6. The bootstrap line is one valid R0 record with null predecessor and
    `from_rung`, empty observations, exact current fixed bindings, and fresh
    review and owner references.
-6. Every stale, consumption, collision, unknown-write, readback, index,
+7. Every stale, consumption, index-finalization, collision, unknown-write,
+   readback, index,
    review, integration, and cleanup state selects exactly one phase-qualified
    row and fails closed where required.
-7. The future C repository scope is exactly three files plus the sole
+8. The future C repository scope is exactly three files plus the sole
    consumption-receipt comment, with no code or test edit.
-8. The index truthfully records only the R0 offline ceiling after accepted
+9. The index truthfully records only the R0 offline ceiling after accepted
    integration.
-9. Issue #769 stays open and receives no comments.
-10. No current role receives release, R0, process, dispatch, Stage-4,
+10. Issue #769 stays open and receives no comments.
+11. The predecessor eligibility and approved-unconsumed owner decision remain
+    immutable, nontransferable historical lineage.
+12. No current role receives release, R0, process, dispatch, Stage-4,
    submission, merge, deployment, or readiness authority.
 
 ## Next Workflow Action
 
-Next role: Codex E, independent R0 release-state bootstrap contract reviewer.
+Next role: Codex E, independent R0 bootstrap sequencing-correction contract
+reviewer.
 
 Pasteable next-thread prompt:
 
 ```text
 Use the Mythic Edge agent constitution and $mythic-edge-workflow.
 
-Act as Codex E: Independent R0 Release-State Bootstrap Contract Reviewer.
+Act as Codex E: Independent R0 Bootstrap Sequencing-Correction Contract
+Reviewer.
 
 Repository: Tahjali11/Mythic-Edge
 Issue: https://github.com/Tahjali11/Mythic-Edge/issues/771
 Tracker: https://github.com/Tahjali11/Mythic-Edge/issues/746
 Coordination surface: https://github.com/Tahjali11/Mythic-Edge/issues/769
-Branch: codex/role-pool-r0-release-bootstrap-contract-771
+Branch: codex/role-pool-r0-release-bootstrap-sequencing-771
 
 Review only:
 docs/contracts/role_pool_trusted_owner_r0_release_state_bootstrap.md
 
-Recompute the contract SHA-256 from the exact Codex B handoff. Confirm
-`ME-RP-771-E-001` and `ME-RP-771-E-002` against predecessor SHA-256
-`aefd9ce4756951377665a4e8e6ced5ac6c073e89a8c5392dd122e8ff91b1b78b`.
+Recompute the contract SHA-256 from the exact Codex B handoff. Review
+`ME-RP-771-C-001`, the preconsumption index/receipt-reference cycle, against
+accepted predecessor SHA-256
+`c7c53b7f0bd7cb6a27b8fab49193d10ba58d3131e976bc3fcb4e1c4058dde90f`
+and accepted predecessor-review SHA-256
+`32defd765d98485830ce05ffdd438d377f6a059f37579bac8b1e9aabcd7fc24c`.
 Refresh origin/main and all public bindings. Verify issue #769 remains open
-with zero
-top-level comments, release state remains absent, the #761 checker returns
+with zero top-level comments, release state remains absent, the #761 checker returns
 eligible_for_independent_review, source/install equality and the registry are
 exact, and the current index truthfully records absent release state.
 
@@ -692,21 +828,29 @@ receipt's 818/906 byte counts and exact self/artifact digests. Verify its
 unique issue #771 publication, one-call reconciliation, permanent
 non-reusability, and no release write before exact receipt readback.
 
-Mechanically enumerate the 103 lifecycle tuples across the eight phases.
-Require all 29 rows reachable with overlap, uncovered, and unreachable counts
-all zero. Verify record-ID derivation, exclusive create-new behavior, fresh
-eligibility-review binding, expiring nonreusable owner decision, exact
+Verify the bounded preconsumption index plan has exactly one unresolved scalar,
+cannot emit publishable bytes, and is completed only with the exact read-back
+consumption-comment URL. Require complete frozen index validation before
+release creation and exact one-occurrence URL cardinality.
+
+Mechanically enumerate the 106 lifecycle tuples across the nine phases.
+Require all 32 rows reachable with overlap, uncovered, and unreachable counts
+all zero. Verify record-ID derivation, exclusive create-new behavior, exact
 one-comment plus three-file future C envelope, index refresh, and R0
 offline-only ceiling.
+
+Confirm the historical eligibility and owner comments are exact and unedited,
+no consumption receipt or release state exists, and the owner decision remains
+approved_unconsumed_predecessor_only with no authority under the revision.
 
 Run the contract-required focused, R0 checker, agent-doc, protected-surface,
 secret, process, and residue validation. Do not comment on #769, create release
 state, approve R0, implement, install, dispatch, submit, merge, or advance any
 rung.
 
-If and only if there are no blocking findings, create the normal durable report
-at:
-docs/contract_test_reports/role_pool_trusted_owner_r0_release_state_bootstrap.md
+Preserve the accepted predecessor report byte-for-byte. If and only if there
+are no blocking findings, create the versioned durable report at:
+docs/contract_test_reports/role_pool_trusted_owner_r0_release_state_bootstrap_sequencing.md
 
 State that acceptance permits only contract submission/integration routing.
 The fresh eligibility review must occur later against the integrated contract;
@@ -738,7 +882,7 @@ instruction_context:
     - "issue and tracker lifecycle"
     - "R0-R8 and Stage 4 authority"
   authority_conflicts_found: false
-  authority_conflict_notes: "PRs #374 and #391 remain separate. The current user invocation supplies a docs-only explicit_user_override that expires with this B handoff."
+  authority_conflict_notes: "PRs #374 and #391 remain separate. This is the same active #771 lane returning from a stopped C preconsumption attempt."
   stop_conditions:
     - "public binding or validator drift"
     - "issue #769 receives a top-level comment"
@@ -754,20 +898,21 @@ workflow_handoff:
   tracker: "https://github.com/Tahjali11/Mythic-Edge/issues/746"
   completed_thread: "B"
   next_thread: "E"
-  predecessor_contract_sha256: "aefd9ce4756951377665a4e8e6ced5ac6c073e89a8c5392dd122e8ff91b1b78b"
+  predecessor_contract_sha256: "c7c53b7f0bd7cb6a27b8fab49193d10ba58d3131e976bc3fcb4e1c4058dde90f"
+  predecessor_review_sha256: "32defd765d98485830ce05ffdd438d377f6a059f37579bac8b1e9aabcd7fc24c"
   finding_status:
-    ME-RP-771-E-001: "corrected_re_review_pending"
-    ME-RP-771-E-002: "corrected_re_review_pending"
+    ME-RP-771-C-001: "sequencing_correction_authored_review_pending"
   source_artifact: "https://github.com/Tahjali11/Mythic-Edge/issues/771"
   target_artifact: "docs/contracts/role_pool_trusted_owner_r0_release_state_bootstrap.md"
   risk_tier: "high"
   base_branch: "origin/main"
   target_branch: "unselected_pending_future_submission_authority"
-  branch: "codex/role-pool-r0-release-bootstrap-contract-771"
+  branch: "codex/role-pool-r0-release-bootstrap-sequencing-771"
   validation:
     - "current #761 eligibility packet exact"
     - "12-field durable consumption receipt KAT exact"
-    - "103-tuple phase-qualified lifecycle selector audit 0/0/0"
+    - "one-deferred-scalar index plan closure"
+    - "106-tuple phase-qualified lifecycle selector audit 0/0/0"
     - "existing release-record and chain validator tests"
     - "agent-doc and diff validation"
     - "protected-surface and secret-pattern scans"
@@ -778,6 +923,7 @@ workflow_handoff:
     - "future implementation requires more than the sole comment plus exact three-file envelope"
   release_state_created: false
   consumption_receipt_created: false
+  historical_owner_decision_status: "approved_unconsumed_predecessor_only"
   owner_implementation_decision_eligible: false
   r0_accepted: false
   r1_r8_authorized: false
