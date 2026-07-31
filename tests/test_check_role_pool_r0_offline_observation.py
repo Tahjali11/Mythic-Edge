@@ -238,13 +238,19 @@ def test_profile_is_exact_known_answer() -> None:
 
 def test_predeclared_identities_derive_from_exact_preimages() -> None:
     preimages = (
-        "trusted_owner_r0_offline_sequence.v1|1235264383|776|"
-        + observation.RELEASE_RECORD_SHA256,
-        "trusted_owner_r0_offline_observation.v1|1235264383|776|"
+        "trusted_owner_r0_offline_sequence.v2|1235264383|776|"
         + observation.RELEASE_RECORD_SHA256
+        + "|"
+        + observation.HISTORICAL_FAILED_CONSUMPTION_ARTIFACT_SHA256,
+        "trusted_owner_r0_offline_observation.v2|1235264383|776|"
+        + observation.RELEASE_RECORD_SHA256
+        + "|"
+        + observation.HISTORICAL_FAILED_CONSUMPTION_ARTIFACT_SHA256
         + "|1",
-        "trusted_owner_r0_offline_observation.v1|1235264383|776|"
+        "trusted_owner_r0_offline_observation.v2|1235264383|776|"
         + observation.RELEASE_RECORD_SHA256
+        + "|"
+        + observation.HISTORICAL_FAILED_CONSUMPTION_ARTIFACT_SHA256
         + "|2",
     )
     derived = tuple(hashlib.sha256(value.encode("ascii")).hexdigest()[:32] for value in preimages)
@@ -295,18 +301,87 @@ def test_receipt_parser_rejects_duplicate_unknown_reordered_mistyped_and_mutated
             observation.parse_receipt(candidate)
 
 
-def test_receipt_pair_requires_natural_chronological_digest_order() -> None:
+def test_receipt_pair_requires_exact_chronology_not_digest_sort_order() -> None:
     first, second = _receipt_bytes(1), _receipt_bytes(2)
     receipts = observation.validate_receipt_pair((first, second))
     assert tuple(item["receipt_sha256"] for item in receipts) == (
         observation.EXPECTED_RECEIPT_SHA256S
     )
-    assert observation.EXPECTED_RECEIPT_SHA256S == tuple(
+    assert observation.EXPECTED_RECEIPT_SHA256S != tuple(
         sorted(observation.EXPECTED_RECEIPT_SHA256S)
     )
-    for candidate in ((second, first), (first, first), (second, second), (first,)):
+    bytewise_sorted = tuple(
+        sorted(
+            (first, second),
+            key=lambda payload: json.loads(payload)["receipt_sha256"],
+        )
+    )
+    assert bytewise_sorted == (second, first)
+
+    def mutated(position: int, **updates: object) -> bytes:
+        receipt = copy.deepcopy(observation.EXPECTED_RECEIPTS[position - 1])
+        receipt.update(updates)
+        receipt["receipt_sha256"] = observation.self_digest(
+            receipt,
+            "receipt_sha256",
+        )
+        return observation.canonical_bytes(receipt)
+
+    candidates = (
+        (second, first),
+        bytewise_sorted,
+        (first, first),
+        (second, second),
+        (first,),
+        (mutated(1, current_rung="R1"), second),
+        (mutated(1, sequence_position=2), second),
+        (mutated(1, observation_id="r0.offline.observation.substituted"), second),
+        (first, mutated(2, predecessor_observation_id=None)),
+    )
+    for candidate in candidates:
         with pytest.raises(observation.ObservationFailure):
             observation.validate_receipt_pair(candidate)
+
+
+def test_receipt_pair_selector_covers_all_64_tuples_without_lexical_authority() -> None:
+    row_counts: Counter[int] = Counter()
+    overlap_count = 0
+    uncovered_count = 0
+    for values in itertools.product((False, True), repeat=6):
+        row_matches = (
+            not values[0],
+            values[0] and not values[1],
+            all(values[:2]) and not values[2],
+            all(values[:3]) and not values[3],
+            all(values[:4]) and not values[4],
+            all(values[:5]),
+        )
+        matched_rows = tuple(
+            index for index, matched in enumerate(row_matches) if matched
+        )
+        overlap_count += len(matched_rows) > 1
+        uncovered_count += not matched_rows
+        if len(matched_rows) == 1:
+            row_counts[matched_rows[0]] += 1
+        expected = (
+            "accepted_exact_chronological_receipt_pair"
+            if all(values[:5])
+            else "observation_sequence_rejected"
+        )
+        assert observation.select_receipt_pair_outcome(*values) == expected
+
+    assert [row_counts[index] for index in range(6)] == [32, 16, 8, 4, 2, 2]
+    assert overlap_count == 0
+    assert uncovered_count == 0
+    assert all(row_counts[index] > 0 for index in range(6))
+    assert observation.select_receipt_pair_outcome(True, True, True, True, True, False) == (
+        "accepted_exact_chronological_receipt_pair"
+    )
+    assert observation.select_receipt_pair_outcome(True, True, True, True, True, True) == (
+        "accepted_exact_chronological_receipt_pair"
+    )
+    with pytest.raises(observation.ObservationFailure):
+        observation.select_receipt_pair_outcome(True, True, True, True, True, 1)
 
 
 def test_consumption_known_answer_is_exact_and_nonpublishable() -> None:
@@ -316,13 +391,13 @@ def test_consumption_known_answer_is_exact_and_nonpublishable() -> None:
         {key: value for key, value in packet.items() if key != "consumption_sha256"}
     )
     assert tuple(packet) == observation.CONSUMPTION_FIELDS
-    assert len(preimage) == 2526
-    assert len(payload) == 2614
+    assert len(preimage) == 2531
+    assert len(payload) == 2619
     assert packet["consumption_sha256"] == (
-        "6d0e6a9aeb895c75a43cc013cf895016570574e836fdca67a0ea2071bc441ab1"
+        "0c92cfd6f224067efff392afce8f8fdaa79f9b00d39a4f63e473ea16076c3816"
     )
     assert hashlib.sha256(payload).hexdigest() == (
-        "5fdd20f34258315199dc15ab416e9243eb68190171f514ad2c037f1afde0b4f2"
+        "8157a381826473ab179340f68b9af5e7247f1ea6768381b5329c4f313fa9c78a"
     )
     assert observation.parse_consumption(payload, expected=packet) == packet
     with pytest.raises(observation.ObservationFailure) as error:
@@ -804,6 +879,9 @@ def test_cli_unknown_owner_failure_never_echoes_raw_exception(
 
 def test_fixed_owner_bindings_and_two_file_scope_remain_exact() -> None:
     bindings = {
+        observation.SEQUENCE_CONTRACT_RELATIVE_PATH.as_posix(): observation.SEQUENCE_CONTRACT_SHA256,
+        observation.RECEIPT_ORDER_CONTRACT_RELATIVE_PATH.as_posix(): observation.RECEIPT_ORDER_CONTRACT_SHA256,
+        observation.RECEIPT_ORDER_REVIEW_RELATIVE_PATH.as_posix(): observation.RECEIPT_ORDER_REVIEW_SHA256,
         "docs/contracts/trusted_owner_native_role_pool_profile.md": observation.PROFILE_CONTRACT_SHA256,
         "docs/role_pool/trusted_owner_native_release_state.v1.jsonl": observation.RELEASE_STATE_ARTIFACT_SHA256,
         "docs/role_pool/trusted_owner_repository_registry.v1.json": observation.REGISTRY_ARTIFACT_SHA256,
