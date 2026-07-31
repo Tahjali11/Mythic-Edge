@@ -25,6 +25,22 @@ SEQUENCE_CONTRACT_RELATIVE_PATH = Path(
 SEQUENCE_CONTRACT_SHA256 = (
     "df6cce588e6d64ba5ba24b5d8d7f267c9c9a7e769c9a254527a9e7fd3d68e2b8"
 )
+RECEIPT_ORDER_CONTRACT_RELATIVE_PATH = Path(
+    "docs/contracts/"
+    "role_pool_trusted_owner_r0_offline_observation_receipt_order_"
+    "reconciliation_successor.md"
+)
+RECEIPT_ORDER_CONTRACT_SHA256 = (
+    "8cbd996f729d77eff3bd954fd054aa2012926e1d9c06f7e43e7e7d0a08a939a7"
+)
+RECEIPT_ORDER_REVIEW_RELATIVE_PATH = Path(
+    "docs/contract_test_reports/"
+    "role_pool_trusted_owner_r0_offline_observation_receipt_order_"
+    "reconciliation_successor.md"
+)
+RECEIPT_ORDER_REVIEW_SHA256 = (
+    "9a54ffd8de7ace8092316de7637f76db2de2d8ede6e0163b8c33d22e68930ff2"
+)
 R0_CHECKER_RELATIVE_PATH = Path("tools/check_role_pool_r0_bootstrap.py")
 R0_CHECKER_SHA256 = (
     "34e7eddb31d2e476c74f857a010d441ee1e199915658964bd8cc0f0da2f5d914"
@@ -34,10 +50,13 @@ REPOSITORY_ID = 1235264383
 ISSUE_NUMBER = 776
 PROTECTED_ISSUE_NUMBER = 769
 CURRENT_RUNG = "R0"
-SEQUENCE_ID = "r0.offline.sequence.1d11e7476ab400a39d222d0feab38eba"
+HISTORICAL_FAILED_CONSUMPTION_ARTIFACT_SHA256 = (
+    "00908b1692bd09f980cb2ef9e97b697667564f8388cd9070da59421e97348d7c"
+)
+SEQUENCE_ID = "r0.offline.sequence.2.45c8f6d057ddc04aa60650b0c09090f0"
 OBSERVATION_IDS = (
-    "r0.offline.observation.1.094221964ddd0af9c3b2034a35347971",
-    "r0.offline.observation.2.45b674178dd44c9b6723f42e75f3b04f",
+    "r0.offline.observation.1.v2.f6b5effa4a357e784cbbf1dd39efff2c",
+    "r0.offline.observation.2.v2.7b491e38edb350b7a9b6864c1d60cb39",
 )
 PROFILE_CONTRACT_SHA256 = (
     "944c1a85d9e2454fb82a5df3e2a2ac572191e3cd135c7854e0c012ffc07ab43f"
@@ -73,15 +92,15 @@ OBSERVATION_PROFILE_SHA256 = (
     "0d97f23b96dfab5b6b459bea92df63a8bc6675c50632ace60a36f7e1cbea2124"
 )
 EXPECTED_RECEIPT_SHA256S = (
-    "3bbc18f5af98ac88f9d2b38bac8c1ebc24d828129517368b68f420ae8988f60a",
-    "d059de10976d0652c60dc29f0e55c18393cbf337b870befd85875359adf4d769",
+    "ecfcaf5a007f1734511615536d94add079014a83113f3b4ca4df36974af383e9",
+    "23b9a29596f4e73378da60cdc5827465f8fd1f317b59987b77ecbf586be6d64e",
 )
 EXPECTED_RECEIPT_ARTIFACT_SHA256S = (
-    "f01466254996a3332d1406ab0dfbfe73bce3c99ecf279ba8d5fd46014dd5654f",
-    "8994ad1d631f6163613cd24fb6baba3a7603e23b805d6c6837835b272b25c5d1",
+    "36454313391b747c05cb95891e88e0bae1f0936aaa5917ad83dd7b9af2aecfa2",
+    "41e5b7ce534abace41658a6bd307d950dd2edcb30f668232040baef8759ef3e8",
 )
-EXPECTED_RECEIPT_PREIMAGE_LENGTHS = (2333, 2388)
-EXPECTED_RECEIPT_LENGTHS = (2417, 2472)
+EXPECTED_RECEIPT_PREIMAGE_LENGTHS = (2338, 2396)
+EXPECTED_RECEIPT_LENGTHS = (2422, 2480)
 
 AUTHORITY_FIELDS = (
     "repository_mutation_authorized",
@@ -419,16 +438,60 @@ def parse_receipt(payload: bytes) -> dict[str, object]:
     return receipt
 
 
+def select_receipt_pair_outcome(
+    canonical_pair_exact: bool,
+    position_order_exact: bool,
+    identity_order_exact: bool,
+    predecessor_link_exact: bool,
+    expected_digest_tuple_exact: bool,
+    digest_tuple_lexically_ascending: bool,
+) -> str:
+    values = (
+        canonical_pair_exact,
+        position_order_exact,
+        identity_order_exact,
+        predecessor_link_exact,
+        expected_digest_tuple_exact,
+        digest_tuple_lexically_ascending,
+    )
+    if any(type(value) is not bool for value in values):
+        raise ObservationFailure("observation_sequence_rejected")
+    if all(values[:5]):
+        return "accepted_exact_chronological_receipt_pair"
+    return "observation_sequence_rejected"
+
+
 def validate_receipt_pair(payloads: Sequence[bytes]) -> tuple[dict[str, object], ...]:
     if len(payloads) != 2:
         raise ObservationFailure("observation_sequence_rejected")
-    receipts = tuple(parse_receipt(payload) for payload in payloads)
-    if tuple(receipt["sequence_position"] for receipt in receipts) != (1, 2):
-        raise ObservationFailure("observation_sequence_rejected")
+    try:
+        receipts = tuple(parse_receipt(payload) for payload in payloads)
+    except ObservationFailure as exc:
+        raise ObservationFailure("observation_sequence_rejected") from exc
+    position_order_exact = tuple(
+        receipt["sequence_position"] for receipt in receipts
+    ) == (1, 2)
+    identity_order_exact = (
+        tuple(receipt["sequence_id"] for receipt in receipts)
+        == (SEQUENCE_ID, SEQUENCE_ID)
+        and tuple(receipt["observation_id"] for receipt in receipts)
+        == OBSERVATION_IDS
+    )
+    predecessor_link_exact = (
+        receipts[0]["predecessor_observation_id"] is None
+        and receipts[1]["predecessor_observation_id"]
+        == receipts[0]["observation_id"]
+    )
     digests = tuple(str(receipt["receipt_sha256"]) for receipt in receipts)
-    if digests != EXPECTED_RECEIPT_SHA256S or list(digests) != sorted(digests):
-        raise ObservationFailure("observation_sequence_rejected")
-    if receipts[1]["predecessor_observation_id"] != receipts[0]["observation_id"]:
+    outcome = select_receipt_pair_outcome(
+        True,
+        position_order_exact,
+        identity_order_exact,
+        predecessor_link_exact,
+        digests == EXPECTED_RECEIPT_SHA256S,
+        False,
+    )
+    if outcome != "accepted_exact_chronological_receipt_pair":
         raise ObservationFailure("observation_sequence_rejected")
     return receipts
 
@@ -872,9 +935,14 @@ def _stable_payload(path: Path) -> bytes:
 
 
 def _load_checker(repository_root: Path) -> ModuleType:
-    contract_payload = _stable_payload(repository_root / SEQUENCE_CONTRACT_RELATIVE_PATH)
-    if hashlib.sha256(contract_payload).hexdigest() != SEQUENCE_CONTRACT_SHA256:
-        raise ObservationFailure("observation_binding_rejected")
+    for relative_path, expected_sha256 in (
+        (SEQUENCE_CONTRACT_RELATIVE_PATH, SEQUENCE_CONTRACT_SHA256),
+        (RECEIPT_ORDER_CONTRACT_RELATIVE_PATH, RECEIPT_ORDER_CONTRACT_SHA256),
+        (RECEIPT_ORDER_REVIEW_RELATIVE_PATH, RECEIPT_ORDER_REVIEW_SHA256),
+    ):
+        payload = _stable_payload(repository_root / relative_path)
+        if hashlib.sha256(payload).hexdigest() != expected_sha256:
+            raise ObservationFailure("observation_binding_rejected")
     checker_path = repository_root / R0_CHECKER_RELATIVE_PATH
     checker_payload = _stable_payload(checker_path)
     if hashlib.sha256(checker_payload).hexdigest() != R0_CHECKER_SHA256:
@@ -1190,12 +1258,12 @@ def _validate_known_answers() -> None:
         }
     )
     if (
-        len(consumption_preimage) != 2526
-        or len(consumption) != 2614
+        len(consumption_preimage) != 2531
+        or len(consumption) != 2619
         or SYNTHETIC_CONSUMPTION_KAT["consumption_sha256"]
-        != "6d0e6a9aeb895c75a43cc013cf895016570574e836fdca67a0ea2071bc441ab1"
+        != "0c92cfd6f224067efff392afce8f8fdaa79f9b00d39a4f63e473ea16076c3816"
         or hashlib.sha256(consumption).hexdigest()
-        != "5fdd20f34258315199dc15ab416e9243eb68190171f514ad2c037f1afde0b4f2"
+        != "8157a381826473ab179340f68b9af5e7247f1ea6768381b5329c4f313fa9c78a"
     ):
         raise RuntimeError("observation_consumption_kat_invalid")
 
