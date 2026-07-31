@@ -8,16 +8,18 @@ status. Authority consumption and GitHub publication remain executor-owned.
 
 from __future__ import annotations
 
+import ctypes
 import hashlib
 import importlib.util
 import json
 import os
 import stat
 import sys
+from ctypes import wintypes
 from dataclasses import dataclass
 from pathlib import Path
 from types import ModuleType
-from typing import Mapping, Sequence, TextIO
+from typing import Callable, Mapping, Sequence, TextIO
 
 SEQUENCE_CONTRACT_RELATIVE_PATH = Path(
     "docs/contracts/role_pool_trusted_owner_r0_offline_observation_sequence.md"
@@ -41,6 +43,17 @@ RECEIPT_ORDER_REVIEW_RELATIVE_PATH = Path(
 RECEIPT_ORDER_REVIEW_SHA256 = (
     "9a54ffd8de7ace8092316de7637f76db2de2d8ede6e0163b8c33d22e68930ff2"
 )
+DIRECT_INTERPRETER_CONTRACT_RELATIVE_PATH = Path(
+    "docs/contracts/"
+    "role_pool_trusted_owner_r0_offline_observation_direct_interpreter_"
+    "successor.md"
+)
+DIRECT_INTERPRETER_CONTRACT_SHA256 = (
+    "17d0d2f5fe965643888ea70c71a278afdb7797033c311252bce1dde56486ea84"
+)
+DIRECT_INTERPRETER_REVIEWED_CONTRACT_SHA256 = (
+    "17d0d2f5fe965643888ea70c71a278afdb7797033c311252bce1dde56486ea84"
+)
 R0_CHECKER_RELATIVE_PATH = Path("tools/check_role_pool_r0_bootstrap.py")
 R0_CHECKER_SHA256 = (
     "34e7eddb31d2e476c74f857a010d441ee1e199915658964bd8cc0f0da2f5d914"
@@ -53,10 +66,24 @@ CURRENT_RUNG = "R0"
 HISTORICAL_FAILED_CONSUMPTION_ARTIFACT_SHA256 = (
     "00908b1692bd09f980cb2ef9e97b697667564f8388cd9070da59421e97348d7c"
 )
-SEQUENCE_ID = "r0.offline.sequence.2.45c8f6d057ddc04aa60650b0c09090f0"
-OBSERVATION_IDS = (
+HISTORICAL_SEQUENCE_ID = "r0.offline.sequence.2.45c8f6d057ddc04aa60650b0c09090f0"
+HISTORICAL_OBSERVATION_IDS = (
     "r0.offline.observation.1.v2.f6b5effa4a357e784cbbf1dd39efff2c",
     "r0.offline.observation.2.v2.7b491e38edb350b7a9b6864c1d60cb39",
+)
+HISTORICAL_CONSUMPTION_SHA256 = (
+    "3c3537c680b9d413b10d32f9444d5667a1348f54afe39ade24912154ce2949c3"
+)
+DIRECT_INTERPRETER_BINDING_SHA256 = (
+    "2315511a22881182565b4e8f0dd3764c79982c0287e573c562b1bd1f6f902333"
+)
+DIRECT_INTERPRETER_BINDING_ARTIFACT_SHA256 = (
+    "235e21a04acb454adb5471f2136b53547c35a279a63b8e09d8c6a10926d3bb9b"
+)
+SEQUENCE_ID = "r0.offline.sequence.3.5c7174d35ea27e21812024c5f8afbfaa"
+OBSERVATION_IDS = (
+    "r0.offline.observation.1.v3.b40fa2727a0f8006ceb93945cf1b1461",
+    "r0.offline.observation.2.v3.7269e523cea1b426a7ecedb3ef6e7fb1",
 )
 PROFILE_CONTRACT_SHA256 = (
     "944c1a85d9e2454fb82a5df3e2a2ac572191e3cd135c7854e0c012ffc07ab43f"
@@ -89,15 +116,15 @@ AUTHORITY_INDEX_SHA256 = (
     "2a4b4629c2faaa77f1c8f65d0f8f2c6c42aef8f34fc57ab4164fbb84d5579de0"
 )
 OBSERVATION_PROFILE_SHA256 = (
-    "0d97f23b96dfab5b6b459bea92df63a8bc6675c50632ace60a36f7e1cbea2124"
+    "ce57f4e4b337056bcf301177c404578dfbcfa52ac1382fa755fad4074ff7b668"
 )
 EXPECTED_RECEIPT_SHA256S = (
-    "ecfcaf5a007f1734511615536d94add079014a83113f3b4ca4df36974af383e9",
-    "23b9a29596f4e73378da60cdc5827465f8fd1f317b59987b77ecbf586be6d64e",
+    "46b1c205529a9a39476a2d50255e7dadbd2866949a0dd81f6558505f0f51ccce",
+    "d62ee96557ed05d64c192e027ca7b43ab918401034369f683b73e3ca388c4c52",
 )
 EXPECTED_RECEIPT_ARTIFACT_SHA256S = (
-    "36454313391b747c05cb95891e88e0bae1f0936aaa5917ad83dd7b9af2aecfa2",
-    "41e5b7ce534abace41658a6bd307d950dd2edcb30f668232040baef8759ef3e8",
+    "b79ef2b59e2e9e34ef8fcebf1dcc95e44ea53cc09efb97bdeb78bced11e78e7e",
+    "9481cebbb6dbf1a21c42d4670b07f44fae7ed47ac40f9f6dbb58186c62adb252",
 )
 EXPECTED_RECEIPT_PREIMAGE_LENGTHS = (2338, 2396)
 EXPECTED_RECEIPT_LENGTHS = (2422, 2480)
@@ -255,6 +282,43 @@ TERMINAL_STATUSES = (
 MAX_STDOUT_BYTES = 4096
 MAX_FAILURE_STDERR_BYTES = 128
 
+DIRECT_INTERPRETER_BINDING_FIELDS = (
+    "schema_version",
+    "repository_id",
+    "issue_number",
+    "host_os_name",
+    "host_sys_platform",
+    "runtime_implementation",
+    "executable_basename",
+    "file_version",
+    "product_version",
+    "byte_length",
+    "file_sha256",
+    "stable_identity_schema",
+    "stable_identity_sha256",
+    "ordinary_file",
+    "reparse_point",
+    "private_path_source",
+    "private_path_publication_authorized",
+    "binding_sha256",
+)
+
+DIRECT_INTERPRETER_PREFLIGHT_STATES = (
+    "not_run",
+    "passed",
+    "descendant",
+    "unknown",
+)
+
+DIRECT_INTERPRETER_PREFLIGHT_OUTCOMES = (
+    "direct_interpreter_hypothesis_rejected",
+    "observation_binding_rejected",
+    "direct_interpreter_preflight_required",
+    "direct_interpreter_preflight_descendant_observed",
+    "direct_interpreter_preflight_unknown",
+    "direct_interpreter_preflight_passed",
+)
+
 
 class DuplicateJsonKeyError(ValueError):
     """Reject duplicate keys before a packet can be interpreted."""
@@ -338,8 +402,116 @@ def _authority_flags() -> dict[str, bool]:
     return {field: False for field in AUTHORITY_FIELDS}
 
 
+DIRECT_INTERPRETER_BINDING: dict[str, object] = {
+    "schema_version": "trusted_owner_r0_direct_cpython_binding.v1",
+    "repository_id": REPOSITORY_ID,
+    "issue_number": 780,
+    "host_os_name": "nt",
+    "host_sys_platform": "win32",
+    "runtime_implementation": "CPython",
+    "executable_basename": "python.exe",
+    "file_version": "3.13.14",
+    "product_version": "3.13.14",
+    "byte_length": 105696,
+    "file_sha256": (
+        "ef8f51028ac5329641985112f8efb1c2d4c47c86b8011ddf7e6fae21e2b4e5a1"
+    ),
+    "stable_identity_schema": "trusted_owner_direct_cpython_file_identity.v1",
+    "stable_identity_sha256": (
+        "570754cbc03fb52f4e846c3611e48e18334f08e621babfa2e8eb76f4a0e5c953"
+    ),
+    "ordinary_file": True,
+    "reparse_point": False,
+    "private_path_source": "owner_supplied_local_absolute_path",
+    "private_path_publication_authorized": False,
+    "binding_sha256": DIRECT_INTERPRETER_BINDING_SHA256,
+}
+
+
+@dataclass(frozen=True)
+class DirectInterpreterMetadata:
+    runtime_implementation: str
+    executable_basename: str
+    file_version: str
+    product_version: str
+    byte_length: int
+    file_sha256: str
+    stable_identity_sha256: str
+    ordinary_file: bool
+    reparse_point: bool
+
+
+def parse_direct_interpreter_binding(payload: bytes) -> dict[str, object]:
+    try:
+        binding = _parse_canonical_object(
+            payload,
+            DIRECT_INTERPRETER_BINDING_FIELDS,
+        )
+    except ObservationFailure as exc:
+        raise ObservationFailure("observation_binding_rejected") from exc
+    if (
+        not _json_values_are_exact(binding, DIRECT_INTERPRETER_BINDING)
+        or binding["binding_sha256"]
+        != self_digest(binding, "binding_sha256")
+    ):
+        raise ObservationFailure("observation_binding_rejected")
+    return binding
+
+
+def validate_direct_interpreter_metadata(
+    metadata: DirectInterpreterMetadata,
+) -> None:
+    expected = DirectInterpreterMetadata(
+        runtime_implementation=str(
+            DIRECT_INTERPRETER_BINDING["runtime_implementation"]
+        ),
+        executable_basename=str(
+            DIRECT_INTERPRETER_BINDING["executable_basename"]
+        ),
+        file_version=str(DIRECT_INTERPRETER_BINDING["file_version"]),
+        product_version=str(DIRECT_INTERPRETER_BINDING["product_version"]),
+        byte_length=int(DIRECT_INTERPRETER_BINDING["byte_length"]),
+        file_sha256=str(DIRECT_INTERPRETER_BINDING["file_sha256"]),
+        stable_identity_sha256=str(
+            DIRECT_INTERPRETER_BINDING["stable_identity_sha256"]
+        ),
+        ordinary_file=True,
+        reparse_point=False,
+    )
+    if metadata != expected:
+        raise ObservationFailure("observation_binding_rejected")
+
+
+def select_direct_interpreter_preflight_outcome(
+    historical_direct_use_proven: bool,
+    public_bindings_exact: bool,
+    private_binding_exact: bool,
+    preflight_state: str,
+) -> str:
+    values = (
+        historical_direct_use_proven,
+        public_bindings_exact,
+        private_binding_exact,
+    )
+    if any(type(value) is not bool for value in values):
+        raise ValueError("direct_interpreter_preflight_boolean_invalid")
+    if preflight_state not in DIRECT_INTERPRETER_PREFLIGHT_STATES:
+        raise ValueError("direct_interpreter_preflight_state_invalid")
+    if historical_direct_use_proven:
+        return "direct_interpreter_hypothesis_rejected"
+    if not public_bindings_exact or not private_binding_exact:
+        return "observation_binding_rejected"
+    outcomes = {
+        "not_run": "direct_interpreter_preflight_required",
+        "descendant": "direct_interpreter_preflight_descendant_observed",
+        "unknown": "direct_interpreter_preflight_unknown",
+        "passed": "direct_interpreter_preflight_passed",
+    }
+    return outcomes[preflight_state]
+
+
 OBSERVATION_PROFILE: dict[str, object] = {
-    "schema_version": "trusted_owner_r0_offline_observation_profile.v1",
+    "schema_version": "trusted_owner_r0_offline_observation_profile.v2",
     "repository_id": REPOSITORY_ID,
     "issue_number": ISSUE_NUMBER,
     "current_rung": CURRENT_RUNG,
@@ -359,6 +531,8 @@ OBSERVATION_PROFILE: dict[str, object] = {
         "tools/check_role_pool_r0_offline_observation.py",
         "tests/test_check_role_pool_r0_offline_observation.py",
     ],
+    "direct_interpreter_binding_sha256": DIRECT_INTERPRETER_BINDING_SHA256,
+    "launcher_mode": "exact_direct_absolute_cpython_no_shell",
     "host_os_name": "nt",
     "host_sys_platform": "win32",
     "top_level_process_limit": 1,
@@ -512,13 +686,13 @@ SYNTHETIC_CONSUMPTION_KAT: dict[str, object] = {
     "owner_decision_expires_at_utc": "2026-08-01T12:00:00Z",
     "sequence_contract_sha256": "2" * 64,
     "sequence_contract_review_ref": (
-        "https://github.com/Tahjali11/Mythic-Edge/issues/776#issuecomment-kat-contract-review"
+        "https://github.com/Tahjali11/Mythic-Edge/issues/780#issuecomment-kat-contract-review"
     ),
     "sequence_contract_review_sha256": "3" * 64,
     "harness_sha256": "4" * 64,
     "harness_test_sha256": "5" * 64,
     "implementation_review_ref": (
-        "https://github.com/Tahjali11/Mythic-Edge/issues/776#issuecomment-kat-implementation-review"
+        "https://github.com/Tahjali11/Mythic-Edge/issues/780#issuecomment-kat-implementation-review"
     ),
     "implementation_review_sha256": "6" * 64,
     "profile_contract_sha256": PROFILE_CONTRACT_SHA256,
@@ -784,6 +958,265 @@ def _paths_are_lexically_equal(left: Path, right: Path) -> bool:
     )
 
 
+class _ByHandleFileInformation(ctypes.Structure):
+    _fields_ = (
+        ("dwFileAttributes", wintypes.DWORD),
+        ("ftCreationTime", wintypes.FILETIME),
+        ("ftLastAccessTime", wintypes.FILETIME),
+        ("ftLastWriteTime", wintypes.FILETIME),
+        ("dwVolumeSerialNumber", wintypes.DWORD),
+        ("nFileSizeHigh", wintypes.DWORD),
+        ("nFileSizeLow", wintypes.DWORD),
+        ("nNumberOfLinks", wintypes.DWORD),
+        ("nFileIndexHigh", wintypes.DWORD),
+        ("nFileIndexLow", wintypes.DWORD),
+    )
+
+
+def _stable_file_identity_sha256(volume_serial: int, file_index: int) -> str:
+    preimage = (
+        "trusted_owner_direct_cpython_file_identity.v1|"
+        f"volume_serial_number={volume_serial:08x}|"
+        f"file_index={file_index:016x}"
+    ).encode("ascii")
+    return hashlib.sha256(preimage).hexdigest()
+
+
+def _windows_file_versions(path_text: str, version_dll: object) -> tuple[str, str]:
+    version_dll.GetFileVersionInfoSizeW.argtypes = (
+        wintypes.LPCWSTR,
+        ctypes.POINTER(wintypes.DWORD),
+    )
+    version_dll.GetFileVersionInfoSizeW.restype = wintypes.DWORD
+    version_dll.GetFileVersionInfoW.argtypes = (
+        wintypes.LPCWSTR,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        ctypes.c_void_p,
+    )
+    version_dll.GetFileVersionInfoW.restype = wintypes.BOOL
+    version_dll.VerQueryValueW.argtypes = (
+        ctypes.c_void_p,
+        wintypes.LPCWSTR,
+        ctypes.POINTER(ctypes.c_void_p),
+        ctypes.POINTER(wintypes.UINT),
+    )
+    version_dll.VerQueryValueW.restype = wintypes.BOOL
+
+    ignored = wintypes.DWORD()
+    size = version_dll.GetFileVersionInfoSizeW(path_text, ctypes.byref(ignored))
+    if not size:
+        raise ObservationFailure("observation_binding_rejected")
+    buffer = ctypes.create_string_buffer(size)
+    if not version_dll.GetFileVersionInfoW(path_text, 0, size, buffer):
+        raise ObservationFailure("observation_binding_rejected")
+
+    translation_pointer = ctypes.c_void_p()
+    translation_length = wintypes.UINT()
+    if not version_dll.VerQueryValueW(
+        buffer,
+        r"\VarFileInfo\Translation",
+        ctypes.byref(translation_pointer),
+        ctypes.byref(translation_length),
+    ):
+        raise ObservationFailure("observation_binding_rejected")
+    if translation_pointer.value is None or translation_length.value < 4:
+        raise ObservationFailure("observation_binding_rejected")
+    translations = ctypes.cast(
+        translation_pointer,
+        ctypes.POINTER(ctypes.c_ushort),
+    )
+
+    for index in range(0, translation_length.value // 2, 2):
+        language = translations[index]
+        code_page = translations[index + 1]
+        values: list[str] = []
+        for field in ("FileVersion", "ProductVersion"):
+            value_pointer = ctypes.c_void_p()
+            value_length = wintypes.UINT()
+            query = f"\\StringFileInfo\\{language:04x}{code_page:04x}\\{field}"
+            if not version_dll.VerQueryValueW(
+                buffer,
+                query,
+                ctypes.byref(value_pointer),
+                ctypes.byref(value_length),
+            ):
+                values = []
+                break
+            if value_pointer.value is None or value_length.value == 0:
+                values = []
+                break
+            value = ctypes.wstring_at(
+                value_pointer.value,
+                value_length.value,
+            ).rstrip("\x00").strip()
+            if not value:
+                values = []
+                break
+            values.append(value)
+        if len(values) == 2:
+            return values[0], values[1]
+    raise ObservationFailure("observation_binding_rejected")
+
+
+def _observe_windows_direct_interpreter(path: Path) -> DirectInterpreterMetadata:
+    if os.name != "nt" or sys.platform != "win32":
+        raise ObservationFailure("observation_host_rejected")
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    version = ctypes.WinDLL("version", use_last_error=True)
+    kernel32.CreateFileW.argtypes = (
+        wintypes.LPCWSTR,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        ctypes.c_void_p,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.HANDLE,
+    )
+    kernel32.CreateFileW.restype = wintypes.HANDLE
+    kernel32.GetFileInformationByHandle.argtypes = (
+        wintypes.HANDLE,
+        ctypes.POINTER(_ByHandleFileInformation),
+    )
+    kernel32.GetFileInformationByHandle.restype = wintypes.BOOL
+    kernel32.GetFileType.argtypes = (wintypes.HANDLE,)
+    kernel32.GetFileType.restype = wintypes.DWORD
+    kernel32.ReadFile.argtypes = (
+        wintypes.HANDLE,
+        ctypes.c_void_p,
+        wintypes.DWORD,
+        ctypes.POINTER(wintypes.DWORD),
+        ctypes.c_void_p,
+    )
+    kernel32.ReadFile.restype = wintypes.BOOL
+    kernel32.CloseHandle.argtypes = (wintypes.HANDLE,)
+    kernel32.CloseHandle.restype = wintypes.BOOL
+
+    generic_read = 0x80000000
+    share_all = 0x00000001 | 0x00000002 | 0x00000004
+    open_existing = 3
+    open_reparse_point = 0x00200000
+    invalid_handle = ctypes.c_void_p(-1).value
+    handle = kernel32.CreateFileW(
+        os.fspath(path),
+        generic_read,
+        share_all,
+        None,
+        open_existing,
+        open_reparse_point,
+        None,
+    )
+    if handle in (None, invalid_handle):
+        raise ObservationFailure("observation_binding_rejected")
+
+    close_failed = False
+    metadata: DirectInterpreterMetadata | None = None
+    try:
+        before = _ByHandleFileInformation()
+        if not kernel32.GetFileInformationByHandle(handle, ctypes.byref(before)):
+            raise ObservationFailure("observation_binding_rejected")
+        file_type = kernel32.GetFileType(handle)
+        directory = bool(before.dwFileAttributes & 0x00000010)
+        reparse_point = bool(before.dwFileAttributes & 0x00000400)
+        ordinary_file = file_type == 0x0001 and not directory and not reparse_point
+        if not ordinary_file:
+            raise ObservationFailure("observation_binding_rejected")
+
+        digest = hashlib.sha256()
+        buffer = ctypes.create_string_buffer(65536)
+        while True:
+            bytes_read = wintypes.DWORD()
+            if not kernel32.ReadFile(
+                handle,
+                buffer,
+                len(buffer),
+                ctypes.byref(bytes_read),
+                None,
+            ):
+                raise ObservationFailure("observation_binding_rejected")
+            if bytes_read.value == 0:
+                break
+            digest.update(buffer.raw[: bytes_read.value])
+
+        after = _ByHandleFileInformation()
+        if not kernel32.GetFileInformationByHandle(handle, ctypes.byref(after)):
+            raise ObservationFailure("observation_binding_rejected")
+        before_identity = (
+            before.dwVolumeSerialNumber,
+            before.nFileIndexHigh,
+            before.nFileIndexLow,
+            before.nFileSizeHigh,
+            before.nFileSizeLow,
+            before.dwFileAttributes,
+        )
+        after_identity = (
+            after.dwVolumeSerialNumber,
+            after.nFileIndexHigh,
+            after.nFileIndexLow,
+            after.nFileSizeHigh,
+            after.nFileSizeLow,
+            after.dwFileAttributes,
+        )
+        if before_identity != after_identity:
+            raise ObservationFailure("observation_binding_rejected")
+        file_index = (before.nFileIndexHigh << 32) | before.nFileIndexLow
+        byte_length = (before.nFileSizeHigh << 32) | before.nFileSizeLow
+        file_version, product_version = _windows_file_versions(
+            os.fspath(path),
+            version,
+        )
+        metadata = DirectInterpreterMetadata(
+            runtime_implementation=(
+                "CPython" if sys.implementation.name == "cpython" else ""
+            ),
+            executable_basename=path.name,
+            file_version=file_version,
+            product_version=product_version,
+            byte_length=byte_length,
+            file_sha256=digest.hexdigest(),
+            stable_identity_sha256=_stable_file_identity_sha256(
+                before.dwVolumeSerialNumber,
+                file_index,
+            ),
+            ordinary_file=ordinary_file,
+            reparse_point=reparse_point,
+        )
+    except ObservationFailure:
+        raise
+    except Exception as exc:
+        raise ObservationFailure("observation_binding_rejected") from exc
+    finally:
+        close_failed = not bool(kernel32.CloseHandle(handle))
+    if close_failed or metadata is None:
+        raise ObservationFailure("observation_binding_rejected")
+    return metadata
+
+
+def validate_running_direct_interpreter(
+    executable_path: str | os.PathLike[str] | None = None,
+    *,
+    observer: Callable[[Path], DirectInterpreterMetadata] | None = None,
+) -> DirectInterpreterMetadata:
+    try:
+        path = Path(sys.executable if executable_path is None else executable_path)
+    except (TypeError, ValueError) as exc:
+        raise ObservationFailure("observation_binding_rejected") from exc
+    if not path.is_absolute() or path.name != "python.exe":
+        raise ObservationFailure("observation_binding_rejected")
+    reader = _observe_windows_direct_interpreter if observer is None else observer
+    try:
+        first = reader(path)
+        second = reader(path)
+    except ObservationFailure:
+        raise
+    except Exception as exc:
+        raise ObservationFailure("observation_binding_rejected") from exc
+    if first != second:
+        raise ObservationFailure("observation_binding_rejected")
+    validate_direct_interpreter_metadata(first)
+    return first
+
+
 class AuditBoundary:
     """Fail closed on side effects or reads outside the fixed owner roots."""
 
@@ -935,10 +1368,19 @@ def _stable_payload(path: Path) -> bytes:
 
 
 def _load_checker(repository_root: Path) -> ModuleType:
+    if (
+        DIRECT_INTERPRETER_CONTRACT_SHA256
+        != DIRECT_INTERPRETER_REVIEWED_CONTRACT_SHA256
+    ):
+        raise ObservationFailure("observation_binding_rejected")
     for relative_path, expected_sha256 in (
         (SEQUENCE_CONTRACT_RELATIVE_PATH, SEQUENCE_CONTRACT_SHA256),
         (RECEIPT_ORDER_CONTRACT_RELATIVE_PATH, RECEIPT_ORDER_CONTRACT_SHA256),
         (RECEIPT_ORDER_REVIEW_RELATIVE_PATH, RECEIPT_ORDER_REVIEW_SHA256),
+        (
+            DIRECT_INTERPRETER_CONTRACT_RELATIVE_PATH,
+            DIRECT_INTERPRETER_CONTRACT_SHA256,
+        ),
     ):
         payload = _stable_payload(repository_root / relative_path)
         if hashlib.sha256(payload).hexdigest() != expected_sha256:
@@ -1141,6 +1583,31 @@ class LauncherObservation:
     output_complete: bool
 
 
+@dataclass(frozen=True)
+class DirectLauncherObservation:
+    public_binding_exact: bool
+    private_binding_exact: bool
+    top_level_identity_exact: bool
+    parentage_known: bool
+    process: LauncherObservation
+
+
+@dataclass(frozen=True)
+class DirectPreflightObservation:
+    public_binding_exact: bool
+    private_binding_exact: bool
+    top_level_identity_exact: bool
+    parentage_known: bool
+    exit_code: int | None
+    stdout: bytes
+    stderr: bytes
+    top_level_process_count: int
+    descendant_process_count: int
+    timed_out: bool
+    cleanup_confirmed: bool
+    output_complete: bool
+
+
 def classify_launcher_observation(observation: LauncherObservation) -> str:
     """Classify fake launcher evidence without launching a process."""
 
@@ -1167,6 +1634,42 @@ def classify_launcher_observation(observation: LauncherObservation) -> str:
     if observation.exit_code == 3:
         return "observation_result_unknown"
     return "observation_validation_failed"
+
+
+def classify_direct_launcher_observation(
+    observation: DirectLauncherObservation,
+) -> str:
+    if not observation.public_binding_exact or not observation.private_binding_exact:
+        return "observation_binding_rejected"
+    if not observation.top_level_identity_exact or not observation.parentage_known:
+        return "observation_launch_unknown"
+    return classify_launcher_observation(observation.process)
+
+
+def classify_direct_preflight_observation(
+    observation: DirectPreflightObservation,
+) -> str:
+    if not observation.public_binding_exact or not observation.private_binding_exact:
+        return "observation_binding_rejected"
+    if observation.timed_out or not observation.cleanup_confirmed:
+        return "direct_interpreter_preflight_unknown"
+    if (
+        observation.exit_code is None
+        or observation.top_level_process_count != 1
+        or not observation.top_level_identity_exact
+        or not observation.parentage_known
+    ):
+        return "direct_interpreter_preflight_unknown"
+    if observation.descendant_process_count != 0:
+        return "direct_interpreter_preflight_descendant_observed"
+    if (
+        not observation.output_complete
+        or observation.stdout
+        or observation.stderr
+        or observation.exit_code != 0
+    ):
+        return "direct_interpreter_preflight_unknown"
+    return "direct_interpreter_preflight_passed"
 
 
 def _write_exact_bytes(stream: TextIO, payload: bytes) -> None:
@@ -1198,6 +1701,11 @@ def run(argv: Sequence[str] | None = None) -> int:
     repository_root = Path(__file__).absolute().parent.parent
     if not _paths_are_lexically_equal(Path.cwd(), repository_root):
         _emit_failure("observation_binding_rejected")
+        return 2
+    try:
+        validate_running_direct_interpreter()
+    except ObservationFailure as exc:
+        _emit_failure(exc.status)
         return 2
     runtime_roots = tuple({Path(sys.base_prefix), Path(sys.prefix)})
     audit = AuditBoundary(repository_root, runtime_roots)
@@ -1233,8 +1741,29 @@ def run(argv: Sequence[str] | None = None) -> int:
 
 
 def _validate_known_answers() -> None:
+    binding = canonical_bytes(DIRECT_INTERPRETER_BINDING)
+    binding_preimage = canonical_bytes(
+        {
+            key: value
+            for key, value in DIRECT_INTERPRETER_BINDING.items()
+            if key != "binding_sha256"
+        }
+    )
+    if (
+        len(binding_preimage) != 694
+        or len(binding) != 778
+        or self_digest(DIRECT_INTERPRETER_BINDING, "binding_sha256")
+        != DIRECT_INTERPRETER_BINDING_SHA256
+        or hashlib.sha256(binding).hexdigest()
+        != DIRECT_INTERPRETER_BINDING_ARTIFACT_SHA256
+        or parse_direct_interpreter_binding(binding) != DIRECT_INTERPRETER_BINDING
+    ):
+        raise RuntimeError("direct_interpreter_binding_kat_invalid")
     profile = canonical_bytes(OBSERVATION_PROFILE)
-    if len(profile) != 1616 or hashlib.sha256(profile).hexdigest() != OBSERVATION_PROFILE_SHA256:
+    if (
+        len(profile) != 1776
+        or hashlib.sha256(profile).hexdigest() != OBSERVATION_PROFILE_SHA256
+    ):
         raise RuntimeError("observation_profile_kat_invalid")
     for index, receipt in enumerate(EXPECTED_RECEIPTS):
         preimage = canonical_bytes(
@@ -1261,9 +1790,9 @@ def _validate_known_answers() -> None:
         len(consumption_preimage) != 2531
         or len(consumption) != 2619
         or SYNTHETIC_CONSUMPTION_KAT["consumption_sha256"]
-        != "0c92cfd6f224067efff392afce8f8fdaa79f9b00d39a4f63e473ea16076c3816"
+        != "b49572e1faad02c68270c0832dc86158da3b24d2eff5772669521a7e53955efa"
         or hashlib.sha256(consumption).hexdigest()
-        != "8157a381826473ab179340f68b9af5e7247f1ea6768381b5329c4f313fa9c78a"
+        != "d3e1f80d0c755c65c8c9cb905275cff09ca92c38f2bb662ddcd553de08d1e360"
     ):
         raise RuntimeError("observation_consumption_kat_invalid")
 
