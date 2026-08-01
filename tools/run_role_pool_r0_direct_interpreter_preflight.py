@@ -28,10 +28,22 @@ REPOSITORY_ID = 1235264383
 ISSUE_NUMBER = 780
 RESULT_SCHEMA = "trusted_owner_r0_direct_interpreter_preflight_result.v1"
 EXECUTOR_CONTRACT_SHA256 = (
-    "1b44310c1b4398c02ecaff55b520beedf20f7456eee71469976c8c7af3cf5a8b"
+    "d2bfd244a4c20c0631cd7d16bc3209f08f471368d8ba090997acfecd16a314c7"
 )
 EXECUTOR_CONTRACT_REVIEW_SHA256 = (
+    "25acde0c0095929069952caf1fa458dee4b725c9c96212c9d3c8118c0e702ca0"
+)
+EXECUTOR_LOCAL_EFFECT_REVIEW_SHA256 = (
     "5977226c70449601e09d04328a9a0522cefcb15dbaea13aead494bfb64fa753a"
+)
+EXECUTOR_PREDECESSOR_REVIEW_SHA256 = (
+    "97adebc7fc8033125ac19dddb861361c7b4d40babdee338ca73b239394fa8038"
+)
+EXECUTOR_IMPLEMENTATION_REVIEW_SHA256 = (
+    "49d66f9ce38f0fab01bbeebf02deba4451f87f45600a21552b47a3e9292e0dac"
+)
+EXECUTOR_TEST_SHA256 = (
+    "a05c537d30cb5e3c4ed77ec7747cc87f19ec5f9729bed4f1fc50818f19f54cfe"
 )
 PARENT_CONTRACT_SHA256 = (
     "17d0d2f5fe965643888ea70c71a278afdb7797033c311252bce1dde56486ea84"
@@ -58,7 +70,19 @@ EXECUTOR_CONTRACT_PATH = Path(
 )
 EXECUTOR_REVIEW_PATH = Path(
     "docs/contract_test_reports/role_pool_trusted_owner_r0_direct_interpreter_"
+    "preflight_executor_public_binding_trust_anchor.md"
+)
+EXECUTOR_LOCAL_EFFECT_REVIEW_PATH = Path(
+    "docs/contract_test_reports/role_pool_trusted_owner_r0_direct_interpreter_"
     "preflight_executor_local_effect_reconciliation.md"
+)
+EXECUTOR_PREDECESSOR_REVIEW_PATH = Path(
+    "docs/contract_test_reports/role_pool_trusted_owner_r0_direct_interpreter_"
+    "preflight_executor.md"
+)
+EXECUTOR_IMPLEMENTATION_REVIEW_PATH = Path(
+    "docs/contract_test_reports/role_pool_trusted_owner_r0_direct_interpreter_"
+    "preflight_executor_implementation.md"
 )
 PARENT_REVIEW_PATH = Path(
     "docs/contract_test_reports/role_pool_trusted_owner_r0_offline_observation_"
@@ -2227,10 +2251,14 @@ def _public_bindings(repository_root: Path) -> PublicBindingSnapshot:
     expected = {
         EXECUTOR_CONTRACT_PATH: EXECUTOR_CONTRACT_SHA256,
         EXECUTOR_REVIEW_PATH: EXECUTOR_CONTRACT_REVIEW_SHA256,
+        EXECUTOR_LOCAL_EFFECT_REVIEW_PATH: EXECUTOR_LOCAL_EFFECT_REVIEW_SHA256,
+        EXECUTOR_PREDECESSOR_REVIEW_PATH: EXECUTOR_PREDECESSOR_REVIEW_SHA256,
+        EXECUTOR_IMPLEMENTATION_REVIEW_PATH: EXECUTOR_IMPLEMENTATION_REVIEW_SHA256,
         PARENT_CONTRACT_PATH: PARENT_CONTRACT_SHA256,
         PARENT_REVIEW_PATH: PARENT_REVIEW_SHA256,
         HARNESS_PATH: HARNESS_SHA256,
         HARNESS_TEST_PATH: HARNESS_TEST_SHA256,
+        EXECUTOR_TEST_PATH: EXECUTOR_TEST_SHA256,
     }
     exact = True
     for relative_path, digest in expected.items():

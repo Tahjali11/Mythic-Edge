@@ -161,15 +161,29 @@ release, submission, merge, deployment, Stage-4, or readiness authority.
     First-applicable evaluation produced `3/1/7/7/54` instead of the declared
     disjoint `3/1/6/8/54`. The normalized source audit remained exact at
     `8/5,824`; no file changed and no execution authority was created.
+27. **Observed:** PR #792 merged the independently accepted executor package at
+    `4b51761cde2310df3e9cda3a3e3ad34e617c8e79`; its exact-head E review is
+    `https://github.com/Tahjali11/Mythic-Edge/pull/792#pullrequestreview-4835311363`.
+28. **Observed:** the current D candidate adds the three missing raw checks for
+    the predecessor review, implementation review, and executor test without
+    changing execution behavior.
+29. **Observed:** it also added an executor-owned checksum-field-excluded
+    digest. Changing the source and recomputing that embedded value remained
+    self-admitted, proving `ME-RP-780-PUBLIC-BINDING-E-006`.
+30. **Decision:** fresh E review plus the exact owner decision own acceptance
+    of executor bytes. Runtime owns the other independent public bindings and
+    raw executor measurement; no new trust mechanism is required.
 
 Finding `ME-RP-780-PREFLIGHT-EXEC-B-001` is `fixed_confirmed`.
 Finding `ME-RP-780-PREFLIGHT-EXEC-E-001` is `fixed_confirmed_preserved`.
 Finding `ME-RP-780-PREFLIGHT-EXEC-E-002` is `fixed_confirmed_preserved`.
 Finding `ME-RP-780-PREFLIGHT-EXEC-E-003` is `fixed_confirmed`.
 Finding `ME-RP-780-PREFLIGHT-EXEC-E-004` is
-`open_blocking_preserved_for_codex_d`.
+`fixed_confirmed_preserved`.
 Finding `ME-RP-780-PREFLIGHT-EXEC-E-005` is
-`raw_effect_selector_predicates_disjoint_re_review_pending`.
+`fixed_confirmed`.
+Finding `ME-RP-780-PUBLIC-BINDING-E-006` is
+`contract_clarification_authored_review_pending`.
 
 ## Module And Truth Ownership
 
@@ -192,7 +206,8 @@ Truth ownership remains unchanged:
 - a private absolute executable path is bounded runtime input and owns no
   public truth; and
 - independent Codex E review owns acceptance of the executor bytes and any
-  later public-safe preflight result.
+  later public-safe preflight result. The fresh owner decision binds those
+  accepted bytes before execution; the executor does not self-certify them.
 
 No parser, release-state, registry, Role Pool skill, installed copy, managed
 validator, observation receipt, or issue #769 truth moves into this module.
@@ -204,6 +219,15 @@ validator, observation receipt, or issue #769 truth moves into this module.
 | Integrated base | `3c3b4bfa7ddcd066d54b8b17ca9f3d496919d23f` |
 | Reviewed implementation head | `4893d53960f25370aa4d9c2313d7fc33ffeb707e` |
 | Integration PR | `https://github.com/Tahjali11/Mythic-Edge/pull/791`; merged |
+| Integrated executor base | `4b51761cde2310df3e9cda3a3e3ad34e617c8e79` |
+| Executor integration PR | `https://github.com/Tahjali11/Mythic-Edge/pull/792`; merged |
+| Exact-head executor review | `https://github.com/Tahjali11/Mythic-Edge/pull/792#pullrequestreview-4835311363`; reviewed head `28036bc82266702c00308cbb6d60a168a2f32142`; `accepted_exact_head_no_blocking_findings` |
+| Accepted merged executor predecessor | `tools/run_role_pool_r0_direct_interpreter_preflight.py`; 124,909 bytes; SHA-256 `a681dac983478cfda1d64729dd1a67258dc26f1e90d7873be0805e1581e0f170` |
+| Accepted merged executor-test predecessor | `tests/test_run_role_pool_r0_direct_interpreter_preflight.py`; 61,765 bytes; SHA-256 `53e98df75a04ec55530b2279af366f1ccf32d9b6d3b45afbd2f8dcd2dbe4dc3e` |
+| Post-merge source finding | `https://github.com/Tahjali11/Mythic-Edge/pull/792#discussion_r3696262736` |
+| Post-merge D handoff | `docs/implementation_handoffs/role_pool_trusted_owner_r0_direct_interpreter_preflight_executor_post_merge_binding_fixer.md`; current candidate SHA-256 `c029076f2eb4c9c4e7e5576c14bc7b1ef79ba313b9bbd77302f5eed6209a914e` |
+| Unaccepted D executor candidate | 128,048 bytes; SHA-256 `8e244cb973012d811b2d1a4cdfe0dd831b0b53fa2d0d2bdfae9169343e71eeba` |
+| Unaccepted D executor-test candidate | 63,312 bytes; SHA-256 `087ea97b9b16d6463294d08453ff723502853c8aeecf515b4057873eeead45bf` |
 | Parent direct-interpreter contract | `docs/contracts/role_pool_trusted_owner_r0_offline_observation_direct_interpreter_successor.md`; 41,834 bytes; SHA-256 `17d0d2f5fe965643888ea70c71a278afdb7797033c311252bce1dde56486ea84` |
 | Parent independent review | `docs/contract_test_reports/role_pool_trusted_owner_r0_offline_observation_direct_interpreter_successor.md`; 8,464 bytes; SHA-256 `0fd7d921a92fbd58576f053a0e8938d3ae4a0266e9a023b762f933e65aee450f`; `final_approval` |
 | Accepted harness | `tools/check_role_pool_r0_offline_observation.py`; 67,314 bytes; SHA-256 `001127acf0db441fde6d57c4eaa3545e945fc7275543975b62ef286b23934aa6` |
@@ -241,15 +265,17 @@ exactly the current reviewed bytes of:
 1. `tools/run_role_pool_r0_direct_interpreter_preflight.py`; and
 2. `tests/test_run_role_pool_r0_direct_interpreter_preflight.py`.
 
-The accepted harness and its test must remain byte-exact. No third path may
-change. D may fix only `E-004`; implement the exact in-memory local-effect
-observation profile below; derive executor-owned network events without
-inserting a constant; derive the four effect counters and cleanup truth; and
-replace the predecessor contract/review constants with the independently
-accepted successor contract/review bindings. D may not add child-network
-prevention, complete child-network observation, a network status or lifecycle,
-or a third path. The executor
-is dedicated to this one preflight command and cannot
+The accepted harness and its test remain byte-exact. In only the executor and
+focused test, D may retain the three new independent raw-digest comparisons;
+remove `EXECUTOR_SOURCE_BINDING_SHA256`, `_stable_self_binding_sha256()`, its
+otherwise-unused private byte-reader, runtime call, and self-admission tests;
+remove the executor from the runtime drift matrix; and refresh only the
+contract, review, and `EXECUTOR_TEST_SHA256` bindings. Every other byte remains
+unchanged unless formatting is mechanically required.
+
+No sidecar, signature, key, launcher, wrapper, new input, digest algorithm,
+masking rule, schema, status, process, or third implementation path is allowed.
+The executor is dedicated to this one preflight command and cannot
 accept an observation ID, script path, module, arbitrary argument, cwd,
 timeout, executable fallback, environment override, output destination, or
 command supplied by a caller.
@@ -297,6 +323,54 @@ The controller process that hosts this executor is outside the measured
 target job and grants no alternate launcher authority. In particular, a
 controller's own Python or shell identity cannot be substituted for, or
 reported as, the selected target `python.exe`.
+
+### Executor-byte acceptance boundary
+
+Executor-byte acceptance is an external workflow gate, not a runtime
+self-admission predicate. This is the controlling interpretation wherever an
+older clause says that public bindings reject executor drift.
+
+Before starting the executor process, the separately authorized execution role
+must:
+
+1. require a fresh independent Codex E implementation review bound to one exact
+   repository head and exact SHA-256 values for the executor and focused test;
+2. require the fresh owner preflight decision to repeat those two hashes and
+   bind the accepted contract and contract-review hashes;
+3. independently read each of the two ordinary, non-reparse files with stable
+   before/open/after identity and compute its raw SHA-256;
+4. compare both raw digests with the E-accepted and owner-bound values before
+   starting the executor or supplying private stdin; and
+5. stop without starting the executor, supplying private input, or creating a
+   result when either identity or digest is not exact.
+
+Such a stop reuses the existing
+`retired_unconsumed_precreate_failure_nonreusable` owner-decision disposition.
+It creates no executor result and requires a fresh review or owner decision as
+appropriate. No retry, alternate bytes, or nearest-match acceptance exists.
+
+Runtime `_public_bindings()` must still compare the accepted contract review,
+predecessor contract review, implementation review, parent contract and review,
+harness and harness test, local-effect reconciliation review, and focused
+executor test against their exact embedded digests before parent loading,
+private input, or target-process entry. It computes the raw executor SHA-256
+only for result field `executor_sha256`; it does not compare that value with a
+digest stored in the executor itself.
+
+`public_bindings_exact=true` therefore means that all independently owned
+runtime inputs are exact. It is not a claim that the executor cryptographically
+authenticated itself. A preflight result becomes reviewable only when Codex E
+also confirms that fields `executor_sha256` and `executor_test_sha256` equal the
+same hashes accepted before execution. The external pre-check, runtime
+non-self checks, and post-result E comparison are one chain; none substitutes
+for another.
+
+This boundary makes no hostile-code authenticity, code-signing, privileged
+isolation, or concurrent same-user tamper-prevention claim. Those are not
+eligibility requirements for this trusted-owner R0 preflight. Adding any such
+claim or mechanism requires a separate owner decision and contract; it cannot
+block the current external acceptance chain without new concrete evidence that
+the chain cannot truthfully execute this preflight.
 
 ### Network-count ownership and nonclaim
 
@@ -568,7 +642,10 @@ object.
 
 ## Exact Prelaunch Order
 
-One later authorized executor must perform this order once:
+The external executor-byte acceptance boundary above completes before this
+numbered runtime order begins. It is not an additional process, implementation
+path, result field, or durable artifact. One later authorized executor must
+then perform this order once:
 
 1. Activate the exact executor audit owner and inspect the retained historical
    proof. If exact direct use is proven, stop through the early structural-zero
@@ -577,8 +654,9 @@ One later authorized executor must perform this order once:
    issue-state, and zero-comment bindings.
 2. Verify that the owner preflight decision is exact, current, unexpired,
    unconsumed, nonreusable, and bound to the accepted executor contract,
-   contract review, and independently reviewed executor bytes. This is a
-   workflow gate; the executable does not invent or broaden authority.
+   contract review, and the two externally verified implementation hashes.
+   This remains a workflow gate; the executable does not invent, broaden, or
+   self-certify authority.
 3. Derive the fixed repository and installed roots and take the exact
    repository, installed-tree, and residue pre-observations defined above.
 4. Parse the private path through the one-line stdin boundary without
@@ -1174,7 +1252,9 @@ retry, or authority packet.
 
 Contract writing: exactly this docs file.
 
-Future Codex D correction: exactly the two current reviewed files named above.
+Future Codex D correction: exactly the two current reviewed implementation
+files named above. It removes the circular self-binding and retains the three
+independent raw-artifact comparisons; it creates no new implementation path.
 
 A separately authorized future synthetic preflight may create exactly one
 top-level process plus its attempt-owned pipes and Job Object, then must clean
@@ -1188,8 +1268,11 @@ does not authorize that preflight.
 Codex D must use fake adapters only; implementation and review do not launch
 the real interpreter. Focused tests must prove:
 
-1. exact contract-review, implementation-review, parent, harness, executor, and
-   test drift rejection;
+1. exact runtime rejection of contract-review, predecessor-review,
+   implementation-review, parent, harness, and executor-test drift; raw
+   executor measurement without an embedded expected executor digest; and
+   independent external rejection when either implementation hash differs from
+   the E-accepted owner binding;
 2. strict stdin framing and path no-echo;
 3. no argv, environment, PATH, registry, alias, shell, or fallback ingress;
 4. accepted validator and classifier reuse without copied binding logic;
@@ -1269,8 +1352,9 @@ py -B tools\check_secret_patterns.py --base origin/main
 ```
 
 Independent Codex E must additionally verify exact file hashes after all
-tests, no real process execution, issue #769 and #780 comment counts, zero
-matching target processes, and zero generated residue.
+tests, absence of an executor-owned self-admission digest or equivalent
+checksum cycle, no real process execution, issue #769 and #780 comment counts,
+zero matching target processes, and zero generated residue.
 
 ## Acceptance Criteria
 
@@ -1312,8 +1396,14 @@ Independent Codex E may accept this contract only if:
 14. implementation and fake tests require no real process launch;
 15. any existing owner approval is not silently transferred across the new
     contract or future implementation bytes; and
-16. only this contract changed, issue #769 remains untouched, and generated
-    residue is zero.
+16. executor-byte acceptance is externally owned by exact E-reviewed hashes
+    repeated in the owner decision, while runtime admission checks only
+    independently owned artifacts and reports its raw executor hash;
+17. no sidecar, signature, key, wrapper, launcher, new schema, digest family,
+    result field, status, process, or third implementation path was introduced;
+    and
+18. only this contract changed in B, issue #769 remains untouched, and
+    generated residue is zero.
 
 Contract acceptance routes only to Codex D for the two-file corrections, under
 separately confirmed repair authority. It does not authorize the real
@@ -1337,9 +1427,11 @@ prevalidator handoff, that a preflight ran, that child-network access is denied,
 completely observed, firewall-blocked, or technically impossible, or that a
 preflight or observation decision is eligible. The accepted harness audit count
 means only Python audit events observed in the harness process. The outer
-preflight count means only executor-owned events observed by the executor.
+preflight count means only executor-owned events observed by the executor. It
+also does not claim that mutable code can cryptographically authenticate its
+own independent acceptance; that acceptance remains the external E/owner gate.
 
-## Next Workflow Action
+## Historical Next Workflow Action (Superseded)
 
 Next role: fresh independent Codex E E-005 raw-effect predicate-disjointness
 confirmation reviewer.
@@ -1570,3 +1662,21 @@ workflow_handoff:
     - "issue #769 comment or protected-state mutation"
   next_recommended_role: "Codex E: independent R0 E-005 raw-effect predicate-disjointness confirmation reviewer"
 ```
+
+## Current Next Workflow Action
+
+Fresh independent Codex E reviews only this contract revision against the
+accepted predecessor, PR #792 exact-head review, current D handoff, and two
+unaccepted D candidate files. E must confirm that the external E/owner gate is
+the smallest truthful executor-byte trust anchor and that the two-file D scope
+only removes circular self-admission while retaining the three independent
+checks. A sidecar, signature, key, launcher, wrapper, schema, process, digest
+family, hostile-code claim, implementation acceptance, private-path access, or
+preflight execution is out of scope.
+
+On acceptance E creates only:
+`docs/contract_test_reports/role_pool_trusted_owner_r0_direct_interpreter_preflight_executor_public_binding_trust_anchor.md`.
+Acceptance routes to a fresh owner decision, then the exact two-file Codex D
+correction, and then independent E implementation confirmation. It grants no
+implementation, preflight, observation, publication, R1-R8, Stage 4,
+submission, merge, deployment, or readiness authority.

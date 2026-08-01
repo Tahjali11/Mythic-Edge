@@ -323,24 +323,33 @@ def test_exact_public_bindings_are_current_and_targets_are_ordinary() -> None:
     ).hexdigest()
 
 
+def test_executor_has_no_runtime_self_admission_digest() -> None:
+    assert not hasattr(target, "EXECUTOR_SOURCE_BINDING_SHA256")
+    assert not hasattr(target, "_stable_self_binding_sha256")
+
+
 @pytest.mark.parametrize(
     "drift_path",
     [
         target.EXECUTOR_CONTRACT_PATH,
         target.EXECUTOR_REVIEW_PATH,
+        target.EXECUTOR_LOCAL_EFFECT_REVIEW_PATH,
+        target.EXECUTOR_PREDECESSOR_REVIEW_PATH,
+        target.EXECUTOR_IMPLEMENTATION_REVIEW_PATH,
         target.PARENT_CONTRACT_PATH,
         target.PARENT_REVIEW_PATH,
         target.HARNESS_PATH,
         target.HARNESS_TEST_PATH,
+        target.EXECUTOR_TEST_PATH,
     ],
 )
 def test_each_public_input_drift_is_rejected(monkeypatch, drift_path: Path) -> None:
-    original = target._stable_file_sha256
+    original_file = target._stable_file_sha256
 
     def drift_one(path: Path) -> str:
         if path == REPOSITORY_ROOT / drift_path:
             return "0" * 64
-        return original(path)
+        return original_file(path)
 
     monkeypatch.setattr(target, "_stable_file_sha256", drift_one)
     monkeypatch.setattr(
