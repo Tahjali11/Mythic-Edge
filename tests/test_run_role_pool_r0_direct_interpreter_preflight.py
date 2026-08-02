@@ -258,11 +258,13 @@ class FakeAdapter:
         ambient: target.AmbientJobObservation | None = None,
         pre_state: str = "exact",
         post_observation: target.LocalEffectObservation | None = None,
+        execute_error: Exception | None = None,
     ) -> None:
         self.record = _process_record(_postcreate()) if record is None else record
         self.public_exact = public_exact
         self.private_exact = private_exact
         self.ambient = ambient or target.AmbientJobObservation(True, False)
+        self.execute_error = execute_error
         self.calls: list[str] = []
         self.request: target.FixedLaunchRequest | None = None
         self.effects = FakeEffectMonitor(
@@ -298,9 +300,19 @@ class FakeAdapter:
         self.calls.append("ambient")
         return self.ambient
 
-    def execute_once(self, request, selection, parent_api) -> target.ProcessRecord:
+    def execute_once(
+        self,
+        request,
+        selection,
+        parent_api,
+        terminal_tracker=None,
+    ) -> target.ProcessRecord:
         self.calls.append("execute")
         self.request = request
+        if terminal_tracker is not None:
+            terminal_tracker.mark_create_entered()
+        if self.execute_error is not None:
+            raise self.execute_error
         return self.record
 
     def observed_at_utc(self) -> str:
@@ -473,6 +485,263 @@ def test_cli_has_only_the_fixed_ingress_and_does_not_touch_adapter(monkeypatch) 
     assert stderr.buffer.getvalue() == target.UNKNOWN_SENTINEL
 
 
+@pytest.mark.parametrize(
+    ("payload", "byte_count", "digest"),
+    [
+        (
+            b"direct_interpreter_preflight_unknown_precreate_unconsumed\n",
+            58,
+            "7584ac48a50925e117afb55e6127b27f5ceb36ccb753a5ab8eee32cd0b290473",
+        ),
+        (
+            b"direct_interpreter_preflight_unknown_create_entered_consumed\n",
+            61,
+            "96b69d4593abab39f9d256461aa0b692f58750059af5d6277273dd49de1ba97c",
+        ),
+        (
+            b"direct_interpreter_preflight_unknown_stage_ambiguous_consumed\n",
+            62,
+            "6f7649de0b4db9c2b5db46635ff52ff4fdcb47fef8daa41a1c4cb7766e4729bd",
+        ),
+    ],
+)
+def test_terminal_fallback_diagnostics_are_exact_ascii_vectors(
+    payload: bytes,
+    byte_count: int,
+    digest: str,
+) -> None:
+    assert payload in {
+        target.UNKNOWN_PRECREATE_UNCONSUMED,
+        target.UNKNOWN_CREATE_ENTERED_CONSUMED,
+        target.UNKNOWN_STAGE_AMBIGUOUS_CONSUMED,
+    }
+    assert len(payload) == byte_count
+    assert hashlib.sha256(payload).hexdigest() == digest
+    assert payload.isascii()
+    assert payload.endswith(b"\n")
+    assert payload.count(b"\n") == 1
+    assert b"\r" not in payload
+    assert not payload.startswith(b"\xef\xbb\xbf")
+    with pytest.raises(target.ResultProjectionError):
+        target.parse_result(payload)
+
+
+def test_terminal_boundary_tracker_is_monotonic_and_duplicate_entry_is_ambiguous() -> None:
+    tracker = target._TerminalBoundaryTracker()
+    assert target._terminal_fallback_diagnostic(tracker) == (
+        target.UNKNOWN_PRECREATE_UNCONSUMED
+    )
+
+    tracker.mark_create_entered()
+    assert target._terminal_fallback_diagnostic(tracker) == (
+        target.UNKNOWN_CREATE_ENTERED_CONSUMED
+    )
+
+    with pytest.raises(target.PreflightFailure):
+        tracker.mark_create_entered()
+    assert target._terminal_fallback_diagnostic(tracker) == (
+        target.UNKNOWN_STAGE_AMBIGUOUS_CONSUMED
+    )
+
+
+@pytest.mark.parametrize(
+    ("state", "transition_count"),
+    [
+        ("precreate", 1),
+        ("create_entered", 0),
+        ("ambiguous", 0),
+        ("unknown", 0),
+        ("create_entered", True),
+    ],
+)
+def test_terminal_boundary_tracker_contradictions_are_ambiguous(
+    state: str,
+    transition_count: int,
+) -> None:
+    tracker = target._TerminalBoundaryTracker()
+    tracker._state = state
+    tracker._transition_count = transition_count
+    assert target._terminal_fallback_diagnostic(tracker) == (
+        target.UNKNOWN_STAGE_AMBIGUOUS_CONSUMED
+    )
+
+
+def test_missing_or_unreadable_terminal_tracker_is_ambiguous() -> None:
+    class UnreadableTracker:
+        def diagnostic(self):
+            raise OSError("invented tracker read failure")
+
+    assert target._terminal_fallback_diagnostic(None) == (
+        target.UNKNOWN_STAGE_AMBIGUOUS_CONSUMED
+    )
+    assert target._terminal_fallback_diagnostic(UnreadableTracker()) == (
+        target.UNKNOWN_STAGE_AMBIGUOUS_CONSUMED
+    )
+
+
+@pytest.mark.parametrize(
+    "foreign_diagnostic",
+    [
+        target.UNKNOWN_PRECREATE_UNCONSUMED,
+        target.UNKNOWN_CREATE_ENTERED_CONSUMED,
+        target.UNKNOWN_STAGE_AMBIGUOUS_CONSUMED,
+    ],
+)
+def test_foreign_tracker_cannot_supply_a_valid_looking_diagnostic(
+    foreign_diagnostic: bytes,
+) -> None:
+    class ForeignTracker:
+        def diagnostic(self):
+            return foreign_diagnostic
+
+    assert target._terminal_fallback_diagnostic(ForeignTracker()) == (
+        target.UNKNOWN_STAGE_AMBIGUOUS_CONSUMED
+    )
+
+
+@pytest.mark.parametrize("tracker_value", [None, "unreadable"])
+def test_cli_missing_or_unreadable_tracker_emits_ambiguous_fallback(
+    monkeypatch,
+    tracker_value,
+) -> None:
+    class UnreadableTracker:
+        def diagnostic(self):
+            raise OSError("invented tracker read failure")
+
+    tracker = None if tracker_value is None else UnreadableTracker()
+    adapter = FakeAdapter()
+    stdout = SimpleNamespace(buffer=io.BytesIO())
+    stderr = SimpleNamespace(buffer=io.BytesIO())
+    monkeypatch.setattr(target, "_TerminalBoundaryTracker", lambda: tracker)
+    monkeypatch.setattr(target, "CtypesDirectWindowsPreflightAdapter", lambda: adapter)
+    monkeypatch.setattr(sys, "stdin", SimpleNamespace(buffer=io.BytesIO(b"invalid\n")))
+    monkeypatch.setattr(sys, "stdout", stdout)
+    monkeypatch.setattr(sys, "stderr", stderr)
+
+    assert target.run(["--private-path-stdin"]) == 3
+    assert stdout.buffer.getvalue() == b""
+    assert stderr.buffer.getvalue() == target.UNKNOWN_STAGE_AMBIGUOUS_CONSUMED
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        lambda payload: payload[:-1],
+        lambda payload: payload + b"extra\n",
+        lambda payload: payload.replace(b"\n", b"\r\n"),
+        lambda payload: b"x" + payload,
+    ],
+)
+def test_inexact_terminal_diagnostic_cannot_establish_a_stage(mutation) -> None:
+    exact = {
+        target.UNKNOWN_PRECREATE_UNCONSUMED,
+        target.UNKNOWN_CREATE_ENTERED_CONSUMED,
+        target.UNKNOWN_STAGE_AMBIGUOUS_CONSUMED,
+    }
+    for payload in exact:
+        assert mutation(payload) not in exact
+
+
+def test_cli_invalid_stdin_uses_precreate_unconsumed_fallback(monkeypatch) -> None:
+    adapter = FakeAdapter()
+    stdout = SimpleNamespace(buffer=io.BytesIO())
+    stderr = SimpleNamespace(buffer=io.BytesIO())
+    monkeypatch.setattr(target, "CtypesDirectWindowsPreflightAdapter", lambda: adapter)
+    monkeypatch.setattr(sys, "stdin", SimpleNamespace(buffer=io.BytesIO(b"invalid\n")))
+    monkeypatch.setattr(sys, "stdout", stdout)
+    monkeypatch.setattr(sys, "stderr", stderr)
+
+    assert target.run(["--private-path-stdin"]) == 3
+    assert stdout.buffer.getvalue() == b""
+    assert stderr.buffer.getvalue() == target.UNKNOWN_PRECREATE_UNCONSUMED
+
+
+@pytest.mark.parametrize(
+    "failure_method",
+    [
+        "begin_local_effect_observation",
+        "validate_public_bindings",
+        "observe_ambient_job",
+    ],
+)
+def test_cli_precreate_failures_use_only_unconsumed_fallback(
+    monkeypatch,
+    failure_method: str,
+) -> None:
+    monkeypatch.setenv("SystemRoot", r"C:\Windows")
+    monkeypatch.setenv("WINDIR", r"C:\Windows")
+    adapter = FakeAdapter()
+
+    def fail(*args, **kwargs):
+        raise OSError("invented precreate failure")
+
+    monkeypatch.setattr(adapter, failure_method, fail)
+    stdout = SimpleNamespace(buffer=io.BytesIO())
+    stderr = SimpleNamespace(buffer=io.BytesIO())
+    monkeypatch.setattr(target, "CtypesDirectWindowsPreflightAdapter", lambda: adapter)
+    monkeypatch.setattr(
+        sys,
+        "stdin",
+        SimpleNamespace(buffer=io.BytesIO(b"C:\\synthetic-private\\python.exe\n")),
+    )
+    monkeypatch.setattr(sys, "stdout", stdout)
+    monkeypatch.setattr(sys, "stderr", stderr)
+
+    assert target.run(["--private-path-stdin"]) == 3
+    assert stdout.buffer.getvalue() == b""
+    assert stderr.buffer.getvalue() == target.UNKNOWN_PRECREATE_UNCONSUMED
+
+
+def test_cli_create_entry_failure_uses_only_consumed_fallback(monkeypatch) -> None:
+    monkeypatch.setenv("SystemRoot", r"C:\Windows")
+    monkeypatch.setenv("WINDIR", r"C:\Windows")
+    adapter = FakeAdapter(execute_error=OSError("invented call-entry failure"))
+    stdout = SimpleNamespace(buffer=io.BytesIO())
+    stderr = SimpleNamespace(buffer=io.BytesIO())
+    monkeypatch.setattr(target, "CtypesDirectWindowsPreflightAdapter", lambda: adapter)
+    monkeypatch.setattr(
+        sys,
+        "stdin",
+        SimpleNamespace(buffer=io.BytesIO(b"C:\\synthetic-private\\python.exe\n")),
+    )
+    monkeypatch.setattr(sys, "stdout", stdout)
+    monkeypatch.setattr(sys, "stderr", stderr)
+
+    assert target.run(["--private-path-stdin"]) == 3
+    assert stdout.buffer.getvalue() == b""
+    assert stderr.buffer.getvalue() == target.UNKNOWN_CREATE_ENTERED_CONSUMED
+    assert b"synthetic-private" not in stderr.buffer.getvalue()
+
+
+def test_cli_foreign_tracker_cannot_underclaim_after_fake_create_entry(monkeypatch) -> None:
+    class ForeignTracker:
+        def mark_create_entered(self):
+            pass
+
+        def diagnostic(self):
+            return target.UNKNOWN_PRECREATE_UNCONSUMED
+
+    monkeypatch.setenv("SystemRoot", r"C:\Windows")
+    monkeypatch.setenv("WINDIR", r"C:\Windows")
+    adapter = FakeAdapter(execute_error=OSError("invented post-entry failure"))
+    stdout = SimpleNamespace(buffer=io.BytesIO())
+    stderr = SimpleNamespace(buffer=io.BytesIO())
+    monkeypatch.setattr(target, "_TerminalBoundaryTracker", lambda: ForeignTracker())
+    monkeypatch.setattr(target, "CtypesDirectWindowsPreflightAdapter", lambda: adapter)
+    monkeypatch.setattr(
+        sys,
+        "stdin",
+        SimpleNamespace(buffer=io.BytesIO(b"C:\\synthetic-private\\python.exe\n")),
+    )
+    monkeypatch.setattr(sys, "stdout", stdout)
+    monkeypatch.setattr(sys, "stderr", stderr)
+
+    assert target.run(["--private-path-stdin"]) == 3
+    assert stdout.buffer.getvalue() == b""
+    assert stderr.buffer.getvalue() == target.UNKNOWN_STAGE_AMBIGUOUS_CONSUMED
+    assert stderr.buffer.getvalue() != target.UNKNOWN_PRECREATE_UNCONSUMED
+
+
 def test_cli_checks_public_bindings_before_reading_private_stdin(monkeypatch) -> None:
     class ExplodingInput:
         def read(self, size=-1):
@@ -524,7 +793,7 @@ def test_cli_valid_path_uses_one_public_check_and_fake_adapter_only(monkeypatch)
     assert stderr.buffer.getvalue() == b""
 
 
-def test_cli_effect_evidence_failure_uses_only_the_fixed_no_echo_sentinel(monkeypatch) -> None:
+def test_cli_effect_evidence_failure_uses_only_the_create_entered_fallback(monkeypatch) -> None:
     monkeypatch.setenv("SystemRoot", r"C:\Windows")
     monkeypatch.setenv("WINDIR", r"C:\Windows")
     adapter = FakeAdapter(
@@ -545,7 +814,7 @@ def test_cli_effect_evidence_failure_uses_only_the_fixed_no_echo_sentinel(monkey
     monkeypatch.setattr(sys, "stderr", stderr)
     assert target.run(["--private-path-stdin"]) == 3
     assert stdout.buffer.getvalue() == b""
-    assert stderr.buffer.getvalue() == target.UNKNOWN_SENTINEL
+    assert stderr.buffer.getvalue() == target.UNKNOWN_CREATE_ENTERED_CONSUMED
     assert b"synthetic-private" not in stderr.buffer.getvalue()
 
 
@@ -571,7 +840,7 @@ def test_cli_inventory_failure_does_not_echo_row_paths(monkeypatch) -> None:
     monkeypatch.setattr(sys, "stderr", stderr)
     assert target.run(["--private-path-stdin"]) == 3
     assert stdout.buffer.getvalue() == b""
-    assert stderr.buffer.getvalue() == target.UNKNOWN_SENTINEL
+    assert stderr.buffer.getvalue() == target.UNKNOWN_CREATE_ENTERED_CONSUMED
     assert private_row.encode("ascii") not in stderr.buffer.getvalue()
 
 
@@ -1443,6 +1712,11 @@ def test_network_count_is_executor_owned_without_child_isolation_claims() -> Non
 def test_production_source_has_one_create_and_one_resume_call_site() -> None:
     source = (REPOSITORY_ROOT / target.EXECUTOR_PATH).read_text(encoding="utf-8")
     assert source.count("kernel32.CreateProcessW(") == 1
+    assert source.count(
+        "if terminal_tracker is not None:\n"
+        "            terminal_tracker.mark_create_entered()\n"
+        "        create_result = kernel32.CreateProcessW("
+    ) == 1
     assert source.count("kernel32.ResumeThread(") == 1
     assert source.count("retry_count\": 0") == 1
 

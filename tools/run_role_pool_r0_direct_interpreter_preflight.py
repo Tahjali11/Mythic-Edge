@@ -28,10 +28,10 @@ REPOSITORY_ID = 1235264383
 ISSUE_NUMBER = 780
 RESULT_SCHEMA = "trusted_owner_r0_direct_interpreter_preflight_result.v1"
 EXECUTOR_CONTRACT_SHA256 = (
-    "d2bfd244a4c20c0631cd7d16bc3209f08f471368d8ba090997acfecd16a314c7"
+    "cdf059021cbfbcc6813c8c20b02001d98bf03a7590efa9286fb4b905bad908d4"
 )
 EXECUTOR_CONTRACT_REVIEW_SHA256 = (
-    "25acde0c0095929069952caf1fa458dee4b725c9c96212c9d3c8118c0e702ca0"
+    "8fa95ada34171e0e040acea13de52a87d72138995bbcc8b6dc982fb0ecca3880"
 )
 EXECUTOR_LOCAL_EFFECT_REVIEW_SHA256 = (
     "5977226c70449601e09d04328a9a0522cefcb15dbaea13aead494bfb64fa753a"
@@ -43,7 +43,7 @@ EXECUTOR_IMPLEMENTATION_REVIEW_SHA256 = (
     "49d66f9ce38f0fab01bbeebf02deba4451f87f45600a21552b47a3e9292e0dac"
 )
 EXECUTOR_TEST_SHA256 = (
-    "a05c537d30cb5e3c4ed77ec7747cc87f19ec5f9729bed4f1fc50818f19f54cfe"
+    "435aedabf5d73e02df1cede397f937da6c44b2cecd4ee3ae21b0645bf44e490b"
 )
 PARENT_CONTRACT_SHA256 = (
     "17d0d2f5fe965643888ea70c71a278afdb7797033c311252bce1dde56486ea84"
@@ -70,7 +70,7 @@ EXECUTOR_CONTRACT_PATH = Path(
 )
 EXECUTOR_REVIEW_PATH = Path(
     "docs/contract_test_reports/role_pool_trusted_owner_r0_direct_interpreter_"
-    "preflight_executor_public_binding_trust_anchor.md"
+    "preflight_terminal_fallback.md"
 )
 EXECUTOR_LOCAL_EFFECT_REVIEW_PATH = Path(
     "docs/contract_test_reports/role_pool_trusted_owner_r0_direct_interpreter_"
@@ -125,6 +125,15 @@ FILE_ID_BOTH_DIRECTORY_RESTART_INFO = 11
 ERROR_NO_MORE_FILES = 18
 DIRECTORY_ENUMERATION_BUFFER_BYTES = 64 * 1024
 UNKNOWN_SENTINEL = b"direct_interpreter_preflight_unknown\n"
+UNKNOWN_PRECREATE_UNCONSUMED = (
+    b"direct_interpreter_preflight_unknown_precreate_unconsumed\n"
+)
+UNKNOWN_CREATE_ENTERED_CONSUMED = (
+    b"direct_interpreter_preflight_unknown_create_entered_consumed\n"
+)
+UNKNOWN_STAGE_AMBIGUOUS_CONSUMED = (
+    b"direct_interpreter_preflight_unknown_stage_ambiguous_consumed\n"
+)
 FIXED_ARGUMENTS = ("-B", "-c", "pass")
 
 CREATE_SUSPENDED = 0x00000004
@@ -488,6 +497,54 @@ class FixedLaunchRequest:
     )
 
 
+class _TerminalBoundaryTracker:
+    """Track whether the invocation entered its sole process-creation call."""
+
+    __slots__ = ("_state", "_transition_count")
+
+    def __init__(self) -> None:
+        self._state = "precreate"
+        self._transition_count = 0
+
+    def mark_create_entered(self) -> None:
+        if (
+            type(self._state) is not str
+            or type(self._transition_count) is not int
+            or self._state != "precreate"
+            or self._transition_count != 0
+        ):
+            self._state = "ambiguous"
+            self._transition_count = -1
+            raise PreflightFailure
+        self._state = "create_entered"
+        self._transition_count = 1
+
+    def diagnostic(self) -> bytes:
+        if type(self._state) is not str or type(self._transition_count) is not int:
+            return UNKNOWN_STAGE_AMBIGUOUS_CONSUMED
+        if self._state == "precreate" and self._transition_count == 0:
+            return UNKNOWN_PRECREATE_UNCONSUMED
+        if self._state == "create_entered" and self._transition_count == 1:
+            return UNKNOWN_CREATE_ENTERED_CONSUMED
+        return UNKNOWN_STAGE_AMBIGUOUS_CONSUMED
+
+
+def _terminal_fallback_diagnostic(tracker: object | None) -> bytes:
+    if type(tracker) is not _TerminalBoundaryTracker:
+        return UNKNOWN_STAGE_AMBIGUOUS_CONSUMED
+    try:
+        diagnostic = getattr(tracker, "diagnostic")()
+    except Exception:
+        return UNKNOWN_STAGE_AMBIGUOUS_CONSUMED
+    if diagnostic not in {
+        UNKNOWN_PRECREATE_UNCONSUMED,
+        UNKNOWN_CREATE_ENTERED_CONSUMED,
+        UNKNOWN_STAGE_AMBIGUOUS_CONSUMED,
+    }:
+        return UNKNOWN_STAGE_AMBIGUOUS_CONSUMED
+    return diagnostic
+
+
 class LocalEffectMonitor(Protocol):
     def observe_pre(self, parent_api: ModuleType) -> str:
         ...
@@ -528,6 +585,7 @@ class DirectWindowsPreflightAdapter(Protocol):
         request: FixedLaunchRequest,
         selection: AmbientJobSelection,
         parent_api: ModuleType,
+        terminal_tracker: _TerminalBoundaryTracker | None = None,
     ) -> ProcessRecord:
         ...
 
@@ -2373,6 +2431,7 @@ def _execute_with_validated_bindings(
     bindings: PublicBindingSnapshot,
     repository_root: Path,
     effects: LocalEffectMonitor,
+    terminal_tracker: _TerminalBoundaryTracker | None = None,
 ) -> Mapping[str, object]:
     observed_at = runtime.observed_at_utc()
     if not bindings.exact:
@@ -2419,7 +2478,15 @@ def _execute_with_validated_bindings(
     try:
         request = _build_request(private_interpreter_path, repository_root, selection)
         effects.enter_effect_boundary()
-        process_record = runtime.execute_once(request, selection, bindings.parent_api)
+        if terminal_tracker is None:
+            process_record = runtime.execute_once(request, selection, bindings.parent_api)
+        else:
+            process_record = runtime.execute_once(
+                request,
+                selection,
+                bindings.parent_api,
+                terminal_tracker,
+            )
     except Exception as exc:
         try:
             derive_local_effects(effects.observe_post_terminal())
@@ -2491,6 +2558,11 @@ def run(argv: Sequence[str] | None = None) -> int:
         _write_bytes(sys.stderr, UNKNOWN_SENTINEL)
         return 3
     try:
+        terminal_tracker = _TerminalBoundaryTracker()
+    except Exception:
+        _write_bytes(sys.stderr, UNKNOWN_SENTINEL)
+        return 3
+    try:
         repository_root = Path(__file__).absolute().parent.parent
         runtime = CtypesDirectWindowsPreflightAdapter()
         effects = runtime.begin_local_effect_observation(repository_root)
@@ -2514,11 +2586,12 @@ def run(argv: Sequence[str] | None = None) -> int:
             bindings,
             repository_root,
             effects,
+            terminal_tracker,
         )
         payload = canonical_bytes(result)
         parse_result(payload)
     except Exception:
-        _write_bytes(sys.stderr, UNKNOWN_SENTINEL)
+        _write_bytes(sys.stderr, _terminal_fallback_diagnostic(terminal_tracker))
         return 3
     _write_bytes(sys.stdout, payload)
     return _exit_code(cast(str, result["result_status"]))
@@ -2558,8 +2631,14 @@ class CtypesDirectWindowsPreflightAdapter:
         request: FixedLaunchRequest,
         selection: AmbientJobSelection,
         parent_api: ModuleType,
+        terminal_tracker: _TerminalBoundaryTracker | None = None,
     ) -> ProcessRecord:
-        return self._kernel.execute_once(request, selection, parent_api)
+        return self._kernel.execute_once(
+            request,
+            selection,
+            parent_api,
+            terminal_tracker,
+        )
 
     def observed_at_utc(self) -> str:
         return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -3177,6 +3256,7 @@ def _execute_win32_once(
     request: FixedLaunchRequest,
     selection: AmbientJobSelection,
     parent_api: ModuleType,
+    terminal_tracker: _TerminalBoundaryTracker | None = None,
 ) -> ProcessRecord:
     if selection.creation_flags != request.creation_flags or not selection.admitted:
         raise PreflightFailure
@@ -3284,6 +3364,8 @@ def _execute_win32_once(
         environment = _environment_block(request.environment)
         create_entered = True
         events.append("create_entered")
+        if terminal_tracker is not None:
+            terminal_tracker.mark_create_entered()
         create_result = kernel32.CreateProcessW(
                 os.fspath(request.application_path),
                 command_line,
@@ -3538,8 +3620,14 @@ class _Win32Kernel:
         request: FixedLaunchRequest,
         selection: AmbientJobSelection,
         parent_api: ModuleType,
+        terminal_tracker: _TerminalBoundaryTracker | None = None,
     ) -> ProcessRecord:
-        return _execute_win32_once(request, selection, parent_api)
+        return _execute_win32_once(
+            request,
+            selection,
+            parent_api,
+            terminal_tracker,
+        )
 
 
 if __name__ == "__main__":
