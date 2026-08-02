@@ -786,6 +786,256 @@ def test_production_wrapper_has_no_caller_selected_launch_controls() -> None:
     assert all(parameter.kind is inspect.Parameter.KEYWORD_ONLY for parameter in parameters.values())
 
 
+class _WrapperPrivatePath:
+    def __init__(self, *, clear_fails: bool = False) -> None:
+        self.clear_fails = clear_fails
+        self.cleared = False
+
+    def value(self) -> str:
+        return SYNTHETIC_PATH
+
+    def clear(self) -> None:
+        self.cleared = True
+        if self.clear_fails:
+            raise RuntimeError("synthetic-clear-failure")
+
+
+class _WrapperStdout:
+    def __init__(
+        self,
+        *,
+        write_state: str = "complete",
+        flush_fails: bool = False,
+    ) -> None:
+        self.write_state = write_state
+        self.flush_fails = flush_fails
+        self.payload = bytearray()
+
+    def write(self, payload: bytes) -> int:
+        if self.write_state == "failed":
+            raise RuntimeError("synthetic-write-failure")
+        if self.write_state == "incomplete":
+            self.payload.extend(payload[:-1])
+            return len(payload) - 1
+        self.payload.extend(payload)
+        return len(payload)
+
+    def flush(self) -> None:
+        if self.flush_fails:
+            raise RuntimeError("synthetic-flush-failure")
+
+
+def _raise_wrapper_failure(*_args: object, **_kwargs: object) -> None:
+    raise RuntimeError("synthetic-wrapper-failure")
+
+
+def _raise_wrapper_abort(*_args: object, **_kwargs: object) -> None:
+    raise SystemExit(99)
+
+
+def _install_operation_free_wrapper_success(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    private_path: _WrapperPrivatePath | None = None,
+) -> tuple[_WrapperPrivatePath, list[tuple[object, ...]], bytes]:
+    bound_path = private_path or _WrapperPrivatePath()
+    adapter = object()
+    calls: list[tuple[object, ...]] = []
+    payload = b'{"synthetic":"canonical"}\n'
+
+    monkeypatch.setattr(target, "_valid_characterization_id", lambda _value: True)
+    monkeypatch.setattr(target, "_public_bindings", lambda _root: _bindings())
+    monkeypatch.setattr(target, "parse_private_path_stdin", lambda _stream: bound_path)
+    monkeypatch.setattr(target, "CtypesIdentityAdapter", lambda: adapter)
+
+    def _characterize(
+        path: str,
+        *,
+        characterization_id: str,
+        adapter: object,
+        bindings: target.PublicBindingSnapshot,
+        repository_root: Path,
+    ) -> dict[str, object]:
+        calls.append(
+            (
+                path,
+                characterization_id,
+                adapter,
+                bindings,
+                repository_root,
+            )
+        )
+        return {"synthetic": "canonical"}
+
+    monkeypatch.setattr(target, "characterize_with_adapter", _characterize)
+    monkeypatch.setattr(target, "canonical_bytes", lambda _result: payload)
+    return bound_path, calls, payload
+
+
+@pytest.mark.parametrize(
+    ("boundary", "expected_code"),
+    [
+        ("id_rejected", 10),
+        ("id_failed", 10),
+        ("id_aborted", 10),
+        ("bindings_rejected", 11),
+        ("bindings_failed", 11),
+        ("private_ingress_failed", 12),
+        ("adapter_failed", 13),
+        ("characterization_failed", 13),
+        ("canonical_sealing_failed", 14),
+        ("stdout_write_failed", 15),
+        ("stdout_write_incomplete", 15),
+        ("stdout_flush_failed", 16),
+    ],
+)
+def test_production_wrapper_projects_exact_first_failure_code(
+    monkeypatch: pytest.MonkeyPatch,
+    boundary: str,
+    expected_code: int,
+) -> None:
+    private_path, calls, payload = _install_operation_free_wrapper_success(monkeypatch)
+    stdout = _WrapperStdout()
+
+    if boundary == "id_rejected":
+        monkeypatch.setattr(target, "_valid_characterization_id", lambda _value: False)
+    elif boundary == "id_failed":
+        monkeypatch.setattr(target, "_valid_characterization_id", _raise_wrapper_failure)
+    elif boundary == "id_aborted":
+        monkeypatch.setattr(target, "_valid_characterization_id", _raise_wrapper_abort)
+    elif boundary == "bindings_rejected":
+        rejected = target.PublicBindingSnapshot(
+            False,
+            "0" * 64,
+            "0" * 64,
+            SyntheticParentApi(),
+        )
+        monkeypatch.setattr(target, "_public_bindings", lambda _root: rejected)
+    elif boundary == "bindings_failed":
+        monkeypatch.setattr(target, "_public_bindings", _raise_wrapper_failure)
+    elif boundary == "private_ingress_failed":
+        monkeypatch.setattr(target, "parse_private_path_stdin", _raise_wrapper_failure)
+    elif boundary == "adapter_failed":
+        monkeypatch.setattr(target, "CtypesIdentityAdapter", _raise_wrapper_failure)
+    elif boundary == "characterization_failed":
+        monkeypatch.setattr(target, "characterize_with_adapter", _raise_wrapper_failure)
+    elif boundary == "canonical_sealing_failed":
+        monkeypatch.setattr(target, "canonical_bytes", _raise_wrapper_failure)
+    elif boundary == "stdout_write_failed":
+        stdout = _WrapperStdout(write_state="failed")
+    elif boundary == "stdout_write_incomplete":
+        stdout = _WrapperStdout(write_state="incomplete")
+    elif boundary == "stdout_flush_failed":
+        stdout = _WrapperStdout(flush_fails=True)
+
+    code = target.run_consumed_characterization(
+        characterization_id=SYNTHETIC_ID,
+        stdin=io.BytesIO(b"synthetic-input-not-read"),
+        stdout=stdout,
+    )
+
+    assert code == expected_code
+    assert bytes(stdout.payload) in {b"", payload[:-1], payload}
+    assert private_path.cleared is (expected_code >= 13)
+    assert len(calls) <= 1
+
+
+def test_production_wrapper_success_preserves_canonical_bytes_and_inputs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    private_path, calls, payload = _install_operation_free_wrapper_success(monkeypatch)
+    stdout = _WrapperStdout()
+
+    code = target.run_consumed_characterization(
+        characterization_id=SYNTHETIC_ID,
+        stdin=io.BytesIO(b"synthetic-input-not-read"),
+        stdout=stdout,
+    )
+
+    assert code == 0
+    assert bytes(stdout.payload) == payload
+    assert private_path.cleared is True
+    assert len(calls) == 1
+    path, characterization_id, _adapter, bindings, repository_root = calls[0]
+    assert path == SYNTHETIC_PATH
+    assert characterization_id == SYNTHETIC_ID
+    assert bindings.exact is True
+    assert bindings.characterizer_sha256 == "3" * 64
+    assert bindings.characterizer_test_sha256 == "4" * 64
+    assert type(bindings.parent_api) is SyntheticParentApi
+    assert repository_root == Path(target.__file__).absolute().parent.parent
+
+
+@pytest.mark.parametrize("pending_boundary", ["success", "canonical_failure"])
+def test_private_path_cleanup_failure_overrides_pending_wrapper_result(
+    monkeypatch: pytest.MonkeyPatch,
+    pending_boundary: str,
+) -> None:
+    private_path = _WrapperPrivatePath(clear_fails=True)
+    _install_operation_free_wrapper_success(monkeypatch, private_path=private_path)
+    if pending_boundary == "canonical_failure":
+        monkeypatch.setattr(target, "canonical_bytes", _raise_wrapper_failure)
+
+    code = target.run_consumed_characterization(
+        characterization_id=SYNTHETIC_ID,
+        stdin=io.BytesIO(b"synthetic-input-not-read"),
+        stdout=_WrapperStdout(),
+    )
+
+    assert code == 2
+    assert private_path.cleared is True
+
+
+def test_unclassified_wrapper_setup_failure_returns_unknown_code(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(target, "Path", _raise_wrapper_failure)
+
+    code = target.run_consumed_characterization(
+        characterization_id=SYNTHETIC_ID,
+        stdin=io.BytesIO(b"synthetic-input-not-read"),
+        stdout=_WrapperStdout(),
+    )
+
+    assert code == 2
+
+
+def test_wrapper_codes_form_closed_terminal_phase_selector(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    private_path, _calls, _payload = _install_operation_free_wrapper_success(monkeypatch)
+    stdout = _WrapperStdout()
+    success_code = target.run_consumed_characterization(
+        characterization_id=SYNTHETIC_ID,
+        stdin=io.BytesIO(b"synthetic-input-not-read"),
+        stdout=stdout,
+    )
+    singleton_codes = (10, 11, 12, 13, 14, 15, 16, success_code, 2)
+    phases = (
+        "id_validation_failed",
+        "public_binding_validation_failed",
+        "private_ingress_failed",
+        "characterization_failed",
+        "canonical_sealing_failed",
+        "stdout_write_failed",
+        "stdout_flush_failed",
+        "wrapper_complete",
+        "unknown",
+    )
+    phase_by_code = dict(zip(singleton_codes, phases, strict=True))
+    cases = [(code,) for code in singleton_codes]
+    cases.extend(itertools.combinations(singleton_codes, 2))
+
+    selected = [phase_by_code[case[0]] if len(case) == 1 else "unknown" for case in cases]
+
+    assert success_code == 0
+    assert private_path.cleared is True
+    assert len(cases) == 45
+    assert len(set(phases)) == 9
+    assert set(selected) == set(phases)
+    assert all(value == "unknown" for value in selected[9:])
+
+
 def test_public_bindings_are_exact_without_private_or_process_access() -> None:
     repository_root = Path(__file__).absolute().parent.parent
     bindings = target._public_bindings(repository_root)
