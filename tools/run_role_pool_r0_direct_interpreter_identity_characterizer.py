@@ -1249,31 +1249,68 @@ def run_consumed_characterization(
 ) -> int:
     """Run only after an external executor proves exact atomic consumption."""
 
-    repository_root = Path(__file__).absolute().parent.parent
-    private_path: _BoundPrivatePath | None = None
     try:
-        if not _valid_characterization_id(characterization_id):
-            return 2
-        bindings = _public_bindings(repository_root)
-        if not bindings.exact:
-            return 2
-        private_path = parse_private_path_stdin(stdin)
-        result = characterize_with_adapter(
-            private_path.value(),
-            characterization_id=characterization_id,
-            adapter=CtypesIdentityAdapter(),
-            bindings=bindings,
-            repository_root=repository_root,
-        )
-        payload = canonical_bytes(result)
-        stdout.write(payload)
-        stdout.flush()
-        return 0
-    except Exception:
+        repository_root = Path(__file__).absolute().parent.parent
+    except BaseException:
         return 2
+    try:
+        valid_id = _valid_characterization_id(characterization_id)
+    except BaseException:
+        return 10
+    if valid_id is not True:
+        return 10
+
+    try:
+        bindings = _public_bindings(repository_root)
+        bindings_exact = bindings.exact
+    except BaseException:
+        return 11
+    if bindings_exact is not True:
+        return 11
+
+    try:
+        private_path = parse_private_path_stdin(stdin)
+    except BaseException:
+        return 12
+
+    result_code = 2
+    cleanup_failed = False
+    try:
+        try:
+            result = characterize_with_adapter(
+                private_path.value(),
+                characterization_id=characterization_id,
+                adapter=CtypesIdentityAdapter(),
+                bindings=bindings,
+                repository_root=repository_root,
+            )
+        except BaseException:
+            result_code = 13
+        else:
+            try:
+                payload = canonical_bytes(result)
+            except BaseException:
+                result_code = 14
+            else:
+                try:
+                    written = stdout.write(payload)
+                    if type(written) is not int or written != len(payload):
+                        result_code = 15
+                    else:
+                        try:
+                            stdout.flush()
+                        except BaseException:
+                            result_code = 16
+                        else:
+                            result_code = 0
+                except BaseException:
+                    result_code = 15
     finally:
-        if private_path is not None:
+        try:
             private_path.clear()
+        except BaseException:
+            cleanup_failed = True
+    return 2 if cleanup_failed else result_code
 
 
 # The Win32 adapter is declared below the pure kernel so imports and synthetic
