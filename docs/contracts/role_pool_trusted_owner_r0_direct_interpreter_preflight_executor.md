@@ -8,14 +8,13 @@
 - Tracker: `https://github.com/Tahjali11/Mythic-Edge/issues/746`.
 - Protected coordination surface:
   `https://github.com/Tahjali11/Mythic-Edge/issues/769`.
-- Role: Codex B, narrow R0 E-005 LE-03/LE-04 predicate-disjointness
-  corrector.
-- Base: `origin/main@3c3b4bfa7ddcd066d54b8b17ca9f3d496919d23f`.
+- Role: Codex B, narrow R0 terminal-stage and consumption fallback contract
+  writer.
+- Base: `origin/main@9b70ca0637f51f08b7fb6aa87c8ca30dcdd0b26a`.
 - Branch:
-  `codex/role-pool-r0-direct-interpreter-preflight-executor-contract-780`.
+  `codex/role-pool-r0-terminal-fact-contract-780`.
 - Risk tier: `high`.
-- Source findings: `ME-RP-780-PREFLIGHT-EXEC-B-001` and
-  `ME-RP-780-PREFLIGHT-EXEC-E-001` through `E-005`.
+- Source finding: `ME-RP-780-PREFLIGHT-TERM-B-001`.
 
 This contract follows `AGENTS.md`, `docs/agent_rules.yml`,
 `docs/agent_constitution.md`, `docs/codex_module_workflow.md`,
@@ -173,6 +172,26 @@ release, submission, merge, deployment, Stage-4, or readiness authority.
 30. **Decision:** fresh E review plus the exact owner decision own acceptance
     of executor bytes. Runtime owns the other independent public bindings and
     raw executor measurement; no new trust mechanism is required.
+31. **Observed:** PR #793 merged the independently reviewed public-binding
+    correction at `9b70ca0637f51f08b7fb6aa87c8ca30dcdd0b26a`; the reviewed tree is
+    `dc4ff2cb56e2e3556fd176f14b23a139ec068748`.
+32. **Observed:** one later owner-authorized preflight at those exact bytes
+    exited `3` after approximately `31.4` seconds with empty stdout and the
+    exact 37-byte generic unknown sentinel at SHA-256
+    `f8ef6df4e5fa677e28cd29a82b1a0d1d983ca336610971c842a725c25c17018e`.
+    No canonical result was sealed. The owner decision is
+    `consumed_unknown_nonreusable`, and no retry is authorized.
+33. **Observed:** fresh independent adjudication could prove only the outer
+    sealing failure. The public evidence could not distinguish pre-inventory,
+    pre-create setup, `CreateProcessW` entry, target timeout, post-effect, or
+    cleanup failure. Timing alone is non-discriminating because both inventory
+    and target-execution budgets are 30 seconds.
+34. **Decision:** preserve the existing canonical result and public status
+    vocabulary. When canonical sealing fails after exact CLI admission, emit
+    one of three fixed public-safe ASCII terminal diagnostics that carries only
+    the coarse create-boundary stage and conservative consumption disposition.
+    Do not add a JSON schema, result field, lifecycle status, durable artifact,
+    retry, process, or diagnostic detail.
 
 Finding `ME-RP-780-PREFLIGHT-EXEC-B-001` is `fixed_confirmed`.
 Finding `ME-RP-780-PREFLIGHT-EXEC-E-001` is `fixed_confirmed_preserved`.
@@ -183,7 +202,9 @@ Finding `ME-RP-780-PREFLIGHT-EXEC-E-004` is
 Finding `ME-RP-780-PREFLIGHT-EXEC-E-005` is
 `fixed_confirmed`.
 Finding `ME-RP-780-PUBLIC-BINDING-E-006` is
-`contract_clarification_authored_review_pending`.
+`fixed_confirmed_preserved`.
+Finding `ME-RP-780-PREFLIGHT-TERM-B-001` is
+`active_clause_reconciliation_authored_re_review_pending`.
 
 ## Module And Truth Ownership
 
@@ -216,6 +237,16 @@ validator, observation receipt, or issue #769 truth moves into this module.
 
 | Binding | Exact value |
 | --- | --- |
+| Current merged base | `9b70ca0637f51f08b7fb6aa87c8ca30dcdd0b26a` |
+| Current merged tree | `dc4ff2cb56e2e3556fd176f14b23a139ec068748` |
+| Current integration PR | `https://github.com/Tahjali11/Mythic-Edge/pull/793`; merged; all six checks passed |
+| Current exact-head review | `https://github.com/Tahjali11/Mythic-Edge/pull/793#pullrequestreview-4836016353`; reviewed head `c0fc77183038d961dea98a61be70fd0db29e543c`; review-body SHA-256 `699835c8d25117b4854486650c8a1ba1dd9bdab5bbb48a7ea1a2f5cf5b285128` |
+| Immediate contract predecessor | this artifact at SHA-256 `d2bfd244a4c20c0631cd7d16bc3209f08f471368d8ba090997acfecd16a314c7` |
+| Immediate contract-review predecessor | `docs/contract_test_reports/role_pool_trusted_owner_r0_direct_interpreter_preflight_executor_public_binding_trust_anchor.md`; SHA-256 `25acde0c0095929069952caf1fa458dee4b725c9c96212c9d3c8118c0e702ca0` |
+| Current executor | `tools/run_role_pool_r0_direct_interpreter_preflight.py`; 126,139 bytes; SHA-256 `8569209525e7e6eca56f91a7801ee3c763cfb437767da0af5739b68eb1e7d382` |
+| Current executor test | `tests/test_run_role_pool_r0_direct_interpreter_preflight.py`; 62,156 bytes; SHA-256 `a05c537d30cb5e3c4ed77ec7747cc87f19ec5f9729bed4f1fc50818f19f54cfe` |
+| Terminal execution evidence | exit `3`; stdout `0` bytes; stderr `37` bytes at SHA-256 `f8ef6df4e5fa677e28cd29a82b1a0d1d983ca336610971c842a725c25c17018e`; no canonical result |
+| Terminal authority disposition | `consumed_unknown_nonreusable`; retry false; accepted observation count `0` |
 | Integrated base | `3c3b4bfa7ddcd066d54b8b17ca9f3d496919d23f` |
 | Reviewed implementation head | `4893d53960f25370aa4d9c2313d7fc33ffeb707e` |
 | Integration PR | `https://github.com/Tahjali11/Mythic-Edge/pull/791`; merged |
@@ -250,6 +281,10 @@ validator, observation receipt, or issue #769 truth moves into this module.
 | Issue #780 | open with zero top-level comments |
 | Issue #769 | open with zero top-level comments |
 
+The first ten rows are the controlling current bindings for this amendment.
+The remaining rows preserve predecessor lineage or immutable parent inputs and
+cannot override those current values.
+
 The parent contract, review report, harness, and harness test are immutable
 inputs to this successor. Drift stops before implementation. The historical
 v2 sequence remains spent and nonreusable. This contract neither retires nor
@@ -259,19 +294,23 @@ consumes the unexecuted v3 identities.
 
 ### Future implementation paths
 
-After independent acceptance of this reconciliation, Codex D may modify
-exactly the current reviewed bytes of:
+After independent acceptance and a separate owner implementation decision, the
+implementation role may modify exactly the current reviewed bytes of:
 
-1. `tools/run_role_pool_r0_direct_interpreter_preflight.py`; and
-2. `tests/test_run_role_pool_r0_direct_interpreter_preflight.py`.
+1. `tools/run_role_pool_r0_direct_interpreter_preflight.py`; 126,139 bytes;
+   SHA-256 `8569209525e7e6eca56f91a7801ee3c763cfb437767da0af5739b68eb1e7d382`;
+   and
+2. `tests/test_run_role_pool_r0_direct_interpreter_preflight.py`; 62,156
+   bytes; SHA-256
+   `a05c537d30cb5e3c4ed77ec7747cc87f19ec5f9729bed4f1fc50818f19f54cfe`.
 
 The accepted harness and its test remain byte-exact. In only the executor and
-focused test, D may retain the three new independent raw-digest comparisons;
-remove `EXECUTOR_SOURCE_BINDING_SHA256`, `_stable_self_binding_sha256()`, its
-otherwise-unused private byte-reader, runtime call, and self-admission tests;
-remove the executor from the runtime drift matrix; and refresh only the
-contract, review, and `EXECUTOR_TEST_SHA256` bindings. Every other byte remains
-unchanged unless formatting is mechanically required.
+focused test, implementation may add the process-local monotonic tracker, the
+three exact ASCII fallback constants, outer fallback selection, and the exact
+focused tests required below. It may refresh only the mechanically dependent
+contract, contract-review, and focused-test digest bindings. Existing public
+binding checks, process behavior, canonical result behavior, and every other
+byte remain unchanged unless formatting is mechanically required.
 
 No sidecar, signature, key, launcher, wrapper, new input, digest algorithm,
 masking rule, schema, status, process, or third implementation path is allowed.
@@ -323,6 +362,41 @@ The controller process that hosts this executor is outside the measured
 target job and grants no alternate launcher authority. In particular, a
 controller's own Python or shell identity cannot be substituted for, or
 reported as, the selected target `python.exe`.
+
+### Public-safe terminal fallback boundary
+
+For an exact `--private-path-stdin` invocation, the executor creates one local,
+in-memory, non-durable terminal-boundary tracker immediately after argument
+admission and before the first fallible binding, inventory, or private-ingress
+operation. Its initial state is `precreate`. It may transition exactly once to
+`create_entered`, immediately before the first and only `CreateProcessW` call.
+It may never reset, transition backward, or be inferred from elapsed time,
+process scans, output, cleanup, exception type, or a later observation.
+
+The tracker has no public API, file, environment variable, registry value,
+issue field, result field, or reusable authority. The implementation may use a
+local object or callback, but it must remain owned by the one CLI invocation
+and visible to the outer exception-to-terminal boundary. Invalid, missing,
+duplicated, or contradictory tracker state is `ambiguous`.
+
+If the ordinary 38-field canonical result seals, behavior is unchanged and no
+fallback diagnostic is emitted. If it cannot seal after exact CLI admission,
+stdout remains empty, exit code remains `3`, and stderr is exactly one of:
+
+| Tracker fact | Exact ASCII stderr including final LF | Bytes | SHA-256 | Workflow disposition |
+| --- | --- | ---: | --- | --- |
+| exact `precreate` | `direct_interpreter_preflight_unknown_precreate_unconsumed\n` | 58 | `7584ac48a50925e117afb55e6127b27f5ceb36ccb753a5ab8eee32cd0b290473` | retire unconsumed and nonreusable |
+| exact `create_entered` | `direct_interpreter_preflight_unknown_create_entered_consumed\n` | 61 | `96b69d4593abab39f9d256461aa0b692f58750059af5d6277273dd49de1ba97c` | consumed and nonreusable |
+| `ambiguous` | `direct_interpreter_preflight_unknown_stage_ambiguous_consumed\n` | 62 | `6f7649de0b4db9c2b5db46635ff52ff4fdcb47fef8daa41a1c4cb7766e4729bd` | conservatively consumed and nonreusable |
+
+These are diagnostics, not `result_status` values, receipts, or authority
+objects. They reveal no failure reason inside a stage. They do not distinguish
+inventory, binding, setup, target, effect, identity, timeout, or cleanup
+subconditions. Invalid CLI arguments before tracker creation retain the
+existing 37-byte generic sentinel and create no claim about an owner decision.
+If terminal emission is partial, missing, reordered, CRLF-translated, or
+otherwise not byte-exact, the workflow makes no stage claim and conservatively
+treats any supplied owner decision as consumed and nonreusable.
 
 ### Executor-byte acceptance boundary
 
@@ -397,10 +471,11 @@ creation, a passing result, independent review, or later owner-decision
 eligibility.
 
 Any nonzero, unreadable, or ambiguous executor-owned count prevents canonical
-result sealing and uses the existing unknown sentinel. The owner decision's
-consumed fact still derives only from actual `CreateProcessW` entry; regardless
-of that fact, the failed attempt is terminal and nonreusable. This adds no
-network status, result field, KAT, lifecycle outcome, retry, or successor route.
+result sealing and uses the exact diagnostic selected by the terminal-boundary
+tracker. The owner decision's consumed fact still derives only from actual
+`CreateProcessW` entry; regardless of that fact, the failed attempt is terminal
+and nonreusable. This adds no network status, result field, KAT, lifecycle
+outcome, retry, or successor route.
 
 ### Exact local-effect observation profile
 
@@ -604,10 +679,10 @@ unchanged.
 An exact nonzero count, `exact_drift`, source unreadability, counter overflow,
 or ambiguity cannot inhabit the public integer-zero fields. It therefore
 creates no normalized `SourceRecord` and no JSON object. The executor emits
-only the existing unknown sentinel and exit `3`; this is the existing unknown
-terminal route, not a seventh result status or a fabricated zero-count object.
-The owner decision disposition is derived independently from whether
-`CreateProcessW` was entered.
+only the exact diagnostic selected by the terminal-boundary tracker and exits
+`3`; this is the existing unknown terminal route, not a seventh result status
+or a fabricated zero-count object. The owner decision disposition is derived
+independently from whether `CreateProcessW` was entered.
 
 For `early_terminal_structural_zero`, `cleanup_confirmed=true` requires exact
 closure of every acquired metadata handle and proof that no attempt-owned setup
@@ -636,9 +711,9 @@ The selector does not use first-match ordering to resolve predicate overlap;
 the predicates are literally disjoint and no tuple matches more than one row.
 It must reproduce overlap, uncovered, and
 unreachable counts `0/0/0`. Only LE-01 and LE-02 may construct a normalized
-source record. LE-03 through LE-05 use the unknown sentinel. This selector is
-review evidence only and creates no public status, schema field, or durable
-object.
+source record. LE-03 through LE-05 use the exact diagnostic selected by the
+terminal-boundary tracker. This selector is review evidence only and creates no
+public status, schema field, or durable object.
 
 ## Exact Prelaunch Order
 
@@ -667,7 +742,8 @@ then perform this order once:
 7. Derive one ambient-job state and creation-flag choice through the closed
    selector below. A rejected or unreadable state stops here through
    `early_terminal_structural_zero` when its audit and cleanup proof is exact;
-   otherwise only the unknown sentinel may be emitted.
+   otherwise only the exact tracker-selected terminal diagnostic may be
+   emitted.
 8. Atomically mark `effect_boundary_state=entered`, then enter the one
    pre-create setup phase. Create the three anonymous pipes and
    the private job object, validate all six pipe handles, configure the
@@ -692,11 +768,12 @@ then perform this order once:
 Failure before step 9 leaves the decision unconsumed but does not authorize
 the executor to loop. A step-8 terminal result is nonreusable despite the
 exact `preflight_authority_consumed=false` fact. Its canonical result, or an
-unknown sentinel caused by nonzero, unavailable, or invalid effect evidence
-after setup entry, requires a fresh owner decision in every later task.
+exact precreate diagnostic caused by nonzero, unavailable, or invalid effect
+evidence after setup entry, requires a fresh owner decision in every later task.
 Failure at or after step 9 is consumed and nonreusable. If the caller cannot
 establish which side of step 9 was reached, classify the decision as consumed
-and use the unknown sentinel; do not fabricate a public count or JSON object.
+and use the exact ambiguous diagnostic; do not fabricate a public count or JSON
+object.
 
 ## Exact Win32 Process Boundary
 
@@ -854,10 +931,12 @@ weakened merely because Windows prevented a child from remaining active.
 
 ## Closed Result Schema
 
-The executor emits exactly one canonical
+On a sealable terminal route, the executor emits exactly one canonical
 `trusted_owner_r0_direct_interpreter_preflight_result.v1` object to stdout and
 nothing else. Keys appear in the order below. Unknown, duplicate, missing,
-reordered, or mistyped fields fail closed.
+reordered, or mistyped fields fail closed. After exact CLI admission, an
+unsealable route emits no JSON object and instead uses the terminal-boundary
+tracker projection defined above.
 
 1. `schema_version`: exact schema string.
 2. `repository_id`: integer `1235264383`.
@@ -1009,7 +1088,7 @@ this source-state audit and are independently closed by the 72-tuple raw
 local-effect selector. Every exact emitted row requires all four public counts
 and the internal residue count to be zero; every nonzero, unreadable,
 ambiguous, or invalid effect state bypasses source-record construction and is
-covered by sentinel and negative fixtures.
+covered by terminal-diagnostic and negative fixtures.
 
 The projector first enforces these invariants:
 
@@ -1099,25 +1178,29 @@ Post-exit identity drift is projected as `top_level_identity_exact=false`.
 Fields 1 through 13 use their exact bound values and field 13 uses the one
 whole-second observation instant. Field 38 is computed only after all row
 constraints pass. If the normalized facts violate an invariant, match zero or
-multiple rows, or the object cannot be sealed, no JSON object is emitted; use
-the existing unknown sentinel and exit `3`. No contradictory object may be
+multiple rows, or the object cannot be sealed, no JSON object is emitted. After
+exact CLI admission, emit the exact tracker-selected diagnostic and exit `3`;
+the generic sentinel is available only before tracker creation or when exact
+terminal emission cannot be established. No contradictory object may be
 normalized into a nearby row.
 
 For PR-05A, the exact canonical object is the public-safe terminal disposition
 for the uniquely bound owner decision. A fresh task must validate and retain
 that object with the decision evidence before accepting any later authority.
-If the object is absent, malformed, unsealed, or its association with the
-decision is ambiguous after setup entry, the decision is still
+If the PR-05A object is absent, malformed, or unsealed after setup entry, an
+exact `precreate` tracker selects the precreate diagnostic and
 `retired_unconsumed_precreate_failure_nonreusable`; `consumed=false` is never
-evidence that setup may be retried. This reconciliation rule introduces no
-publication path or new schema field.
+evidence that setup may be retried. Ambiguous tracker, output, or decision
+association selects the ambiguous diagnostic and a conservatively consumed
+disposition. This reconciliation rule introduces no publication path or new
+schema field.
 
 PR-05A may carry `cleanup_confirmed=false` only when the sampled local-effect
 evidence is still exact zero and a separate E-004 resource-close fact is false.
 If post sampling is unavailable, drifted, or nonzero, no PR-05A object exists;
-the same owner decision is retired unconsumed and the unknown sentinel is the
-only output. The equivalent rule applies to PR-06 through PR-09, with
-consumption derived solely from `create_call_entered`.
+the tracker-selected diagnostic is the only output. The equivalent rule applies
+to PR-06 through PR-09, with consumption derived solely from
+`create_call_entered`; ambiguity remains consumed and nonreusable.
 
 The reduced selector domain contains eight sequential prefix routes, with the
 PR-05A setup-failure route expanded across exact cleanup true/false, plus the
@@ -1154,9 +1237,11 @@ post-create route. It may not reinterpret a parent outcome. The only
 
 Exit codes are `0` for passed, `2` for hypothesis/binding/required, `3` for
 unknown, and `4` for descendant observed. When a canonical object cannot be
-sealed, stdout is empty, stderr is exactly
-`direct_interpreter_preflight_unknown\n`, and exit code is `3`. Raw paths,
-identities, PIDs, handles, commands, environment values, Win32 errors,
+sealed after exact CLI admission, stdout is empty, stderr is the one exact
+diagnostic selected by the public-safe terminal fallback boundary, and exit
+code is `3`. The existing generic unknown sentinel remains valid only before
+tracker creation or when no exact fallback diagnostic can be emitted. Raw
+paths, identities, PIDs, handles, commands, environment values, Win32 errors,
 exceptions, traces, stdout, or stderr from the target are never emitted.
 
 Only `direct_interpreter_preflight_passed` plus fresh independent Codex E
@@ -1170,10 +1255,11 @@ confidence or evidence strengthening.
 
 Before applying a public projection row, normalize the raw local-effect record.
 LE-03 through LE-05 prohibit `SourceRecord` construction and therefore prohibit
-every JSON row below. Emit only the existing unknown sentinel, retire the
-attempt, and derive consumption solely from `create_call_entered`. This sealing
-guard is not a new lifecycle status and cannot be bypassed by an earlier
-binding classification.
+every JSON row below. Emit only the exact fallback diagnostic selected from the
+monotonic terminal-boundary tracker, retire the attempt, and derive consumption
+solely from the tracker's exact `create_entered` fact. Ambiguous tracker or
+terminal bytes are conservatively consumed. This sealing guard is not a new
+lifecycle status and cannot be bypassed by an earlier binding classification.
 
 When the sealing guard admits LE-01 or LE-02, apply first match:
 
@@ -1250,11 +1336,15 @@ retry, or authority packet.
 
 ## Side Effects
 
-Contract writing: exactly this docs file.
+Contract writing: exactly this docs file. The historical terminal-unknown
+attempt remains consumed and nonreusable; this amendment cannot reinterpret,
+repair, continue, or rerun it.
 
-Future Codex D correction: exactly the two current reviewed implementation
-files named above. It removes the circular self-binding and retains the three
-independent raw-artifact comparisons; it creates no new implementation path.
+Future implementation or Codex D correction, only after separate owner
+authorization: exactly the two current reviewed implementation files named
+above. It adds only the local monotonic tracker, three fixed fallback byte
+constants, selection at the outer terminal boundary, and focused tests. It
+creates no third implementation path or broader diagnostic mechanism.
 
 A separately authorized future synthetic preflight may create exactly one
 top-level process plus its attempt-owned pipes and Job Object, then must clean
@@ -1287,9 +1377,9 @@ the real interpreter. Focused tests must prove:
    path or snapshot emission;
 8. exact `early_terminal_structural_zero` derivation without a tree-equality
    claim, exact sampled attempt-plus-row sums, residue delta, checked
-   external-effect sum, deliberate residue double contribution, and sentinel
-   output rather than a zero-count object for every nonzero, unavailable, or
-   invalid source;
+   external-effect sum, deliberate residue double contribution, and
+   tracker-selected diagnostic output rather than a zero-count object for every
+   nonzero, unavailable, or invalid source;
 9. the 72-tuple raw local-effect selector reproduces literal and
    first-applicable counts `3/1/6/8/54` with overlap, uncovered, and
    unreachable counts `0/0/0`;
@@ -1338,6 +1428,26 @@ the real interpreter. Focused tests must prove:
 26. stdout/stderr never contain a supplied path, row path, file identity, or raw
     private value; and
 27. the existing 121-test harness suite remains unchanged and passing.
+28. invalid CLI arguments retain the exact generic 37-byte sentinel and do not
+    create a stage or owner-decision claim;
+29. after exact CLI admission, injected failures at every fallible boundary
+    before `CreateProcessW` emit only the exact 58-byte precreate/unconsumed
+    diagnostic;
+30. the tracker transitions immediately before the one `CreateProcessW` call,
+    and injected call-entry, call-return, post-create, timeout, effect,
+    identity, projection, and cleanup failures emit only the exact 61-byte
+    create-entered/consumed diagnostic when that transition is exact;
+31. missing, duplicated, backward, contradictory, or unreadable tracker state
+    emits only the exact 62-byte stage-ambiguous/consumed diagnostic;
+32. all three diagnostics have exact ASCII bytes, one LF, no CR or BOM, empty
+    stdout, exit code `3`, and the byte counts and SHA-256 values above;
+33. partial, extra, reordered, CRLF-translated, or mixed diagnostic output is
+    rejected and cannot establish a stage or unconsumed disposition;
+34. no diagnostic contains a path, identity, PID, handle, command, environment
+    value, exception, Win32 error, target output, or detailed failure reason;
+    and
+35. no diagnostic is accepted as a result object, receipt, retry authority,
+    Observation 1 evidence, or rung-advancement evidence.
 
 Required validation after implementation is:
 
@@ -1375,8 +1485,8 @@ Independent Codex E may accept this contract only if:
 7. the local-effect profile closes the exact roots, sole `.git` exclusion,
    stable row algorithm, budgets, residue predicate, sampling order, audit
    ownership, pre-effect and sampled derivation modes, cleanup conjunction,
-   72-tuple selector, and unreadable/drift sentinel behavior without a durable
-   schema or path emission;
+   72-tuple selector, and unreadable/drift terminal-diagnostic behavior without
+   a durable schema or path emission;
 8. the active Win32 order supplies only valid inherited handles, closes the stdin
    writer before launch, and prevents target execution before job assignment
    and exact process-image validation;
@@ -1401,15 +1511,22 @@ Independent Codex E may accept this contract only if:
     independently owned artifacts and reports its raw executor hash;
 17. no sidecar, signature, key, wrapper, launcher, new schema, digest family,
     result field, status, process, or third implementation path was introduced;
+18. the terminal fallback has exactly three post-admission diagnostics, one
+    monotonic create-boundary tracker, no detailed stage or cause vocabulary,
+    and conservative consumption on ambiguity;
+19. the historical 37-byte terminal attempt remains consumed, unknown,
+    nonreusable, and ineligible for reconstruction or retry;
+20. the correction grants no implementation, private-path, preflight,
+    observation, publication, release, R1-R8, Stage 4, or readiness authority;
     and
-18. only this contract changed in B, issue #769 remains untouched, and
+21. only this contract changed in B, issue #769 remains untouched, and
     generated residue is zero.
 
-Contract acceptance routes only to Codex D for the two-file corrections, under
-separately confirmed repair authority. It does not authorize the real
-synthetic preflight. After exact D implementation and fresh independent E
-review, a separate owner preflight decision may become eligible. Neither this
-contract nor D implementation creates that authority automatically.
+Contract acceptance sets only `owner_implementation_decision_eligible=true`.
+Implementation remains separately owner-authorized and limited to the exact
+two files. Contract review, implementation, implementation review, and a fresh
+owner preflight decision remain distinct. No accepted artifact automatically
+authorizes another process execution.
 
 ## Authority And Non-Claims
 
@@ -1665,18 +1782,54 @@ workflow_handoff:
 
 ## Current Next Workflow Action
 
-Fresh independent Codex E reviews only this contract revision against the
-accepted predecessor, PR #792 exact-head review, current D handoff, and two
-unaccepted D candidate files. E must confirm that the external E/owner gate is
-the smallest truthful executor-byte trust anchor and that the two-file D scope
-only removes circular self-admission while retaining the three independent
-checks. A sidecar, signature, key, launcher, wrapper, schema, process, digest
-family, hostile-code claim, implementation acceptance, private-path access, or
-preflight execution is out of scope.
+Fresh independent Codex E re-reviews only finding
+`ME-RP-780-PREFLIGHT-TERM-B-001` and the reconciled terminal-fallback clauses
+in this contract revision. E must confirm that every active post-CLI-admission
+unsealed route selects the tracker-bound precreate, create-entered, or ambiguous
+diagnostic; the generic sentinel remains only before tracker creation or when
+exact terminal emission cannot be established; and sealed 38-field results are
+unchanged.
 
-On acceptance E creates only:
-`docs/contract_test_reports/role_pool_trusted_owner_r0_direct_interpreter_preflight_executor_public_binding_trust_anchor.md`.
-Acceptance routes to a fresh owner decision, then the exact two-file Codex D
-correction, and then independent E implementation confirmation. It grants no
-implementation, preflight, observation, publication, R1-R8, Stage 4,
-submission, merge, deployment, or readiness authority.
+E must reject any detailed error vocabulary, new JSON schema, durable stage
+record, sidecar, log, trace, receipt, retry, additional process, private-value
+output, parent-harness change, third implementation path, Observation 1 change,
+or R1/Stage 4 expansion. E must also confirm that the historical attempt is
+not reclassified or made reusable.
+
+If exact, E creates only the normal contract-test report and sets
+`owner_implementation_decision_eligible=true`. No implementation, preflight,
+observation, publication, release, R1-R8, Stage 4, submission, merge,
+deployment, or readiness authority follows from review acceptance.
+
+The exact review artifact is:
+`docs/contract_test_reports/role_pool_trusted_owner_r0_direct_interpreter_preflight_terminal_fallback.md`.
+
+```yaml
+workflow_handoff:
+  role_performed: "Codex B: Narrow R0 Terminal-Fallback Clause Reconciler"
+  repository: "Tahjali11/Mythic-Edge"
+  issue: "https://github.com/Tahjali11/Mythic-Edge/issues/780"
+  tracker: "https://github.com/Tahjali11/Mythic-Edge/issues/746"
+  source_finding: "ME-RP-780-PREFLIGHT-TERM-B-001"
+  reviewed_predecessor_sha256: "8a256548b34fc97f2fa926a87a9167abc2c7821c166f0f19b97660d784b79e8a"
+  finding_status: "active_clause_reconciliation_authored_re_review_pending"
+  historical_attempt_status: "consumed_unknown_nonreusable"
+  accepted_observation_count: 0
+  correction_scope: "active terminal-fallback clauses only"
+  future_implementation_scope: "exact_existing_two_files"
+  new_schema_count: 0
+  new_result_field_count: 0
+  new_process_count: 0
+  retry_authorized: false
+  owner_implementation_decision_eligible: false
+  implementation_authorized: false
+  private_path_access_authorized: false
+  preflight_authorized: false
+  observation_1_authorized: false
+  receipt_publication_authorized: false
+  release_state_mutation_authorized: false
+  r1_r8_authorized: false
+  stage4_authorized: false
+  live_ready: false
+  next_recommended_role: "Codex E: independent narrow terminal-fallback contract re-reviewer"
+```
