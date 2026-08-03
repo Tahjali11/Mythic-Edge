@@ -185,17 +185,14 @@ workflow_handoff:
 
 ## Post-Merge Lifecycle Correction Candidate
 
-`report_lifecycle: post_merge_correction_candidate_pending_independent_confirmation`
-
 PR #802 merged the reviewed four-file package as
 `5b83dc33f933c6e58895277fb8bd9dfb5ab641bb`, after which two P2 review
 findings remained current:
 
-- the finding-reactivation rule lacked a correction path when fresh evidence
-  proves that a prior fixed disposition was erroneous and the exact predicate
-  never became satisfied; and
-- the continuing-role handoff lacked the standard routing fields and a
-  pasteable next-thread prompt.
+| finding_id | severity | finding_lifecycle | finding_status | blocking_status | original_evidence | verification_evidence | next_route |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `ME-GOV-801-802-E-001` | P2 | `remaining_blocker` | `fix_attempted_pending_independent_confirmation` | blocking | PR #802 thread `3701539177`: the finding-reactivation rule lacked a correction path when fresh evidence proves that a prior fixed disposition was erroneous and the exact predicate never became satisfied. | PR #804 head `35500fd63a2530226abfb4601c3d2a0e49e808dc` contains the candidate contract and ADR correction; fresh Codex E verification remains pending. | E |
+| `ME-GOV-801-802-E-002` | P2 | `remaining_blocker` | `fix_attempted_pending_independent_confirmation` | blocking | PR #802 thread `3701539183`: the continuing-role handoff lacked standard routing fields and a pasteable next-thread prompt. | The report-only continuation correction records the prompt, required fields, stable finding rows, exact correction binding, and freshness; fresh Codex E verification remains pending. | E |
 
 The contract and proposed ADR now distinguish a disposition correction from a
 finding recurrence. The historical review record above remains preserved.
@@ -219,8 +216,11 @@ Confirm that fresh current evidence can correct an erroneous prior disposition
 under the same finding ID when its exact predicate never became satisfied,
 without allowing stale evidence or repetition alone to reactivate a finding.
 Confirm that the current continuation packet contains the standard repository,
-role, branch, artifact, validation, and stop-condition fields. Preserve the
-historical review record and ADR-0012 Status: Proposed.
+role, branch, artifact, validation, finding-lifecycle, correction-binding,
+freshness, and stop-condition fields. Bind review to correction head
+`35500fd63a2530226abfb4601c3d2a0e49e808dc`, the recorded contract and ADR
+hashes, and the exact report SHA-256 in the current Codex D handoff. Preserve
+the historical review record and ADR-0012 Status: Proposed.
 
 Do not edit files, accept ADR-0012, authorize enforcement, stage, commit, push,
 merge, close issues, or change tracker state. Lead with findings and route to
@@ -241,12 +241,36 @@ workflow_handoff:
   base_branch: "origin/main@5b83dc33f933c6e58895277fb8bd9dfb5ab641bb"
   target_branch: "main"
   branch: "codex/long-horizon-context-lifecycle-fix-801"
+  correction_binding:
+    correction_head: "35500fd63a2530226abfb4601c3d2a0e49e808dc"
+    contract_sha256: "358accc281b26bc84504227593a49250215e15bd1b06acfc522da9d685a8bb18"
+    proposed_adr_sha256: "333bcd8502f8578a919e4b7a136e7b9cde09ccff7304ca1d4e269a1091799cd8"
+    report_sha256_binding: "exact SHA-256 supplied by the completing Codex D handoff; self-embedding is intentionally avoided"
+  freshness:
+    current_branch: "codex/long-horizon-context-lifecycle-fix-801"
+    intended_branch: "codex/long-horizon-context-lifecycle-fix-801"
+    upstream_branch: "origin/codex/long-horizon-context-lifecycle-fix-801"
+    branch_ahead_behind: "0 ahead, 0 behind before the report-only working-tree correction"
+    issue_state: "#801 open; Project status In progress"
+    tracker_state: "#746 open"
+    source_artifact_status: "PR #804 open, ready, mergeable clean at exact head 35500fd63a2530226abfb4601c3d2a0e49e808dc; all six checks passed"
+    target_artifact_status: "report-only Codex D correction candidate; fresh Codex E verification pending"
+    local_dirty_state: "exactly the target report modified; contract and ADR remain at the correction head"
+    related_open_prs: "PR #804"
+    last_known_merge_or_closeout: "PR #802 merged as 5b83dc33f933c6e58895277fb8bd9dfb5ab641bb; issue closeout remains blocked"
+    worktree_classification: "dedicated issue #801 source worktree"
+    freshness_verdict: "route_to_codex_e"
+    recommended_route: "fresh Codex E exact-byte review, then F and G only if both findings are fixed"
+    verified_at: "2026-08-03"
   validation:
     - "git diff --check -> passed"
     - "py -B tools/check_agent_docs.py -> 55 files, 0 errors, 0 warnings"
     - "path-scoped protected-surface scan -> forbidden 0, warnings 0"
     - "path-scoped secret/private-marker scan -> forbidden 0, warnings 0"
     - "path-scoped validation selector -> 3 required, 1 recommended, 0 warnings"
+    - "report lifecycle vocabulary -> exactly one initial_contract_test value"
+    - "finding lifecycle records -> 2 stable remaining_blocker rows routed to E"
+    - "correction binding and freshness -> exact head and artifact hashes recorded"
   stop_conditions:
     - "Do not change ADR-0012 from Proposed."
     - "Do not add enforcement, runtime behavior, or new authority."
