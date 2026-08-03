@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import ctypes
 import hashlib
 import importlib.util
 import inspect
@@ -217,6 +218,146 @@ class FakeAdapter:
 
     def audit_counts(self) -> object:
         return self.audit
+
+
+class _FakeNativeKernel:
+    def __init__(self, timeline: list[str]) -> None:
+        self.timeline = timeline
+        self.close_calls = 0
+        self.termination_calls = 0
+        self.wait_timeouts: list[int] = []
+        self.cancel_next_close = False
+
+    def CreateJobObjectW(self, *_args: object) -> int:
+        return 100
+
+    def SetInformationJobObject(self, *_args: object) -> bool:
+        return True
+
+    def CreateIoCompletionPort(self, *_args: object) -> int:
+        return 101
+
+    def UpdateProcThreadAttribute(self, *_args: object) -> bool:
+        return True
+
+    def CreateProcessW(self, *_args: object) -> bool:
+        self.timeline.append("create")
+        information = ctypes.cast(
+            _args[-1],
+            ctypes.POINTER(observer._ProcessInformation),
+        ).contents
+        information.hProcess = 102
+        information.hThread = 103
+        information.dwProcessId = 104
+        information.dwThreadId = 105
+        return True
+
+    def WaitForSingleObject(self, _handle: object, timeout: int) -> int:
+        self.wait_timeouts.append(int(timeout))
+        return observer.WAIT_OBJECT_0
+
+    def TerminateJobObject(self, *_args: object) -> bool:
+        self.termination_calls += 1
+        return True
+
+    def GetExitCodeProcess(self, _handle: object, code: object) -> bool:
+        ctypes.cast(code, ctypes.POINTER(observer.wintypes.DWORD)).contents.value = 0
+        return True
+
+    def CloseHandle(self, _handle: object) -> bool:
+        self.close_calls += 1
+        if self.cancel_next_close:
+            self.cancel_next_close = False
+            raise KeyboardInterrupt("private close cancellation detail")
+        return True
+
+
+class _FakeAttributeList:
+    def __init__(self, _kernel32: object) -> None:
+        self.attempt_count = 0
+        self.succeeded = False
+
+    def initialize(self) -> None:
+        return None
+
+    def close(self) -> bool:
+        if not self.attempt_count:
+            self.attempt_count = 1
+            self.succeeded = True
+        return self.succeeded
+
+    def observation(self) -> object:
+        return observer._CloseObservation(
+            "attribute_list",
+            self.attempt_count,
+            self.succeeded,
+        )
+
+
+def _fake_native_boundary(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    cancel_first_event_drain: bool = False,
+    cancel_first_cleanup_close: bool = False,
+) -> tuple[object, _FakeNativeKernel, dict[str, int], list[str]]:
+    timeline: list[str] = []
+    kernel32 = _FakeNativeKernel(timeline)
+    next_handle = iter(range(200, 206))
+    calls = {"event_drains": 0, "pipe_drains": 0, "accounting": 0}
+
+    def create_pipe(
+        seen_kernel32: object,
+        _security: object,
+        read_name: str,
+        write_name: str,
+    ) -> tuple[object, object]:
+        assert seen_kernel32 is kernel32
+        return (
+            observer._OwnedHandle(kernel32, read_name, next(next_handle)),
+            observer._OwnedHandle(kernel32, write_name, next(next_handle)),
+        )
+
+    def drain_events(
+        _kernel32: object,
+        _completion_port: object,
+        events: list[object],
+    ) -> bool:
+        calls["event_drains"] += 1
+        if cancel_first_event_drain and calls["event_drains"] == 1:
+            kernel32.cancel_next_close = cancel_first_cleanup_close
+            raise KeyboardInterrupt("private cancellation detail")
+        if not events:
+            events.extend(
+                (
+                    observer._JobEvent("new", 104),
+                    observer._JobEvent("exit", 104),
+                    observer._JobEvent("active_zero", None),
+                )
+            )
+        return True
+
+    def drain_pipe(*_args: object) -> tuple[bool, bool, bool]:
+        calls["pipe_drains"] += 1
+        return True, False, True
+
+    def query_accounting(*_args: object) -> tuple[int, int]:
+        calls["accounting"] += 1
+        return 1, 0
+
+    monkeypatch.setattr(observer, "_OwnedAttributeList", _FakeAttributeList)
+    monkeypatch.setattr(observer, "_create_pipe", create_pipe)
+    monkeypatch.setattr(
+        observer,
+        "_make_parent_end_noninheritable",
+        lambda *_args: None,
+    )
+    monkeypatch.setattr(observer, "_query_process_identity", lambda *_args: True)
+    monkeypatch.setattr(observer, "_drain_events", drain_events)
+    monkeypatch.setattr(observer, "_drain_pipe", drain_pipe)
+    monkeypatch.setattr(observer, "_query_accounting", query_accounting)
+    monkeypatch.setattr(observer.time, "sleep", lambda _seconds: None)
+    request = observer._fixed_request(owner, REPO_ROOT, FakeAdapter().launcher)
+    return request, kernel32, calls, timeline
 
 
 @pytest.fixture(autouse=True)
@@ -717,6 +858,103 @@ def test_main_emits_only_public_safe_result(
     captured = capsysbinary.readouterr()
     assert captured.out == b""
     assert captured.err == b"observation_timeout_unknown\n"
+
+
+def test_deadline_starts_immediately_before_the_create_attempt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    request, kernel32, _calls, timeline = _fake_native_boundary(monkeypatch)
+
+    def monotonic() -> float:
+        timeline.append("clock")
+        return 0.0
+
+    monkeypatch.setattr(observer.time, "monotonic", monotonic)
+    evidence = observer._execute_windows_once(
+        request,
+        kernel32,
+        observer._OwnedHandle(kernel32, "launcher_guard", 300),
+    )
+
+    assert timeline[:2] == ["clock", "create"]
+    assert evidence.creation_attempt_count == 1
+
+
+def test_completed_state_after_deadline_is_still_timed_out(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    request, kernel32, _calls, _timeline = _fake_native_boundary(monkeypatch)
+    ticks = iter((0.0, request.timeout_seconds + 1.0))
+    monkeypatch.setattr(observer.time, "monotonic", lambda: next(ticks))
+
+    evidence = observer._execute_windows_once(
+        request,
+        kernel32,
+        observer._OwnedHandle(kernel32, "launcher_guard", 300),
+    )
+
+    assert evidence.timed_out is True
+    assert evidence.termination_requested is True
+    assert kernel32.termination_calls == 1
+
+
+def test_cancellation_reconciles_owned_resources_before_returning(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    request, kernel32, calls, _timeline = _fake_native_boundary(
+        monkeypatch,
+        cancel_first_event_drain=True,
+        cancel_first_cleanup_close=True,
+    )
+    monkeypatch.setattr(observer.time, "monotonic", lambda: 0.0)
+
+    try:
+        evidence = observer._execute_windows_once(
+            request,
+            kernel32,
+            observer._OwnedHandle(kernel32, "launcher_guard", 300),
+        )
+    except BaseException as exc:
+        pytest.fail(f"cancellation escaped the owned cleanup boundary: {type(exc)}")
+
+    assert kernel32.termination_calls == 1
+    assert int(observer.TERMINATION_GRACE_SECONDS * 1000) in kernel32.wait_timeouts
+    assert calls["event_drains"] >= 2
+    assert calls["pipe_drains"] == 2
+    assert calls["accounting"] == 1
+    assert evidence.active_process_count == 0
+    assert evidence.stdout_eof is True
+    assert evidence.stderr_eof is True
+    assert all(item.attempt_count == 1 for item in evidence.close_observations)
+    assert sum(not item.succeeded for item in evidence.close_observations) == 1
+    facts = observer._post_exit_facts(
+        owner,
+        evidence,
+        _snapshot(),
+        _snapshot(),
+        observer._AuditCounts(0, 0, 0, 0),
+    )
+    assert facts.cleanup_confirmed is False
+    assert owner._post_exit_status(facts) in observer._CLOSED_FAILURE_STATUSES
+
+
+def test_main_converts_cancellation_to_fixed_public_status(
+    monkeypatch: pytest.MonkeyPatch,
+    capsysbinary: pytest.CaptureFixture[bytes],
+) -> None:
+    def cancel(_adapter: object) -> bytes | str:
+        raise KeyboardInterrupt("private cancellation detail")
+
+    monkeypatch.setattr(observer, "_run_observation_1", cancel)
+    try:
+        result = observer.main([])
+    except BaseException as exc:
+        pytest.fail(f"public cancellation escaped: {type(exc)}")
+
+    captured = capsysbinary.readouterr()
+    assert result == 3
+    assert captured.out == b""
+    assert captured.err == b"observation_result_unknown\n"
 
 
 def test_native_source_has_one_fixed_create_and_no_fallback_or_old_dependency() -> None:
