@@ -4,6 +4,7 @@ import ast
 import hashlib
 import inspect
 import itertools
+import re
 from collections import deque
 from pathlib import Path
 from types import SimpleNamespace
@@ -25,6 +26,20 @@ CONTROLLER_PATH = REPOSITORY_ROOT / target.CONTROLLER_PATH
 VALID_ID = "r0_direct_interpreter_identity_characterization_v1_0123456789abcdef0123456789abcdef"
 VALID_DECISION = "https://github.com/Tahjali11/Mythic-Edge/issues/795#issuecomment-5157000000"
 SYNTHETIC_PRIVATE_PATH = r"C:\synthetic-private\python.exe"
+BOOTSTRAP_IDENTITY_PATTERN = re.compile(
+    r"(?m)^\$BootstrapSourceIdentitySha256 = '([0-9a-f]{64})'$"
+)
+
+
+def _bootstrap_source_identity(payload: bytes) -> tuple[str, str]:
+    source = payload.decode("utf-8").replace("\r\n", "\n").replace("\r", "\n")
+    matches = list(BOOTSTRAP_IDENTITY_PATTERN.finditer(source))
+    assert len(matches) == 1
+    match = matches[0]
+    expected = match.group(1)
+    start, end = match.span(1)
+    normalized = source[:start] + ("0" * 64) + source[end:]
+    return expected, hashlib.sha256(normalized.encode("utf-8")).hexdigest()
 
 
 def _canonical_payload() -> bytes:
@@ -303,6 +318,56 @@ def test_bootstrap_pins_exact_public_files_and_controller_bytes() -> None:
     assert "$ControllerSha256" in source
     assert "Test-ExactSha256 -Path $controllerPath" in source
     assert "Test-OrdinaryNonReparseFile -Path $PSCommandPath" in source
+
+
+def test_bootstrap_binds_exact_repository_path_and_reviewed_source_identity() -> None:
+    payload = BOOTSTRAP_PATH.read_bytes()
+    source = payload.decode("utf-8")
+    expected_identity, actual_identity = _bootstrap_source_identity(payload)
+    relative_path = (
+        r"tools\start_role_pool_r0_direct_interpreter_identity_characterizer_secure_ingress.ps1"
+    )
+
+    assert expected_identity == actual_identity
+    lf_payload = payload.replace(b"\r\n", b"\n")
+    crlf_payload = lf_payload.replace(b"\n", b"\r\n")
+    assert _bootstrap_source_identity(lf_payload) == (expected_identity, expected_identity)
+    assert _bootstrap_source_identity(crlf_payload) == (expected_identity, expected_identity)
+    assert f"$BootstrapRelativePath = '{relative_path}'" in source
+    assert (
+        "$bootstrapPath = [System.IO.Path]::GetFullPath((Join-Path $repositoryRoot "
+        "$BootstrapRelativePath))"
+    ) in source
+    assert "[System.IO.Path]::GetFullPath($PSCommandPath) -cne $bootstrapPath" in source
+    identity_check = (
+        "Test-ExactBootstrapSourceIdentity -Path $bootstrapPath "
+        "-Expected $BootstrapSourceIdentitySha256"
+    )
+    assert identity_check in source
+    assert source.index(identity_check) < source.index(
+        "[Console]::WriteLine($LaunchReadinessLine)"
+    )
+
+    mutated = payload.replace(
+        b"R0 secure launch ingress failed.",
+        b"R0 secure launch ingress failed!",
+        1,
+    )
+    mutated_expected, mutated_actual = _bootstrap_source_identity(mutated)
+    assert mutated_expected == expected_identity
+    assert mutated_actual != expected_identity
+
+
+def test_bootstrap_rejects_buffered_input_before_private_ingress() -> None:
+    source = BOOTSTRAP_PATH.read_text(encoding="utf-8")
+    confirmation = source.index("if (-not (Wait-ForConsumedConfirmation))")
+    private_ingress = source.index("$launchImage = Read-PrivateLaunchImage", confirmation)
+    buffered_input_check = source.index("if ([Console]::KeyAvailable)", confirmation)
+
+    assert confirmation < buffered_input_check < private_ingress
+    boundary = source[buffered_input_check:private_ingress]
+    assert boundary.count("[Console]::KeyAvailable") == 1
+    assert "throw [System.InvalidOperationException]::new()" in boundary
 
 
 def test_bootstrap_uses_one_in_process_no_echo_reader_and_one_controller_start() -> None:
