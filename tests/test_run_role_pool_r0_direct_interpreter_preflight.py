@@ -324,9 +324,18 @@ def _resign(document: dict[str, object]) -> bytes:
     return target.canonical_bytes(document)
 
 
-def test_exact_public_bindings_are_current_and_targets_are_ordinary() -> None:
-    snapshot = target._public_bindings(REPOSITORY_ROOT)
-    assert snapshot.exact is True
+def test_current_parent_drift_is_rejected_before_private_or_process_access() -> None:
+    def fail_if_reached(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("retired execution boundary reached")
+
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(target, "_load_parent_api", fail_if_reached)
+        monkeypatch.setattr(target, "parse_private_path_stdin", fail_if_reached)
+        monkeypatch.setattr(target, "execute_preflight", fail_if_reached)
+        snapshot = target._public_bindings(REPOSITORY_ROOT)
+
+    assert snapshot.exact is False
+    assert snapshot.parent_api.__name__ == "_unloaded_r0_direct_preflight_parent"
     assert snapshot.executor_sha256 == hashlib.sha256(
         (REPOSITORY_ROOT / target.EXECUTOR_PATH).read_bytes()
     ).hexdigest()

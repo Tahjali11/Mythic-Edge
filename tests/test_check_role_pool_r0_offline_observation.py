@@ -34,8 +34,10 @@ def _signed(document: dict[str, object], field: str) -> dict[str, object]:
     return result
 
 
-def _receipt_bytes(position: int) -> bytes:
-    return observation.canonical_bytes(observation.EXPECTED_RECEIPTS[position - 1])
+def _receipt_bytes(position: int, variant: int = 0) -> bytes:
+    return observation.canonical_bytes(
+        observation.EXPECTED_RECEIPTS[position - 1][variant]
+    )
 
 
 def _direct_metadata(**changes: object) -> object:
@@ -64,7 +66,9 @@ def _consumption(position: int = 1) -> dict[str, object]:
         packet["observation_id"] = observation.OBSERVATION_IDS[1]
         packet["sequence_position"] = 2
         packet["predecessor_consumption_sha256"] = "7" * 64
-        packet["expected_receipt_sha256"] = observation.EXPECTED_RECEIPT_SHA256S[1]
+        packet["expected_receipt_sha256s"] = list(
+            observation.EXPECTED_RECEIPT_SHA256S[1]
+        )
     packet["consumption_sha256"] = observation.self_digest(
         packet,
         "consumption_sha256",
@@ -92,8 +96,26 @@ def _lifecycle_state(**changes: object) -> dict[str, object]:
 
 
 def _bootstrap_packet() -> dict[str, object]:
-    return {
+    packet: dict[str, object] = {
+        "schema_version": "trusted_owner_r0_offline_bootstrap_evidence.v1",
+        "operation": "evaluate_r0_bootstrap_eligibility_read_only",
+        "repository_id": observation.REPOSITORY_ID,
+        "repository_name": "tahjali11/mythic-edge",
+        "issue_url": "https://github.com/Tahjali11/Mythic-Edge/issues/761",
+        "base_commit": "10d4a4a79053fe33297a612599667d9b58bb4296",
+        "profile_contract_sha256": observation.PROFILE_CONTRACT_SHA256,
+        "app_server_contract_sha256": (
+            "814ac91c4e099216ae4870458d7524a3d65bfba7459cbfda7de82a5fc79067e8"
+        ),
+        "r0_contract_sha256": (
+            "07ab1c7153ba1312533bdc27d984789127fb7fc02190d26853ffae1849c2ac82"
+        ),
         "contract_binding_status": "exact",
+        "stage3_manifest_file_count": 39,
+        "stage3_manifest_byte_count": 5729,
+        "stage3_manifest_sha256": (
+            "cc88860794f918afbb050d6149df3cd11d195fab098b907be06f44ed88de7e06"
+        ),
         "manifest_status": "exact",
         "source_tree_node_count": 41,
         "source_tree_file_count": 36,
@@ -125,7 +147,47 @@ def _bootstrap_packet() -> dict[str, object]:
         "authority_flags": {
             field: False for field in observation.AUTHORITY_FIELDS
         },
+        "evidence_sha256": "",
     }
+    packet["evidence_sha256"] = observation.self_digest(packet, "evidence_sha256")
+    return packet
+
+
+def _validation_payload() -> bytes:
+    return observation.canonical_bytes(_bootstrap_packet())
+
+
+def _post_exit_facts(**changes: object) -> object:
+    values: dict[str, object] = {
+        "top_level_process_count": 1,
+        "descendant_process_count": 0,
+        "process_relationships_known": True,
+        "process_terminal_states_known": True,
+        "surviving_process_count": 0,
+        "top_level_identity_exact": None,
+        "timed_out": False,
+        "termination_uncertain": False,
+        "cleanup_confirmed": True,
+        "output_complete": True,
+        "executor_network_operation_count": 0,
+        "repository_write_count": 0,
+        "installed_write_count": 0,
+        "external_effect_count": 0,
+        "generated_residue_count": 0,
+    }
+    values.update(changes)
+    return observation.PostExitFacts(**values)
+
+
+def _launcher_observation(**changes: object) -> object:
+    values: dict[str, object] = {
+        "exit_code": 0,
+        "stdout": _validation_payload(),
+        "stderr": b"",
+        **_post_exit_facts().__dict__,
+    }
+    values.update(changes)
+    return observation.LauncherObservation(**values)
 
 
 class _FakePool:
@@ -188,7 +250,8 @@ class _FakeChecker:
     def _evaluate_roots(self, roots: object) -> tuple[dict[str, object], bytes]:
         del roots
         self.calls.append("evaluate_roots")
-        return _bootstrap_packet(), b"synthetic-owner-packet\n"
+        packet = _bootstrap_packet()
+        return packet, observation.canonical_bytes(packet)
 
     def _load_owner_modules(self, root: Path) -> object:
         assert root == REPO_ROOT
@@ -250,14 +313,22 @@ def _fake_roots() -> object:
 
 def test_profile_is_exact_known_answer() -> None:
     payload = observation.canonical_bytes(observation.OBSERVATION_PROFILE)
-    assert len(payload) == 1776
+    assert len(payload) == 1918
     assert hashlib.sha256(payload).hexdigest() == observation.OBSERVATION_PROFILE_SHA256
-    assert observation.OBSERVATION_PROFILE["schema_version"].endswith(".v2")
-    assert observation.OBSERVATION_PROFILE["direct_interpreter_binding_sha256"] == (
-        observation.DIRECT_INTERPRETER_BINDING_SHA256
-    )
-    assert observation.OBSERVATION_PROFILE["launcher_mode"] == (
-        "exact_direct_absolute_cpython_no_shell"
+    assert observation.OBSERVATION_PROFILE["schema_version"].endswith(".v3")
+    assert "direct_interpreter_binding_sha256" not in observation.OBSERVATION_PROFILE
+    assert "launcher_mode" not in observation.OBSERVATION_PROFILE
+    assert observation.OBSERVATION_PROFILE["fixed_command"] == [
+        "py",
+        "-3.13",
+        "-B",
+        "tools/check_role_pool_r0_offline_observation.py",
+        "<observation_id>",
+    ]
+    assert observation.OBSERVATION_PROFILE["descendant_process_limit"] == 1
+    assert observation.OBSERVATION_PROFILE["surviving_process_limit"] == 0
+    assert observation.OBSERVATION_PROFILE["top_level_identity_role"] == (
+        "diagnostic_nonblocking"
     )
     assert observation.OBSERVATION_PROFILE["observation_count"] == 2
     assert observation.OBSERVATION_PROFILE["retry_limit"] == 0
@@ -465,49 +536,194 @@ def test_direct_interpreter_preflight_selector_covers_all_32_tuples() -> None:
 
 
 def test_predeclared_identities_derive_from_exact_preimages() -> None:
-    preimages = (
-        "trusted_owner_r0_offline_direct_interpreter_sequence.v1|"
-        "1235264383|776|780|"
-        + observation.RELEASE_RECORD_SHA256
-        + "|"
-        + observation.HISTORICAL_SEQUENCE_ID
-        + "|"
-        + observation.HISTORICAL_CONSUMPTION_SHA256
-        + "|"
-        + observation.DIRECT_INTERPRETER_BINDING_SHA256,
-        "trusted_owner_r0_offline_direct_interpreter_observation.v1|"
-        "1235264383|776|780|"
-        + observation.SEQUENCE_ID
-        + "|1",
-        "trusted_owner_r0_offline_direct_interpreter_observation.v1|"
-        "1235264383|776|780|"
-        + observation.SEQUENCE_ID
-        + "|2",
+    assert observation.SEQUENCE_ID == (
+        "r0.offline.sequence.4.ff3d34eee94243a6a031d3334430bfca"
     )
-    derived = tuple(hashlib.sha256(value.encode("ascii")).hexdigest()[:32] for value in preimages)
-    assert observation.SEQUENCE_ID.endswith(derived[0])
-    assert observation.OBSERVATION_IDS[0].endswith(derived[1])
-    assert observation.OBSERVATION_IDS[1].endswith(derived[2])
+    assert observation.OBSERVATION_IDS == (
+        "r0.offline.observation.1.v4.209f443bcbf144d99bbb5cecf8aa8bf3",
+        "r0.offline.observation.2.v4.b0dacd7eeb56422f9107c0775d972be4",
+    )
+    assert set(observation.OBSERVATION_IDS).isdisjoint(
+        observation.HISTORICAL_OBSERVATION_IDS
+    )
+    assert observation.SEQUENCE_ID not in observation.HISTORICAL_SEQUENCE_IDS
 
 
-@pytest.mark.parametrize("position", [1, 2])
-def test_receipt_known_answers_are_byte_exact(position: int) -> None:
-    receipt = observation.EXPECTED_RECEIPTS[position - 1]
+@pytest.mark.parametrize(
+    ("position", "variant"),
+    itertools.product((1, 2), range(6)),
+)
+def test_receipt_known_answers_are_byte_exact(position: int, variant: int) -> None:
+    receipt = observation.EXPECTED_RECEIPTS[position - 1][variant]
     payload = observation.canonical_bytes(receipt)
     preimage = observation.canonical_bytes(
         {key: value for key, value in receipt.items() if key != "receipt_sha256"}
     )
     assert tuple(receipt) == observation.RECEIPT_FIELDS
-    assert len(preimage) == observation.EXPECTED_RECEIPT_PREIMAGE_LENGTHS[position - 1]
-    assert len(payload) == observation.EXPECTED_RECEIPT_LENGTHS[position - 1]
-    assert receipt["receipt_sha256"] == observation.EXPECTED_RECEIPT_SHA256S[position - 1]
-    assert hashlib.sha256(payload).hexdigest() == observation.EXPECTED_RECEIPT_ARTIFACT_SHA256S[position - 1]
+    assert len(preimage) == observation.EXPECTED_RECEIPT_PREIMAGE_LENGTHS[position - 1][variant]
+    assert len(payload) == observation.EXPECTED_RECEIPT_LENGTHS[position - 1][variant]
+    assert receipt["receipt_sha256"] == observation.EXPECTED_RECEIPT_SHA256S[position - 1][variant]
+    assert hashlib.sha256(payload).hexdigest() == observation.EXPECTED_RECEIPT_ARTIFACT_SHA256S[position - 1][variant]
     assert observation.parse_receipt(payload) == receipt
     assert all(value is False for value in receipt["authority_flags"].values())
 
 
+@pytest.mark.parametrize(
+    ("position", "variant", "descendant_count", "identity_exact"),
+    (
+        (position, variant, descendant_count, identity_exact)
+        for position in (1, 2)
+        for variant, (descendant_count, identity_exact) in enumerate(
+            observation.RECEIPT_VARIANTS
+        )
+    ),
+)
+def test_pure_post_exit_sealer_reproduces_all_twelve_receipt_variants(
+    position: int,
+    variant: int,
+    descendant_count: int,
+    identity_exact: bool | None,
+) -> None:
+    result = observation.seal_proportionate_observation_receipt(
+        _validation_payload(),
+        _post_exit_facts(
+            descendant_process_count=descendant_count,
+            top_level_identity_exact=identity_exact,
+        ),
+        position,
+    )
+    assert result == _receipt_bytes(position, variant)
+    assert isinstance(result, bytes)
+    receipt = observation.parse_receipt(result)
+    assert receipt["top_level_identity_exact"] is identity_exact
+    assert all(value is False for value in receipt["authority_flags"].values())
+
+
+@pytest.mark.parametrize(
+    ("changes", "expected"),
+    [
+        ({"top_level_process_count": 0}, "observation_launch_unknown"),
+        ({"descendant_process_count": -1}, "observation_launch_unknown"),
+        ({"process_relationships_known": False}, "observation_launch_unknown"),
+        ({"process_terminal_states_known": False}, "observation_timeout_unknown"),
+        ({"timed_out": True}, "observation_timeout_unknown"),
+        ({"termination_uncertain": True}, "observation_timeout_unknown"),
+        ({"cleanup_confirmed": False}, "observation_timeout_unknown"),
+        ({"descendant_process_count": 2}, "observation_safety_boundary_failed"),
+        ({"surviving_process_count": 1}, "observation_safety_boundary_failed"),
+        ({"executor_network_operation_count": 1}, "observation_safety_boundary_failed"),
+        ({"repository_write_count": 1}, "observation_safety_boundary_failed"),
+        ({"installed_write_count": 1}, "observation_safety_boundary_failed"),
+        ({"external_effect_count": 1}, "observation_safety_boundary_failed"),
+        ({"generated_residue_count": 1}, "observation_safety_boundary_failed"),
+        ({"output_complete": False}, "observation_result_unknown"),
+    ],
+)
+def test_post_exit_sealer_fails_at_the_first_parent_owned_boundary(
+    changes: dict[str, object],
+    expected: str,
+) -> None:
+    result = observation.seal_proportionate_observation_receipt(
+        _validation_payload(),
+        _post_exit_facts(**changes),
+        1,
+    )
+    assert result == expected
+
+
+@pytest.mark.parametrize(
+    ("changes", "expected"),
+    [
+        (
+            {
+                "top_level_process_count": 0,
+                "timed_out": True,
+                "surviving_process_count": 1,
+                "output_complete": False,
+            },
+            "observation_launch_unknown",
+        ),
+        (
+            {
+                "timed_out": True,
+                "surviving_process_count": 1,
+                "output_complete": False,
+            },
+            "observation_timeout_unknown",
+        ),
+        (
+            {"surviving_process_count": 1, "output_complete": False},
+            "observation_safety_boundary_failed",
+        ),
+        ({"top_level_identity_exact": 1}, "observation_launch_unknown"),
+    ],
+)
+def test_post_exit_failure_precedence_is_deterministic(
+    changes: dict[str, object],
+    expected: str,
+) -> None:
+    assert observation.seal_proportionate_observation_receipt(
+        _validation_payload(),
+        _post_exit_facts(**changes),
+        1,
+    ) == expected
+
+
+def test_stale_validation_binding_precedes_unsafe_parent_facts() -> None:
+    packet = _bootstrap_packet()
+    packet["validator_bundle_sha256"] = "0" * 64
+    packet["evidence_sha256"] = observation.self_digest(packet, "evidence_sha256")
+    assert observation.seal_proportionate_observation_receipt(
+        observation.canonical_bytes(packet),
+        _post_exit_facts(surviving_process_count=1),
+        1,
+    ) == "observation_binding_rejected"
+
+
+def test_validation_payload_is_canonical_nonpublishable_and_parent_facts_are_closed() -> None:
+    payload = _validation_payload()
+    packet = observation.parse_validation_payload(payload)
+    assert packet["schema_version"] == "trusted_owner_r0_offline_bootstrap_evidence.v1"
+    assert "receipt_sha256" not in packet
+    assert "descendant_process_count" not in packet
+
+    duplicate = payload.replace(
+        b'{"schema_version":',
+        b'{"schema_version":"duplicate","schema_version":',
+        1,
+    )
+    reordered_packet = {key: packet[key] for key in reversed(packet)}
+    stale_packet = copy.deepcopy(packet)
+    stale_packet["registry_sha256"] = "0" * 64
+    stale_packet["evidence_sha256"] = observation.self_digest(
+        stale_packet,
+        "evidence_sha256",
+    )
+    for candidate, expected in (
+        (duplicate, "observation_validation_failed"),
+        (observation.canonical_bytes(reordered_packet), "observation_validation_failed"),
+        (observation.canonical_bytes(stale_packet), "observation_binding_rejected"),
+    ):
+        assert observation.seal_proportionate_observation_receipt(
+            candidate,
+            _post_exit_facts(),
+            1,
+        ) == expected
+
+    assert observation.seal_proportionate_observation_receipt(
+        payload,
+        _post_exit_facts().__dict__,  # type: ignore[arg-type]
+        1,
+    ) == "observation_launch_unknown"
+    assert observation.seal_proportionate_observation_receipt(
+        payload,
+        _post_exit_facts(),
+        3,
+    ) == "observation_sequence_rejected"
+
+
 def test_receipt_parser_rejects_duplicate_unknown_reordered_mistyped_and_mutated() -> None:
-    original = observation.EXPECTED_RECEIPTS[0]
+    original = observation.EXPECTED_RECEIPTS[0][0]
     payload = observation.canonical_bytes(original)
     duplicate = payload.replace(
         b'{"schema_version":',
@@ -536,10 +752,8 @@ def test_receipt_pair_requires_exact_chronology_independent_of_digest_order() ->
     first, second = _receipt_bytes(1), _receipt_bytes(2)
     receipts = observation.validate_receipt_pair((first, second))
     assert tuple(item["receipt_sha256"] for item in receipts) == (
-        observation.EXPECTED_RECEIPT_SHA256S
-    )
-    assert observation.EXPECTED_RECEIPT_SHA256S == tuple(
-        sorted(observation.EXPECTED_RECEIPT_SHA256S)
+        observation.EXPECTED_RECEIPT_SHA256S[0][0],
+        observation.EXPECTED_RECEIPT_SHA256S[1][0],
     )
     bytewise_sorted = tuple(
         sorted(
@@ -547,10 +761,10 @@ def test_receipt_pair_requires_exact_chronology_independent_of_digest_order() ->
             key=lambda payload: json.loads(payload)["receipt_sha256"],
         )
     )
-    assert bytewise_sorted == (first, second)
+    assert bytewise_sorted != (first, second)
 
     def mutated(position: int, **updates: object) -> bytes:
-        receipt = copy.deepcopy(observation.EXPECTED_RECEIPTS[position - 1])
+        receipt = copy.deepcopy(observation.EXPECTED_RECEIPTS[position - 1][0])
         receipt.update(updates)
         receipt["receipt_sha256"] = observation.self_digest(
             receipt,
@@ -565,7 +779,7 @@ def test_receipt_pair_requires_exact_chronology_independent_of_digest_order() ->
         (first,),
         (mutated(1, current_rung="R1"), second),
         (mutated(1, sequence_position=2), second),
-        (mutated(1, sequence_id=observation.HISTORICAL_SEQUENCE_ID), second),
+        (mutated(1, sequence_id=observation.HISTORICAL_SEQUENCE_IDS[-1]), second),
         (mutated(1, observation_id="r0.offline.observation.substituted"), second),
         (mutated(1, observation_profile_sha256="0" * 64), second),
         (first, mutated(2, predecessor_observation_id=None)),
@@ -574,8 +788,8 @@ def test_receipt_pair_requires_exact_chronology_independent_of_digest_order() ->
         with pytest.raises(observation.ObservationFailure):
             observation.validate_receipt_pair(candidate)
 
-    old_first = copy.deepcopy(observation.EXPECTED_RECEIPTS[0])
-    old_first["sequence_id"] = observation.HISTORICAL_SEQUENCE_ID
+    old_first = copy.deepcopy(observation.EXPECTED_RECEIPTS[0][0])
+    old_first["sequence_id"] = observation.HISTORICAL_SEQUENCE_IDS[-1]
     old_first["observation_id"] = observation.HISTORICAL_OBSERVATION_IDS[0]
     old_first["observation_profile_sha256"] = (
         "0d97f23b96dfab5b6b459bea92df63a8bc6675c50632ace60a36f7e1cbea2124"
@@ -638,16 +852,19 @@ def test_consumption_known_answer_is_exact_and_nonpublishable() -> None:
         {key: value for key, value in packet.items() if key != "consumption_sha256"}
     )
     assert tuple(packet) == observation.CONSUMPTION_FIELDS
-    assert len(preimage) == 2531
-    assert len(payload) == 2619
+    assert len(preimage) == 2869
+    assert len(payload) == 2957
     assert packet["consumption_sha256"] == (
-        "b49572e1faad02c68270c0832dc86158da3b24d2eff5772669521a7e53955efa"
+        "4f54d1df7627e9ac544822d4b140ed87ba47dea682137a6bbc3654910f5b29ca"
     )
     assert hashlib.sha256(payload).hexdigest() == (
-        "d3e1f80d0c755c65c8c9cb905275cff09ca92c38f2bb662ddcd553de08d1e360"
+        "eab4d6326ee187d641ed0a3b63e958229e66e4aea4cc3d2573a27916d79a57e1"
     )
     assert packet["sequence_contract_review_ref"].startswith(
-        "https://github.com/Tahjali11/Mythic-Edge/issues/780#"
+        "https://github.com/Tahjali11/Mythic-Edge/issues/776#"
+    )
+    assert packet["expected_receipt_sha256s"] == list(
+        observation.EXPECTED_RECEIPT_SHA256S[0]
     )
     assert observation.parse_consumption(payload, expected=packet) == packet
     with pytest.raises(observation.ObservationFailure) as error:
@@ -680,6 +897,29 @@ def test_consumption_parser_rejects_duplicate_reordered_wrong_type_and_digest() 
     ):
         with pytest.raises(observation.ObservationFailure):
             observation.parse_consumption(candidate)
+
+
+@pytest.mark.parametrize("position", [1, 2])
+def test_consumption_rejects_every_receipt_allowlist_permutation(position: int) -> None:
+    packet = _consumption(position)
+    allowed = list(packet["expected_receipt_sha256s"])
+    assert len(allowed) == 6
+    candidates = (
+        list(reversed(allowed)),
+        allowed[1:] + allowed[:1],
+        allowed[:-1],
+        allowed + [allowed[-1]],
+        [*allowed[:-1], "0" * 64],
+    )
+    for candidate in candidates:
+        changed = copy.deepcopy(packet)
+        changed["expected_receipt_sha256s"] = candidate
+        changed["consumption_sha256"] = observation.self_digest(
+            changed,
+            "consumption_sha256",
+        )
+        with pytest.raises(observation.ObservationFailure):
+            observation.parse_consumption(observation.canonical_bytes(changed))
 
 
 def test_consumption_selector_exhaustively_covers_fifteen_tuples() -> None:
@@ -915,7 +1155,7 @@ def test_stable_payload_refuses_reparse_before_opening() -> None:
     assert error.value.status == "observation_binding_rejected"
 
 
-def test_exact_in_process_owner_call_graph_projects_only_expected_receipt() -> None:
+def test_exact_in_process_owner_call_graph_projects_only_validation_payload() -> None:
     checker = _FakeChecker()
     roots = _fake_roots()
     audit = observation.AuditBoundary(REPO_ROOT, (Path(sys.base_prefix),))
@@ -928,7 +1168,14 @@ def test_exact_in_process_owner_call_graph_projects_only_expected_receipt() -> N
         runtime_os_name="nt",
         runtime_sys_platform="win32",
     )
-    assert payload == _receipt_bytes(1)
+    assert payload == _validation_payload()
+    assert observation.parse_validation_payload(payload) == _bootstrap_packet()
+    sealed = observation.seal_proportionate_observation_receipt(
+        payload,
+        _post_exit_facts(),
+        1,
+    )
+    assert sealed == _receipt_bytes(1)
     assert checker.calls[0] == "evaluate_roots"
     assert "load_owner_modules" in checker.calls
     assert checker.calls[-1] == "offline_validation"
@@ -977,7 +1224,7 @@ def test_owner_projection_drift_fails_without_receipt() -> None:
             runtime_os_name="nt",
             runtime_sys_platform="win32",
         )
-    assert error.value.status == "observation_validation_failed"
+    assert error.value.status == "observation_binding_rejected"
 
 
 def test_current_release_uses_existing_owner_validation_and_exact_r0_ceiling() -> None:
@@ -1016,31 +1263,34 @@ def test_current_release_uses_existing_owner_validation_and_exact_r0_ceiling() -
     [
         ({}, "accepted_exact_r0_offline_observation"),
         ({"timed_out": True}, "observation_timeout_unknown"),
+        ({"termination_uncertain": True}, "observation_timeout_unknown"),
         ({"cleanup_confirmed": False}, "observation_timeout_unknown"),
+        ({"process_terminal_states_known": False}, "observation_timeout_unknown"),
         ({"exit_code": None}, "observation_launch_unknown"),
         ({"top_level_process_count": 0}, "observation_launch_unknown"),
-        ({"descendant_process_count": 1}, "observation_safety_boundary_failed"),
+        ({"process_relationships_known": False}, "observation_launch_unknown"),
+        ({"descendant_process_count": 1}, "accepted_exact_r0_offline_observation"),
+        ({"descendant_process_count": 2}, "observation_safety_boundary_failed"),
+        ({"surviving_process_count": 1}, "observation_safety_boundary_failed"),
+        ({"top_level_identity_exact": False}, "accepted_exact_r0_offline_observation"),
+        ({"top_level_identity_exact": True}, "accepted_exact_r0_offline_observation"),
+        ({"repository_write_count": 1}, "observation_safety_boundary_failed"),
+        ({"installed_write_count": 1}, "observation_safety_boundary_failed"),
+        ({"external_effect_count": 1}, "observation_safety_boundary_failed"),
+        ({"executor_network_operation_count": 1}, "observation_safety_boundary_failed"),
+        ({"generated_residue_count": 1}, "observation_safety_boundary_failed"),
         ({"output_complete": False}, "observation_result_unknown"),
         ({"stdout": b"x" * 4097}, "observation_result_unknown"),
         ({"stdout": b"invalid\n"}, "observation_validation_failed"),
+        ({"stderr": b"symbolic-failure\n"}, "observation_validation_failed"),
+        ({"exit_code": 1}, "observation_validation_failed"),
     ],
 )
 def test_fake_launcher_enforces_process_timeout_output_and_cleanup_boundaries(
     changes: dict[str, object],
     expected: str,
 ) -> None:
-    values: dict[str, object] = {
-        "exit_code": 0,
-        "stdout": _receipt_bytes(1),
-        "stderr": b"",
-        "top_level_process_count": 1,
-        "descendant_process_count": 0,
-        "timed_out": False,
-        "cleanup_confirmed": True,
-        "output_complete": True,
-    }
-    values.update(changes)
-    result = observation.LauncherObservation(**values)
+    result = _launcher_observation(**changes)
     assert observation.classify_launcher_observation(result) == expected
 
 
@@ -1049,15 +1299,16 @@ def test_fake_launcher_enforces_process_timeout_output_and_cleanup_boundaries(
     [
         ({}, {}, "accepted_exact_r0_offline_observation"),
         ({"public_binding_exact": False}, {}, "observation_binding_rejected"),
-        ({"private_binding_exact": False}, {}, "observation_binding_rejected"),
-        ({"top_level_identity_exact": False}, {}, "observation_launch_unknown"),
-        ({"parentage_known": False}, {}, "observation_launch_unknown"),
+        ({"private_binding_exact": False}, {}, "accepted_exact_r0_offline_observation"),
+        ({"top_level_identity_exact": False}, {}, "accepted_exact_r0_offline_observation"),
+        ({"parentage_known": False}, {}, "accepted_exact_r0_offline_observation"),
         ({}, {"top_level_process_count": 0}, "observation_launch_unknown"),
         (
             {},
             {"descendant_process_count": 1},
-            "observation_safety_boundary_failed",
+            "accepted_exact_r0_offline_observation",
         ),
+        ({}, {"descendant_process_count": 2}, "observation_safety_boundary_failed"),
         ({}, {"timed_out": True}, "observation_timeout_unknown"),
         ({}, {"cleanup_confirmed": False}, "observation_timeout_unknown"),
         ({}, {"output_complete": False}, "observation_result_unknown"),
@@ -1068,23 +1319,12 @@ def test_fake_direct_launcher_binds_identity_parentage_timeout_and_cleanup(
     process_changes: dict[str, object],
     expected: str,
 ) -> None:
-    process_values: dict[str, object] = {
-        "exit_code": 0,
-        "stdout": _receipt_bytes(1),
-        "stderr": b"",
-        "top_level_process_count": 1,
-        "descendant_process_count": 0,
-        "timed_out": False,
-        "cleanup_confirmed": True,
-        "output_complete": True,
-    }
-    process_values.update(process_changes)
     direct_values: dict[str, object] = {
         "public_binding_exact": True,
         "private_binding_exact": True,
         "top_level_identity_exact": True,
         "parentage_known": True,
-        "process": observation.LauncherObservation(**process_values),
+        "process": _launcher_observation(**process_changes),
     }
     direct_values.update(direct_changes)
     result = observation.DirectLauncherObservation(**direct_values)
@@ -1154,6 +1394,23 @@ def test_cli_invalid_identity_is_symbolic_no_echo_and_does_not_load_owner() -> N
     assert "private" not in stderr.getvalue().lower()
 
 
+@pytest.mark.parametrize("historical_id", observation.HISTORICAL_OBSERVATION_IDS)
+def test_every_historical_observation_identity_is_terminal_nonreusable(
+    historical_id: str,
+) -> None:
+    stdout = io.StringIO()
+    stderr = io.StringIO()
+    with (
+        mock.patch.object(observation, "_load_checker", side_effect=AssertionError),
+        mock.patch.object(observation.sys, "stdout", stdout),
+        mock.patch.object(observation.sys, "stderr", stderr),
+    ):
+        exit_code = observation.run([historical_id])
+    assert exit_code == 2
+    assert stdout.getvalue() == ""
+    assert stderr.getvalue() == "observation_sequence_rejected\n"
+
+
 def test_cli_rejects_wrong_working_directory_before_owner_load(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1181,7 +1438,28 @@ def test_cli_rejects_wrong_working_directory_before_owner_load(
     assert stderr.getvalue() == "observation_binding_rejected\n"
 
 
-def test_cli_success_path_uses_fake_owner_and_emits_only_receipt(
+def test_cli_success_path_uses_fake_owner_and_emits_only_validation_payload(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    checker = _FakeChecker()
+    roots = _fake_roots()
+    checker._production_roots = lambda: roots  # type: ignore[attr-defined]
+    stdout = io.StringIO()
+    stderr = io.StringIO()
+    monkeypatch.setenv("PYTHONDONTWRITEBYTECODE", "1")
+    monkeypatch.setattr(observation.os, "name", "nt")
+    monkeypatch.setattr(observation.sys, "platform", "win32")
+    monkeypatch.setattr(observation.sys, "dont_write_bytecode", True)
+    monkeypatch.setattr(observation.sys, "addaudithook", lambda hook: None)
+    monkeypatch.setattr(observation, "_load_checker", lambda root: checker)
+    monkeypatch.setattr(observation.sys, "stdout", stdout)
+    monkeypatch.setattr(observation.sys, "stderr", stderr)
+    assert observation.run([observation.OBSERVATION_IDS[0]]) == 0
+    assert stdout.getvalue().encode("utf-8") == _validation_payload()
+    assert stderr.getvalue() == ""
+
+
+def test_cli_does_not_use_retired_direct_interpreter_dependency(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     checker = _FakeChecker()
@@ -1197,42 +1475,16 @@ def test_cli_success_path_uses_fake_owner_and_emits_only_receipt(
     monkeypatch.setattr(
         observation,
         "validate_running_direct_interpreter",
-        lambda: _direct_metadata(),
+        mock.Mock(side_effect=AssertionError("retired dependency must not run")),
     )
-    monkeypatch.setattr(observation, "_load_checker", lambda root: checker)
-    monkeypatch.setattr(observation.sys, "stdout", stdout)
-    monkeypatch.setattr(observation.sys, "stderr", stderr)
-    assert observation.run([observation.OBSERVATION_IDS[0]]) == 0
-    assert stdout.getvalue().encode("utf-8") == _receipt_bytes(1)
-    assert stderr.getvalue() == ""
-
-
-def test_cli_direct_interpreter_failure_precedes_owner_load_without_echo(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    stdout = io.StringIO()
-    stderr = io.StringIO()
-    monkeypatch.setenv("PYTHONDONTWRITEBYTECODE", "1")
-    monkeypatch.setattr(observation.os, "name", "nt")
-    monkeypatch.setattr(observation.sys, "platform", "win32")
-    monkeypatch.setattr(observation.sys, "dont_write_bytecode", True)
-    monkeypatch.setattr(
-        observation,
-        "validate_running_direct_interpreter",
-        mock.Mock(
-            side_effect=observation.ObservationFailure(
-                "observation_binding_rejected"
-            )
-        ),
-    )
-    owner = mock.Mock(side_effect=AssertionError("must not load"))
+    owner = mock.Mock(return_value=checker)
     monkeypatch.setattr(observation, "_load_checker", owner)
     monkeypatch.setattr(observation.sys, "stdout", stdout)
     monkeypatch.setattr(observation.sys, "stderr", stderr)
-    assert observation.run([observation.OBSERVATION_IDS[0]]) == 2
-    assert owner.call_count == 0
-    assert stdout.getvalue() == ""
-    assert stderr.getvalue() == "observation_binding_rejected\n"
+    assert observation.run([observation.OBSERVATION_IDS[0]]) == 0
+    assert owner.call_count == 1
+    assert stdout.getvalue().encode("utf-8") == _validation_payload()
+    assert stderr.getvalue() == ""
 
 
 def test_cli_unknown_owner_failure_never_echoes_raw_exception(
@@ -1251,11 +1503,6 @@ def test_cli_unknown_owner_failure_never_echoes_raw_exception(
     monkeypatch.setattr(observation.sys, "platform", "win32")
     monkeypatch.setattr(observation.sys, "dont_write_bytecode", True)
     monkeypatch.setattr(observation.sys, "addaudithook", lambda hook: None)
-    monkeypatch.setattr(
-        observation,
-        "validate_running_direct_interpreter",
-        lambda: _direct_metadata(),
-    )
     monkeypatch.setattr(observation, "_load_checker", lambda root: checker)
     monkeypatch.setattr(observation.sys, "stdout", stdout)
     monkeypatch.setattr(observation.sys, "stderr", stderr)
@@ -1270,9 +1517,8 @@ def test_fixed_owner_bindings_and_two_file_scope_remain_exact() -> None:
         observation.SEQUENCE_CONTRACT_RELATIVE_PATH.as_posix(): observation.SEQUENCE_CONTRACT_SHA256,
         observation.RECEIPT_ORDER_CONTRACT_RELATIVE_PATH.as_posix(): observation.RECEIPT_ORDER_CONTRACT_SHA256,
         observation.RECEIPT_ORDER_REVIEW_RELATIVE_PATH.as_posix(): observation.RECEIPT_ORDER_REVIEW_SHA256,
-        observation.DIRECT_INTERPRETER_CONTRACT_RELATIVE_PATH.as_posix(): (
-            observation.DIRECT_INTERPRETER_CONTRACT_SHA256
-        ),
+        observation.PROPORTIONATE_CONTRACT_RELATIVE_PATH.as_posix(): observation.PROPORTIONATE_CONTRACT_SHA256,
+        observation.PROPORTIONATE_REVIEW_RELATIVE_PATH.as_posix(): observation.PROPORTIONATE_REVIEW_SHA256,
         "docs/contracts/trusted_owner_native_role_pool_profile.md": observation.PROFILE_CONTRACT_SHA256,
         "docs/role_pool/trusted_owner_native_release_state.v1.jsonl": observation.RELEASE_STATE_ARTIFACT_SHA256,
         "docs/role_pool/trusted_owner_repository_registry.v1.json": observation.REGISTRY_ARTIFACT_SHA256,
@@ -1289,9 +1535,10 @@ def test_fixed_owner_bindings_and_two_file_scope_remain_exact() -> None:
         "tools/check_role_pool_r0_offline_observation.py",
         "tests/test_check_role_pool_r0_offline_observation.py",
     ]
-    assert observation.DIRECT_INTERPRETER_REVIEWED_CONTRACT_SHA256 == (
-        observation.DIRECT_INTERPRETER_CONTRACT_SHA256
+    assert "DIRECT_INTERPRETER_CONTRACT_RELATIVE_PATH" not in (
+        observation._load_checker.__code__.co_names
     )
+    assert "validate_running_direct_interpreter" not in observation.run.__code__.co_names
 
 
 def test_no_runtime_function_mutates_repository_or_grants_authority() -> None:
@@ -1309,6 +1556,15 @@ def test_no_runtime_function_mutates_repository_or_grants_authority() -> None:
         observation.canonical_bytes(observation.DIRECT_INTERPRETER_BINDING)
     )
     observation.parse_consumption(observation.canonical_bytes(_consumption()))
+    observation.parse_validation_payload(_validation_payload())
+    assert isinstance(
+        observation.seal_proportionate_observation_receipt(
+            _validation_payload(),
+            _post_exit_facts(),
+            1,
+        ),
+        bytes,
+    )
     observation.select_direct_interpreter_preflight_outcome(
         False,
         True,
@@ -1324,6 +1580,7 @@ def test_no_runtime_function_mutates_repository_or_grants_authority() -> None:
     assert before == after
     assert all(
         value is False
-        for receipt in observation.EXPECTED_RECEIPTS
+        for receipts in observation.EXPECTED_RECEIPTS
+        for receipt in receipts
         for value in receipt["authority_flags"].values()
     )
