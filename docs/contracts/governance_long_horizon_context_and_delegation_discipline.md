@@ -148,17 +148,22 @@ A historical finding may become current again only when one artifact records:
 
 1. the finding ID and prior disposition;
 2. new current evidence;
-3. the exact condition that changed since the prior disposition; and
+3. either the exact condition that changed since the prior disposition or an
+   explicit correction basis showing that the prior disposition was erroneous
+   because the finding's exact predicate remained unsatisfied; and
 4. the new lifecycle, blocking status, owner, and route.
 
 Fixed, superseded, deferred, rejected, not-reproduced, and closed findings
 remain historical otherwise. Repetition in chat, memory, an old report, or an
-unchanged stale test does not reactivate a finding. If current evidence shows
-a different defect, use a new finding ID unless the prior finding's exact
-predicate has recurred.
+unchanged stale test does not reactivate or correct a finding. Fresh current
+evidence may correct an erroneous prior disposition under the existing finding
+ID when it demonstrates that the exact predicate never became satisfied. This
+is a disposition correction, not a claim that the defect disappeared and later
+recurred. If current evidence shows a different defect, use a new finding ID
+unless the prior finding's exact predicate has recurred.
 
-Reactivation preserves the earlier record; it does not rewrite history or
-erase fixed-state verification.
+Reactivation or correction preserves the earlier record; it does not rewrite
+history or erase the evidence that supported the prior disposition.
 
 ### 6. Durable Workflow State
 
