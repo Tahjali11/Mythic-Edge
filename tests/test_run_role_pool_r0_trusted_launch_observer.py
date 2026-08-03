@@ -1,0 +1,787 @@
+from __future__ import annotations
+
+import ast
+import hashlib
+import importlib.util
+import inspect
+import sys
+from dataclasses import replace
+from pathlib import Path
+from types import ModuleType
+
+import pytest
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+OBSERVER_PATH = REPO_ROOT / "tools/run_role_pool_r0_trusted_launch_observer.py"
+OWNER_PATH = REPO_ROOT / "tools/check_role_pool_r0_offline_observation.py"
+
+
+def _load(name: str, path: Path) -> ModuleType:
+    spec = importlib.util.spec_from_file_location(name, path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+observer = _load("run_role_pool_r0_trusted_launch_observer", OBSERVER_PATH)
+owner = _load("check_role_pool_r0_offline_observation_for_observer", OWNER_PATH)
+_REAL_LOAD_OWNER_API = observer._load_owner_api
+
+
+def _bootstrap_packet() -> dict[str, object]:
+    packet: dict[str, object] = {
+        "schema_version": "trusted_owner_r0_offline_bootstrap_evidence.v1",
+        "operation": "evaluate_r0_bootstrap_eligibility_read_only",
+        "repository_id": owner.REPOSITORY_ID,
+        "repository_name": "tahjali11/mythic-edge",
+        "issue_url": "https://github.com/Tahjali11/Mythic-Edge/issues/761",
+        "base_commit": "10d4a4a79053fe33297a612599667d9b58bb4296",
+        "profile_contract_sha256": owner.PROFILE_CONTRACT_SHA256,
+        "app_server_contract_sha256": (
+            "814ac91c4e099216ae4870458d7524a3d65bfba7459cbfda7de82a5fc79067e8"
+        ),
+        "r0_contract_sha256": (
+            "07ab1c7153ba1312533bdc27d984789127fb7fc02190d26853ffae1849c2ac82"
+        ),
+        "contract_binding_status": "exact",
+        "stage3_manifest_file_count": 39,
+        "stage3_manifest_byte_count": 5729,
+        "stage3_manifest_sha256": (
+            "cc88860794f918afbb050d6149df3cd11d195fab098b907be06f44ed88de7e06"
+        ),
+        "manifest_status": "exact",
+        "source_tree_node_count": 41,
+        "source_tree_file_count": 36,
+        "source_tree_manifest_byte_count": 6495,
+        "source_tree_sha256": owner.SOURCE_TREE_SHA256,
+        "installed_tree_node_count": 41,
+        "installed_tree_file_count": 36,
+        "installed_tree_manifest_byte_count": 6495,
+        "installed_tree_sha256": owner.SOURCE_TREE_SHA256,
+        "source_install_status": "identical",
+        "registry_status": "valid_exact",
+        "registry_sha256": owner.REGISTRY_SHA256,
+        "release_state_status": "present_valid_chain",
+        "release_state_sha256": owner.RELEASE_STATE_ARTIFACT_SHA256,
+        "checker_sha256": owner.R0_CHECKER_SHA256,
+        "checker_test_sha256": owner.R0_CHECKER_TEST_SHA256,
+        "validator_bundle_sha256": owner.VALIDATOR_BUNDLE_SHA256,
+        "validator_bundle_status": "exact",
+        "offline_validation_status": "passed",
+        "terminal_status": "blocked_release_state_conflict",
+        "eligible_for_independent_review": False,
+        "effect_counts": {
+            "app_server_process_start_count": 0,
+            "task_creation_count": 0,
+            "network_operation_count": 0,
+            "repository_command_count": 0,
+            "persistent_mutation_count": 0,
+        },
+        "authority_flags": {field: False for field in owner.AUTHORITY_FIELDS},
+        "evidence_sha256": "",
+    }
+    packet["evidence_sha256"] = owner.self_digest(packet, "evidence_sha256")
+    return packet
+
+
+def _validation_payload() -> bytes:
+    return owner.canonical_bytes(_bootstrap_packet())
+
+
+def _identity() -> object:
+    return observer._FileIdentity(1, 2, 1024, 3, "a" * 64)
+
+
+def _snapshot(**changes: object) -> object:
+    values: dict[str, object] = {
+        "exact": True,
+        "repository_digest": "b" * 64,
+        "installed_digest": "c" * 64,
+        "generated_residue": frozenset(),
+    }
+    values.update(changes)
+    return observer._EffectSnapshot(**values)
+
+
+def _closes() -> tuple[object, ...]:
+    names = (
+        "attribute_list",
+        "completion_port",
+        "job",
+        "launcher_guard",
+        "process",
+        "stderr_read",
+        "stderr_write",
+        "stdin_read",
+        "stdin_write",
+        "stdout_read",
+        "stdout_write",
+        "thread",
+    )
+    return tuple(observer._CloseObservation(name, 1, True) for name in names)
+
+
+def _evidence(descendants: int = 0, **changes: object) -> object:
+    top_id = 101
+    descendant_ids = tuple(range(202, 202 + descendants))
+    events = (
+        (observer._JobEvent("new", top_id),)
+        + tuple(observer._JobEvent("new", value) for value in descendant_ids)
+        + tuple(observer._JobEvent("exit", value) for value in reversed(descendant_ids))
+        + (
+            observer._JobEvent("exit", top_id),
+            observer._JobEvent("active_zero", None),
+        )
+    )
+    values: dict[str, object] = {
+        "creation_attempt_count": 1,
+        "top_level_created": True,
+        "top_level_process_id": top_id,
+        "job_assigned_at_creation": True,
+        "job_handle_unique": True,
+        "events": events,
+        "cumulative_process_total": 1 + descendants,
+        "active_process_count": 0,
+        "exit_code": 0,
+        "stdout": _validation_payload(),
+        "stderr": b"",
+        "stdout_eof": True,
+        "stderr_eof": True,
+        "stdout_overflow": False,
+        "stderr_overflow": False,
+        "top_level_identity_exact": None,
+        "timed_out": False,
+        "termination_requested": False,
+        "termination_succeeded": None,
+        "terminal_wait_succeeded": True,
+        "close_observations": _closes(),
+    }
+    values.update(changes)
+    return observer._LaunchEvidence(**values)
+
+
+class FakeAdapter:
+    def __init__(self, evidence: object | None = None) -> None:
+        self.runtime = ("nt", "win32")
+        self.launcher = observer._LauncherBinding(
+            True,
+            r"C:\Windows\py.exe",
+            r"C:\Windows",
+            _identity(),
+        )
+        self.snapshots = [_snapshot(), _snapshot()]
+        self.audit = observer._AuditCounts(0, 0, 0, 0)
+        self.evidence = _evidence() if evidence is None else evidence
+        self.raise_on_launch: BaseException | None = None
+        self.install_calls = 0
+        self.bind_calls = 0
+        self.launch_calls = 0
+        self.requests: list[object] = []
+        self.snapshot_calls = 0
+
+    def runtime_identity(self) -> tuple[str, str]:
+        return self.runtime
+
+    def install_audit(self, repository_root: Path) -> None:
+        assert repository_root == REPO_ROOT
+        self.install_calls += 1
+
+    def bind_installed_root(self, installed_root: Path) -> None:
+        assert installed_root == REPO_ROOT
+        self.bind_calls += 1
+
+    def resolve_launcher(self) -> object:
+        return self.launcher
+
+    def snapshot_effects(
+        self,
+        repository_root: Path,
+        installed_root: Path,
+        owner_module: ModuleType,
+    ) -> object:
+        assert repository_root == REPO_ROOT
+        assert installed_root == REPO_ROOT
+        assert owner_module is owner
+        value = self.snapshots[self.snapshot_calls]
+        self.snapshot_calls += 1
+        return value
+
+    def launch_once(self, request: object) -> object:
+        self.launch_calls += 1
+        self.requests.append(request)
+        if self.raise_on_launch is not None:
+            raise self.raise_on_launch
+        return self.evidence
+
+    def audit_counts(self) -> object:
+        return self.audit
+
+
+@pytest.fixture(autouse=True)
+def _operation_free_owner(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(sys, "dont_write_bytecode", True)
+    monkeypatch.setattr(observer, "_repository_root", lambda: REPO_ROOT)
+    monkeypatch.setattr(observer, "_load_owner_api", lambda _root: owner)
+    monkeypatch.setattr(observer, "_installed_root", lambda _owner, _root: REPO_ROOT)
+
+
+def _run(adapter: FakeAdapter) -> bytes | str:
+    return observer._run_observation_1(adapter)
+
+
+def test_exact_contract_and_owner_bindings_are_frozen() -> None:
+    expected = {
+        observer.CONTRACT_PATH: observer.CONTRACT_SHA256,
+        **observer.FROZEN_BINDINGS,
+    }
+    for relative_path, digest in expected.items():
+        payload = (REPO_ROOT / relative_path).read_bytes()
+        assert hashlib.sha256(payload).hexdigest() == digest
+
+
+def test_owner_executes_only_the_verified_payload() -> None:
+    source = OBSERVER_PATH.read_text(encoding="utf-8")
+    assert "exec_module" not in source
+    assert "verified_payloads[OWNER_PATH]" in source
+    assert "compile(" in source
+    assert "exec(code, module.__dict__)" in source
+    loaded = _REAL_LOAD_OWNER_API(REPO_ROOT)
+    assert loaded.OBSERVATION_IDS == owner.OBSERVATION_IDS
+    assert loaded.MAX_STDOUT_BYTES == owner.MAX_STDOUT_BYTES
+
+
+def test_owner_path_replacement_cannot_change_verified_execution(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    payloads = {
+        relative_path: (REPO_ROOT / relative_path).read_bytes()
+        for relative_path in observer.FROZEN_BINDINGS
+    }
+
+    def verified_bytes(path: Path) -> bytes:
+        return payloads[path.relative_to(REPO_ROOT)]
+
+    def reject_reopen(*_args: object, **_kwargs: object) -> object:
+        raise AssertionError("verified owner path was reopened")
+
+    monkeypatch.setattr(observer, "_stable_file_bytes", verified_bytes)
+    monkeypatch.setattr(Path, "open", reject_reopen)
+    loaded = _REAL_LOAD_OWNER_API(REPO_ROOT)
+    assert loaded.OBSERVATION_IDS == owner.OBSERVATION_IDS
+
+
+def test_zero_argument_public_surface_and_fixed_request() -> None:
+    assert tuple(inspect.signature(observer.main).parameters) == ("argv",)
+    assert tuple(inspect.signature(observer._run_observation_1).parameters) == (
+        "adapter",
+    )
+    adapter = FakeAdapter()
+    result = _run(adapter)
+    assert isinstance(result, bytes)
+    assert adapter.install_calls == adapter.bind_calls == adapter.launch_calls == 1
+    request = adapter.requests[0]
+    assert request.tokens == (
+        "py",
+        "-3.13",
+        "-B",
+        "tools/check_role_pool_r0_offline_observation.py",
+        owner.OBSERVATION_IDS[0],
+    )
+    assert request.application_path == r"C:\Windows\py.exe"
+    assert request.repository_root == REPO_ROOT
+    assert request.timeout_seconds == 120.0
+    assert request.max_stdout_bytes == owner.MAX_STDOUT_BYTES
+    assert request.max_stderr_bytes == owner.MAX_FAILURE_STDERR_BYTES
+    assert request.environment == (
+        ("PYTHONDONTWRITEBYTECODE", "1"),
+        ("SYSTEMROOT", r"C:\Windows"),
+    )
+    forbidden = {
+        "PATH",
+        "PYTHONPATH",
+        "CODEX_HOME",
+        "HTTP_PROXY",
+        "HTTPS_PROXY",
+        "TOKEN",
+        "CREDENTIAL",
+    }
+    assert forbidden.isdisjoint({name.upper() for name, _ in request.environment})
+
+
+def test_arguments_reject_before_adapter_construction(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    def forbidden() -> object:
+        raise AssertionError("production adapter reached")
+
+    monkeypatch.setattr(observer, "_WindowsTrustedLaunchAdapter", forbidden)
+    assert observer.main(["unexpected"]) == 2
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err == "observation_sequence_rejected\n"
+
+
+def test_non_windows_and_prelaunch_drift_never_launch() -> None:
+    host = FakeAdapter()
+    host.runtime = ("posix", "linux")
+    assert _run(host) == "observation_host_rejected"
+    assert host.launch_calls == 0
+
+    baseline = FakeAdapter()
+    baseline.snapshots[0] = _snapshot(exact=False)
+    assert _run(baseline) == "observation_binding_rejected"
+    assert baseline.launch_calls == 0
+
+    launcher = FakeAdapter()
+    launcher.launcher = replace(launcher.launcher, exact=False)
+    assert _run(launcher) == "observation_binding_rejected"
+    assert launcher.launch_calls == 0
+
+
+def test_binding_failure_and_environment_drift_stop_before_launch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    adapter = FakeAdapter()
+
+    def stale(_root: Path) -> ModuleType:
+        raise observer._ObserverError("observation_binding_rejected")
+
+    monkeypatch.setattr(observer, "_load_owner_api", stale)
+    assert _run(adapter) == "observation_binding_rejected"
+    assert adapter.launch_calls == 0
+
+    with pytest.raises(observer._ObserverError):
+        observer._environment_block((("PATH", "x\0y"),))
+    with pytest.raises(observer._ObserverError):
+        observer._environment_block((("A", "1"), ("a", "2")))
+
+
+def test_launch_exception_is_single_attempt_and_never_retried() -> None:
+    adapter = FakeAdapter()
+    adapter.raise_on_launch = RuntimeError("private detail")
+    assert _run(adapter) == "observation_launch_unknown"
+    assert adapter.launch_calls == 1
+    assert len(adapter.requests) == 1
+
+    binding = FakeAdapter()
+    binding.raise_on_launch = observer._ObserverError("observation_binding_rejected")
+    assert _run(binding) == "observation_binding_rejected"
+    assert binding.launch_calls == 1
+    assert len(binding.requests) == 1
+
+
+@pytest.mark.parametrize("descendants", [0, 1])
+@pytest.mark.parametrize("identity_exact", [True, False, None])
+def test_allowed_topologies_and_diagnostic_identity_seal(
+    descendants: int,
+    identity_exact: bool | None,
+) -> None:
+    adapter = FakeAdapter(
+        _evidence(descendants, top_level_identity_exact=identity_exact)
+    )
+    result = _run(adapter)
+    assert isinstance(result, bytes)
+    receipt = owner.parse_receipt(result)
+    assert receipt["sequence_position"] == 1
+    assert receipt["observation_id"] == owner.OBSERVATION_IDS[0]
+    assert receipt["descendant_process_count"] == descendants
+    assert receipt["top_level_identity_exact"] is identity_exact
+
+
+@pytest.mark.parametrize(
+    ("evidence", "status"),
+    [
+        (_evidence(2), "observation_safety_boundary_failed"),
+        (
+            _evidence(events=(observer._JobEvent("new", 101),)),
+            "observation_timeout_unknown",
+        ),
+        (
+            _evidence(
+                events=(
+                    observer._JobEvent("new", 101),
+                    observer._JobEvent("new", 101),
+                )
+            ),
+            "observation_launch_unknown",
+        ),
+        (
+            _evidence(cumulative_process_total=None),
+            "observation_launch_unknown",
+        ),
+        (
+            _evidence(terminal_wait_succeeded=False),
+            "observation_timeout_unknown",
+        ),
+        (
+            _evidence(timed_out=True),
+            "observation_timeout_unknown",
+        ),
+        (
+            _evidence(
+                termination_requested=True,
+                termination_succeeded=False,
+            ),
+            "observation_timeout_unknown",
+        ),
+    ],
+)
+def test_process_and_terminal_failures_use_existing_statuses(
+    evidence: object,
+    status: str,
+) -> None:
+    assert _run(FakeAdapter(evidence)) == status
+
+
+@pytest.mark.parametrize(
+    ("changes", "status"),
+    [
+        ({"stdout_overflow": True}, "observation_result_unknown"),
+        ({"stderr_overflow": True}, "observation_result_unknown"),
+        ({"stdout_eof": False}, "observation_timeout_unknown"),
+        ({"stderr_eof": False}, "observation_timeout_unknown"),
+        ({"exit_code": 4}, "observation_safety_boundary_failed"),
+        ({"exit_code": 3}, "observation_result_unknown"),
+        ({"exit_code": 2}, "observation_validation_failed"),
+        ({"stderr": b"failure"}, "observation_validation_failed"),
+        ({"stdout": b"{}"}, "observation_validation_failed"),
+    ],
+)
+def test_stream_and_child_result_failures(
+    changes: dict[str, object],
+    status: str,
+) -> None:
+    assert _run(FakeAdapter(_evidence(**changes))) == status
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"stdout_eof": False},
+        {"stderr_eof": False},
+    ],
+)
+def test_cleanup_confirmation_requires_complete_output_drain(
+    changes: dict[str, object],
+) -> None:
+    facts = observer._post_exit_facts(
+        owner,
+        _evidence(**changes),
+        _snapshot(),
+        _snapshot(),
+        observer._AuditCounts(0, 0, 0, 0),
+    )
+    assert facts.output_complete is False
+    assert facts.cleanup_confirmed is False
+
+
+def test_close_failures_do_not_claim_cleanup() -> None:
+    closes = list(_closes())
+    closes[2] = replace(closes[2], succeeded=False)
+    closes[5] = replace(closes[5], succeeded=False)
+    assert _run(
+        FakeAdapter(_evidence(close_observations=tuple(closes)))
+    ) == "observation_timeout_unknown"
+    assert all(value.attempt_count == 1 for value in closes)
+
+    duplicate = _closes() + (_closes()[0],)
+    assert _run(
+        FakeAdapter(_evidence(close_observations=duplicate))
+    ) == "observation_timeout_unknown"
+
+    assert not observer._close_state_exact(
+        (observer._CloseObservation("job", 1, True),)
+    )
+    for index in range(len(_closes())):
+        incomplete = _closes()[:index] + _closes()[index + 1 :]
+        assert _run(
+            FakeAdapter(_evidence(close_observations=incomplete))
+        ) == "observation_timeout_unknown"
+
+
+def test_launcher_guard_blocks_replacement_before_create(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    request = observer._fixed_request(
+        owner,
+        REPO_ROOT,
+        FakeAdapter().launcher,
+    )
+
+    class Guard:
+        open = True
+
+        def __init__(self) -> None:
+            self.close_calls = 0
+
+        def close(self) -> bool:
+            self.close_calls += 1
+            return True
+
+    kernel32 = object()
+    guard = Guard()
+    evidence = _evidence()
+    execute_calls: list[object] = []
+    monkeypatch.setattr(observer, "_kernel32", lambda: kernel32)
+    monkeypatch.setattr(observer, "_open_launcher_guard", lambda *_args: guard)
+    monkeypatch.setattr(
+        observer,
+        "_stable_file_identity",
+        lambda _path: request.launcher_identity,
+    )
+
+    def execute(
+        seen_request: object,
+        seen_kernel32: object,
+        seen_guard: object,
+    ) -> object:
+        execute_calls.append((seen_request, seen_kernel32, seen_guard))
+        return evidence
+
+    monkeypatch.setattr(observer, "_execute_windows_once", execute)
+    adapter = observer._WindowsTrustedLaunchAdapter()
+    assert adapter.launch_once(request) is evidence
+    assert execute_calls == [(request, kernel32, guard)]
+    assert guard.close_calls == 0
+
+    replacement_guard = Guard()
+    monkeypatch.setattr(
+        observer,
+        "_open_launcher_guard",
+        lambda *_args: replacement_guard,
+    )
+    monkeypatch.setattr(
+        observer,
+        "_stable_file_identity",
+        lambda _path: replace(request.launcher_identity, size=2048),
+    )
+    replacement_adapter = observer._WindowsTrustedLaunchAdapter()
+    with pytest.raises(observer._ObserverError) as error:
+        replacement_adapter.launch_once(request)
+    assert error.value.status == "observation_binding_rejected"
+    assert replacement_guard.close_calls == 1
+    assert len(execute_calls) == 1
+
+
+@pytest.mark.parametrize(
+    "audit",
+    [
+        observer._AuditCounts(1, 0, 0, 0),
+        observer._AuditCounts(0, 1, 0, 0),
+        observer._AuditCounts(0, 0, 1, 0),
+        observer._AuditCounts(0, 0, 0, 1),
+    ],
+)
+def test_each_observer_effect_count_is_derived_and_fails_closed(audit: object) -> None:
+    adapter = FakeAdapter()
+    adapter.audit = audit
+    assert _run(adapter) == "observation_safety_boundary_failed"
+
+
+@pytest.mark.parametrize(
+    "event",
+    [
+        "os.rename",
+        "os.renames",
+        "os.replace",
+        "os.link",
+        "os.symlink",
+        "shutil.copyfile",
+        "shutil.move",
+    ],
+)
+@pytest.mark.parametrize(
+    ("destination_domain", "expected_counts"),
+    [
+        ("repository", observer._AuditCounts(0, 1, 0, 0)),
+        ("installed", observer._AuditCounts(0, 0, 1, 0)),
+        ("external", observer._AuditCounts(0, 0, 0, 1)),
+    ],
+)
+def test_multi_path_mutations_are_counted_once_by_destination_domain(
+    event: str,
+    destination_domain: str,
+    expected_counts: object,
+    tmp_path: Path,
+) -> None:
+    installed_root = tmp_path / "installed"
+    external_root = tmp_path / "external"
+    counter = observer._AuditCounter(REPO_ROOT)
+    counter.bind_installed_root(installed_root)
+    destinations = {
+        "repository": REPO_ROOT / "synthetic-destination",
+        "installed": installed_root / "synthetic-destination",
+        "external": external_root / "synthetic-destination",
+    }
+    source = (
+        REPO_ROOT / "synthetic-source"
+        if destination_domain == "external"
+        else external_root / "synthetic-source"
+    )
+
+    with pytest.raises(observer._SafetyEffect):
+        counter(event, (source, destinations[destination_domain]))
+
+    assert counter.snapshot() == expected_counts
+
+
+def test_manifest_drift_and_new_residue_fail_closed() -> None:
+    repository = FakeAdapter()
+    repository.snapshots[1] = _snapshot(repository_digest="d" * 64)
+    assert _run(repository) == "observation_safety_boundary_failed"
+
+    installed = FakeAdapter()
+    installed.snapshots[1] = _snapshot(installed_digest="e" * 64)
+    assert _run(installed) == "observation_safety_boundary_failed"
+
+    residue = FakeAdapter()
+    residue.snapshots[1] = _snapshot(
+        generated_residue=frozenset({"__pycache__/new.pyc"})
+    )
+    assert _run(residue) == "observation_safety_boundary_failed"
+
+    unknown = FakeAdapter()
+    unknown.snapshots[1] = _snapshot(exact=False)
+    assert _run(unknown) == "observation_timeout_unknown"
+
+
+def test_owner_parser_and_sealer_are_used_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    parser_calls = 0
+    sealer_calls = 0
+    real_parser = owner.parse_validation_payload
+    real_sealer = owner.seal_proportionate_observation_receipt
+
+    def parser(payload: bytes) -> dict[str, object]:
+        nonlocal parser_calls
+        parser_calls += 1
+        return real_parser(payload)
+
+    def sealer(payload: bytes, facts: object, position: int) -> bytes | str:
+        nonlocal sealer_calls
+        sealer_calls += 1
+        return real_sealer(payload, facts, position)
+
+    monkeypatch.setattr(owner, "parse_validation_payload", parser)
+    monkeypatch.setattr(owner, "seal_proportionate_observation_receipt", sealer)
+    assert isinstance(_run(FakeAdapter()), bytes)
+    assert parser_calls == 1
+    assert sealer_calls == 1
+
+
+def test_sealer_status_exception_and_receipt_mismatch_never_emit_receipt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        owner,
+        "seal_proportionate_observation_receipt",
+        lambda *_args: "observation_receipt_sealing_failed",
+    )
+    assert _run(FakeAdapter()) == "observation_receipt_sealing_failed"
+
+    monkeypatch.setattr(
+        owner,
+        "seal_proportionate_observation_receipt",
+        lambda *_args: b"{}",
+    )
+    assert _run(FakeAdapter()) == "observation_receipt_sealing_failed"
+
+    def explode(*_args: object) -> bytes:
+        raise RuntimeError("private detail")
+
+    monkeypatch.setattr(owner, "seal_proportionate_observation_receipt", explode)
+    assert _run(FakeAdapter()) == "observation_result_unknown"
+
+
+def test_main_emits_only_public_safe_result(
+    monkeypatch: pytest.MonkeyPatch,
+    capsysbinary: pytest.CaptureFixture[bytes],
+) -> None:
+    adapter = FakeAdapter()
+    monkeypatch.setattr(observer, "_WindowsTrustedLaunchAdapter", lambda: adapter)
+    assert observer.main([]) == 0
+    captured = capsysbinary.readouterr()
+    assert captured.err == b""
+    assert owner.parse_receipt(captured.out)["sequence_position"] == 1
+
+    monkeypatch.setattr(
+        observer,
+        "_run_observation_1",
+        lambda _adapter: "observation_timeout_unknown",
+    )
+    assert observer.main([]) == 3
+    captured = capsysbinary.readouterr()
+    assert captured.out == b""
+    assert captured.err == b"observation_timeout_unknown\n"
+
+
+def test_native_source_has_one_fixed_create_and_no_fallback_or_old_dependency() -> None:
+    source = OBSERVER_PATH.read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    create_calls = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "CreateProcessW"
+    ]
+    assert len(create_calls) == 1
+    assert "PROC_THREAD_ATTRIBUTE_JOB_LIST" in source
+    assert "PROC_THREAD_ATTRIBUTE_HANDLE_LIST" in source
+    assert "ActiveProcessLimit = 2" in source
+    assert "CreateFileW" in source
+    assert "FILE_SHARE_WRITE" not in source
+    assert "FILE_SHARE_DELETE" not in source
+    assert "JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE" in source
+    assert "AssignProcessToJobObject" not in source
+    assert "DuplicateHandle" not in source
+    assert "def _tree_snapshot" not in source
+    assert "os.walk" not in source
+    assert "_owned_state_snapshot" in source
+    assert "_tree_observations" in source
+    imports = {
+        alias.name
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.Import, ast.ImportFrom))
+        for alias in node.names
+    }
+    assert "subprocess" not in imports
+    assert "shell=" not in source
+    assert "issue 780" not in source.lower()
+    assert "issue 795" not in source.lower()
+    assert "executor_network_operation_count=0" not in source
+    assert "repository_write_count=0" not in source
+    assert "installed_write_count=0" not in source
+    assert "external_effect_count=0" not in source
+    assert "generated_residue_count=0" not in source
+
+
+def test_no_publication_authority_or_observation_two_surface_exists() -> None:
+    source = OBSERVER_PATH.read_text(encoding="utf-8")
+    forbidden = (
+        "github",
+        "publish_receipt",
+        "create_comment",
+        "release_state_write",
+        "registry_write",
+        "observation_2",
+        "r1_authorized",
+        "stage4_authorized",
+        "live_ready = true",
+    )
+    lowered = source.lower()
+    assert all(value not in lowered for value in forbidden)
+
+
+def test_existing_owner_known_answers_remain_exact() -> None:
+    owner._validate_known_answers()
+    payload = _validation_payload()
+    assert owner.parse_validation_payload(payload) == _bootstrap_packet()
+    for receipts in owner.EXPECTED_RECEIPTS:
+        for receipt in receipts:
+            encoded = owner.canonical_bytes(receipt)
+            assert owner.parse_receipt(encoded) == receipt
