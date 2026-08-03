@@ -1,32 +1,46 @@
 # ADR-0012: Long-Horizon Context And Delegation Discipline
 
-Status: Proposed
+Status: Accepted
 
 Date: 2026-08-03
 
 Decision owners / workflow role:
 
-- Owner: activated issue #801 under a scoped ADR-0008
-  `explicit_user_override`.
-- Codex A: problem representation in issue #801.
+- Owner: activated issue #801 for proposal work and issue #805 for the
+  separate acceptance lifecycle.
+- Codex A: problem representation in issue #801 and acceptance framing in
+  issue #805.
 - Codex B: contract and proposed ADR drafting.
-- Codex E: required independent reviewer before submission.
+- Codex C: mechanical acceptance lifecycle implementation for issue #805.
+- Codex E: independent source-package review completed; fresh independent
+  review of the acceptance package remains required before submission.
 
 Related issues:
 
 - <https://github.com/Tahjali11/Mythic-Edge/issues/801>
+- <https://github.com/Tahjali11/Mythic-Edge/issues/805>
 - <https://github.com/Tahjali11/Mythic-Edge/issues/746>
 - <https://github.com/Tahjali11/Mythic-Edge/issues/682>
 
 Related PRs:
 
-- None. Submission is not authorized.
+- <https://github.com/Tahjali11/Mythic-Edge/pull/802> - merged the original
+  proposed package as `5b83dc33f933c6e58895277fb8bd9dfb5ab641bb`.
+- <https://github.com/Tahjali11/Mythic-Edge/pull/804> - merged the reviewed
+  finding-lifecycle correction as
+  `4275dae6540f58827bf32e580b000846c5f021e4`.
+
+Neither source PR accepted this ADR; both intentionally preserved its
+`Proposed` status pending the separate issue #805 lifecycle.
 
 Related contracts, handoffs, or review reports:
 
 - `docs/contracts/governance_long_horizon_context_and_delegation_discipline.md`
 - `docs/contracts/governance_subagent_boundaries_e_to_d_blocker_packets_project_hygiene.md`
-- Independent Codex E review: pending.
+- `docs/contract_test_reports/governance_long_horizon_context_and_delegation_discipline.md`
+- `docs/implementation_handoffs/governance_adr_0012_acceptance_lifecycle.md`
+- Fresh independent Codex E review of the issue #805 acceptance package:
+  pending.
 
 Related ADRs:
 
@@ -49,8 +63,7 @@ runtime behavior or proof that current work is unsafe.
 
 ## Decision
 
-Mythic Edge adopts the following long-horizon discipline if this ADR is later
-accepted.
+Mythic Edge adopts the following long-horizon discipline.
 
 ### 1. Material authority refresh
 
@@ -130,7 +143,7 @@ readiness, deployment readiness, or permission to widen scope.
 
 This ADR governs long-horizon authority refresh, context handoff, subagent
 delegation, parallel-write admission, finding reactivation, and durable
-workflow state for `Tahjali11/Mythic-Edge` after acceptance.
+workflow state for `Tahjali11/Mythic-Edge`.
 
 It extends ADR-0008's WIP-1 policy without superseding it. Sibling repositories
 require their own adoption authority.
@@ -184,7 +197,7 @@ evidence only.
 
 ## Protected Surfaces Touched
 
-This proposal addresses workflow authority, lane activation, role delegation,
+This ADR addresses workflow authority, lane activation, role delegation,
 finding lifecycle, validation responsibility, and integration coordination.
 It changes no runtime protected surface and authorizes no protected mutation.
 
@@ -193,19 +206,24 @@ remain Proposed and non-precedential.
 
 ## Validation Or Review Evidence
 
-Codex B drafted the exact three-path documentation package in a clean worktree
-from `origin/main@be840bc1160678a9678d792d3cfd6074ac86ebca` after verifying:
+Codex B drafted the original exact three-path package from
+`origin/main@be840bc1160678a9678d792d3cfd6074ac86ebca`. Independent Codex E
+review accepted the source package. PR #802 merged it as
+`5b83dc33f933c6e58895277fb8bd9dfb5ab641bb` with all six checks passing while
+preserving `Proposed` status.
 
-- issue #801 and its owner activation remain current;
-- ADR-0012 is unused;
-- duplicate searches return only issue #801;
-- PR #800 touches none of the three authorized paths; and
-- ADR-0008, ADR-0010, ADR-0011, and the #682 source lifecycle are unchanged.
+PR #804 merged the independently reviewed finding-lifecycle correction as
+`4275dae6540f58827bf32e580b000846c5f021e4`, again with all six checks
+passing. The #801 closeout records all five review threads across PRs #802 and
+#804 resolved, closes #801 as completed, and clears its WIP-1 lane. Neither
+merge accepted ADR-0012.
 
-Required local docs, protected-surface, private-marker, validation-selection,
-path, lifecycle, ASCII, whitespace, and final-newline checks are specified in
-the owning contract. Independent Codex E review remains required. This ADR is
-`Proposed`; validation does not make it precedent.
+Issue #805 owns the separate mechanical acceptance lifecycle. The owner
+explicitly activated its exact three-file Codex C implementation from current
+`origin/main@4275dae6540f58827bf32e580b000846c5f021e4`. The implementation
+changes only lifecycle status and completed provenance; it leaves the source
+contract and historical review report unchanged. Fresh independent Codex E
+review remains required before submission of this acceptance package.
 
 ## Supersedes
 
@@ -217,16 +235,17 @@ None.
 
 ## Follow-Ups
 
-- Fresh independent Codex E review of issue #801, the contract, this proposed
-  ADR, and the index row.
+- Fresh independent Codex E review of the exact issue #805 acceptance package.
 - Codex F submission only after E reports no blocking findings and the owner
   separately authorizes submission.
-- Codex G integration only after explicit owner approval.
-- Any later acceptance or governance-enforcement implementation requires its
-  own reviewed lifecycle and authority.
+- Codex G integration and issue closeout only after explicit owner approval.
+- Any governance-enforcement implementation requires its own issue, contract,
+  review, and authority.
 
 ## Notes
 
-The #801 ADR-0008 exception expires under its activation record. It does not
-transfer subagent, parallel-write, submission, merge, deployment, Role Pool,
-or readiness authority.
+The #801 ADR-0008 exception expired when its proposal and correction work
+merged and issue #801 closed. Issue #805 records only the separate acceptance
+lifecycle and does not transfer subagent, parallel-write, enforcement,
+submission, merge, deployment, Role Pool, or readiness authority. Issue #803
+remains queued and inactive.
