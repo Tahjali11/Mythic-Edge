@@ -989,7 +989,7 @@ class _OwnedHandle:
                 self.succeeded = bool(
                     self.kernel32.CloseHandle(wintypes.HANDLE(self.value))
                 )
-            except Exception:
+            except BaseException:
                 self.succeeded = False
         self.value = 0
         return self.succeeded
@@ -1037,7 +1037,7 @@ class _OwnedAttributeList:
             try:
                 self.kernel32.DeleteProcThreadAttributeList(self.pointer)
                 self.succeeded = True
-            except Exception:
+            except BaseException:
                 self.succeeded = False
         self.pointer = None
         self.buffer = None
@@ -1568,6 +1568,7 @@ def _execute_windows_once(
         command_line = ctypes.create_unicode_buffer(_command_line(request.tokens))
         environment = _environment_block(request.environment)
         creation_attempts = 1
+        deadline = time.monotonic() + request.timeout_seconds
         created = bool(
             kernel32.CreateProcessW(
                 request.application_path,
@@ -1608,7 +1609,6 @@ def _execute_windows_once(
             handles["process"],
             request.launcher_identity,
         )
-        deadline = time.monotonic() + request.timeout_seconds
         grace_deadline: float | None = None
         while True:
             event_stream_exact = (
@@ -1654,7 +1654,7 @@ def _execute_windows_once(
                 and stderr_eof
                 and any(event.kind == "active_zero" for event in events)
             )
-            if not complete and now >= deadline:
+            if now >= deadline:
                 timed_out = True
                 unsafe = True
             if unsafe and not termination_requested:
@@ -1671,42 +1671,22 @@ def _execute_windows_once(
             if grace_deadline is not None and now >= grace_deadline:
                 break
             time.sleep(0.01)
-        event_stream_exact = (
-            _drain_events(kernel32, handles["completion_port"], events)
-            and event_stream_exact
-        )
-        out_eof, out_overflow, out_exact = _drain_pipe(
-            kernel32,
-            handles["stdout_read"],
-            stdout_buffer,
-            request.max_stdout_bytes,
-        )
-        err_eof, err_overflow, err_exact = _drain_pipe(
-            kernel32,
-            handles["stderr_read"],
-            stderr_buffer,
-            request.max_stderr_bytes,
-        )
-        stdout_eof = stdout_eof or out_eof
-        stderr_eof = stderr_eof or err_eof
-        stdout_overflow = stdout_overflow or out_overflow or not out_exact
-        stderr_overflow = stderr_overflow or err_overflow or not err_exact
-        total, active = _query_accounting(kernel32, handles["job"])
-        code = wintypes.DWORD(STILL_ACTIVE)
-        if kernel32.GetExitCodeProcess(
-            wintypes.HANDLE(handles["process"].value),
-            ctypes.byref(code),
-        ) and code.value != STILL_ACTIVE:
-            exit_code = int(code.value)
-        process_stopped = (
-            kernel32.WaitForSingleObject(
-                wintypes.HANDLE(handles["process"].value),
-                0,
-            )
-            == WAIT_OBJECT_0
-        )
-    except Exception:
+    except BaseException:
         event_stream_exact = False
+        if information.hProcess and "process" not in handles:
+            handles["process"] = _OwnedHandle(
+                kernel32,
+                "process",
+                cast(int, information.hProcess),
+            )
+            created = True
+        if information.hThread and "thread" not in handles:
+            handles["thread"] = _OwnedHandle(
+                kernel32,
+                "thread",
+                cast(int, information.hThread),
+            )
+            created = True
         if created and "job" in handles and handles["job"].open:
             if not termination_requested:
                 termination_requested = True
@@ -1717,7 +1697,7 @@ def _execute_windows_once(
                             1,
                         )
                     )
-                except Exception:
+                except BaseException:
                     termination_succeeded = False
             if "process" in handles and handles["process"].open:
                 try:
@@ -1728,9 +1708,81 @@ def _execute_windows_once(
                         )
                         == WAIT_OBJECT_0
                     )
-                except Exception:
+                except BaseException:
                     process_stopped = False
-    closes = _close_all(handles, attributes)
+    try:
+        if created:
+            if "completion_port" in handles and handles["completion_port"].open:
+                try:
+                    event_stream_exact = (
+                        _drain_events(kernel32, handles["completion_port"], events)
+                        and event_stream_exact
+                    )
+                except BaseException:
+                    event_stream_exact = False
+            else:
+                event_stream_exact = False
+            if "stdout_read" in handles and handles["stdout_read"].open:
+                try:
+                    out_eof, out_overflow, out_exact = _drain_pipe(
+                        kernel32,
+                        handles["stdout_read"],
+                        stdout_buffer,
+                        request.max_stdout_bytes,
+                    )
+                    stdout_eof = stdout_eof or out_eof
+                    stdout_overflow = (
+                        stdout_overflow or out_overflow or not out_exact
+                    )
+                except BaseException:
+                    stdout_overflow = True
+            if "stderr_read" in handles and handles["stderr_read"].open:
+                try:
+                    err_eof, err_overflow, err_exact = _drain_pipe(
+                        kernel32,
+                        handles["stderr_read"],
+                        stderr_buffer,
+                        request.max_stderr_bytes,
+                    )
+                    stderr_eof = stderr_eof or err_eof
+                    stderr_overflow = (
+                        stderr_overflow or err_overflow or not err_exact
+                    )
+                except BaseException:
+                    stderr_overflow = True
+            if "job" in handles and handles["job"].open:
+                try:
+                    total, active = _query_accounting(kernel32, handles["job"])
+                except BaseException:
+                    total, active = None, None
+            if "process" in handles and handles["process"].open:
+                try:
+                    code = wintypes.DWORD(STILL_ACTIVE)
+                    if kernel32.GetExitCodeProcess(
+                        wintypes.HANDLE(handles["process"].value),
+                        ctypes.byref(code),
+                    ) and code.value != STILL_ACTIVE:
+                        exit_code = int(code.value)
+                except BaseException:
+                    exit_code = None
+                try:
+                    process_stopped = (
+                        kernel32.WaitForSingleObject(
+                            wintypes.HANDLE(handles["process"].value),
+                            0,
+                        )
+                        == WAIT_OBJECT_0
+                    )
+                except BaseException:
+                    process_stopped = False
+    except BaseException:
+        event_stream_exact = False
+        total, active = None, None
+        process_stopped = False
+        stdout_overflow = True
+        stderr_overflow = True
+    finally:
+        closes = _close_all(handles, attributes)
     if not event_stream_exact:
         events.append(_JobEvent("unknown", None))
     return _LaunchEvidence(
@@ -1866,7 +1918,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 2
     try:
         result = _run_observation_1(_WindowsTrustedLaunchAdapter())
-    except Exception:
+    except BaseException:
         result = "observation_result_unknown"
     if type(result) is bytes:
         _write_exact(sys.stdout, result)
