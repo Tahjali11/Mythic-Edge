@@ -13,6 +13,9 @@ $ErrorActionPreference = 'Stop'
 $ContractSha256 = '7c7d5cd414b8a893703b014d470b84800b3444a11fe498135a7dd965adeacb69'
 $ContractReviewSha256 = 'ceac5499f7d281e99cefea69a4684debc6d86b5bc50fb29dff1eae25fca971f5'
 $ControllerSha256 = '2d0e793cf741cba42be4505cae0f0ddcd7b9e6927362dd60696570d84e7324ef'
+$BootstrapRelativePath = 'tools\start_role_pool_r0_direct_interpreter_identity_characterizer_secure_ingress.ps1'
+# SHA-256 of this UTF-8 source after LF normalization and replacing only this value with 64 zeros.
+$BootstrapSourceIdentitySha256 = '3cbd073c2ed5034fbc543ee4d15fb79729eb063e164f536342a735d4e630062a'
 $CharacterizationIdPattern = '^r0_direct_interpreter_identity_characterization_v1_[0-9a-f]{32}$'
 $OwnerDecisionRefPattern = '^https://github\.com/Tahjali11/Mythic-Edge/issues/795#issuecomment-[1-9][0-9]{0,19}$'
 $ControllerRelativePath = 'tools\run_role_pool_r0_direct_interpreter_identity_characterizer_secure_ingress.py'
@@ -73,6 +76,67 @@ function Test-ExactSha256 {
     }
     catch {
         return $false
+    }
+}
+
+function Test-ExactBootstrapSourceIdentity {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][string]$Expected
+    )
+
+    if (
+        $Expected -cnotmatch '^[0-9a-f]{64}$' -or
+        -not (Test-OrdinaryNonReparseFile -Path $Path)
+    ) {
+        return $false
+    }
+
+    $source = $null
+    $normalized = $null
+    $bytes = $null
+    $sha256 = $null
+    try {
+        $utf8 = [System.Text.UTF8Encoding]::new($false, $true)
+        $source = [System.IO.File]::ReadAllText($Path, $utf8)
+        $source = $source.Replace("`r`n", "`n").Replace("`r", "`n")
+        $assignment = '$BootstrapSourceIdentitySha256 = ''' + $Expected + ''''
+        $placeholder = '$BootstrapSourceIdentitySha256 = ''' + ('0' * 64) + ''''
+        $index = $source.IndexOf($assignment, [System.StringComparison]::Ordinal)
+        if (
+            $index -lt 0 -or
+            $source.IndexOf(
+                $assignment,
+                $index + $assignment.Length,
+                [System.StringComparison]::Ordinal
+            ) -ge 0
+        ) {
+            return $false
+        }
+
+        $normalized = (
+            $source.Substring(0, $index) +
+            $placeholder +
+            $source.Substring($index + $assignment.Length)
+        )
+        $bytes = $utf8.GetBytes($normalized)
+        $sha256 = [System.Security.Cryptography.SHA256]::Create()
+        $actual = [System.BitConverter]::ToString($sha256.ComputeHash($bytes)).Replace('-', '').ToLowerInvariant()
+        return $actual -ceq $Expected
+    }
+    catch {
+        return $false
+    }
+    finally {
+        if ($sha256 -ne $null) {
+            $sha256.Dispose()
+        }
+        if ($bytes -ne $null) {
+            [System.Array]::Clear($bytes, 0, $bytes.Length)
+        }
+        $bytes = $null
+        $normalized = $null
+        $source = $null
     }
 }
 
@@ -246,6 +310,7 @@ function Get-EntryState {
     }
 
     $repositoryRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
+    $bootstrapPath = [System.IO.Path]::GetFullPath((Join-Path $repositoryRoot $BootstrapRelativePath))
     $controllerPath = [System.IO.Path]::GetFullPath((Join-Path $repositoryRoot $ControllerRelativePath))
     $contractPath = Join-Path $repositoryRoot 'docs\contracts\role_pool_trusted_owner_r0_direct_interpreter_identity_characterizer_secure_ingress_successor.md'
     $reviewPath = Join-Path $repositoryRoot 'docs\contract_test_reports\role_pool_trusted_owner_r0_direct_interpreter_identity_characterizer_secure_ingress_successor.md'
@@ -254,6 +319,8 @@ function Get-EntryState {
         (Get-Location).Provider.Name -cne 'FileSystem' -or
         [System.IO.Path]::GetFullPath((Get-Location).Path) -cne $repositoryRoot -or
         -not (Test-OrdinaryNonReparseFile -Path $PSCommandPath) -or
+        [System.IO.Path]::GetFullPath($PSCommandPath) -cne $bootstrapPath -or
+        -not (Test-ExactBootstrapSourceIdentity -Path $bootstrapPath -Expected $BootstrapSourceIdentitySha256) -or
         -not (Test-ExactSha256 -Path $controllerPath -Expected $ControllerSha256) -or
         -not (Test-ExactSha256 -Path $contractPath -Expected $ContractSha256) -or
         -not (Test-ExactSha256 -Path $reviewPath -Expected $ContractReviewSha256)
@@ -299,6 +366,9 @@ try {
     $entry = Get-EntryState
     [Console]::WriteLine($LaunchReadinessLine)
     if (-not (Wait-ForConsumedConfirmation)) {
+        throw [System.InvalidOperationException]::new()
+    }
+    if ([Console]::KeyAvailable) {
         throw [System.InvalidOperationException]::new()
     }
     $launchImage = Read-PrivateLaunchImage
