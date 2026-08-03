@@ -169,7 +169,6 @@ Act as Codex E: Independent ADR-0012 Acceptance Lifecycle Reviewer.
 Repository: Tahjali11/Mythic-Edge
 Issue: https://github.com/Tahjali11/Mythic-Edge/issues/805
 Tracker: https://github.com/Tahjali11/Mythic-Edge/issues/746
-Worktree: C:\ME805C
 Branch: codex/adr-0012-acceptance-805
 Base: origin/main@4275dae6540f58827bf32e580b000846c5f021e4
 
