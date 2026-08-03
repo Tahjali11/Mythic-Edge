@@ -104,9 +104,12 @@ affected work. One successful parallel run creates no future permission.
 
 A fixed, superseded, deferred, rejected, not-reproduced, or closed finding can
 become current only when a durable artifact records the finding ID, prior
-disposition, new current evidence, changed condition, and new lifecycle,
-blocking status, owner, and route. Repetition in old context or an unchanged
-stale test is insufficient. Earlier evidence remains preserved.
+disposition, new current evidence, either a changed condition or an explicit
+correction basis showing that the prior disposition was erroneous because the
+exact predicate remained unsatisfied, and the new lifecycle, blocking status,
+owner, and route. Repetition in old context or an unchanged stale test is
+insufficient. A correction uses the existing finding ID and does not claim that
+the defect disappeared and later recurred. Earlier evidence remains preserved.
 
 ### 6. Durable workflow state
 

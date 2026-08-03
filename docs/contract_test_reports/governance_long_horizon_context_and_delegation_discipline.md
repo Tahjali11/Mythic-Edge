@@ -182,3 +182,102 @@ workflow_handoff:
   generated_residue_count: 0
   next_recommended_role: "Owner submission decision, then Codex F: Module Submitter"
 ```
+
+## Post-Merge Lifecycle Correction Candidate
+
+`report_lifecycle: post_merge_correction_candidate_pending_independent_confirmation`
+
+PR #802 merged the reviewed four-file package as
+`5b83dc33f933c6e58895277fb8bd9dfb5ab641bb`, after which two P2 review
+findings remained current:
+
+- the finding-reactivation rule lacked a correction path when fresh evidence
+  proves that a prior fixed disposition was erroneous and the exact predicate
+  never became satisfied; and
+- the continuing-role handoff lacked the standard routing fields and a
+  pasteable next-thread prompt.
+
+The contract and proposed ADR now distinguish a disposition correction from a
+finding recurrence. The historical review record above remains preserved.
+These post-merge candidate bytes are not independently accepted by this
+addition and route to fresh Codex E review before any follow-up submission.
+
+### Pasteable Next-Thread Prompt
+
+```text
+Use the Mythic Edge agent constitution and $mythic-edge-workflow.
+
+Act as Codex E: Independent Post-Merge Lifecycle Correction Reviewer for issue
+#801.
+
+Review only the post-merge correction diff in:
+- docs/contracts/governance_long_horizon_context_and_delegation_discipline.md
+- docs/decisions/ADR-0012-long-horizon-context-and-delegation-discipline.md
+- docs/contract_test_reports/governance_long_horizon_context_and_delegation_discipline.md
+
+Confirm that fresh current evidence can correct an erroneous prior disposition
+under the same finding ID when its exact predicate never became satisfied,
+without allowing stale evidence or repetition alone to reactivate a finding.
+Confirm that the current continuation packet contains the standard repository,
+role, branch, artifact, validation, and stop-condition fields. Preserve the
+historical review record and ADR-0012 Status: Proposed.
+
+Do not edit files, accept ADR-0012, authorize enforcement, stage, commit, push,
+merge, close issues, or change tracker state. Lead with findings and route to
+Codex F only if both P2 findings are fixed on the exact reviewed bytes.
+```
+
+```yaml
+workflow_handoff:
+  repository: "Tahjali11/Mythic-Edge"
+  repository_url: "https://github.com/Tahjali11/Mythic-Edge"
+  issue: "https://github.com/Tahjali11/Mythic-Edge/issues/801"
+  tracker: "https://github.com/Tahjali11/Mythic-Edge/issues/746"
+  completed_thread: "D"
+  next_thread: "E"
+  source_artifact: "PR #802 review threads 3701539177 and 3701539183"
+  target_artifact: "docs/contract_test_reports/governance_long_horizon_context_and_delegation_discipline.md"
+  risk_tier: "high governance risk; docs-only correction"
+  base_branch: "origin/main@5b83dc33f933c6e58895277fb8bd9dfb5ab641bb"
+  target_branch: "main"
+  branch: "codex/long-horizon-context-lifecycle-fix-801"
+  validation:
+    - "git diff --check -> passed"
+    - "py -B tools/check_agent_docs.py -> 55 files, 0 errors, 0 warnings"
+    - "path-scoped protected-surface scan -> forbidden 0, warnings 0"
+    - "path-scoped secret/private-marker scan -> forbidden 0, warnings 0"
+    - "path-scoped validation selector -> 3 required, 1 recommended, 0 warnings"
+  stop_conditions:
+    - "Do not change ADR-0012 from Proposed."
+    - "Do not add enforcement, runtime behavior, or new authority."
+    - "Do not stage, commit, push, merge, close issues, or change tracker state."
+    - "Route any remaining contract ambiguity to Codex B."
+```
+
+```yaml
+instruction_context:
+  required_for_risk_tier: "high governance risk"
+  deferred_for_low_risk: false
+  role: "Codex D: Module Fixer"
+  risk_tier: "high governance risk; docs-only correction"
+  global_router_read: true
+  repo_agents_read: true
+  repo_rules_read: true
+  repo_constitution_read: true
+  repo_workflow_read: true
+  role_doc_read: true
+  issue_or_tracker_read: true
+  contract_or_handoff_read: true
+  accepted_adrs_read:
+    - "ADR-0008"
+  protected_surfaces:
+    - "finding lifecycle"
+    - "issue and PR lifecycle"
+    - "tracker hygiene"
+  authority_conflicts_found: false
+  authority_conflict_notes: "None. The owner authorized the bounded post-merge documentation correction."
+  stop_conditions:
+    - "Preserve ADR-0012 Status: Proposed and non-precedential."
+    - "Preserve the historical review record."
+    - "Require fresh independent Codex E review before submission."
+```
