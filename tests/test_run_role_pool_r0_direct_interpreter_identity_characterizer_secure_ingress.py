@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import ast
 import hashlib
-import inspect
 import itertools
 import re
 from collections import deque
@@ -821,15 +820,25 @@ def test_controller_stdout_failure_is_unknown_and_not_committed(
     assert bytes(selected_output.committed) == b""
 
 
-def test_actual_loader_validates_frozen_public_artifacts_without_runtime_probe() -> None:
-    loaded = target.load_accepted_characterizer(REPOSITORY_ROOT)
-    parameters = inspect.signature(loaded.module.run_consumed_characterization).parameters
+def test_actual_loader_rejects_parent_drift_before_runtime_or_private_ingress() -> None:
+    reached: list[str] = []
 
-    assert tuple(parameters) == ("characterization_id", "stdin", "stdout")
-    assert all(parameter.kind is inspect.Parameter.KEYWORD_ONLY for parameter in parameters.values())
-    assert len(loaded.module.RESULT_FIELDS) == 33
-    assert len(loaded.module.AUTHORITY_FIELDS) == 18
-    assert callable(loaded.parent_api.validate_running_direct_interpreter)
+    def fail_if_reached(*_args: object, **_kwargs: object) -> None:
+        reached.append("retired execution boundary")
+        raise AssertionError("retired execution boundary reached")
+
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(target, "validate_running_runtime", fail_if_reached)
+        monkeypatch.setattr(target, "WindowsConsolePort", fail_if_reached)
+        monkeypatch.setattr(target, "_read_private_line", fail_if_reached)
+        monkeypatch.setattr(target, "run_secure_ingress", fail_if_reached)
+        with pytest.raises(target.SecureIngressError) as caught:
+            target.load_accepted_characterizer(REPOSITORY_ROOT)
+
+    assert reached == []
+    assert str(caught.value) == ""
+    assert caught.value.__cause__ is None
+    assert "_r0_secure_ingress_characterizer" not in target.sys.modules
 
 
 def test_runtime_validator_is_called_before_readiness() -> None:

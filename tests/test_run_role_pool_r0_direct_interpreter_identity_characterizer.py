@@ -1036,17 +1036,22 @@ def test_wrapper_codes_form_closed_terminal_phase_selector(
     assert all(value == "unknown" for value in selected[9:])
 
 
-def test_public_bindings_are_exact_without_private_or_process_access() -> None:
+def test_current_parent_drift_is_rejected_before_private_or_process_access() -> None:
     repository_root = Path(__file__).absolute().parent.parent
-    bindings = target._public_bindings(repository_root)
 
-    assert bindings.exact is True
-    assert bindings.characterizer_sha256 == hashlib.sha256(
-        (repository_root / target.CHARACTERIZER_PATH).read_bytes()
-    ).hexdigest()
-    assert bindings.characterizer_test_sha256 == hashlib.sha256(
-        (repository_root / target.CHARACTERIZER_TEST_PATH).read_bytes()
-    ).hexdigest()
+    def fail_if_reached(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("retired execution boundary reached")
+
+    with pytest.MonkeyPatch.context() as monkeypatch:
+        monkeypatch.setattr(target, "_load_parent_api", fail_if_reached)
+        monkeypatch.setattr(target, "parse_private_path_stdin", fail_if_reached)
+        monkeypatch.setattr(target, "run_consumed_characterization", fail_if_reached)
+        bindings = target._public_bindings(repository_root)
+
+    assert bindings.exact is False
+    assert bindings.characterizer_sha256 == "0" * 64
+    assert bindings.characterizer_test_sha256 == "0" * 64
+    assert bindings.parent_api.__name__ == "_unloaded_r0_identity_characterizer_parent"
 
 
 def test_direct_module_entrypoint_remains_inert() -> None:

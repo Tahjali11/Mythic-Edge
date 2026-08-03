@@ -54,6 +54,20 @@ DIRECT_INTERPRETER_CONTRACT_SHA256 = (
 DIRECT_INTERPRETER_REVIEWED_CONTRACT_SHA256 = (
     "17d0d2f5fe965643888ea70c71a278afdb7797033c311252bce1dde56486ea84"
 )
+PROPORTIONATE_CONTRACT_RELATIVE_PATH = Path(
+    "docs/contracts/"
+    "role_pool_trusted_owner_r0_proportionate_offline_observation_successor.md"
+)
+PROPORTIONATE_CONTRACT_SHA256 = (
+    "129ceb8f2bb21f4773e8258ad04238784d986c14168179e1d009b30c584588ae"
+)
+PROPORTIONATE_REVIEW_RELATIVE_PATH = Path(
+    "docs/contract_test_reports/"
+    "role_pool_trusted_owner_r0_proportionate_offline_observation_successor.md"
+)
+PROPORTIONATE_REVIEW_SHA256 = (
+    "465af80ae12e10f7e7417dcf93a902807d9155041e8b1f781da8babca46b7b32"
+)
 R0_CHECKER_RELATIVE_PATH = Path("tools/check_role_pool_r0_bootstrap.py")
 R0_CHECKER_SHA256 = (
     "34e7eddb31d2e476c74f857a010d441ee1e199915658964bd8cc0f0da2f5d914"
@@ -66,10 +80,18 @@ CURRENT_RUNG = "R0"
 HISTORICAL_FAILED_CONSUMPTION_ARTIFACT_SHA256 = (
     "00908b1692bd09f980cb2ef9e97b697667564f8388cd9070da59421e97348d7c"
 )
-HISTORICAL_SEQUENCE_ID = "r0.offline.sequence.2.45c8f6d057ddc04aa60650b0c09090f0"
+HISTORICAL_SEQUENCE_IDS = (
+    "r0.offline.sequence.1d11e7476ab400a39d222d0feab38eba",
+    "r0.offline.sequence.2.45c8f6d057ddc04aa60650b0c09090f0",
+    "r0.offline.sequence.3.5c7174d35ea27e21812024c5f8afbfaa",
+)
 HISTORICAL_OBSERVATION_IDS = (
+    "r0.offline.observation.1.094221964ddd0af9c3b2034a35347971",
+    "r0.offline.observation.2.45b674178dd44c9b6723f42e75f3b04f",
     "r0.offline.observation.1.v2.f6b5effa4a357e784cbbf1dd39efff2c",
     "r0.offline.observation.2.v2.7b491e38edb350b7a9b6864c1d60cb39",
+    "r0.offline.observation.1.v3.b40fa2727a0f8006ceb93945cf1b1461",
+    "r0.offline.observation.2.v3.7269e523cea1b426a7ecedb3ef6e7fb1",
 )
 HISTORICAL_CONSUMPTION_SHA256 = (
     "3c3537c680b9d413b10d32f9444d5667a1348f54afe39ade24912154ce2949c3"
@@ -80,10 +102,10 @@ DIRECT_INTERPRETER_BINDING_SHA256 = (
 DIRECT_INTERPRETER_BINDING_ARTIFACT_SHA256 = (
     "235e21a04acb454adb5471f2136b53547c35a279a63b8e09d8c6a10926d3bb9b"
 )
-SEQUENCE_ID = "r0.offline.sequence.3.5c7174d35ea27e21812024c5f8afbfaa"
+SEQUENCE_ID = "r0.offline.sequence.4.ff3d34eee94243a6a031d3334430bfca"
 OBSERVATION_IDS = (
-    "r0.offline.observation.1.v3.b40fa2727a0f8006ceb93945cf1b1461",
-    "r0.offline.observation.2.v3.7269e523cea1b426a7ecedb3ef6e7fb1",
+    "r0.offline.observation.1.v4.209f443bcbf144d99bbb5cecf8aa8bf3",
+    "r0.offline.observation.2.v4.b0dacd7eeb56422f9107c0775d972be4",
 )
 PROFILE_CONTRACT_SHA256 = (
     "944c1a85d9e2454fb82a5df3e2a2ac572191e3cd135c7854e0c012ffc07ab43f"
@@ -116,18 +138,52 @@ AUTHORITY_INDEX_SHA256 = (
     "2a4b4629c2faaa77f1c8f65d0f8f2c6c42aef8f34fc57ab4164fbb84d5579de0"
 )
 OBSERVATION_PROFILE_SHA256 = (
-    "ce57f4e4b337056bcf301177c404578dfbcfa52ac1382fa755fad4074ff7b668"
+    "8fee508faddd873413cf655d8435e21121d9f713ede471ceaf768cfa65dd0c81"
 )
 EXPECTED_RECEIPT_SHA256S = (
-    "46b1c205529a9a39476a2d50255e7dadbd2866949a0dd81f6558505f0f51ccce",
-    "d62ee96557ed05d64c192e027ca7b43ab918401034369f683b73e3ca388c4c52",
+    (
+        "1ee18ff073a8d998e6370fb6762b80aedaf9c656c4b4d15c1c54d216cb2b150c",
+        "54c362c1831668c8ab8130aa68541106f89536a754b212035c3a81610ef53d63",
+        "cc93c09eedcdeeb802ddafdb84abbf34be9ba9f96eccc5261e621d47fab7a6ed",
+        "0c416f9a97151f14f5210feeebf13188b7d0bdb03035237e5bebebf7238deb61",
+        "8f1cadbb03d0c4b630e48e2b52e1bc97cd4f0d31ace194e34d4b881580b98e40",
+        "61a25cea3056cd0a4cfe8efd9072ad4a1a0dce0f6eeccb28033571da89a76cef",
+    ),
+    (
+        "1c6182fb3bfb6ec8cb069d141af4110a03bcce45fc928707451cd8281f6095a3",
+        "ff39330edf11c3142641f2d6031d7dc540a4b65b6137fa3539a75a6ae4359ea3",
+        "4294c180d32116c06c0036fa70a4826f5e15a4ae91d7761151de30605b4e8364",
+        "a641437ccceeeb0919a615981e02cb726cbc19137b5441e26656416906043c2b",
+        "201e5cf48a49c4d286f7d3e6a325e5137280bec346bf18946a6e7d56fbc817b2",
+        "5c3e971c57aa34028a3ff9abdc480ab57eb5d9a456f0e0238f1db17a79f57052",
+    ),
 )
 EXPECTED_RECEIPT_ARTIFACT_SHA256S = (
-    "b79ef2b59e2e9e34ef8fcebf1dcc95e44ea53cc09efb97bdeb78bced11e78e7e",
-    "9481cebbb6dbf1a21c42d4670b07f44fae7ed47ac40f9f6dbb58186c62adb252",
+    (
+        "2922a69cc5972f5b6a9901202f8749c0d3df519b9698a260f5c62e708d5a892b",
+        "1e97d25b92c9ce92d594a2f33dfce5519383764d58b86f3a0a8e97d552932463",
+        "f0ff509832a167eb4a42c51630b9683de5c4ba35fd734ad2e3aefc02444ee2ca",
+        "f553e2d0ac110d988490f20122e5a6e1f92c8792bcb069d6e8d6119b9db1a9ea",
+        "7fc75ccca246364c3b74d35bade5f5ec0dd893bbb532f8caf877ebb6c2500d1e",
+        "4ba512c8b2057223d47cec9a81604074f8598d737fc3d984ba7b0bf5cdbf0a67",
+    ),
+    (
+        "90705e6fac3ba7aefeeba3938647d23117a7a2ce193f2a1154524e32f58ec25b",
+        "dd1bc38ed2140fefc874d58db854f99382793f72fec65f5378a820f4e334bc2f",
+        "564e7a42ddaf4ba04c96ce1b93562bb6ea943a474d528a0128eae3a1ba555ef6",
+        "e2351f414d40ba0022764048a850e2fa868718e0054a0fe1edc5422c3e1c193c",
+        "0ca85017b89062073b4764a23bc43164088d9eea19248c614772141672e83652",
+        "52795d6fa8e94bfa6700c89aa0393d058bd7ca5558e254ed6a76c9816817d638",
+    ),
 )
-EXPECTED_RECEIPT_PREIMAGE_LENGTHS = (2338, 2396)
-EXPECTED_RECEIPT_LENGTHS = (2422, 2480)
+EXPECTED_RECEIPT_PREIMAGE_LENGTHS = (
+    (2477, 2478, 2477, 2485, 2486, 2485),
+    (2535, 2536, 2535, 2543, 2544, 2543),
+)
+EXPECTED_RECEIPT_LENGTHS = (
+    (2561, 2562, 2561, 2569, 2570, 2569),
+    (2619, 2620, 2619, 2627, 2628, 2627),
+)
 
 AUTHORITY_FIELDS = (
     "repository_mutation_authorized",
@@ -146,6 +202,54 @@ AUTHORITY_FIELDS = (
     "dispatch_authorized",
     "live_ready",
     "trusted_owner_native_profile_ready",
+)
+
+VALIDATION_PAYLOAD_FIELDS = (
+    "schema_version",
+    "operation",
+    "repository_id",
+    "repository_name",
+    "issue_url",
+    "base_commit",
+    "profile_contract_sha256",
+    "app_server_contract_sha256",
+    "r0_contract_sha256",
+    "contract_binding_status",
+    "stage3_manifest_file_count",
+    "stage3_manifest_byte_count",
+    "stage3_manifest_sha256",
+    "manifest_status",
+    "source_tree_node_count",
+    "source_tree_file_count",
+    "source_tree_manifest_byte_count",
+    "source_tree_sha256",
+    "installed_tree_node_count",
+    "installed_tree_file_count",
+    "installed_tree_manifest_byte_count",
+    "installed_tree_sha256",
+    "source_install_status",
+    "registry_status",
+    "registry_sha256",
+    "release_state_status",
+    "release_state_sha256",
+    "checker_sha256",
+    "checker_test_sha256",
+    "validator_bundle_sha256",
+    "validator_bundle_status",
+    "offline_validation_status",
+    "terminal_status",
+    "eligible_for_independent_review",
+    "effect_counts",
+    "authority_flags",
+    "evidence_sha256",
+)
+
+VALIDATION_EFFECT_FIELDS = (
+    "app_server_process_start_count",
+    "task_creation_count",
+    "network_operation_count",
+    "repository_command_count",
+    "persistent_mutation_count",
 )
 
 RECEIPT_FIELDS = (
@@ -175,6 +279,10 @@ RECEIPT_FIELDS = (
     "process_topology",
     "top_level_process_count",
     "descendant_process_count",
+    "process_relationships_known",
+    "process_terminal_states_known",
+    "surviving_process_count",
+    "top_level_identity_exact",
     "process_launch_attempt_count",
     "network_operation_count",
     "repository_write_count",
@@ -216,7 +324,7 @@ CONSUMPTION_FIELDS = (
     "registry_sha256",
     "validator_bundle_sha256",
     "observation_profile_sha256",
-    "expected_receipt_sha256",
+    "expected_receipt_sha256s",
     "decision",
     "transition",
     "attempt_limit",
@@ -511,7 +619,7 @@ def select_direct_interpreter_preflight_outcome(
 
 
 OBSERVATION_PROFILE: dict[str, object] = {
-    "schema_version": "trusted_owner_r0_offline_observation_profile.v2",
+    "schema_version": "trusted_owner_r0_offline_observation_profile.v3",
     "repository_id": REPOSITORY_ID,
     "issue_number": ISSUE_NUMBER,
     "current_rung": CURRENT_RUNG,
@@ -531,13 +639,22 @@ OBSERVATION_PROFILE: dict[str, object] = {
         "tools/check_role_pool_r0_offline_observation.py",
         "tests/test_check_role_pool_r0_offline_observation.py",
     ],
-    "direct_interpreter_binding_sha256": DIRECT_INTERPRETER_BINDING_SHA256,
-    "launcher_mode": "exact_direct_absolute_cpython_no_shell",
+    "fixed_command": [
+        "py",
+        "-3.13",
+        "-B",
+        "tools/check_role_pool_r0_offline_observation.py",
+        "<observation_id>",
+    ],
     "host_os_name": "nt",
     "host_sys_platform": "win32",
-    "top_level_process_limit": 1,
-    "descendant_process_limit": 0,
-    "process_launch_attempt_limit": 0,
+    "top_level_operation_limit": 1,
+    "descendant_process_limit": 1,
+    "surviving_process_limit": 0,
+    "process_relationships_known_required": True,
+    "process_terminal_states_known_required": True,
+    "top_level_identity_role": "diagnostic_nonblocking",
+    "network_observation_scope": "executor_owned_observed_only",
     "network_operation_limit": 0,
     "external_effect_limit": 0,
     "observation_count": 2,
@@ -546,11 +663,27 @@ OBSERVATION_PROFILE: dict[str, object] = {
 }
 
 
-def _build_receipt(position: int) -> dict[str, object]:
+RECEIPT_VARIANTS = (
+    (0, None),
+    (0, False),
+    (0, True),
+    (1, None),
+    (1, False),
+    (1, True),
+)
+
+
+def _build_receipt(
+    position: int,
+    descendant_process_count: int,
+    top_level_identity_exact: bool | None,
+) -> dict[str, object]:
     if position not in (1, 2):
         raise ObservationFailure("observation_sequence_rejected")
+    if (descendant_process_count, top_level_identity_exact) not in RECEIPT_VARIANTS:
+        raise ObservationFailure("observation_validation_failed")
     receipt: dict[str, object] = {
-        "schema_version": "trusted_owner_r0_offline_observation_receipt.v1",
+        "schema_version": "trusted_owner_r0_offline_observation_receipt.v2",
         "sequence_id": SEQUENCE_ID,
         "observation_id": OBSERVATION_IDS[position - 1],
         "sequence_position": position,
@@ -575,9 +708,17 @@ def _build_receipt(position: int) -> dict[str, object]:
             "blocked_release_state_conflict_expected"
         ),
         "derived_current_rung": "R0",
-        "process_topology": "single_top_level_process_zero_descendants",
+        "process_topology": (
+            "single_top_level_zero_descendants_terminal"
+            if descendant_process_count == 0
+            else "single_top_level_one_transient_descendant_terminal"
+        ),
         "top_level_process_count": 1,
-        "descendant_process_count": 0,
+        "descendant_process_count": descendant_process_count,
+        "process_relationships_known": True,
+        "process_terminal_states_known": True,
+        "surviving_process_count": 0,
+        "top_level_identity_exact": top_level_identity_exact,
         "process_launch_attempt_count": 0,
         "network_operation_count": 0,
         "repository_write_count": 0,
@@ -585,7 +726,7 @@ def _build_receipt(position: int) -> dict[str, object]:
         "external_effect_count": 0,
         "retry_count": 0,
         "unknown_outcome_count": 0,
-        "cleanup_status": "no_attempt_owned_artifacts",
+        "cleanup_status": "complete_no_survivors_no_residue",
         "accepted_for_independent_review": True,
         "authority_flags": _authority_flags(),
         "receipt_sha256": "",
@@ -594,7 +735,13 @@ def _build_receipt(position: int) -> dict[str, object]:
     return receipt
 
 
-EXPECTED_RECEIPTS = (_build_receipt(1), _build_receipt(2))
+EXPECTED_RECEIPTS = tuple(
+    tuple(
+        _build_receipt(position, descendant_count, identity_exact)
+        for descendant_count, identity_exact in RECEIPT_VARIANTS
+    )
+    for position in (1, 2)
+)
 
 
 def parse_receipt(payload: bytes) -> dict[str, object]:
@@ -604,8 +751,8 @@ def parse_receipt(payload: bytes) -> dict[str, object]:
     position = receipt.get("sequence_position")
     if type(position) is not int or position not in (1, 2):
         raise ObservationFailure("observation_validation_failed")
-    expected = EXPECTED_RECEIPTS[position - 1]
-    if not _json_values_are_exact(receipt, expected):
+    allowed = EXPECTED_RECEIPTS[position - 1]
+    if not any(_json_values_are_exact(receipt, expected) for expected in allowed):
         raise ObservationFailure("observation_validation_failed")
     if receipt["receipt_sha256"] != self_digest(receipt, "receipt_sha256"):
         raise ObservationFailure("observation_validation_failed")
@@ -662,7 +809,10 @@ def validate_receipt_pair(payloads: Sequence[bytes]) -> tuple[dict[str, object],
         position_order_exact,
         identity_order_exact,
         predecessor_link_exact,
-        digests == EXPECTED_RECEIPT_SHA256S,
+        all(
+            digest in EXPECTED_RECEIPT_SHA256S[index]
+            for index, digest in enumerate(digests)
+        ),
         False,
     )
     if outcome != "accepted_exact_chronological_receipt_pair":
@@ -671,7 +821,7 @@ def validate_receipt_pair(payloads: Sequence[bytes]) -> tuple[dict[str, object],
 
 
 SYNTHETIC_CONSUMPTION_KAT: dict[str, object] = {
-    "schema_version": "trusted_owner_r0_offline_observation_consumption.v1",
+    "schema_version": "trusted_owner_r0_offline_observation_consumption.v2",
     "sequence_id": SEQUENCE_ID,
     "observation_id": OBSERVATION_IDS[0],
     "sequence_position": 1,
@@ -686,13 +836,13 @@ SYNTHETIC_CONSUMPTION_KAT: dict[str, object] = {
     "owner_decision_expires_at_utc": "2026-08-01T12:00:00Z",
     "sequence_contract_sha256": "2" * 64,
     "sequence_contract_review_ref": (
-        "https://github.com/Tahjali11/Mythic-Edge/issues/780#issuecomment-kat-contract-review"
+        "https://github.com/Tahjali11/Mythic-Edge/issues/776#issuecomment-kat-contract-review"
     ),
     "sequence_contract_review_sha256": "3" * 64,
     "harness_sha256": "4" * 64,
     "harness_test_sha256": "5" * 64,
     "implementation_review_ref": (
-        "https://github.com/Tahjali11/Mythic-Edge/issues/780#issuecomment-kat-implementation-review"
+        "https://github.com/Tahjali11/Mythic-Edge/issues/776#issuecomment-kat-implementation-review"
     ),
     "implementation_review_sha256": "6" * 64,
     "profile_contract_sha256": PROFILE_CONTRACT_SHA256,
@@ -704,7 +854,7 @@ SYNTHETIC_CONSUMPTION_KAT: dict[str, object] = {
     "registry_sha256": REGISTRY_SHA256,
     "validator_bundle_sha256": VALIDATOR_BUNDLE_SHA256,
     "observation_profile_sha256": OBSERVATION_PROFILE_SHA256,
-    "expected_receipt_sha256": EXPECTED_RECEIPT_SHA256S[0],
+    "expected_receipt_sha256s": list(EXPECTED_RECEIPT_SHA256S[0]),
     "decision": "consume_one_r0_offline_observation_identity",
     "transition": "approved_unconsumed_to_consumed_exact_nonreusable",
     "attempt_limit": 1,
@@ -733,7 +883,7 @@ def parse_consumption(
     ):
         raise ObservationFailure("observation_validation_failed")
     fixed = {
-        "schema_version": "trusted_owner_r0_offline_observation_consumption.v1",
+        "schema_version": "trusted_owner_r0_offline_observation_consumption.v2",
         "sequence_id": SEQUENCE_ID,
         "repository_id": REPOSITORY_ID,
         "issue_number": ISSUE_NUMBER,
@@ -762,7 +912,10 @@ def parse_consumption(
         raise ObservationFailure("observation_sequence_rejected")
     if consumption["observation_id"] != OBSERVATION_IDS[position - 1]:
         raise ObservationFailure("observation_sequence_rejected")
-    if consumption["expected_receipt_sha256"] != EXPECTED_RECEIPT_SHA256S[position - 1]:
+    if not _json_values_are_exact(
+        consumption["expected_receipt_sha256s"],
+        list(EXPECTED_RECEIPT_SHA256S[position - 1]),
+    ):
         raise ObservationFailure("observation_sequence_rejected")
     predecessor = consumption["predecessor_consumption_sha256"]
     if position == 1 and predecessor is not None:
@@ -859,7 +1012,13 @@ def validate_sequence_preflight(
         raise ObservationFailure("observation_sequence_rejected")
     if consumption.get("predecessor_consumption_sha256") != predecessor_consumption_sha256:
         raise ObservationFailure("observation_sequence_rejected")
-    if predecessor_receipt is None or parse_receipt(predecessor_receipt) != EXPECTED_RECEIPTS[0]:
+    if predecessor_receipt is None:
+        raise ObservationFailure("observation_sequence_rejected")
+    parsed_predecessor = parse_receipt(predecessor_receipt)
+    if (
+        parsed_predecessor["sequence_position"] != 1
+        or parsed_predecessor["receipt_sha256"] not in EXPECTED_RECEIPT_SHA256S[0]
+    ):
         raise ObservationFailure("observation_sequence_rejected")
 
 
@@ -1368,19 +1527,12 @@ def _stable_payload(path: Path) -> bytes:
 
 
 def _load_checker(repository_root: Path) -> ModuleType:
-    if (
-        DIRECT_INTERPRETER_CONTRACT_SHA256
-        != DIRECT_INTERPRETER_REVIEWED_CONTRACT_SHA256
-    ):
-        raise ObservationFailure("observation_binding_rejected")
     for relative_path, expected_sha256 in (
         (SEQUENCE_CONTRACT_RELATIVE_PATH, SEQUENCE_CONTRACT_SHA256),
         (RECEIPT_ORDER_CONTRACT_RELATIVE_PATH, RECEIPT_ORDER_CONTRACT_SHA256),
         (RECEIPT_ORDER_REVIEW_RELATIVE_PATH, RECEIPT_ORDER_REVIEW_SHA256),
-        (
-            DIRECT_INTERPRETER_CONTRACT_RELATIVE_PATH,
-            DIRECT_INTERPRETER_CONTRACT_SHA256,
-        ),
+        (PROPORTIONATE_CONTRACT_RELATIVE_PATH, PROPORTIONATE_CONTRACT_SHA256),
+        (PROPORTIONATE_REVIEW_RELATIVE_PATH, PROPORTIONATE_REVIEW_SHA256),
     ):
         payload = _stable_payload(repository_root / relative_path)
         if hashlib.sha256(payload).hexdigest() != expected_sha256:
@@ -1409,7 +1561,25 @@ def _validate_bootstrap_packet(packet: object) -> None:
     if not isinstance(packet, dict):
         raise ObservationFailure("observation_validation_failed")
     expected = {
+        "schema_version": "trusted_owner_r0_offline_bootstrap_evidence.v1",
+        "operation": "evaluate_r0_bootstrap_eligibility_read_only",
+        "repository_id": REPOSITORY_ID,
+        "repository_name": "tahjali11/mythic-edge",
+        "issue_url": "https://github.com/Tahjali11/Mythic-Edge/issues/761",
+        "base_commit": "10d4a4a79053fe33297a612599667d9b58bb4296",
+        "profile_contract_sha256": PROFILE_CONTRACT_SHA256,
+        "app_server_contract_sha256": (
+            "814ac91c4e099216ae4870458d7524a3d65bfba7459cbfda7de82a5fc79067e8"
+        ),
+        "r0_contract_sha256": (
+            "07ab1c7153ba1312533bdc27d984789127fb7fc02190d26853ffae1849c2ac82"
+        ),
         "contract_binding_status": "exact",
+        "stage3_manifest_file_count": 39,
+        "stage3_manifest_byte_count": 5729,
+        "stage3_manifest_sha256": (
+            "cc88860794f918afbb050d6149df3cd11d195fab098b907be06f44ed88de7e06"
+        ),
         "manifest_status": "exact",
         "source_tree_node_count": 41,
         "source_tree_file_count": 36,
@@ -1436,11 +1606,13 @@ def _validate_bootstrap_packet(packet: object) -> None:
         field not in packet or not _json_values_are_exact(packet[field], value)
         for field, value in expected.items()
     ):
-        raise ObservationFailure("observation_validation_failed")
+        raise ObservationFailure("observation_binding_rejected")
     effects = packet.get("effect_counts")
     authority = packet.get("authority_flags")
-    if not isinstance(effects, dict) or any(
-        type(value) is not int or value != 0 for value in effects.values()
+    if (
+        not isinstance(effects, dict)
+        or tuple(effects) != VALIDATION_EFFECT_FIELDS
+        or any(type(value) is not int or value != 0 for value in effects.values())
     ):
         raise ObservationFailure("observation_safety_boundary_failed")
     if (
@@ -1449,6 +1621,126 @@ def _validate_bootstrap_packet(packet: object) -> None:
         or any(type(value) is not bool or value for value in authority.values())
     ):
         raise ObservationFailure("observation_safety_boundary_failed")
+    evidence_sha256 = packet.get("evidence_sha256")
+    if (
+        not _is_sha256(evidence_sha256)
+        or evidence_sha256 != self_digest(packet, "evidence_sha256")
+    ):
+        raise ObservationFailure("observation_validation_failed")
+
+
+def parse_validation_payload(payload: bytes) -> dict[str, object]:
+    """Parse the nonpublishable child validation payload exactly."""
+
+    if len(payload) > MAX_STDOUT_BYTES:
+        raise ObservationFailure("observation_result_unknown")
+    packet = _parse_canonical_object(payload, VALIDATION_PAYLOAD_FIELDS)
+    _validate_bootstrap_packet(packet)
+    return packet
+
+
+@dataclass(frozen=True)
+class PostExitFacts:
+    """Closed parent-owned facts observed only after process-tree termination."""
+
+    top_level_process_count: int
+    descendant_process_count: int
+    process_relationships_known: bool
+    process_terminal_states_known: bool
+    surviving_process_count: int
+    top_level_identity_exact: bool | None
+    timed_out: bool
+    termination_uncertain: bool
+    cleanup_confirmed: bool
+    output_complete: bool
+    executor_network_operation_count: int
+    repository_write_count: int
+    installed_write_count: int
+    external_effect_count: int
+    generated_residue_count: int
+
+
+def _post_exit_status(facts: PostExitFacts) -> str:
+    integer_fields = (
+        facts.top_level_process_count,
+        facts.descendant_process_count,
+        facts.surviving_process_count,
+        facts.executor_network_operation_count,
+        facts.repository_write_count,
+        facts.installed_write_count,
+        facts.external_effect_count,
+        facts.generated_residue_count,
+    )
+    boolean_fields = (
+        facts.process_relationships_known,
+        facts.process_terminal_states_known,
+        facts.timed_out,
+        facts.termination_uncertain,
+        facts.cleanup_confirmed,
+        facts.output_complete,
+    )
+    identity_valid = facts.top_level_identity_exact is None or type(
+        facts.top_level_identity_exact
+    ) is bool
+    if (
+        any(type(value) is not int or value < 0 for value in integer_fields)
+        or any(type(value) is not bool for value in boolean_fields)
+        or not identity_valid
+        or facts.top_level_process_count != 1
+        or not facts.process_relationships_known
+    ):
+        return "observation_launch_unknown"
+    if (
+        facts.timed_out
+        or facts.termination_uncertain
+        or not facts.process_terminal_states_known
+        or not facts.cleanup_confirmed
+    ):
+        return "observation_timeout_unknown"
+    if (
+        facts.descendant_process_count > 1
+        or facts.surviving_process_count != 0
+        or facts.executor_network_operation_count != 0
+        or facts.repository_write_count != 0
+        or facts.installed_write_count != 0
+        or facts.external_effect_count != 0
+        or facts.generated_residue_count != 0
+    ):
+        return "observation_safety_boundary_failed"
+    if not facts.output_complete:
+        return "observation_result_unknown"
+    return "accepted_exact_r0_offline_observation"
+
+
+def seal_proportionate_observation_receipt(
+    validation_payload: bytes,
+    post_exit_facts: PostExitFacts,
+    sequence_position: int,
+) -> bytes | str:
+    """Seal one receipt from exact validation and parent-owned terminal facts."""
+
+    try:
+        parse_validation_payload(validation_payload)
+        if type(post_exit_facts) is not PostExitFacts:
+            return "observation_launch_unknown"
+        if type(sequence_position) is not int or sequence_position not in (1, 2):
+            return "observation_sequence_rejected"
+        status = _post_exit_status(post_exit_facts)
+        if status != "accepted_exact_r0_offline_observation":
+            return status
+        receipt = _build_receipt(
+            sequence_position,
+            post_exit_facts.descendant_process_count,
+            post_exit_facts.top_level_identity_exact,
+        )
+        payload = canonical_bytes(receipt)
+        if parse_receipt(payload) != receipt:
+            return "observation_receipt_sealing_failed"
+        return payload
+    except ObservationFailure as exc:
+        return exc.status
+    except Exception:
+        return "observation_result_unknown"
 
 
 def _validate_release_and_reobserve(checker: ModuleType, roots: object) -> None:
@@ -1556,19 +1848,12 @@ def evaluate_observation(
     _validate_bootstrap_packet(packet)
     if not isinstance(encoded, bytes):
         raise ObservationFailure("observation_validation_failed")
+    if parse_validation_payload(encoded) != packet:
+        raise ObservationFailure("observation_validation_failed")
     _validate_release_and_reobserve(checker, roots)
     if audit_boundary.forbidden_attempt_count != 0:
         raise SafetyBoundaryViolation
-    position = OBSERVATION_IDS.index(observation_id) + 1
-    receipt = _build_receipt(position)
-    payload = canonical_bytes(receipt)
-    try:
-        sealed = parse_receipt(payload)
-    except ObservationFailure as exc:
-        raise ObservationFailure("observation_receipt_sealing_failed") from exc
-    if sealed != receipt or len(payload) > MAX_STDOUT_BYTES:
-        raise ObservationFailure("observation_receipt_sealing_failed")
-    return payload
+    return encoded
 
 
 @dataclass(frozen=True)
@@ -1578,9 +1863,38 @@ class LauncherObservation:
     stderr: bytes
     top_level_process_count: int
     descendant_process_count: int
+    process_relationships_known: bool
+    process_terminal_states_known: bool
+    surviving_process_count: int
+    top_level_identity_exact: bool | None
     timed_out: bool
+    termination_uncertain: bool
     cleanup_confirmed: bool
     output_complete: bool
+    executor_network_operation_count: int
+    repository_write_count: int
+    installed_write_count: int
+    external_effect_count: int
+    generated_residue_count: int
+
+    def post_exit_facts(self) -> PostExitFacts:
+        return PostExitFacts(
+            top_level_process_count=self.top_level_process_count,
+            descendant_process_count=self.descendant_process_count,
+            process_relationships_known=self.process_relationships_known,
+            process_terminal_states_known=self.process_terminal_states_known,
+            surviving_process_count=self.surviving_process_count,
+            top_level_identity_exact=self.top_level_identity_exact,
+            timed_out=self.timed_out,
+            termination_uncertain=self.termination_uncertain,
+            cleanup_confirmed=self.cleanup_confirmed,
+            output_complete=self.output_complete,
+            executor_network_operation_count=self.executor_network_operation_count,
+            repository_write_count=self.repository_write_count,
+            installed_write_count=self.installed_write_count,
+            external_effect_count=self.external_effect_count,
+            generated_residue_count=self.generated_residue_count,
+        )
 
 
 @dataclass(frozen=True)
@@ -1611,21 +1925,18 @@ class DirectPreflightObservation:
 def classify_launcher_observation(observation: LauncherObservation) -> str:
     """Classify fake launcher evidence without launching a process."""
 
-    if observation.timed_out or not observation.cleanup_confirmed:
-        return "observation_timeout_unknown"
-    if observation.exit_code is None or observation.top_level_process_count != 1:
+    if observation.exit_code is None:
         return "observation_launch_unknown"
-    if observation.descendant_process_count != 0:
-        return "observation_safety_boundary_failed"
-    if not observation.output_complete:
-        return "observation_result_unknown"
+    status = _post_exit_status(observation.post_exit_facts())
+    if status != "accepted_exact_r0_offline_observation":
+        return status
     if len(observation.stdout) > MAX_STDOUT_BYTES or len(observation.stderr) > MAX_FAILURE_STDERR_BYTES:
         return "observation_result_unknown"
     if observation.exit_code == 0:
         if observation.stderr:
-            return "observation_result_unknown"
+            return "observation_validation_failed"
         try:
-            parse_receipt(observation.stdout)
+            parse_validation_payload(observation.stdout)
         except ObservationFailure:
             return "observation_validation_failed"
         return "accepted_exact_r0_offline_observation"
@@ -1639,10 +1950,8 @@ def classify_launcher_observation(observation: LauncherObservation) -> str:
 def classify_direct_launcher_observation(
     observation: DirectLauncherObservation,
 ) -> str:
-    if not observation.public_binding_exact or not observation.private_binding_exact:
+    if not observation.public_binding_exact:
         return "observation_binding_rejected"
-    if not observation.top_level_identity_exact or not observation.parentage_known:
-        return "observation_launch_unknown"
     return classify_launcher_observation(observation.process)
 
 
@@ -1702,11 +2011,6 @@ def run(argv: Sequence[str] | None = None) -> int:
     if not _paths_are_lexically_equal(Path.cwd(), repository_root):
         _emit_failure("observation_binding_rejected")
         return 2
-    try:
-        validate_running_direct_interpreter()
-    except ObservationFailure as exc:
-        _emit_failure(exc.status)
-        return 2
     runtime_roots = tuple({Path(sys.base_prefix), Path(sys.prefix)})
     audit = AuditBoundary(repository_root, runtime_roots)
     sys.addaudithook(audit)
@@ -1761,23 +2065,31 @@ def _validate_known_answers() -> None:
         raise RuntimeError("direct_interpreter_binding_kat_invalid")
     profile = canonical_bytes(OBSERVATION_PROFILE)
     if (
-        len(profile) != 1776
+        len(profile) != 1918
         or hashlib.sha256(profile).hexdigest() != OBSERVATION_PROFILE_SHA256
     ):
         raise RuntimeError("observation_profile_kat_invalid")
-    for index, receipt in enumerate(EXPECTED_RECEIPTS):
-        preimage = canonical_bytes(
-            {key: value for key, value in receipt.items() if key != "receipt_sha256"}
-        )
-        payload = canonical_bytes(receipt)
-        if (
-            len(preimage) != EXPECTED_RECEIPT_PREIMAGE_LENGTHS[index]
-            or len(payload) != EXPECTED_RECEIPT_LENGTHS[index]
-            or receipt["receipt_sha256"] != EXPECTED_RECEIPT_SHA256S[index]
-            or hashlib.sha256(payload).hexdigest()
-            != EXPECTED_RECEIPT_ARTIFACT_SHA256S[index]
-        ):
-            raise RuntimeError("observation_receipt_kat_invalid")
+    for position_index, receipts in enumerate(EXPECTED_RECEIPTS):
+        for variant_index, receipt in enumerate(receipts):
+            preimage = canonical_bytes(
+                {
+                    key: value
+                    for key, value in receipt.items()
+                    if key != "receipt_sha256"
+                }
+            )
+            payload = canonical_bytes(receipt)
+            if (
+                len(preimage)
+                != EXPECTED_RECEIPT_PREIMAGE_LENGTHS[position_index][variant_index]
+                or len(payload)
+                != EXPECTED_RECEIPT_LENGTHS[position_index][variant_index]
+                or receipt["receipt_sha256"]
+                != EXPECTED_RECEIPT_SHA256S[position_index][variant_index]
+                or hashlib.sha256(payload).hexdigest()
+                != EXPECTED_RECEIPT_ARTIFACT_SHA256S[position_index][variant_index]
+            ):
+                raise RuntimeError("observation_receipt_kat_invalid")
     consumption = canonical_bytes(SYNTHETIC_CONSUMPTION_KAT)
     consumption_preimage = canonical_bytes(
         {
@@ -1787,12 +2099,12 @@ def _validate_known_answers() -> None:
         }
     )
     if (
-        len(consumption_preimage) != 2531
-        or len(consumption) != 2619
+        len(consumption_preimage) != 2869
+        or len(consumption) != 2957
         or SYNTHETIC_CONSUMPTION_KAT["consumption_sha256"]
-        != "b49572e1faad02c68270c0832dc86158da3b24d2eff5772669521a7e53955efa"
+        != "4f54d1df7627e9ac544822d4b140ed87ba47dea682137a6bbc3654910f5b29ca"
         or hashlib.sha256(consumption).hexdigest()
-        != "d3e1f80d0c755c65c8c9cb905275cff09ca92c38f2bb662ddcd553de08d1e360"
+        != "eab4d6326ee187d641ed0a3b63e958229e66e4aea4cc3d2573a27916d79a57e1"
     ):
         raise RuntimeError("observation_consumption_kat_invalid")
 
