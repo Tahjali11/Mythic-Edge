@@ -441,8 +441,8 @@ def test_process_and_terminal_failures_use_existing_statuses(
     [
         ({"stdout_overflow": True}, "observation_result_unknown"),
         ({"stderr_overflow": True}, "observation_result_unknown"),
-        ({"stdout_eof": False}, "observation_result_unknown"),
-        ({"stderr_eof": False}, "observation_result_unknown"),
+        ({"stdout_eof": False}, "observation_timeout_unknown"),
+        ({"stderr_eof": False}, "observation_timeout_unknown"),
         ({"exit_code": 4}, "observation_safety_boundary_failed"),
         ({"exit_code": 3}, "observation_result_unknown"),
         ({"exit_code": 2}, "observation_validation_failed"),
@@ -455,6 +455,27 @@ def test_stream_and_child_result_failures(
     status: str,
 ) -> None:
     assert _run(FakeAdapter(_evidence(**changes))) == status
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"stdout_eof": False},
+        {"stderr_eof": False},
+    ],
+)
+def test_cleanup_confirmation_requires_complete_output_drain(
+    changes: dict[str, object],
+) -> None:
+    facts = observer._post_exit_facts(
+        owner,
+        _evidence(**changes),
+        _snapshot(),
+        _snapshot(),
+        observer._AuditCounts(0, 0, 0, 0),
+    )
+    assert facts.output_complete is False
+    assert facts.cleanup_confirmed is False
 
 
 def test_close_failures_do_not_claim_cleanup() -> None:
@@ -558,6 +579,53 @@ def test_each_observer_effect_count_is_derived_and_fails_closed(audit: object) -
     adapter = FakeAdapter()
     adapter.audit = audit
     assert _run(adapter) == "observation_safety_boundary_failed"
+
+
+@pytest.mark.parametrize(
+    "event",
+    [
+        "os.rename",
+        "os.renames",
+        "os.replace",
+        "os.link",
+        "os.symlink",
+        "shutil.copyfile",
+        "shutil.move",
+    ],
+)
+@pytest.mark.parametrize(
+    ("destination_domain", "expected_counts"),
+    [
+        ("repository", observer._AuditCounts(0, 1, 0, 0)),
+        ("installed", observer._AuditCounts(0, 0, 1, 0)),
+        ("external", observer._AuditCounts(0, 0, 0, 1)),
+    ],
+)
+def test_multi_path_mutations_are_counted_once_by_destination_domain(
+    event: str,
+    destination_domain: str,
+    expected_counts: object,
+    tmp_path: Path,
+) -> None:
+    installed_root = tmp_path / "installed"
+    external_root = tmp_path / "external"
+    counter = observer._AuditCounter(REPO_ROOT)
+    counter.bind_installed_root(installed_root)
+    destinations = {
+        "repository": REPO_ROOT / "synthetic-destination",
+        "installed": installed_root / "synthetic-destination",
+        "external": external_root / "synthetic-destination",
+    }
+    source = (
+        REPO_ROOT / "synthetic-source"
+        if destination_domain == "external"
+        else external_root / "synthetic-source"
+    )
+
+    with pytest.raises(observer._SafetyEffect):
+        counter(event, (source, destinations[destination_domain]))
+
+    assert counter.snapshot() == expected_counts
 
 
 def test_manifest_drift_and_new_residue_fail_closed() -> None:

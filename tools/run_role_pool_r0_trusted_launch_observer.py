@@ -578,9 +578,9 @@ def _post_exit_facts(
         if snapshots_exact
         else 1
     )
+    output_drained = evidence.stdout_eof and evidence.stderr_eof
     output_complete = (
-        evidence.stdout_eof
-        and evidence.stderr_eof
+        output_drained
         and not evidence.stdout_overflow
         and not evidence.stderr_overflow
         and len(evidence.stdout) <= owner.MAX_STDOUT_BYTES
@@ -595,6 +595,7 @@ def _post_exit_facts(
         snapshots_exact
         and terminal
         and survivors == 0
+        and output_drained
         and _close_state_exact(evidence.close_observations)
         and not termination_uncertain
     )
@@ -734,6 +735,15 @@ class _AuditCounter:
         "shutil.rmtree",
         "shutil.move",
     }
+    _DESTINATION_MUTATION_EVENTS = {
+        "os.rename",
+        "os.renames",
+        "os.replace",
+        "os.link",
+        "os.symlink",
+        "shutil.copyfile",
+        "shutil.move",
+    }
     _ENVIRONMENT_EVENTS = {"os.putenv", "os.unsetenv"}
 
     def __init__(self, repository_root: Path) -> None:
@@ -792,7 +802,8 @@ class _AuditCounter:
         if event == "open" and self._write_open(args):
             self._record_write(args[0] if args else None)
         if event in self._MUTATION_EVENTS:
-            self._record_write(args[0] if args else None)
+            path_index = 1 if event in self._DESTINATION_MUTATION_EVENTS else 0
+            self._record_write(args[path_index] if len(args) > path_index else None)
 
     def snapshot(self) -> _AuditCounts:
         return _AuditCounts(
