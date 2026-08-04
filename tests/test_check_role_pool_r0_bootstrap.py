@@ -49,6 +49,21 @@ WORKFLOW_BINDINGS = {
     ),
 }
 
+STAGE3_VALIDATOR_RELATIVE_PATH = (
+    checker.SOURCE_SKILL_RELATIVE_PATH
+    / "scripts/check_stage3_behavioral_planning.py"
+)
+STAGE3_VALIDATOR_PREDECESSOR_SHA256 = (
+    "8946eb85257109670cc9f72970972d2458c9f56486127d1c4571e530240dc3b6"
+)
+STAGE3_VALIDATOR_SUCCESSOR_SHA256 = (
+    "5b974517b6f56f7d9f35ca609ee936cf71846858a043e6bf5a31a7d2166856ea"
+)
+STAGE3_VALIDATOR_FIXTURE_MARKER = (
+    b"synthetic-stage3-validator-predecessor-binding-v1\n"
+)
+_REAL_READ_STABLE_FILE = checker._read_stable_file
+
 
 @dataclass(frozen=True)
 class SyntheticFixture:
@@ -233,6 +248,84 @@ def _copy_workflow(target_root: Path) -> None:
 
 
 @contextmanager
+def _bounded_stage3_predecessor_fixture(
+    repository_root: Path,
+    installed_skills_root: Path,
+) -> None:
+    repository_path = repository_root / STAGE3_VALIDATOR_RELATIVE_PATH
+    installed_path = (
+        installed_skills_root
+        / "mythic-edge-role-pool"
+        / "scripts/check_stage3_behavioral_planning.py"
+    )
+    originals = {
+        repository_path: repository_path.read_bytes(),
+        installed_path: installed_path.read_bytes(),
+    }
+    assert {
+        hashlib.sha256(payload).hexdigest() for payload in originals.values()
+    } == {STAGE3_VALIDATOR_SUCCESSOR_SHA256}
+
+    class PathBoundPayload(bytes):
+        relative_path: Path
+
+        def __new__(
+            cls,
+            payload: bytes,
+            relative_path: Path,
+        ) -> object:
+            value = super().__new__(cls, payload)
+            value.relative_path = relative_path
+            return value
+
+    class FixedDigest:
+        def hexdigest(self) -> str:
+            return STAGE3_VALIDATOR_PREDECESSOR_SHA256
+
+    class BoundedHashlib:
+        def sha256(self, payload: bytes = b"") -> object:
+            if (
+                isinstance(payload, PathBoundPayload)
+                and payload.relative_path == STAGE3_VALIDATOR_RELATIVE_PATH
+                and bytes(payload) == STAGE3_VALIDATOR_FIXTURE_MARKER
+            ):
+                return FixedDigest()
+            return hashlib.sha256(payload)
+
+        def __getattr__(self, name: str) -> object:
+            return getattr(hashlib, name)
+
+    def read_stable_file(path: Path) -> object:
+        observation = _REAL_READ_STABLE_FILE(path)
+        if (
+            path == repository_path
+            and observation.payload is not None
+        ):
+            return checker.FileObservation(
+                observation.state,
+                PathBoundPayload(
+                    observation.payload,
+                    STAGE3_VALIDATOR_RELATIVE_PATH,
+                ),
+                observation.identity,
+            )
+        return observation
+
+    for path in originals:
+        path.write_bytes(STAGE3_VALIDATOR_FIXTURE_MARKER)
+    try:
+        with (
+            mock.patch.object(checker, "hashlib", BoundedHashlib()),
+            mock.patch.object(checker, "_read_stable_file", read_stable_file),
+        ):
+            yield
+    finally:
+        for path, payload in originals.items():
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(payload)
+
+
+@contextmanager
 def _exact_fixture(
     *,
     with_registry: bool = True,
@@ -281,60 +374,61 @@ def _exact_fixture(
         _copy_workflow(installed_skills_root / "mythic-edge-workflow")
         roots = checker.EvaluationRoots(repository_root, installed_skills_root)
         owners = checker._load_owner_modules(repository_root)
-        if bind_current_manifest:
-            workflow_root = installed_skills_root / "mythic-edge-workflow"
-            owners.stage3.WORKFLOW_ROOT = workflow_root
-            owners.stage3.WORKFLOW_SNAPSHOT_FILES = tuple(
-                workflow_root / relative_path
-                for relative_path in checker.WORKFLOW_SNAPSHOT_RELATIVE_PATHS
+        with _bounded_stage3_predecessor_fixture(
+            repository_root,
+            installed_skills_root,
+        ):
+            if bind_current_manifest:
+                workflow_root = installed_skills_root / "mythic-edge-workflow"
+                owners.stage3.WORKFLOW_ROOT = workflow_root
+                owners.stage3.WORKFLOW_SNAPSHOT_FILES = tuple(
+                    workflow_root / relative_path
+                    for relative_path in checker.WORKFLOW_SNAPSHOT_RELATIVE_PATHS
+                )
+                rows = owners.stage3.current_skill_manifest()
+                current = {row["path"]: row["sha256"] for row in rows}
+                baseline = owners.stage3.STAGE2_BASELINE_FILES
+                owners.stage3.EXPECTED_CURRENT_MANIFEST_FILE_COUNT = len(rows)
+                owners.stage3.ALLOWED_ADDED_PATHS = set(current) - set(baseline)
+                owners.stage3.ALLOWED_MODIFIED_PATHS = {
+                    path
+                    for path in set(current) & set(baseline)
+                    if current[path] != baseline[path]
+                }
+                owners.stage3.REVIEWED_APP_SERVER_MODIFIED_DIGESTS = {
+                    path: current[path]
+                    for path in owners.stage3.REVIEWED_APP_SERVER_MODIFIED_DIGESTS
+                }
+                encoded_manifest = owners.stage3.canonical_bytes(rows)
+                checker.STAGE3_MANIFEST_FILE_COUNT = len(rows)
+                checker.STAGE3_MANIFEST_BYTE_COUNT = len(encoded_manifest)
+                checker.STAGE3_MANIFEST_SHA256 = hashlib.sha256(
+                    encoded_manifest
+                ).hexdigest()
+            if bind_current_source_tree:
+                snapshot = owners.installer._tree_snapshot(copied_source_skill)
+                assert snapshot is not None
+                (
+                    checker.SOURCE_TREE_NODE_COUNT,
+                    checker.SOURCE_TREE_FILE_COUNT,
+                    checker.SOURCE_TREE_MANIFEST_BYTE_COUNT,
+                    checker.SOURCE_TREE_SHA256,
+                ) = checker._tree_manifest(snapshot, owners.pool)
+            fixture = SyntheticFixture(
+                root=root,
+                repository_root=repository_root,
+                installed_skills_root=installed_skills_root,
+                roots=roots,
+                owners=owners,
             )
-            rows = owners.stage3.current_skill_manifest()
-            current = {row["path"]: row["sha256"] for row in rows}
-            baseline = owners.stage3.STAGE2_BASELINE_FILES
-            owners.stage3.EXPECTED_CURRENT_MANIFEST_FILE_COUNT = len(rows)
-            owners.stage3.ALLOWED_ADDED_PATHS = set(current) - set(baseline)
-            owners.stage3.ALLOWED_MODIFIED_PATHS = {
-                path
-                for path in set(current) & set(baseline)
-                if current[path] != baseline[path]
-            }
-            owners.stage3.REVIEWED_APP_SERVER_MODIFIED_DIGESTS = {
-                path: current[path]
-                for path in owners.stage3.REVIEWED_APP_SERVER_MODIFIED_DIGESTS
-            }
-            encoded_manifest = owners.stage3.canonical_bytes(rows)
-            checker.STAGE3_MANIFEST_FILE_COUNT = len(rows)
-            checker.STAGE3_MANIFEST_BYTE_COUNT = len(encoded_manifest)
-            checker.STAGE3_MANIFEST_SHA256 = hashlib.sha256(
-                encoded_manifest
-            ).hexdigest()
-        if bind_current_source_tree:
-            snapshot = owners.installer._tree_snapshot(copied_source_skill)
-            assert snapshot is not None
-            (
-                checker.SOURCE_TREE_NODE_COUNT,
-                checker.SOURCE_TREE_FILE_COUNT,
-                checker.SOURCE_TREE_MANIFEST_BYTE_COUNT,
-                checker.SOURCE_TREE_SHA256,
-            ) = checker._tree_manifest(snapshot, owners.pool)
-        fixture = SyntheticFixture(
-            root=root,
-            repository_root=repository_root,
-            installed_skills_root=installed_skills_root,
-            roots=roots,
-            owners=owners,
-        )
-        if with_registry:
-            _write_registry(fixture, _valid_registry(owners.pool))
-        if bind_current_manifest:
+            if with_registry:
+                _write_registry(fixture, _valid_registry(owners.pool))
             with mock.patch.object(
                 checker,
                 "_load_owner_modules",
                 return_value=owners,
             ):
                 yield fixture
-        else:
-            yield fixture
     finally:
         (
             checker.SOURCE_TREE_NODE_COUNT,
@@ -355,30 +449,31 @@ def _run_raw_cli(
     fixture: SyntheticFixture,
     *arguments: str,
 ) -> subprocess.CompletedProcess[bytes]:
-    environment = os.environ.copy()
-    environment.pop("CODEX_HOME", None)
-    user_home = fixture.installed_skills_root.parents[1]
-    environment["HOME"] = str(user_home)
-    environment["USERPROFILE"] = str(user_home)
-    environment["PYTHONDONTWRITEBYTECODE"] = "1"
-    return subprocess.run(
-        [
-            sys.executable,
-            "-B",
-            str(
-                fixture.repository_root
-                / checker.CHECKER_RELATIVE_PATH
-            ),
-            *arguments,
-        ],
-        cwd=fixture.repository_root,
-        env=environment,
-        stdin=subprocess.DEVNULL,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=False,
-        timeout=60,
+    stdout_bytes = io.BytesIO()
+    stderr_bytes = io.BytesIO()
+    stdout = io.TextIOWrapper(stdout_bytes, encoding="utf-8", newline="")
+    stderr = io.TextIOWrapper(stderr_bytes, encoding="utf-8", newline="")
+    with (
+        mock.patch.object(
+            checker,
+            "_production_roots",
+            return_value=fixture.roots,
+        ),
+        redirect_stdout(stdout),
+        redirect_stderr(stderr),
+    ):
+        returncode = checker.run(list(arguments))
+    stdout.flush()
+    stderr.flush()
+    completed = subprocess.CompletedProcess(
+        args=list(arguments),
+        returncode=returncode,
+        stdout=stdout_bytes.getvalue(),
+        stderr=stderr_bytes.getvalue(),
     )
+    stdout.detach()
+    stderr.detach()
+    return completed
 
 
 def _exact_observations() -> object:
@@ -482,6 +577,84 @@ def test_successor_contract_and_profile_bindings_are_exact() -> None:
         Path("tools/install_codex_skills.py"),
         checker.INSTALLER_SHA256,
     )
+    assert binding_by_name["stage3_validator"] == (
+        STAGE3_VALIDATOR_RELATIVE_PATH,
+        STAGE3_VALIDATOR_PREDECESSOR_SHA256,
+    )
+
+
+def test_stage3_predecessor_fixture_is_path_and_marker_bounded() -> None:
+    with _exact_fixture() as fixture:
+        status, observed = checker._binding_status(fixture.repository_root)
+        assert status == "exact"
+        assert (
+            observed["stage3_validator"]
+            == STAGE3_VALIDATOR_PREDECESSOR_SHA256
+        )
+
+        target = fixture.repository_root / STAGE3_VALIDATOR_RELATIVE_PATH
+        marker = target.read_bytes()
+        assert marker == STAGE3_VALIDATOR_FIXTURE_MARKER
+        assert hashlib.sha256(marker).hexdigest() not in {
+            STAGE3_VALIDATOR_PREDECESSOR_SHA256,
+            STAGE3_VALIDATOR_SUCCESSOR_SHA256,
+        }
+        assert (
+            checker.hashlib.sha256(marker).hexdigest()
+            == hashlib.sha256(marker).hexdigest()
+        )
+
+        wrong_path = fixture.root / "unlisted-stage3-marker"
+        wrong_path.write_bytes(marker)
+        wrong_observation = checker._read_stable_file(wrong_path)
+        assert wrong_observation.payload is not None
+        assert (
+            checker.hashlib.sha256(wrong_observation.payload).hexdigest()
+            == hashlib.sha256(marker).hexdigest()
+        )
+
+        wrong_marker = marker + b"unexpected"
+        target.write_bytes(wrong_marker)
+        status, observed = checker._binding_status(fixture.repository_root)
+        assert status == "known_invalid"
+        assert observed["stage3_validator"] == hashlib.sha256(
+            wrong_marker
+        ).hexdigest()
+        target.write_bytes(marker)
+
+
+def test_current_stage3_successor_rejects_before_owner_loading() -> None:
+    binding = next(
+        (relative_path, digest)
+        for name, relative_path, digest in checker.FILE_BINDINGS
+        if name == "stage3_validator"
+    )
+    assert binding == (
+        STAGE3_VALIDATOR_RELATIVE_PATH,
+        STAGE3_VALIDATOR_PREDECESSOR_SHA256,
+    )
+    current_payload = (REPO_ROOT / STAGE3_VALIDATOR_RELATIVE_PATH).read_bytes()
+    assert (
+        hashlib.sha256(current_payload).hexdigest()
+        == STAGE3_VALIDATOR_SUCCESSOR_SHA256
+    )
+    assert (
+        STAGE3_VALIDATOR_SUCCESSOR_SHA256
+        != STAGE3_VALIDATOR_PREDECESSOR_SHA256
+    )
+
+    status, observed = checker._binding_status(REPO_ROOT)
+    assert status == "known_invalid"
+    assert observed["stage3_validator"] == STAGE3_VALIDATOR_SUCCESSOR_SHA256
+    with (
+        mock.patch.object(
+            checker,
+            "_load_owner_modules",
+            side_effect=AssertionError("owner loading reached"),
+        ),
+        pytest.raises(checker.PacketUnavailableError),
+    ):
+        checker._evaluate_for_tests(checker.EvaluationRoots(REPO_ROOT, None))
 
 
 def test_current_successor_tree_waits_for_separate_manifest_transition() -> None:
@@ -1415,9 +1588,13 @@ def test_cleanup_runs_after_success_and_failure() -> None:
         success_root = fixture.root
         checker._evaluate_for_tests(fixture.roots)
     assert not success_root.exists()
+    assert checker.hashlib is hashlib
+    assert checker._read_stable_file is _REAL_READ_STABLE_FILE
 
     failure_root: Path
     with pytest.raises(RuntimeError), _exact_fixture() as fixture:
         failure_root = fixture.root
         raise RuntimeError("synthetic failure")
     assert not failure_root.exists()
+    assert checker.hashlib is hashlib
+    assert checker._read_stable_file is _REAL_READ_STABLE_FILE

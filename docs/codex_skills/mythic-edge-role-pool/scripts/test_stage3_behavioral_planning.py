@@ -18,9 +18,17 @@ from unittest import mock
 import check_stage3_behavioral_planning as stage3
 from check_pool_plan import validate_plan
 from check_stage3_behavioral_planning import (
+    ACCEPTED_APP_SERVER_MANIFEST_FILE_COUNT,
     ACCEPTED_PRE_APP_SERVER_MANIFEST_FILE_COUNT,
     ALLOWED_ADDED_PATHS,
     ALLOWED_MODIFIED_PATHS,
+    APP_NATIVE_ADAPTER_MANIFEST_PATH,
+    APP_NATIVE_ADAPTER_SHA256,
+    APP_NATIVE_ADAPTER_SKILL_RELATIVE_PATH,
+    APP_NATIVE_ADAPTER_TEST_MANIFEST_PATH,
+    APP_NATIVE_ADAPTER_TEST_SHA256,
+    APP_NATIVE_ADAPTER_TEST_SKILL_RELATIVE_PATH,
+    APP_NATIVE_ADDED_PATHS,
     APP_SERVER_ADAPTER_MANIFEST_PATH,
     APP_SERVER_ADAPTER_SHA256,
     APP_SERVER_ADAPTER_SKILL_RELATIVE_PATH,
@@ -33,8 +41,11 @@ from check_stage3_behavioral_planning import (
     EXPECTED_SCENARIO,
     FINDING_ID,
     PINNED_SUCCESSOR_DIGESTS,
+    PRE_APP_NATIVE_ALLOWED_ADDED_PATHS,
+    PRE_APP_NATIVE_PINNED_SUCCESSOR_DIGESTS,
     PRE_APP_SERVER_ALLOWED_ADDED_PATHS,
     PRE_APP_SERVER_PINNED_SUCCESSOR_DIGESTS,
+    REVIEWED_APP_NATIVE_MODIFIED_DIGESTS,
     REVIEWED_APP_SERVER_MODIFIED_DIGESTS,
     SCHEMA_VERSION,
     STAGE2_BASELINE_FILES,
@@ -2853,7 +2864,7 @@ class Stage3BehavioralPlanningTests(unittest.TestCase):
     def test_contract_transition_is_exact_and_fail_closes_v3_validator(self) -> None:
         transition = expected_contract_transition()
         self.assertEqual(transition["entry_manifest_file_count"], 30)
-        self.assertEqual(transition["current_manifest_file_count"], 39)
+        self.assertEqual(transition["current_manifest_file_count"], 41)
         self.assertEqual(transition["removed_paths"], [])
         self.assertIs(transition["production_plan_validator_unchanged"], False)
         plan_path = "mythic-edge-role-pool/scripts/check_pool_plan.py"
@@ -2917,6 +2928,8 @@ class Stage3BehavioralPlanningTests(unittest.TestCase):
         for path, digest in {
             APP_SERVER_ADAPTER_MANIFEST_PATH: APP_SERVER_ADAPTER_SHA256,
             APP_SERVER_ADAPTER_TEST_MANIFEST_PATH: APP_SERVER_ADAPTER_TEST_SHA256,
+            APP_NATIVE_ADAPTER_MANIFEST_PATH: APP_NATIVE_ADAPTER_SHA256,
+            APP_NATIVE_ADAPTER_TEST_MANIFEST_PATH: APP_NATIVE_ADAPTER_TEST_SHA256,
         }.items():
             with self.subTest(path=path):
                 self.assertEqual(
@@ -2936,7 +2949,7 @@ class Stage3BehavioralPlanningTests(unittest.TestCase):
                 )
         transition_paths = [row["path"] for row in transition["change_set"]]
         self.assertEqual(transition_paths, sorted(transition_paths))
-        self.assertEqual(len(ALLOWED_ADDED_PATHS), 9)
+        self.assertEqual(len(ALLOWED_ADDED_PATHS), 11)
         self.assertEqual(len(ALLOWED_MODIFIED_PATHS), 13)
         self.assertEqual(
             PINNED_SUCCESSOR_DIGESTS,
@@ -2948,24 +2961,88 @@ class Stage3BehavioralPlanningTests(unittest.TestCase):
                 APP_SERVER_ADAPTER_TEST_MANIFEST_PATH: (
                     APP_SERVER_ADAPTER_TEST_SHA256
                 ),
+                APP_NATIVE_ADAPTER_MANIFEST_PATH: APP_NATIVE_ADAPTER_SHA256,
+                APP_NATIVE_ADAPTER_TEST_MANIFEST_PATH: (
+                    APP_NATIVE_ADAPTER_TEST_SHA256
+                ),
             },
         )
 
-    def test_app_server_predecessor_and_reviewed_candidate_manifests_are_exact(
-        self,
-    ) -> None:
+    def test_historical_and_app_native_candidate_manifests_are_exact(self) -> None:
         rows = current_skill_manifest()
-        self.assertEqual(len(rows), 39)
+        self.assertEqual(len(rows), 41)
         self.assertEqual(
             [row["path"] for row in rows],
             sorted(row["path"] for row in rows),
         )
 
-        reviewed_candidate = copy.deepcopy(rows)
-        reviewed_candidate_by_path = {
-            row["path"]: row for row in reviewed_candidate
+        reviewed_app_native = copy.deepcopy(rows)
+        reviewed_app_native_by_path = {
+            row["path"]: row for row in reviewed_app_native
         }
-        stage3_pre_edit_digests = {
+        app_native_pre_edit_digests = {
+            (
+                "mythic-edge-role-pool/scripts/"
+                "check_stage3_behavioral_planning.py"
+            ): "8946eb85257109670cc9f72970972d2458c9f56486127d1c4571e530240dc3b6",
+            (
+                "mythic-edge-role-pool/scripts/"
+                "test_stage3_behavioral_planning.py"
+            ): "800cea8db721ef1b1ca65f41acafd5ac2e45de29f251500ba495888acf6e81ec",
+        }
+        for path, digest in app_native_pre_edit_digests.items():
+            reviewed_app_native_by_path[path]["sha256"] = digest
+        reviewed_app_native = sorted(
+            reviewed_app_native,
+            key=lambda row: row["path"],
+        )
+        self.assertEqual(len(stage3.canonical_bytes(reviewed_app_native)), 6052)
+        self.assertEqual(
+            stage3.canonical_digest(reviewed_app_native),
+            "4feede06164d2c3fa5d4367606c281928cd8841c6cb20e39561d36b06b835579",
+        )
+        current_digests = {row["path"]: row["sha256"] for row in rows}
+        reviewed_app_native_digests = {
+            row["path"]: row["sha256"] for row in reviewed_app_native
+        }
+        self.assertEqual(
+            {
+                path
+                for path in current_digests
+                if current_digests[path] != reviewed_app_native_digests[path]
+            },
+            set(app_native_pre_edit_digests),
+        )
+
+        accepted_app_server = [
+            copy.deepcopy(row)
+            for row in reviewed_app_native
+            if row["path"] not in APP_NATIVE_ADDED_PATHS
+        ]
+        accepted_app_server_by_path = {
+            row["path"]: row for row in accepted_app_server
+        }
+        for path, digest in REVIEWED_APP_SERVER_MODIFIED_DIGESTS.items():
+            accepted_app_server_by_path[path]["sha256"] = digest
+        accepted_app_server = sorted(
+            accepted_app_server,
+            key=lambda row: row["path"],
+        )
+        self.assertEqual(
+            len(accepted_app_server),
+            ACCEPTED_APP_SERVER_MANIFEST_FILE_COUNT,
+        )
+        self.assertEqual(len(stage3.canonical_bytes(accepted_app_server)), 5729)
+        self.assertEqual(
+            stage3.canonical_digest(accepted_app_server),
+            "cc88860794f918afbb050d6149df3cd11d195fab098b907be06f44ed88de7e06",
+        )
+
+        reviewed_app_server = copy.deepcopy(accepted_app_server)
+        reviewed_app_server_by_path = {
+            row["path"]: row for row in reviewed_app_server
+        }
+        app_server_pre_fix_digests = {
             (
                 "mythic-edge-role-pool/scripts/"
                 "check_stage3_behavioral_planning.py"
@@ -2975,18 +3052,21 @@ class Stage3BehavioralPlanningTests(unittest.TestCase):
                 "test_stage3_behavioral_planning.py"
             ): "f334ebbe67d5fff8f68797e0709770d00cb254215e710d59e9fb331daca7ab08",
         }
-        for path, digest in stage3_pre_edit_digests.items():
-            reviewed_candidate_by_path[path]["sha256"] = digest
-        reviewed_candidate = sorted(reviewed_candidate, key=lambda row: row["path"])
-        self.assertEqual(len(stage3.canonical_bytes(reviewed_candidate)), 5729)
+        for path, digest in app_server_pre_fix_digests.items():
+            reviewed_app_server_by_path[path]["sha256"] = digest
+        reviewed_app_server = sorted(
+            reviewed_app_server,
+            key=lambda row: row["path"],
+        )
+        self.assertEqual(len(stage3.canonical_bytes(reviewed_app_server)), 5729)
         self.assertEqual(
-            stage3.canonical_digest(reviewed_candidate),
+            stage3.canonical_digest(reviewed_app_server),
             "b0a0dfeae17aa4c56e3b9abe8e3104e3f8893f38387a31c577cf3b54401de2a4",
         )
 
         predecessor = [
             copy.deepcopy(row)
-            for row in reviewed_candidate
+            for row in reviewed_app_server
             if row["path"] not in APP_SERVER_ADDED_PATHS
         ]
         predecessor_by_path = {row["path"]: row for row in predecessor}
@@ -3009,33 +3089,49 @@ class Stage3BehavioralPlanningTests(unittest.TestCase):
         )
 
         predecessor_digests = {row["path"]: row["sha256"] for row in predecessor}
-        candidate_digests = {
-            row["path"]: row["sha256"] for row in reviewed_candidate
+        app_server_digests = {
+            row["path"]: row["sha256"] for row in reviewed_app_server
         }
         self.assertEqual(
-            set(candidate_digests) - set(predecessor_digests),
+            set(app_server_digests) - set(predecessor_digests),
             APP_SERVER_ADDED_PATHS,
         )
         self.assertEqual(
             {
                 path
-                for path in set(candidate_digests) & set(predecessor_digests)
-                if candidate_digests[path] != predecessor_digests[path]
+                for path in set(app_server_digests) & set(predecessor_digests)
+                if app_server_digests[path] != predecessor_digests[path]
             },
             set(REVIEWED_APP_SERVER_MODIFIED_DIGESTS),
         )
         self.assertEqual(
-            set(predecessor_digests) - set(candidate_digests),
+            set(predecessor_digests) - set(app_server_digests),
             set(),
+        )
+
+        accepted_app_server_digests = {
+            row["path"]: row["sha256"] for row in accepted_app_server
+        }
+        self.assertEqual(
+            {
+                path for path in reviewed_app_native_digests
+                if path not in accepted_app_server_digests
+            },
+            APP_NATIVE_ADDED_PATHS,
         )
         self.assertEqual(
             {
                 path
-                for path, digest in reviewed_candidate_by_path.items()
-                if digest["sha256"]
-                != {row["path"]: row["sha256"] for row in rows}[path]
+                for path in set(reviewed_app_native_digests)
+                & set(accepted_app_server_digests)
+                if reviewed_app_native_digests[path]
+                != accepted_app_server_digests[path]
             },
-            set(stage3_pre_edit_digests),
+            set(REVIEWED_APP_NATIVE_MODIFIED_DIGESTS),
+        )
+        self.assertEqual(
+            set(accepted_app_server_digests) - set(reviewed_app_native_digests),
+            set(),
         )
 
     def test_v5_rebind_v1_lineage_recipe_and_receipt_remain_exact(self) -> None:
@@ -3900,8 +3996,8 @@ class Stage3BehavioralPlanningTests(unittest.TestCase):
             self.assertEqual(predecessor[field], successor[field], field)
 
         rows = current_skill_manifest()
-        self.assertEqual(len(rows), 39)
-        self.assertEqual(len({row["path"] for row in rows}), 39)
+        self.assertEqual(len(rows), 41)
+        self.assertEqual(len({row["path"] for row in rows}), 41)
         current_by_path = {row["path"]: row["sha256"] for row in rows}
         self.assertEqual(
             current_by_path[STAGE3_PLANNING_MANIFEST_PATH],
@@ -3912,7 +4008,7 @@ class Stage3BehavioralPlanningTests(unittest.TestCase):
             V5_REBIND_V7_TARGET_SHA256,
         )
         transition = expected_contract_transition()
-        self.assertEqual(transition["current_manifest_file_count"], 39)
+        self.assertEqual(transition["current_manifest_file_count"], 41)
         self.assertEqual(
             [
                 row
@@ -4162,16 +4258,30 @@ class Stage3BehavioralPlanningTests(unittest.TestCase):
             | {SUCCESSOR_MANIFEST_PATH, V4_SUCCESSOR_MANIFEST_PATH},
         )
         self.assertEqual(
-            ALLOWED_ADDED_PATHS,
+            PRE_APP_NATIVE_ALLOWED_ADDED_PATHS,
             PRE_APP_SERVER_ALLOWED_ADDED_PATHS | APP_SERVER_ADDED_PATHS,
         )
         self.assertEqual(
-            PINNED_SUCCESSOR_DIGESTS,
+            PRE_APP_NATIVE_PINNED_SUCCESSOR_DIGESTS,
             {
                 **PRE_APP_SERVER_PINNED_SUCCESSOR_DIGESTS,
                 APP_SERVER_ADAPTER_MANIFEST_PATH: APP_SERVER_ADAPTER_SHA256,
                 APP_SERVER_ADAPTER_TEST_MANIFEST_PATH: (
                     APP_SERVER_ADAPTER_TEST_SHA256
+                ),
+            },
+        )
+        self.assertEqual(
+            ALLOWED_ADDED_PATHS,
+            PRE_APP_NATIVE_ALLOWED_ADDED_PATHS | APP_NATIVE_ADDED_PATHS,
+        )
+        self.assertEqual(
+            PINNED_SUCCESSOR_DIGESTS,
+            {
+                **PRE_APP_NATIVE_PINNED_SUCCESSOR_DIGESTS,
+                APP_NATIVE_ADAPTER_MANIFEST_PATH: APP_NATIVE_ADAPTER_SHA256,
+                APP_NATIVE_ADAPTER_TEST_MANIFEST_PATH: (
+                    APP_NATIVE_ADAPTER_TEST_SHA256
                 ),
             },
         )
@@ -4188,7 +4298,7 @@ class Stage3BehavioralPlanningTests(unittest.TestCase):
                     for row in current_skill_manifest()
                     if row["path"] != path
                 ]
-                self.assertEqual(len(rows), 38)
+                self.assertEqual(len(rows), 40)
                 self.assert_manifest_rows_rejected(rows, "file count")
 
             with self.subTest(path=path, drift="renamed"):
@@ -4224,13 +4334,59 @@ class Stage3BehavioralPlanningTests(unittest.TestCase):
                 next(row for row in rows if row["path"] == path)["sha256"] = "0" * 64
                 self.assert_manifest_rows_rejected(rows, "app-server adapter digest")
 
-    def test_reviewed_app_server_modified_rows_reject_each_digest_drift(self) -> None:
-        for path in sorted(REVIEWED_APP_SERVER_MODIFIED_DIGESTS):
+    def test_app_native_added_rows_reject_each_membership_and_digest_drift(
+        self,
+    ) -> None:
+        for path in sorted(APP_NATIVE_ADDED_PATHS):
+            with self.subTest(path=path, drift="missing"):
+                rows = [
+                    row
+                    for row in current_skill_manifest()
+                    if row["path"] != path
+                ]
+                self.assertEqual(len(rows), 40)
+                self.assert_manifest_rows_rejected(rows, "file count")
+
+            with self.subTest(path=path, drift="renamed"):
+                rows = copy.deepcopy(current_skill_manifest())
+                row = next(row for row in rows if row["path"] == path)
+                row["path"] = path.replace(".py", "-renamed.py")
+                self.assert_manifest_rows_rejected(
+                    rows, "unexpected or missing added paths"
+                )
+
+            with self.subTest(path=path, drift="case_varied"):
+                rows = copy.deepcopy(current_skill_manifest())
+                row = next(row for row in rows if row["path"] == path)
+                row["path"] = path.replace("trusted_native", "Trusted_Native")
+                self.assert_manifest_rows_rejected(
+                    rows, "unexpected or missing added paths"
+                )
+
+            with self.subTest(path=path, drift="duplicate_exact"):
+                rows = copy.deepcopy(current_skill_manifest())
+                rows.append(next(row for row in rows if row["path"] == path).copy())
+                self.assert_manifest_rows_rejected(rows, "duplicate manifest paths")
+
+            with self.subTest(path=path, drift="duplicate_case_insensitive"):
+                rows = copy.deepcopy(current_skill_manifest())
+                duplicate = next(row for row in rows if row["path"] == path).copy()
+                duplicate["path"] = duplicate["path"].swapcase()
+                rows.append(duplicate)
+                self.assert_manifest_rows_rejected(rows, "duplicate manifest paths")
+
+            with self.subTest(path=path, drift="digest"):
+                rows = copy.deepcopy(current_skill_manifest())
+                next(row for row in rows if row["path"] == path)["sha256"] = "0" * 64
+                self.assert_manifest_rows_rejected(rows, "app-native adapter digest")
+
+    def test_reviewed_app_native_modified_rows_reject_each_digest_drift(self) -> None:
+        for path in sorted(REVIEWED_APP_NATIVE_MODIFIED_DIGESTS):
             with self.subTest(path=path):
                 rows = copy.deepcopy(current_skill_manifest())
                 next(row for row in rows if row["path"] == path)["sha256"] = "0" * 64
                 self.assert_manifest_rows_rejected(
-                    rows, "reviewed app-server modified digest"
+                    rows, "reviewed app-native modified digest"
                 )
 
     def test_current_manifest_rows_must_remain_in_ordinal_path_order(self) -> None:
@@ -4244,6 +4400,8 @@ class Stage3BehavioralPlanningTests(unittest.TestCase):
         for relative_path in (
             APP_SERVER_ADAPTER_SKILL_RELATIVE_PATH,
             APP_SERVER_ADAPTER_TEST_SKILL_RELATIVE_PATH,
+            APP_NATIVE_ADAPTER_SKILL_RELATIVE_PATH,
+            APP_NATIVE_ADAPTER_TEST_SKILL_RELATIVE_PATH,
         ):
             with self.subTest(relative_path=relative_path):
                 self.assert_pinned_case_representation_rejected(
@@ -4258,6 +4416,8 @@ class Stage3BehavioralPlanningTests(unittest.TestCase):
         for relative_path in (
             APP_SERVER_ADAPTER_SKILL_RELATIVE_PATH,
             APP_SERVER_ADAPTER_TEST_SKILL_RELATIVE_PATH,
+            APP_NATIVE_ADAPTER_SKILL_RELATIVE_PATH,
+            APP_NATIVE_ADAPTER_TEST_SKILL_RELATIVE_PATH,
         ):
             with self.subTest(relative_path=relative_path):
                 self.assert_pinned_case_representation_rejected(
@@ -4291,6 +4451,8 @@ class Stage3BehavioralPlanningTests(unittest.TestCase):
         for relative_path in (
             APP_SERVER_ADAPTER_SKILL_RELATIVE_PATH,
             APP_SERVER_ADAPTER_TEST_SKILL_RELATIVE_PATH,
+            APP_NATIVE_ADAPTER_SKILL_RELATIVE_PATH,
+            APP_NATIVE_ADAPTER_TEST_SKILL_RELATIVE_PATH,
         ):
             for label, (metadata, expected_error) in unsafe_metadata.items():
                 with self.subTest(relative_path=relative_path, label=label):
@@ -4403,13 +4565,13 @@ class Stage3BehavioralPlanningTests(unittest.TestCase):
         successor["sha256"] = "0" * 64
         self.assert_manifest_rows_rejected(rows, "v4 successor digest")
 
-    def test_missing_v4_successor_rejects_count_38(self) -> None:
+    def test_missing_v4_successor_rejects_count_40(self) -> None:
         rows = [
             row
             for row in current_skill_manifest()
             if row["path"] != V4_SUCCESSOR_MANIFEST_PATH
         ]
-        self.assertEqual(len(rows), 38)
+        self.assertEqual(len(rows), 40)
         self.assert_manifest_rows_rejected(rows, "file count")
 
     def test_renamed_v4_successor_is_rejected(self) -> None:
@@ -4441,7 +4603,7 @@ class Stage3BehavioralPlanningTests(unittest.TestCase):
         )
         self.assert_manifest_rows_rejected(rows, "duplicate manifest paths")
 
-    def test_extra_path_rejects_count_40(self) -> None:
+    def test_extra_path_rejects_count_42(self) -> None:
         rows = copy.deepcopy(current_skill_manifest())
         rows.append(
             {
@@ -4449,7 +4611,7 @@ class Stage3BehavioralPlanningTests(unittest.TestCase):
                 "sha256": "0" * 64,
             }
         )
-        self.assertEqual(len(rows), 40)
+        self.assertEqual(len(rows), 42)
         self.assert_manifest_rows_rejected(rows, "file count")
 
     def test_unexpected_modified_path_is_rejected(self) -> None:
@@ -4525,13 +4687,13 @@ class Stage3BehavioralPlanningTests(unittest.TestCase):
         successor["sha256"] = "0" * 64
         self.assert_manifest_rows_rejected(rows, "v5 successor digest")
 
-    def test_missing_v5_successor_rejects_count_38(self) -> None:
+    def test_missing_v5_successor_rejects_count_40(self) -> None:
         rows = [
             row
             for row in current_skill_manifest()
             if row["path"] != V5_SUCCESSOR_MANIFEST_PATH
         ]
-        self.assertEqual(len(rows), 38)
+        self.assertEqual(len(rows), 40)
         self.assert_manifest_rows_rejected(rows, "file count")
 
     def test_renamed_v5_successor_is_rejected(self) -> None:
@@ -4657,13 +4819,13 @@ class Stage3BehavioralPlanningTests(unittest.TestCase):
             "reparse point",
         )
 
-    def test_count_39_substitution_with_wrong_path_set_is_rejected(self) -> None:
+    def test_count_41_substitution_with_wrong_path_set_is_rejected(self) -> None:
         rows = copy.deepcopy(current_skill_manifest())
         successor = next(
             row for row in rows if row["path"] == V5_SUCCESSOR_MANIFEST_PATH
         )
         successor["path"] = "mythic-edge-role-pool/references/substitution.md"
-        self.assertEqual(len(rows), 39)
+        self.assertEqual(len(rows), 41)
         self.assert_manifest_rows_rejected(rows, "unexpected or missing added paths")
 
     def test_missing_modified_path_membership_is_rejected(self) -> None:
@@ -4680,7 +4842,7 @@ class Stage3BehavioralPlanningTests(unittest.TestCase):
         rows = [
             row for row in current_skill_manifest() if row["path"] != baseline_path
         ]
-        self.assertEqual(len(rows), 38)
+        self.assertEqual(len(rows), 40)
         self.assert_manifest_rows_rejected(rows, "file count")
 
     def test_legacy_transition_rules_cannot_be_weakened(self) -> None:
