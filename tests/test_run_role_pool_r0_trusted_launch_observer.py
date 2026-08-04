@@ -227,6 +227,7 @@ class _FakeNativeKernel:
         self.termination_calls = 0
         self.wait_timeouts: list[int] = []
         self.cancel_next_close = False
+        self.cancel_on_close_call: int | None = None
 
     def CreateJobObjectW(self, *_args: object) -> int:
         return 100
@@ -266,7 +267,7 @@ class _FakeNativeKernel:
 
     def CloseHandle(self, _handle: object) -> bool:
         self.close_calls += 1
-        if self.cancel_next_close:
+        if self.cancel_next_close or self.close_calls == self.cancel_on_close_call:
             self.cancel_next_close = False
             raise KeyboardInterrupt("private close cancellation detail")
         return True
@@ -896,6 +897,34 @@ def test_completed_state_after_deadline_is_still_timed_out(
     assert evidence.timed_out is True
     assert evidence.termination_requested is True
     assert kernel32.termination_calls == 1
+
+
+@pytest.mark.parametrize(
+    ("cancel_on_close_call", "top_level_created", "termination_calls"),
+    [(1, False, 0), (2, True, 1)],
+)
+def test_setup_close_cancellation_routes_to_owned_reconciliation(
+    monkeypatch: pytest.MonkeyPatch,
+    cancel_on_close_call: int,
+    top_level_created: bool,
+    termination_calls: int,
+) -> None:
+    request, kernel32, _calls, timeline = _fake_native_boundary(monkeypatch)
+    kernel32.cancel_on_close_call = cancel_on_close_call
+    monkeypatch.setattr(observer.time, "monotonic", lambda: 0.0)
+
+    evidence = observer._execute_windows_once(
+        request,
+        kernel32,
+        observer._OwnedHandle(kernel32, "launcher_guard", 300),
+    )
+
+    assert evidence.top_level_created is top_level_created
+    assert evidence.creation_attempt_count == int(top_level_created)
+    assert ("create" in timeline) is top_level_created
+    assert kernel32.termination_calls == termination_calls
+    assert all(item.attempt_count == 1 for item in evidence.close_observations)
+    assert sum(not item.succeeded for item in evidence.close_observations) == 1
 
 
 def test_cancellation_reconciles_owned_resources_before_returning(

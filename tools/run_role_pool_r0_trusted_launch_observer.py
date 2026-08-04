@@ -989,9 +989,13 @@ class _OwnedHandle:
                 self.succeeded = bool(
                     self.kernel32.CloseHandle(wintypes.HANDLE(self.value))
                 )
+            except Exception:
+                self.succeeded = False
             except BaseException:
                 self.succeeded = False
-        self.value = 0
+                raise
+            finally:
+                self.value = 0
         return self.succeeded
 
     def observation(self) -> _CloseObservation:
@@ -1037,10 +1041,14 @@ class _OwnedAttributeList:
             try:
                 self.kernel32.DeleteProcThreadAttributeList(self.pointer)
                 self.succeeded = True
+            except Exception:
+                self.succeeded = False
             except BaseException:
                 self.succeeded = False
-        self.pointer = None
-        self.buffer = None
+                raise
+            finally:
+                self.pointer = None
+                self.buffer = None
         return self.succeeded
 
     def observation(self) -> _CloseObservation:
@@ -1406,8 +1414,14 @@ def _close_all(
     attributes: _OwnedAttributeList,
 ) -> tuple[_CloseObservation, ...]:
     for name in sorted(handles):
-        handles[name].close()
-    attributes.close()
+        try:
+            handles[name].close()
+        except BaseException:
+            pass
+    try:
+        attributes.close()
+    except BaseException:
+        pass
     return tuple(
         [handles[name].observation() for name in sorted(handles)]
         + [attributes.observation()]
