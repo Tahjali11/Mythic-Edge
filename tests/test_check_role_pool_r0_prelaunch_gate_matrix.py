@@ -210,6 +210,78 @@ class _SyntheticGuard:
         return self.close_result
 
 
+class _SyntheticAuditCounter:
+    def __init__(self, repository_root: Path) -> None:
+        self.repository_root = repository_root
+        self.installed_root: Path | None = None
+
+    def __call__(self, _event: str, _args: tuple[object, ...]) -> None:
+        pass
+
+    def bind_installed_root(self, installed_root: Path) -> None:
+        self.installed_root = installed_root
+
+
+def _production_audit_probe() -> tuple[object, Path, ModuleType, list[Path]]:
+    class SafetyEffect(RuntimeError):
+        pass
+
+    class ObserverError(RuntimeError):
+        pass
+
+    repository_root = Path("synthetic-repository")
+    installed_root = Path("synthetic-installed")
+    installed_calls: list[Path] = []
+    owner = ModuleType("synthetic_owner")
+    observer = ModuleType("synthetic_audit_observer")
+    observer._SafetyEffect = SafetyEffect
+    observer._ObserverError = ObserverError
+    observer._AuditCounter = _SyntheticAuditCounter
+
+    def installed_root_probe(_owner: ModuleType, root: Path) -> Path:
+        installed_calls.append(root)
+        return installed_root
+
+    observer._installed_root = installed_root_probe
+    adapter = object.__new__(matrix._ProductionPrelaunchGateAdapter)
+    adapter._observer = observer
+    adapter._audit = None
+    return adapter, repository_root, owner, installed_calls
+
+
+def _synthetic_audit_runtime(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    reject_registration: bool = False,
+) -> tuple[list[object], list[str]]:
+    hooks: list[object] = []
+    events: list[str] = []
+
+    if reject_registration:
+        def reject_addaudithook(event: str, _args: tuple[object, ...]) -> None:
+            if event == "sys.addaudithook":
+                raise RuntimeError("PRIVATE_AUDIT_REJECTION")
+
+        hooks.append(reject_addaudithook)
+
+    def addaudithook(hook: object) -> None:
+        for existing in tuple(hooks):
+            try:
+                existing("sys.addaudithook", ())
+            except RuntimeError:
+                return
+        hooks.append(hook)
+
+    def audit(event: str, *args: object) -> None:
+        events.append(event)
+        for hook in tuple(hooks):
+            hook(event, args)
+
+    monkeypatch.setattr(matrix.sys, "addaudithook", addaudithook)
+    monkeypatch.setattr(matrix.sys, "audit", audit)
+    return hooks, events
+
+
 def _production_guard_probe(
     *,
     identity_matches: bool = True,
@@ -450,6 +522,40 @@ def test_production_launcher_guard_cleanup_failure_is_unknown(
 
     assert caught.value.reason_code == "cleanup_unconfirmed"
     assert guard.attempt_count == 1
+
+
+def test_production_audit_hook_registration_is_positively_observed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    adapter, repository_root, owner, installed_calls = _production_audit_probe()
+    hooks, events = _synthetic_audit_runtime(monkeypatch)
+
+    result = adapter.probe_installed_release_state(repository_root, owner)
+
+    assert result == Path("synthetic-installed")
+    assert len(hooks) == 1
+    assert events == [matrix._AUDIT_REGISTRATION_EVENT]
+    assert isinstance(adapter._audit, _SyntheticAuditCounter)
+    assert adapter._audit.installed_root == result
+    assert installed_calls == [repository_root]
+
+
+def test_preexisting_hook_rejection_suppresses_registration_and_fails_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    adapter, repository_root, owner, installed_calls = _production_audit_probe()
+    hooks, events = _synthetic_audit_runtime(
+        monkeypatch,
+        reject_registration=True,
+    )
+
+    with pytest.raises(matrix._ProbeUnknown):
+        adapter.probe_installed_release_state(repository_root, owner)
+
+    assert len(hooks) == 1
+    assert events == [matrix._AUDIT_REGISTRATION_EVENT]
+    assert adapter._audit is None
+    assert installed_calls == []
 
 
 def test_unknown_precedence_over_ordinary_failures() -> None:

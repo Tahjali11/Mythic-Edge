@@ -59,6 +59,9 @@ MINIMUM_COMPLETE_STATE = "prelaunch_matrix_complete_child_creation_not_entered"
 EVALUATED_STATE = "gate_evaluated_before_child_creation"
 BLOCKED_STATE = "gate_not_evaluated_dependency_blocked"
 FAILURE_LINE = b"r0_prelaunch_gate_matrix_failed\n"
+_AUDIT_REGISTRATION_EVENT = (
+    "mythic_edge.r0_prelaunch_gate_matrix.audit_registration_probe"
+)
 
 GATE_FIELDS = (
     "gate_id",
@@ -549,11 +552,25 @@ class _ProductionPrelaunchGateAdapter:
             raise _ProbeUnknown
         try:
             audit = self._observer._AuditCounter(repository_root)
-            sys.addaudithook(audit)
+            registration_observed = False
+
+            def registered_audit(event: str, args: tuple[object, ...]) -> None:
+                nonlocal registration_observed
+                if event == _AUDIT_REGISTRATION_EVENT:
+                    registration_observed = True
+                    return
+                audit(event, args)
+
+            sys.addaudithook(registered_audit)
+            sys.audit(_AUDIT_REGISTRATION_EVENT)
+            if not registration_observed:
+                raise _ProbeUnknown
             self._audit = audit
             installed_root = self._observer._installed_root(owner_api, repository_root)
             audit.bind_installed_root(installed_root)
             return installed_root
+        except _ProbeUnknown:
+            raise
         except BaseException as exc:
             self._translate(exc)
 
