@@ -19,6 +19,12 @@ https://github.com/Tahjali11/Mythic-Edge/issues/744#issuecomment-5111260293
 App Server baseline amendment source:
 https://github.com/Tahjali11/Mythic-Edge/issues/758
 
+App-native direct-task amendment source:
+https://github.com/Tahjali11/Mythic-Edge/issues/813
+
+App-native Codex B owner activation:
+https://github.com/Tahjali11/Mythic-Edge/issues/813#issuecomment-5175504058
+
 Offline R0 synchronization amendment source:
 https://github.com/Tahjali11/Mythic-Edge/issues/766
 
@@ -100,6 +106,14 @@ capability facts remain unestablished and all operational counts remain zero.
 Issue #758 supplies the separately activated contract lane for one candidate
 production realization. It does not reinterpret the #757 result as support.
 
+Issue #810 is closed as completed and PR #812 is squash-merged at
+`c24f1edf0a09a98439bdbd92ccf4e13155a3dd87`. The current Codex Desktop
+runtime exposes first-party user-owned task creation, list, and independent
+read operations. That observation supersedes issue #813's earlier
+no-callable-surface finding only for this contract decision. It does not prove
+live task creation, stable identity, project or worktree equality, terminal
+readback, ambiguity reconciliation, R2 acceptance, or readiness.
+
 Issue #761 and PR #765 are integrated on Core `origin/main`
 `1e36cb728dd84389569f1c9093f0909bfed7381a`. Its accepted checker reports
 `blocked_skill_source_drift`: source is 41 nodes, 36 files, 6,495 canonical
@@ -110,27 +124,30 @@ the installed copy is 39 nodes, 34 files, 6,159 canonical bytes, SHA-256
 Registry is `absent`, release state is `absent_bootstrap_candidate`, and every
 operational authority is false.
 
-The current owner instruction is the required ADR-0008
-`explicit_user_override` for this bounded Codex B lane:
+The immutable owner comment above is the required ADR-0008
+`explicit_user_override` for this bounded Codex B lane. It was created at
+`2026-08-04T06:40:47Z` by immutable GitHub actor ID `229644849`; its exact
+UTF-8 body is `1061` bytes with SHA-256
+`7d0f97e6606242f6a9dba099ccae70b0d3a1728a26c8b23579b6f632cc1106dc`:
 
 ```yaml
 lane_activation:
   exception_name: "explicit_user_override"
   repository: "Tahjali11/Mythic-Edge"
-  active_issue_or_lane: "issue #766 offline R0 installed-copy synchronization contract"
+  active_issue_or_lane: "issue #813 direct app-native task contract"
   blocked_active_issue_or_pr:
-    - "PR #374, open draft with no current parked/deferred record"
-    - "PR #391, open Dependabot PR with no current parked/deferred record"
-  reason: "The owner explicitly authorized one compact profile amendment and one #761 binding successor after the binding dependency was proven."
+    - "PR #374"
+    - "PR #391"
+  reason: "The owner activated one docs-only direct app-native task realization contract after #810 completion and PR #812 integration."
   allowed_scope:
-    - "read-only authority, issue, PR, release-metadata, and source-schema inspection"
+    - "read-only repository, GitHub, task-capability metadata, and accepted-artifact inspection"
     - "amend only docs/contracts/trusted_owner_native_role_pool_profile.md"
-    - "create only docs/contracts/role_pool_trusted_owner_r0_post_sync_evidence_binding_successor.md"
+    - "create only docs/contracts/role_pool_codex_app_native_direct_task_adapter.md"
     - "run local read-only validation"
-    - "produce one consolidated independent Codex E review handoff"
-  expiration_condition: "Both #766 contract artifacts and the Codex E handoff are complete, or the owner revokes or redirects the lane."
-  authorized_by: "Tahjali11 current user instruction"
-  recorded_in: "this contract"
+    - "produce one independent Codex E review handoff"
+  expiration_condition: "The two-file Codex B handoff or one proven contractibility blocker."
+  authorized_by: "Tahjali11"
+  recorded_in: "https://github.com/Tahjali11/Mythic-Edge/issues/813#issuecomment-5175504058"
 ```
 
 This exception grants no implementation, installation, dispatch, canary,
@@ -239,8 +256,8 @@ That rejection selects the existing priority-1 terminal outcome
 preclaim purpose is to reject an execution request whose current trusted
 runtime cannot satisfy the contract. No platform value needs to enter a packet,
 receipt, digest, lifecycle, or release record. The existing 20-outcome
-vocabulary, all schemas, all field counts, and all self-digest preimages remain
-unchanged.
+vocabulary and the request-side schemas, field counts, and self-digest
+preimages remain unchanged by this host-platform rejection rule.
 
 An unsupported host or missing or incompatible Windows primitive never
 activates the broker, `codex exec`, shell execution, Python `subprocess`, a
@@ -262,15 +279,69 @@ or profile, independent Codex E review, a fresh owner activation decision, and
 its own graduated evidence. It does not inherit Windows installation,
 contention, canary, or `R0` through `R8` evidence automatically.
 
-## Dedicated App Server Process Realization
+## Selected App-Native Direct-Task Realization
 
 The public launcher identity remains exactly
-`codex:native-task-create/v1`. The only candidate production realization
-admitted by this amendment is the Core-owned
+`codex:native-task-create/v1`. The selected trusted-owner realization is the
+Core-owned `codex:app-native-task-direct/v1` boundary defined by
+`docs/contracts/role_pool_codex_app_native_direct_task_adapter.md`.
+
+This realization uses only the current first-party Codex app operations for
+one user-owned project task: one task-creation call, followed by read-only task
+list or task read calls against that same operation and task identity. It is
+not a general task API, arbitrary prompt API, subprocess, App Server, broker,
+shell, `codex exec`, direct-interpreter, subagent, or fallback boundary.
+
+The closed `trusted_owner_native_task_request.v1` remains unchanged. The
+direct adapter derives the exact saved project, fresh worktree, canonical
+initial prompt, and fresh public-safe app-task operation marker from the
+validated request, lane packet, winning claim, worktree observation, registry,
+release record,
+and companion bindings. Model and thinking preferences are omitted from the
+initial R2 call because they are not authority and no exact preference is
+selected here.
+
+The existing `trusted_owner_native_task_receipt.v1` also remains unchanged.
+Its `platform_receipt_ref` and `platform_receipt_sha256` bind the one
+companion-owned public-safe app-native platform receipt. Existing request,
+result, handoff, claim, worktree, registry, ordinary release, Safe/Automatic,
+F, and 20-outcome terminal schemas remain unchanged. The sole release
+exception is the same-file R0 rebaseline line type defined below.
+
+The initial direct realization accepts only one validated read-only B or E
+lane in Safe mode. The first future R2 observation is exactly one E lane in a
+fresh worktree. It requires one resolved stable task identity, exact saved
+project and worktree confirmation, terminal readback, one valid typed handoff,
+and zero unexpected assigned-worktree or external mutation. It creates no F,
+Automatic, multi-lane, command, publication, or mutation authority.
+
+The ordinary observation deadline is exactly `5400` seconds. Read-only list
+and read calls may repeat against the one existing task. At the deadline, a
+nonterminal, absent, conflicting, or otherwise unavailable required fact
+selects the existing `unknown_outcome_reconciliation_required` outcome,
+retains the claim and task, and forbids a replacement, retry, follow-up
+message, cancellation, or inferred release. Later reconciliation may only
+read the same operation and task identity. An owner may select a different
+deadline only in the exact pre-dispatch request authority; it cannot change
+after task creation.
+
+A dedicated wait, interrupt, or cancellation primitive is not an R2
+eligibility requirement. Their absence is an explicit nonclaim. Timeout never
+grants cancellation or replacement authority. Exact executable provenance,
+process identity, descendants, handles, stream drainage, broker isolation,
+complete child-network observation, hostile-content containment, and OS-level
+isolation are also not claims or R2 prerequisites for this trusted-owner
+realization.
+
+## Deferred App Server Process Realization
+
+The App Server engineering record remains preserved behind the public
+`codex:native-task-create/v1` identity. Its deferred hardened realization is
+the Core-owned
 `codex:app-server-stdio-direct/v1` adapter defined by
 `docs/contracts/role_pool_codex_app_server_native_task_adapter.md`.
-The realization is an implementation behind the existing identity, not a
-fallback, alternate profile, repository command, or second task surface.
+It is not selected for the trusted-owner R2 path, is not a fallback, and does
+not automatically inherit direct app-native evidence.
 
 That companion contract may authorize a later implementation to expose one
 private, dedicated, non-shell process-start function. The function has no
@@ -315,7 +386,8 @@ later effectful realization requires a separate issue, contract amendment,
 independent Codex E review, fresh owner decision, and graduated evidence. It
 cannot inherit the inspect-only observation as command or mutation evidence.
 
-The candidate does not satisfy #757 by definition. Support remains
+The preserved candidate does not satisfy #757 by definition. App Server
+support remains
 `insufficient_evidence` until the companion contract is independently
 accepted, its exact inert implementation and fake transport are independently
 accepted, installation custody is separately authorized and verified, and a
@@ -1007,8 +1079,9 @@ all agree with the lane packet.
 
 On a supported Windows host, the only native launcher identity is
 `codex:native-task-create/v1`. It is a Core-owned adapter over the first-party
-Codex task-creation surface. Its only admitted candidate production
-realization is the dedicated App Server process boundary above. It is not
+Codex task-creation surface. Its selected trusted-owner realization is the
+direct app-native boundary above. The App Server and direct-interpreter paths
+are preserved deferred engineering and are not fallbacks. The adapter is not
 `codex exec`, a shell command, a caller-controlled process or subprocess
 facility, a repository executable, an SDK, a service, or the external broker.
 No weaker fallback is permitted. The adapter may create one task only after
@@ -1235,7 +1308,8 @@ repository-owned advancement chain is:
 `docs/role_pool/trusted_owner_native_release_state.v1.jsonl`
 
 The file is append-only canonical JSON Lines. Each line has one final LF.
-Existing lines are immutable. Every line uses this exact schema:
+Existing lines are immutable. Every ordinary advancement line uses this exact
+schema:
 
 | Field | Type | Rule |
 | --- | --- | --- |
@@ -1255,15 +1329,98 @@ Existing lines are immutable. Every line uses this exact schema:
 | `accepted_at_utc` | `utc_second` | Acceptance time. |
 | `record_sha256` | `sha256` | Self-digest. |
 
-The independently reviewed bootstrap line has null predecessor, null
+The independently reviewed ordinary bootstrap line has null predecessor, null
 `from_rung`, `to_rung=R0`, and an empty observation array. It still binds the
 accepted contract, source/install tree, registry, validators, Codex E review,
-and owner decision. Every later line has non-null predecessor and `from_rung`
-and exactly two observation receipts.
+and owner decision. Every later ordinary advancement line has non-null
+predecessor and `from_rung` and exactly two observation receipts. The only
+non-advancement line type is the closed R0 rebaseline event below.
 
 There is exactly one valid successor per record. A fork, duplicate rung,
 missing line, invalid digest, stale binding, or second successor blocks all new
 native work. The current rung is the `to_rung` of the last valid line.
+
+### R0 Current-Profile Rebaseline
+
+`ME-RP-813-E-001` proves that an ordinary
+`trusted_owner_native_release_record.v1` cannot adopt a successor profile: an
+ordinary successor must advance the rung and must preserve the predecessor's
+contract, skill-tree, registry, and validator-bundle digests. The historical
+R0 record remains immutable at artifact SHA-256
+`723b1faeef731d9c526cdf9c19bfc2546b08d3eca94d4ee79eb62a5370f719c9`
+and record SHA-256
+`78bff761396daaa72b0bd27ac1a799f5c01f5815f902a37ca84a024f5e4a9ba7`.
+
+The sole narrow transition is one
+`trusted_owner_native_release_rebaseline_record.v1` line appended to the
+existing release-state JSONL before any successor-profile R0 observation. It
+uses the existing release record self-digest family and publication path. It
+does not rewrite history, create another release chain, advance a rung, count
+as an observation, or grant operational authority.
+
+The rebaseline line contains exactly these 19 fields in this order:
+
+| Field | Type | Rule |
+| --- | --- | --- |
+| `schema_version` | string | Exactly `trusted_owner_native_release_rebaseline_record.v1`. |
+| `record_id` | `id` | Fresh globally unique `r0.rebaseline.*` identity. |
+| `predecessor_record_sha256` | `sha256` | Exact immediately preceding R0 release record. |
+| `from_rung` | rung enum | Exactly `R0`. |
+| `to_rung` | rung enum | Exactly `R0`; this event never advances the rung. |
+| `predecessor_contract_sha256` | `sha256` | Exact predecessor record value. |
+| `contract_sha256` | `sha256` | Independently accepted current successor profile. |
+| `predecessor_skill_tree_sha256` | `sha256` | Exact predecessor record value. |
+| `skill_tree_sha256` | `sha256` | Exact reviewed, installed-equal successor tree. |
+| `predecessor_registry_sha256` | `sha256` | Exact predecessor record value. |
+| `registry_sha256` | `sha256` | Exact reviewed active successor registry. |
+| `predecessor_validator_bundle_sha256` | `sha256` | Exact predecessor record value. |
+| `validator_bundle_sha256` | `sha256` | Exact independently accepted successor validators. |
+| `observation_receipt_sha256s` | array | Exactly empty. |
+| `codex_e_review_ref` | `public_ref` | Fresh independent review of the complete successor tuple. |
+| `codex_e_review_sha256` | `sha256` | Exact review artifact. |
+| `owner_decision_ref` | `public_ref` | Separate exact, unexpired, nonreusable rebaseline decision. |
+| `accepted_at_utc` | `utc_second` | Strictly later than the predecessor record. |
+| `record_sha256` | `sha256` | Existing release self-digest rule. |
+
+The event is valid only when the release file contains exactly the historical
+R0 line followed by this one event; the predecessor is still the current R0
+tip; no R0 observation has been accepted under the successor profile; all
+four predecessor values exactly equal that tip; the successor profile,
+source/install tree, active registry, and validator bundle have independent
+acceptance; and the current invocation independently reads those same values.
+At least `contract_sha256` must differ. Duplicate, stale, forked, reordered,
+post-observation, non-R0, or second rebaseline events are terminal
+`blocked_release_state_invalid`.
+
+The release-chain validator must treat the event as the new chain tip while
+keeping `trusted_native_current_rung=R0`. Its four successor values become the
+only current binding tuple. The next ordinary R1 record must name the
+rebaseline `record_sha256` as predecessor, use `from_rung=R0` and `to_rung=R1`,
+and exactly preserve that tuple. Before the event exists and validates, the
+successor profile always selects `blocked_release_state_invalid`; an old
+structurally valid chain is historical evidence, not current authority.
+
+The complete future line and successor tuple require fresh independent Codex E
+review after the six-path validator implementation is accepted, exact
+source/install and registry readiness, and a separate owner decision. The
+later integration action must revalidate the current tip immediately before
+append and use the existing append-only release publication and exact readback
+rules. A collision, changed tip, ambiguous append, or failed readback preserves
+the file, grants no authority, and selects
+`unknown_outcome_reconciliation_required` without retry. This amendment creates
+no append or release-state mutation authority. The existing six-path
+app-native implementation envelope may add only parsing, validation,
+current-binding selection, and operation-free tests for this line type;
+creation remains that separate integration action.
+
+The canonical KAT below has a 1,352-byte self-digest preimage with SHA-256
+`50e60de91339280e4afe6b2e588c8d6be801e825405eae675703ff01451af32f`.
+Its complete 1,435-byte line has SHA-256
+`5ba515bcf5023803d8233672459940c504b7158337a8e6ede575b8a926e0e5ff`:
+
+```json
+{"schema_version":"trusted_owner_native_release_rebaseline_record.v1","record_id":"r0.rebaseline.0123456789abcdef0123456789abcdef","predecessor_record_sha256":"1111111111111111111111111111111111111111111111111111111111111111","from_rung":"R0","to_rung":"R0","predecessor_contract_sha256":"2222222222222222222222222222222222222222222222222222222222222222","contract_sha256":"3333333333333333333333333333333333333333333333333333333333333333","predecessor_skill_tree_sha256":"4444444444444444444444444444444444444444444444444444444444444444","skill_tree_sha256":"5555555555555555555555555555555555555555555555555555555555555555","predecessor_registry_sha256":"6666666666666666666666666666666666666666666666666666666666666666","registry_sha256":"7777777777777777777777777777777777777777777777777777777777777777","predecessor_validator_bundle_sha256":"8888888888888888888888888888888888888888888888888888888888888888","validator_bundle_sha256":"9999999999999999999999999999999999999999999999999999999999999999","observation_receipt_sha256s":[],"codex_e_review_ref":"https://github.com/Tahjali11/Mythic-Edge/issues/813#issuecomment-1","codex_e_review_sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","owner_decision_ref":"https://github.com/Tahjali11/Mythic-Edge/issues/813#issuecomment-2","accepted_at_utc":"2026-08-04T12:00:00Z","record_sha256":"50e60de91339280e4afe6b2e588c8d6be801e825405eae675703ff01451af32f"}
+```
 
 The ordered rungs and exact ceilings are:
 
@@ -1304,6 +1461,11 @@ qualifies native Mac dispatch.
 
 Only a valid current `R8` record permits
 `trusted_owner_native_profile_ready=true`. Every earlier rung keeps it false.
+
+For the selected app-native realization, the first R2 observation is the E
+subset of the unchanged R2 ceiling: one read-only E task in one fresh
+worktree. Later B eligibility remains contracted but does not widen that first
+observation.
 
 ## Retained V5 Protection Map
 
@@ -1435,8 +1597,10 @@ these existing implementation or test surfaces:
 | `docs/codex_skills/mythic-edge-role-pool/references/role-readiness-and-safety.md` | Bind initial installation, live validation, canaries, and rung advancement to Windows without changing external-isolation claims. |
 | `docs/codex_skills/mythic-edge-role-pool/scripts/trusted_native_app_server_adapter.py` | Later companion-owned, private, dedicated inspect-only App Server process adapter; no generic launcher, command, or mutation API. |
 | `docs/codex_skills/mythic-edge-role-pool/scripts/test_trusted_native_app_server_adapter.py` | Later fake-transport lifecycle-registry, zero-command/zero-mutation, cardinality, receipt, timeout, no-retry, no-fallback, instruction-source, and resource-boundary tests. |
-| `docs/codex_skills/mythic-edge-role-pool/scripts/check_pool_plan.py` | Add trusted runtime host observation, exact Windows task-capability preflight, priority-1 projection, pre-side-effect enforcement, and the minimal call into the accepted dedicated adapter while preserving all existing public packet fields and terminal outcomes. |
-| `docs/codex_skills/mythic-edge-role-pool/scripts/test_check_pool_plan.py` | Add host, primitive, no-fallback, remote-control classification, independent Windows contention, offline-only, selector-regression, and minimal App Server integration tests. |
+| `docs/codex_skills/mythic-edge-role-pool/scripts/trusted_native_app_direct_task_adapter.py` | Future companion-owned pure direct-task state machine, response normalizer, platform-receipt sealer, and fake-client boundary; no real task call in R0. |
+| `docs/codex_skills/mythic-edge-role-pool/scripts/test_trusted_native_app_direct_task_adapter.py` | Operation-free fake-client coverage for direct creation, identity resolution, readback, deadline, repository reconciliation, privacy, and no-retry behavior. |
+| `docs/codex_skills/mythic-edge-role-pool/scripts/check_pool_plan.py` | Preserve trusted runtime host and priority-1 enforcement; add only direct-adapter selection and existing packet/result/receipt cross-binding. |
+| `docs/codex_skills/mythic-edge-role-pool/scripts/test_check_pool_plan.py` | Preserve existing host, contention, offline, selector, and App Server regression tests; add minimal direct-adapter integration and unchanged-schema tests. |
 | `docs/codex_skills/mythic-edge-role-pool/scripts/test_skill_contract.py` | Replace platform-neutral compatibility assertions with Windows-first, native-Mac-deferred, and no-fallback documentation assertions. |
 | `tools/install_codex_skills.py` | Keep `--check` read-only; add only digest-bound `--offline-r0-sync`; preserve capability gates for install, ordinary `--sync`, and every live path. |
 | `tests/test_install_codex_skills.py` | Prove exact host/binding/target/safety/concurrency/replacement/rollback/cleanup behavior and no capability query for the offline mode. |
@@ -1447,14 +1611,16 @@ For issue #766, only these final four Core rows form the complete later C
 scope. Every preceding row remains historical or separately governed and is
 not reopened by the offline synchronization amendment.
 
-The App Server companion narrows its later implementation envelope to its two
-new files and the two named `check_pool_plan.py` integration files. The other
-rows remain the already accepted Windows-first implementation inventory and
-are not automatically reopened by issue #758. In particular, the remaining
-managed migration rows, external-isolation references, C/E artifacts,
-production registry path, and release-state path remain untouched. If
-implementation proves another path is indispensable, Codex C must stop and
-route the exact mismatch to B rather than silently widening scope.
+The direct app-native companion narrows its later inert implementation
+envelope to its two new files, the two named `check_pool_plan.py` integration
+files, and the existing R0 checker plus focused test solely for frozen
+profile/companion rebinding. The accepted App Server files and every other row
+remain historical or separately governed and are not reopened by issue #813. In
+particular, the managed migration rows, external-isolation and
+direct-interpreter references, C/E artifacts, production registry path, and
+release-state path remain untouched. If implementation proves another path or
+a v2 public schema indispensable, Codex C must stop and route the exact
+mismatch to B rather than silently widening scope.
 
 ## Typed Validators And Deterministic Failures
 
@@ -1532,7 +1698,16 @@ Required focused tests include:
 - repository and issue resource conflicts across requests;
 - fresh issue, task, worktree, role, and predecessor binding;
 - native adapter field, digest, one-task, and no-fallback behavior;
-- App Server baseline acceptance only for B/E inspect-only lanes with empty
+- direct app-native B/E request construction, with the first R2 observation
+  restricted to E, one fresh worktree, one operation marker, exactly one
+  create call, stable task identity, exact target readback, and no follow-up;
+- direct creation rejection, queued identity resolution, ambiguous submission
+  with zero/one/multiple matches, 5400-second deadline, retained claim, later
+  same-task readback, and zero retry or replacement;
+- direct terminal status and typed-handoff validation plus pre/post assigned
+  worktree equality and rejection of every unexpected repository or external
+  mutation;
+- preserved App Server baseline acceptance only for B/E inspect-only lanes with empty
   command, validation-command, mutation, and artifact arrays, disabled
   effectful tools, and zero command or file-change observations;
 - cross-lane path, transcript, and packet leak rejection;
@@ -1545,6 +1720,9 @@ Required focused tests include:
   zero;
 - bootstrap, linear advancement, fork rejection, rung skip rejection, stale
   binding rejection, and exactly two observations per increase;
+- historical R0 preservation, exact same-file R0 rebaseline parsing and KAT,
+  no-rung-advance current-tip selection, rejection of every duplicate, stale,
+  forked, non-R0, or post-observation event, and exact R1 predecessor binding;
 - prevention of a three-lane or F canary before its preceding rung; and
 - Windows-hosted evidence for every installation mutation, live validation,
   canary, and rung advancement, with native Mac evidence nonblocking and
@@ -1564,10 +1742,17 @@ Independent Codex E must confirm:
 - the registry is separate, closed, identity-bound, and not populated;
 - every invocation names one to three exact active repositories;
 - command enforcement cannot fall back to arbitrary repository execution;
-- the initial App Server realization accepts only the exact inspect-only B/E
-  subset, mechanically exposes no command tool, grants no file change, and
-  cannot represent a nonempty command, validation, mutation, or artifact
-  request;
+- the selected direct app-native realization accepts only the exact read-only
+  B/E subset, restricts the first R2 observation to E, and cannot represent a
+  nonempty command, validation, mutation, artifact, publication, or F request;
+- one create call, one stable task identity, exact saved-project and fresh
+  worktree readback, terminal readback, one typed handoff, and zero unexpected
+  assigned-worktree changes are required for direct R2 acceptance;
+- 5400-second timeout, same-task read-only reconciliation, claim retention,
+  and no replacement, follow-up message, interrupt, cancellation, or fallback
+  are closed without a new terminal-outcome family;
+- the App Server and direct-interpreter records remain preserved as deferred
+  engineering and do not become direct-path prerequisites or fallbacks;
 - the trusted runtime, not caller input, owns host-platform identity;
 - initial installation, live validation, canaries, and all rung advancement are
   Windows-hosted, while a Mac remotely controlling Windows is correctly
@@ -1598,6 +1783,9 @@ Independent Codex E must confirm:
   another;
 - the capacity ladder requires two accepted observations and fresh E review
   plus one canonical release-state record before each increase;
+- the one R0 rebaseline exception preserves the historical record, changes no
+  rung, carries no observation, grants no authority, and must be independently
+  accepted and owner-approved before any successor-profile observation;
 - all 50 observed installed files have an exact migration disposition and all
   retained V5 protection families have one named owner;
 - deterministic validators and manual fallback cover every terminal state; and
@@ -1613,9 +1801,10 @@ them:
    immutable GitHub user IDs admitted to author scheduling events.
 2. The immutable GitHub repository identity and issue number of the dedicated
    scheduling surface.
-3. Windows capability evidence showing that the exact
-   `codex:native-task-create/v1` adapter satisfies every contracted guarantee
-   without a weaker fallback.
+3. Independent implementation and R2 evidence showing that the exact
+   `codex:app-native-task-direct/v1` realization satisfies every contracted
+   project, worktree, identity, terminal, handoff, reconciliation, and
+   no-fallback guarantee.
 4. The separate owner decision naming the Windows installation targets and
    authorizing first installation or later synchronization.
 5. Whether the accepted cross-repository policy should also be promoted to a
@@ -1638,6 +1827,9 @@ This contract does not authorize:
 - populating or activating an allowlist entry;
 - creating the scheduling issue or claims;
 - dispatching tasks or creating worktrees;
+- invoking, listing, reading, messaging, steering, resuming, forking,
+  replacing, pinning, archiving, renaming, interrupting, or cancelling a Codex
+  app task;
 - acquiring, installing, starting, or characterizing the pinned Codex App
   Server candidate;
 - creating a process, thread, turn, interrupt, App Server receipt, installation
@@ -1657,18 +1849,25 @@ This contract does not authorize:
 Files owned by this Codex B task:
 
 - `docs/contracts/trusted_owner_native_role_pool_profile.md`
-- `docs/contracts/role_pool_trusted_owner_r0_post_sync_evidence_binding_successor.md`
+- `docs/contracts/role_pool_codex_app_native_direct_task_adapter.md`
 
-The accepted App Server companion, #761 contract/checker/tests, canonical Role
-Pool source, implementation, and installed copy remain untouched.
+The accepted App Server and direct-interpreter contracts, #761
+contract/checker/tests, canonical Role Pool source, implementation, registry,
+release state, and installed copy remain untouched.
+
+## Current App-Native Review Route
+
+The sole current next role is the fresh independent Codex E review specified
+in `docs/contracts/role_pool_codex_app_native_direct_task_adapter.md`. It must
+review both exact contract artifacts together. Acceptance makes only a later
+separate owner Codex C implementation decision eligible; it grants no task,
+dispatch, observation, rung, or readiness authority.
 
 ## Historical Windows-First Review Handoff
 
 The prompt and handoff below record the predecessor Windows-first amendment
-cycle. They are immutable lineage, not the current issue #758 route, and must
-not be executed again. The sole current review handoff is the one in
-`docs/contracts/role_pool_codex_app_server_native_task_adapter.md`, which
-requires one independent Codex E review of both final contract artifacts.
+cycle. They are immutable lineage, not the current issue #813 route, and must
+not be executed again.
 
 Historical next role: Codex E, independent Windows-first contract amendment
 reviewer.

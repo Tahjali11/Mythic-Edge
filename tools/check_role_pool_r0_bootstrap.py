@@ -22,10 +22,13 @@ ISSUE_URL = "https://github.com/Tahjali11/Mythic-Edge/issues/761"
 BASE_COMMIT = "10d4a4a79053fe33297a612599667d9b58bb4296"
 
 PROFILE_CONTRACT_SHA256 = (
-    "944c1a85d9e2454fb82a5df3e2a2ac572191e3cd135c7854e0c012ffc07ab43f"
+    "8f885dcab251143ed9afb9c091d3d4beaa695bb934248ab674dd8784e8a71952"
 )
 APP_SERVER_CONTRACT_SHA256 = (
     "814ac91c4e099216ae4870458d7524a3d65bfba7459cbfda7de82a5fc79067e8"
+)
+APP_NATIVE_CONTRACT_SHA256 = (
+    "00267797596c2de27e1bfcf06444534f66464370c7e4f2b25ff4090d3f6938d4"
 )
 R0_CONTRACT_SHA256 = (
     "07ab1c7153ba1312533bdc27d984789127fb7fc02190d26853ffae1849c2ac82"
@@ -67,6 +70,11 @@ FILE_BINDINGS = (
         APP_SERVER_CONTRACT_SHA256,
     ),
     (
+        "app_native_contract",
+        Path("docs/contracts/role_pool_codex_app_native_direct_task_adapter.md"),
+        APP_NATIVE_CONTRACT_SHA256,
+    ),
+    (
         "stage3_transition_contract",
         Path("docs/contracts/role_pool_stage3_manifest_37_to_39_amendment.md"),
         "de17a909d68fa1427d26ea42f5ff575addccf76185c77b93c03499e25bea48fa",
@@ -84,7 +92,7 @@ FILE_BINDINGS = (
     (
         "registry_validator",
         SOURCE_SKILL_RELATIVE_PATH / "scripts/check_pool_plan.py",
-        "af9b9aed5b74bc508c08ce6ab51ce2ee9377aecef5657fca884145fa80c4e62d",
+        "5e4a64391c14e0652fe30d333a1c9f2e33a048f67dd9fa08d08454d1f684e361",
     ),
     (
         "stage3_validator",
@@ -97,6 +105,12 @@ FILE_BINDINGS = (
         SOURCE_SKILL_RELATIVE_PATH
         / "scripts/trusted_native_app_server_adapter.py",
         "9a24c6b2f39a327aa6ad0728ba54263f0da134165e9c1bacf9414f50729f9a18",
+    ),
+    (
+        "direct_fake_transport",
+        SOURCE_SKILL_RELATIVE_PATH
+        / "scripts/trusted_native_app_direct_task_adapter.py",
+        "fae7aa4aec168d02de0dbdd34ab6a181b9f545b85aba39110e8d741e8094dd98",
     ),
     (
         "complete_gate",
@@ -286,6 +300,7 @@ class OwnerModules:
     stage3: ModuleType
     pool: ModuleType
     adapter: ModuleType
+    direct_adapter: ModuleType
 
 
 def _is_sha256(value: object) -> bool:
@@ -411,6 +426,7 @@ def _load_owner_modules(repository_root: Path) -> OwnerModules:
 
     dependency_names = (
         "trusted_native_app_server_adapter",
+        "trusted_native_app_direct_task_adapter",
         "codex_launcher_contract",
     )
     previous_modules = {
@@ -419,6 +435,10 @@ def _load_owner_modules(repository_root: Path) -> OwnerModules:
     adapter = _load_module(
         "trusted_native_app_server_adapter",
         source_scripts / "trusted_native_app_server_adapter.py",
+    )
+    direct_adapter = _load_module(
+        "trusted_native_app_direct_task_adapter",
+        source_scripts / "trusted_native_app_direct_task_adapter.py",
     )
     _load_module(
         "codex_launcher_contract",
@@ -440,6 +460,7 @@ def _load_owner_modules(repository_root: Path) -> OwnerModules:
         stage3=stage3,
         pool=pool,
         adapter=adapter,
+        direct_adapter=direct_adapter,
     )
 
 
@@ -681,7 +702,7 @@ def _parse_release_state(
                 return "present_invalid_or_forked", digest
             text = line.decode("utf-8")
             record = pool.parse_trusted_native_json(text)
-            if pool.validate_trusted_native_release_record(record):
+            if pool.validate_trusted_native_release_state_record(record):
                 return "present_invalid_or_forked", digest
             records.append(record)
     except Exception:
@@ -858,8 +879,9 @@ def _validator_bundle(
         "schema_version": "trusted_owner_r0_validator_bundle.v1",
         "profile_contract_sha256": PROFILE_CONTRACT_SHA256,
         "app_server_contract_sha256": APP_SERVER_CONTRACT_SHA256,
+        "app_native_contract_sha256": APP_NATIVE_CONTRACT_SHA256,
         "stage3_manifest_sha256": STAGE3_MANIFEST_SHA256,
-        "installer_sha256": FILE_BINDINGS[4][2],
+        "installer_sha256": INSTALLER_SHA256,
         "r0_contract_sha256": R0_CONTRACT_SHA256,
         "r0_checker_sha256": checker_sha256,
         "r0_checker_test_sha256": checker_test_sha256,
@@ -870,6 +892,22 @@ def _validator_bundle(
 def _offline_validation_status(owners: OwnerModules) -> str:
     try:
         owners.adapter.validate_fixed_contract_bytes()
+        direct_bytes = owners.direct_adapter.validate_fixed_contract_bytes()
+        if direct_bytes != {
+            "terminal_byte_count": 391,
+            "terminal_sha256": (
+                "09a3d716d4f14baf67ebc5b4914b7e4daea24d8fd4c5376924859b5885a76e45"
+            ),
+            "platform_preimage_byte_count": 1489,
+            "platform_self_sha256": (
+                "c0af9c0be3cd43c4a1db80e1b525749d6c91cb2c8dc057e193c3badf17327918"
+            ),
+            "platform_artifact_byte_count": 1582,
+            "platform_artifact_sha256": (
+                "5df194e378dad42d515879fff05c671da3c4852394c2cbb87a3564ef9c33b0e4"
+            ),
+        }:
+            return "failed"
         lifecycle = owners.adapter.validate_lifecycle_registry()
         if lifecycle != {
             "tuple_count": 39,
@@ -1181,6 +1219,7 @@ def _evaluate_roots(roots: EvaluationRoots) -> tuple[dict[str, object], bytes]:
         "registry_validator",
         "stage3_validator",
         "fake_transport",
+        "direct_fake_transport",
     }
     if not required_owner_names.issubset(observed_bindings):
         raise PacketUnavailableError
@@ -1268,7 +1307,7 @@ def _production_roots() -> EvaluationRoots:
         installer_observation.state != "exact"
         or installer_observation.payload is None
         or hashlib.sha256(installer_observation.payload).hexdigest()
-        != FILE_BINDINGS[4][2]
+        != INSTALLER_SHA256
     ):
         raise PacketUnavailableError
     namespace = hashlib.sha256(str(repository_root).encode("utf-8")).hexdigest()[

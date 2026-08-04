@@ -13,6 +13,7 @@ from unittest import mock
 
 import check_pool_plan as native
 import codex_launcher_contract as launcher_contract
+import trusted_native_app_direct_task_adapter as app_direct
 import trusted_native_app_server_adapter as app_server
 from check_pool_plan import (
     BROKER_LAUNCHER_RECEIPT_SIDECARS_SCHEMA_VERSION,
@@ -1255,6 +1256,51 @@ def _native_release_record(
     )
 
 
+def _native_release_rebaseline(
+    predecessor: dict[str, object],
+    *,
+    contract_sha256: str = "9" * 64,
+    skill_tree_sha256: str | None = None,
+    registry_sha256: str | None = None,
+    validator_bundle_sha256: str | None = None,
+) -> dict[str, object]:
+    return _native_signed(
+        {
+            "schema_version": (
+                "trusted_owner_native_release_rebaseline_record.v1"
+            ),
+            "record_id": "r0.rebaseline.synthetic",
+            "predecessor_record_sha256": predecessor["record_sha256"],
+            "from_rung": "R0",
+            "to_rung": "R0",
+            "predecessor_contract_sha256": predecessor["contract_sha256"],
+            "contract_sha256": contract_sha256,
+            "predecessor_skill_tree_sha256": predecessor["skill_tree_sha256"],
+            "skill_tree_sha256": (
+                skill_tree_sha256 or str(predecessor["skill_tree_sha256"])
+            ),
+            "predecessor_registry_sha256": predecessor["registry_sha256"],
+            "registry_sha256": (
+                registry_sha256 or str(predecessor["registry_sha256"])
+            ),
+            "predecessor_validator_bundle_sha256": predecessor[
+                "validator_bundle_sha256"
+            ],
+            "validator_bundle_sha256": (
+                validator_bundle_sha256
+                or str(predecessor["validator_bundle_sha256"])
+            ),
+            "observation_receipt_sha256s": [],
+            "codex_e_review_ref": "review:codex-e-rebaseline",
+            "codex_e_review_sha256": "2" * 64,
+            "owner_decision_ref": "owner:rebaseline-decision",
+            "accepted_at_utc": "2026-07-23T12:00:01Z",
+            "record_sha256": "",
+        },
+        "record_sha256",
+    )
+
+
 def _native_lane(
     repository_id: int,
     role: str = "A",
@@ -2402,6 +2448,369 @@ class TrustedOwnerNativeProfileTests(unittest.TestCase):
             synthetic_adapter=adapter,
         )
         self.assertEqual(retry, {"status": "failed_lane_known", "receipt": None})
+
+    def test_direct_app_adapter_is_selected_only_with_exact_cross_bindings(
+        self,
+    ) -> None:
+        registry = _native_registry(role="E", code_policy="forbidden")
+        request = _native_request(
+            registry,
+            role="E",
+            inspect_only=True,
+        )
+        lane = request["lanes"][0]
+        self.assertIsInstance(lane, dict)
+        assert isinstance(lane, dict)
+        task_request = _native_task_request(request, _native_worktree())
+        project_id = "synthetic-private-project"
+        operation_id = app_direct.build_operation_binding(
+            task_request=task_request,
+            lane_packet=lane,
+            project_id=project_id,
+        )[2]
+        handoff = _native_signed(
+            {
+                "status": "complete",
+                "next_role": "F",
+                "source_artifact_paths": ["docs/result.md"],
+                "finding_ids": [],
+                "stop_reason": None,
+                "handoff_sha256": "",
+            },
+            "handoff_sha256",
+        )
+
+        class FakeDirectClient:
+            synthetic_only = True
+
+            def __init__(self) -> None:
+                self.create_call_count = 0
+                self.follow_up_message_count = 0
+                self.replacement_task_count = 0
+                self.real_operation_call_count = 0
+
+            def create_thread(
+                self,
+                *,
+                target: Mapping[str, object],
+                prompt: str,
+            ) -> object:
+                self.create_call_count += 1
+                self.target = dict(target)
+                self.prompt = prompt
+                return {"threadId": "thread.synthetic.direct"}
+
+            def list_threads(self) -> object:
+                return {"threads": []}
+
+            def read_thread(self, thread_id: str) -> object:
+                return {
+                    "threadId": thread_id,
+                    "projectId": project_id,
+                    "repositoryId": task_request["repository_id"],
+                    "worktreeObservationSha256": task_request[
+                        "worktree_observation_sha256"
+                    ],
+                    "branchRef": lane["base_ref"],
+                    "baseSha": lane["base_sha"],
+                    "operationId": operation_id,
+                    "status": "completed",
+                    "handoffs": [handoff],
+                    "postWorktreeObservationSha256": "9" * 64,
+                    "effectCounts": {
+                        field: 0 for field in app_direct.EFFECT_COUNT_FIELDS
+                    },
+                }
+
+        moments = iter(
+            (
+                datetime(2026, 8, 4, 12, 0, tzinfo=timezone.utc),
+                datetime(2026, 8, 4, 12, 5, tzinfo=timezone.utc),
+            )
+        )
+        client = FakeDirectClient()
+        adapter = app_direct.TrustedNativeAppDirectTaskAdapter(
+            task_request=task_request,
+            lane_packet=lane,
+            registry_entry=registry["entries"][0],
+            project_id=project_id,
+            client=client,
+            clock=lambda: next(moments),
+        )
+        accepted = native.trusted_native_app_direct_task_create_once(
+            task_request,
+            adapter=adapter,
+        )
+        self.assertEqual(
+            accepted["status"],
+            "synthetic_app_native_receipt_accepted_non_live",
+        )
+        self.assertEqual(client.create_call_count, 1)
+        self.assertEqual(client.follow_up_message_count, 0)
+        self.assertEqual(client.replacement_task_count, 0)
+        self.assertEqual(client.real_operation_call_count, 0)
+        self.assertNotIn(project_id, repr(accepted))
+        self.assertEqual(
+            native.validate_trusted_native_task_receipt(
+                accepted["receipt"],
+                request=task_request,
+            ),
+            [],
+        )
+
+        self.assertEqual(
+            native.trusted_native_app_direct_task_create_once(
+                task_request,
+                adapter=native.TrustedNativeSyntheticTaskAdapter(
+                    _native_task_receipt
+                ),
+            ),
+            {"status": "blocked_request_or_packet_invalid", "receipt": None},
+        )
+
+    def test_direct_app_adapter_rejects_tampered_private_receipt_binding(
+        self,
+    ) -> None:
+        task_request = _native_task_request(
+            _native_request(
+                _native_registry(role="E", code_policy="forbidden"),
+                role="E",
+                inspect_only=True,
+            ),
+            _native_worktree(),
+        )
+        receipt = _native_task_receipt(task_request)
+
+        class MissingDirectResult:
+            synthetic_only = True
+            adapter_identity = app_direct.APP_NATIVE_DIRECT_ADAPTER_ID
+            last_result = None
+
+            def create_once(self, value: Mapping[str, object]) -> object:
+                del value
+                return receipt
+
+        self.assertEqual(
+            native.trusted_native_app_direct_task_create_once(
+                task_request,
+                adapter=MissingDirectResult(),
+            ),
+            {"status": "failed_lane_known", "receipt": None},
+        )
+
+        class TamperedDirectAdapter:
+            synthetic_only = True
+            adapter_identity = app_direct.APP_NATIVE_DIRECT_ADAPTER_ID
+            last_result = {"platform_receipt": {"repository_id": 999}}
+
+            def create_once(self, value: Mapping[str, object]) -> object:
+                self.last_result["platform_receipt"].update(
+                    {
+                        "platform_receipt_sha256": receipt[
+                            "platform_receipt_sha256"
+                        ],
+                        "accepted_at_utc": receipt["accepted_at_utc"],
+                        "task_request_sha256": value["task_request_sha256"],
+                        "claim_observation_sha256": value[
+                            "claim_observation_sha256"
+                        ],
+                        "lane_packet_sha256": value["lane_packet_sha256"],
+                        "pre_worktree_observation_sha256": value[
+                            "worktree_observation_sha256"
+                        ],
+                        "task_identity_sha256": app_direct.task_identity_sha256(
+                            str(receipt["task_id"])
+                        ),
+                        "terminal_status": "completed",
+                        "terminal_readback_sha256": "1" * 64,
+                        "typed_handoff_sha256": "2" * 64,
+                        "post_worktree_observation_sha256": "3" * 64,
+                        "automatic_retry_count": 0,
+                        "replacement_task_count": 0,
+                        "follow_up_message_count": 0,
+                    }
+                )
+                return receipt
+
+        self.assertEqual(
+            native.trusted_native_app_direct_task_create_once(
+                task_request,
+                adapter=TamperedDirectAdapter(),
+            ),
+            {"status": "failed_lane_known", "receipt": None},
+        )
+
+    def test_release_rebaseline_kat_and_current_binding_selection(self) -> None:
+        kat = _native_signed(
+            {
+                "schema_version": (
+                    "trusted_owner_native_release_rebaseline_record.v1"
+                ),
+                "record_id": "r0.rebaseline.0123456789abcdef0123456789abcdef",
+                "predecessor_record_sha256": "1" * 64,
+                "from_rung": "R0",
+                "to_rung": "R0",
+                "predecessor_contract_sha256": "2" * 64,
+                "contract_sha256": "3" * 64,
+                "predecessor_skill_tree_sha256": "4" * 64,
+                "skill_tree_sha256": "5" * 64,
+                "predecessor_registry_sha256": "6" * 64,
+                "registry_sha256": "7" * 64,
+                "predecessor_validator_bundle_sha256": "8" * 64,
+                "validator_bundle_sha256": "9" * 64,
+                "observation_receipt_sha256s": [],
+                "codex_e_review_ref": (
+                    "https://github.com/Tahjali11/Mythic-Edge/issues/"
+                    "813#issuecomment-1"
+                ),
+                "codex_e_review_sha256": "a" * 64,
+                "owner_decision_ref": (
+                    "https://github.com/Tahjali11/Mythic-Edge/issues/"
+                    "813#issuecomment-2"
+                ),
+                "accepted_at_utc": "2026-08-04T12:00:00Z",
+                "record_sha256": "",
+            },
+            "record_sha256",
+        )
+        preimage = native.trusted_native_canonical_bytes(
+            {
+                key: value
+                for key, value in kat.items()
+                if key != "record_sha256"
+            }
+        )
+        artifact = native.trusted_native_canonical_bytes(kat)
+        self.assertEqual(len(preimage), 1352)
+        self.assertEqual(
+            hashlib.sha256(preimage).hexdigest(),
+            "50e60de91339280e4afe6b2e588c8d6be801e825405eae675703ff01451af32f",
+        )
+        self.assertEqual(len(artifact), 1435)
+        self.assertEqual(
+            hashlib.sha256(artifact).hexdigest(),
+            "5ba515bcf5023803d8233672459940c504b7158337a8e6ede575b8a926e0e5ff",
+        )
+        self.assertEqual(
+            native.validate_trusted_native_release_rebaseline_record(kat),
+            [],
+        )
+
+        registry = _native_registry()
+        r0 = _native_release_record(
+            registry_sha256=registry["registry_sha256"],
+        )
+        historical = native.trusted_native_current_release_bindings([r0])
+        self.assertIsNotNone(historical)
+        assert historical is not None
+        self.assertEqual(historical["contract_sha256"], NATIVE_SHA_A)
+
+        rebaseline = _native_release_rebaseline(r0)
+        chain = [r0, rebaseline]
+        self.assertEqual(native.validate_trusted_native_release_chain(chain), [])
+        self.assertEqual(native.trusted_native_current_rung(chain), "R0")
+        current = native.trusted_native_current_release_bindings(chain)
+        self.assertIsNotNone(current)
+        assert current is not None
+        self.assertEqual(current["record_sha256"], rebaseline["record_sha256"])
+        self.assertEqual(current["contract_sha256"], "9" * 64)
+
+        request = _native_request(
+            registry,
+            release_record=rebaseline,
+        )
+        self.assertEqual(
+            native.validate_trusted_native_request(
+                request,
+                registry=registry,
+                release_record=rebaseline,
+            ),
+            [],
+        )
+
+        r1 = _native_release_record("R1", predecessor=rebaseline)
+        for field in (
+            "contract_sha256",
+            "skill_tree_sha256",
+            "registry_sha256",
+            "validator_bundle_sha256",
+        ):
+            r1[field] = rebaseline[field]
+        r1["accepted_at_utc"] = "2026-07-23T12:00:02Z"
+        r1["record_sha256"] = native.trusted_native_self_digest(
+            r1,
+            "record_sha256",
+        )
+        self.assertEqual(
+            native.validate_trusted_native_release_chain([*chain, r1]),
+            [],
+        )
+
+    def test_release_rebaseline_refusal_matrix_is_fail_closed(self) -> None:
+        r0 = _native_release_record()
+        valid = _native_release_rebaseline(r0)
+        cases: dict[str, list[dict[str, object]]] = {}
+
+        stale = copy.deepcopy(valid)
+        stale["predecessor_record_sha256"] = "0" * 64
+        stale["record_sha256"] = native.trusted_native_self_digest(
+            stale,
+            "record_sha256",
+        )
+        cases["stale"] = [r0, stale]
+
+        wrong_binding = copy.deepcopy(valid)
+        wrong_binding["predecessor_registry_sha256"] = "0" * 64
+        wrong_binding["record_sha256"] = native.trusted_native_self_digest(
+            wrong_binding,
+            "record_sha256",
+        )
+        cases["wrong_binding"] = [r0, wrong_binding]
+
+        unchanged = _native_release_rebaseline(
+            r0,
+            contract_sha256=str(r0["contract_sha256"]),
+        )
+        cases["unchanged_contract"] = [r0, unchanged]
+
+        non_r0 = copy.deepcopy(valid)
+        non_r0["to_rung"] = "R1"
+        non_r0["record_sha256"] = native.trusted_native_self_digest(
+            non_r0,
+            "record_sha256",
+        )
+        cases["non_r0"] = [r0, non_r0]
+
+        observed_r0 = copy.deepcopy(r0)
+        observed_r0["observation_receipt_sha256s"] = ["1" * 64, "2" * 64]
+        observed_r0["record_sha256"] = native.trusted_native_self_digest(
+            observed_r0,
+            "record_sha256",
+        )
+        cases["post_observation"] = [
+            observed_r0,
+            _native_release_rebaseline(observed_r0),
+        ]
+
+        duplicate = copy.deepcopy(valid)
+        duplicate["predecessor_record_sha256"] = valid["record_sha256"]
+        duplicate["record_id"] = "r0.rebaseline.duplicate"
+        duplicate["accepted_at_utc"] = "2026-07-23T12:00:02Z"
+        duplicate["record_sha256"] = native.trusted_native_self_digest(
+            duplicate,
+            "record_sha256",
+        )
+        cases["second_rebaseline"] = [r0, valid, duplicate]
+
+        fork = _native_release_record("R1", predecessor=r0)
+        cases["forked_ordinary_successor"] = [r0, fork, valid]
+
+        for name, chain in cases.items():
+            with self.subTest(name=name):
+                self.assertTrue(native.validate_trusted_native_release_chain(chain))
+                self.assertIsNone(
+                    native.trusted_native_current_release_bindings(chain)
+                )
 
     def test_app_server_observer_remains_inert_until_real_evidence(self) -> None:
         capability = native.unavailable_trusted_native_app_server_capability()
