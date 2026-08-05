@@ -845,6 +845,27 @@ class ReceiptTests(unittest.TestCase):
         self.assertNotIn(PROJECT_ID.encode(), serialized)
         self.assertNotIn(CLIENT_ID.encode(), serialized)
 
+    def test_platform_receipt_rejects_terminal_readback_status_mismatch(
+        self,
+    ) -> None:
+        terminal = dict(direct._terminal_readback_kat())
+        terminal["terminal_status"] = "failed"
+        changed = dict(direct._platform_receipt_kat())
+        changed["terminal_readback_sha256"] = direct.canonical_sha256(terminal)
+        changed = direct.seal_platform_receipt(
+            {
+                field: changed[field]
+                for field in direct.PLATFORM_RECEIPT_FIELDS[:-1]
+            }
+        )
+
+        errors = direct.validate_platform_receipt(
+            changed,
+            terminal_readback=terminal,
+        )
+
+        self.assertIn("terminal_readback_terminal_status_mismatch", errors)
+
     def test_receipt_rejects_field_order_nullability_digest_and_extra(self) -> None:
         terminal = direct._terminal_readback_kat()
         original = direct._platform_receipt_kat()

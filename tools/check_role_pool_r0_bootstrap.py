@@ -110,7 +110,7 @@ FILE_BINDINGS = (
         "direct_fake_transport",
         SOURCE_SKILL_RELATIVE_PATH
         / "scripts/trusted_native_app_direct_task_adapter.py",
-        "a25394f3df664bfbde22851175fd8b747d0e48a33d4edfe7a6cf31747f81ff87",
+        "b0eb739e960a342d95f148f6d2c57b121a2bed48c972907bc379cdbd2042d831",
     ),
     (
         "complete_gate",

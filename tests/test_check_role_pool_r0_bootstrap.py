@@ -57,7 +57,7 @@ STAGE3_VALIDATOR_PREDECESSOR_SHA256 = (
     "8946eb85257109670cc9f72970972d2458c9f56486127d1c4571e530240dc3b6"
 )
 STAGE3_VALIDATOR_SUCCESSOR_SHA256 = (
-    "9f37eac96dc321d9fad093dfad7cb91dbd121fd24ac496e79c7715e5063fcfd8"
+    "177a530104461979c0ee0113be74e04092a7ad2a390300735b89f7e4835f4726"
 )
 STAGE3_VALIDATOR_FIXTURE_MARKER = (
     b"synthetic-stage3-validator-predecessor-binding-v1\n"
@@ -563,7 +563,7 @@ def test_successor_contract_and_profile_bindings_are_exact() -> None:
         checker.SOURCE_SKILL_RELATIVE_PATH
         / "scripts/trusted_native_app_direct_task_adapter.py",
         (
-            "a25394f3df664bfbde22851175fd8b747d0e48a33d4edfe7a6cf31747f81ff87"
+            "b0eb739e960a342d95f148f6d2c57b121a2bed48c972907bc379cdbd2042d831"
         ),
     )
     assert binding_by_name["r0_contract"] == (

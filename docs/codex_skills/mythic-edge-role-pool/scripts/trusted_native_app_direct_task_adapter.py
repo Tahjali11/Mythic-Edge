@@ -767,6 +767,7 @@ def validate_terminal_readback(
     *,
     app_task_operation_id: object = None,
     task_identity_digest: object = None,
+    terminal_status: object = None,
     task_target_readback_sha256: object = None,
 ) -> list[str]:
     if not isinstance(value, Mapping) or tuple(value) != TERMINAL_READBACK_FIELDS:
@@ -786,6 +787,7 @@ def validate_terminal_readback(
     expected = {
         "app_task_operation_id": app_task_operation_id,
         "task_identity_sha256": task_identity_digest,
+        "terminal_status": terminal_status,
         "task_target_readback_sha256": task_target_readback_sha256,
     }
     for field, expected_value in expected.items():
@@ -862,6 +864,7 @@ def validate_platform_receipt(
                 terminal_readback,
                 app_task_operation_id=value["app_task_operation_id"],
                 task_identity_digest=value["task_identity_sha256"],
+                terminal_status=status,
                 task_target_readback_sha256=value["task_target_readback_sha256"],
             )
             errors.extend(terminal_errors)
