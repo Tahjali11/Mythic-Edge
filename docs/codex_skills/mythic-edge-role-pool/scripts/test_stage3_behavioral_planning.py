@@ -2987,8 +2987,20 @@ class Stage3BehavioralPlanningTests(unittest.TestCase):
             ): "8946eb85257109670cc9f72970972d2458c9f56486127d1c4571e530240dc3b6",
             (
                 "mythic-edge-role-pool/scripts/"
+                "test_check_pool_plan.py"
+            ): "8c9a0e3d063c601e000a5097a5dbeeac1dd6f0a33b5924f9df8186997bba935e",
+            (
+                "mythic-edge-role-pool/scripts/"
                 "test_stage3_behavioral_planning.py"
             ): "800cea8db721ef1b1ca65f41acafd5ac2e45de29f251500ba495888acf6e81ec",
+            (
+                "mythic-edge-role-pool/scripts/"
+                "test_trusted_native_app_direct_task_adapter.py"
+            ): "48dee1083eb5f1a9b04af58e964946676b80d92c6f65d62f5137407897ab325e",
+            (
+                "mythic-edge-role-pool/scripts/"
+                "trusted_native_app_direct_task_adapter.py"
+            ): "fae7aa4aec168d02de0dbdd34ab6a181b9f545b85aba39110e8d741e8094dd98",
         }
         for path, digest in app_native_pre_edit_digests.items():
             reviewed_app_native_by_path[path]["sha256"] = digest
