@@ -26,6 +26,18 @@ assert SPEC is not None and SPEC.loader is not None
 observation = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = observation
 SPEC.loader.exec_module(observation)
+_REAL_SHA256 = hashlib.sha256
+
+
+class _FixedSha256:
+    def __init__(self, digest: str) -> None:
+        self._digest = digest
+
+    def hexdigest(self) -> str:
+        return self._digest
+
+    def digest(self) -> bytes:
+        return bytes.fromhex(self._digest)
 
 
 def _signed(document: dict[str, object], field: str) -> dict[str, object]:
@@ -239,8 +251,8 @@ class _FakeChecker:
         self._release = (
             REPO_ROOT / self.RELEASE_STATE_RELATIVE_PATH
         ).read_bytes()
-        self._checker = (REPO_ROOT / self.CHECKER_RELATIVE_PATH).read_bytes()
-        self._tests = (REPO_ROOT / self.CHECKER_TEST_RELATIVE_PATH).read_bytes()
+        self._checker = b"synthetic historical R0 checker fixture"
+        self._tests = b"synthetic historical R0 checker-test fixture"
         self._owners = SimpleNamespace(
             pool=_FakePool(),
             stage3=object(),
@@ -302,6 +314,23 @@ class _FakeChecker:
         del owners
         self.calls.append("offline_validation")
         return "passed"
+
+
+def _historical_owner_hashes(checker: _FakeChecker) -> object:
+    expected = {
+        checker._checker: observation.R0_CHECKER_SHA256,
+        checker._tests: observation.R0_CHECKER_TEST_SHA256,
+    }
+
+    def synthetic_sha256(payload: bytes = b"") -> object:
+        digest = expected.get(payload)
+        return _FixedSha256(digest) if digest is not None else _REAL_SHA256(payload)
+
+    return mock.patch.object(
+        observation.hashlib,
+        "sha256",
+        side_effect=synthetic_sha256,
+    )
 
 
 def _fake_roots() -> object:
@@ -1160,14 +1189,15 @@ def test_exact_in_process_owner_call_graph_projects_only_validation_payload() ->
     roots = _fake_roots()
     audit = observation.AuditBoundary(REPO_ROOT, (Path(sys.base_prefix),))
     audit.bind_installed_root(roots.installed_skills_root)
-    payload = observation.evaluate_observation(
-        observation.OBSERVATION_IDS[0],
-        checker=checker,
-        roots=roots,
-        audit_boundary=audit,
-        runtime_os_name="nt",
-        runtime_sys_platform="win32",
-    )
+    with _historical_owner_hashes(checker):
+        payload = observation.evaluate_observation(
+            observation.OBSERVATION_IDS[0],
+            checker=checker,
+            roots=roots,
+            audit_boundary=audit,
+            runtime_os_name="nt",
+            runtime_sys_platform="win32",
+        )
     assert payload == _validation_payload()
     assert observation.parse_validation_payload(payload) == _bootstrap_packet()
     sealed = observation.seal_proportionate_observation_receipt(
@@ -1454,7 +1484,8 @@ def test_cli_success_path_uses_fake_owner_and_emits_only_validation_payload(
     monkeypatch.setattr(observation, "_load_checker", lambda root: checker)
     monkeypatch.setattr(observation.sys, "stdout", stdout)
     monkeypatch.setattr(observation.sys, "stderr", stderr)
-    assert observation.run([observation.OBSERVATION_IDS[0]]) == 0
+    with _historical_owner_hashes(checker):
+        assert observation.run([observation.OBSERVATION_IDS[0]]) == 0
     assert stdout.getvalue().encode("utf-8") == _validation_payload()
     assert stderr.getvalue() == ""
 
@@ -1481,7 +1512,8 @@ def test_cli_does_not_use_retired_direct_interpreter_dependency(
     monkeypatch.setattr(observation, "_load_checker", owner)
     monkeypatch.setattr(observation.sys, "stdout", stdout)
     monkeypatch.setattr(observation.sys, "stderr", stderr)
-    assert observation.run([observation.OBSERVATION_IDS[0]]) == 0
+    with _historical_owner_hashes(checker):
+        assert observation.run([observation.OBSERVATION_IDS[0]]) == 0
     assert owner.call_count == 1
     assert stdout.getvalue().encode("utf-8") == _validation_payload()
     assert stderr.getvalue() == ""
@@ -1512,25 +1544,52 @@ def test_cli_unknown_owner_failure_never_echoes_raw_exception(
     assert "private" not in stderr.getvalue().lower()
 
 
-def test_fixed_owner_bindings_and_two_file_scope_remain_exact() -> None:
-    bindings = {
+def test_frozen_owner_bindings_and_current_successor_rejection_remain_exact() -> None:
+    unchanged_bindings = {
         observation.SEQUENCE_CONTRACT_RELATIVE_PATH.as_posix(): observation.SEQUENCE_CONTRACT_SHA256,
         observation.RECEIPT_ORDER_CONTRACT_RELATIVE_PATH.as_posix(): observation.RECEIPT_ORDER_CONTRACT_SHA256,
         observation.RECEIPT_ORDER_REVIEW_RELATIVE_PATH.as_posix(): observation.RECEIPT_ORDER_REVIEW_SHA256,
         observation.PROPORTIONATE_CONTRACT_RELATIVE_PATH.as_posix(): observation.PROPORTIONATE_CONTRACT_SHA256,
         observation.PROPORTIONATE_REVIEW_RELATIVE_PATH.as_posix(): observation.PROPORTIONATE_REVIEW_SHA256,
-        "docs/contracts/trusted_owner_native_role_pool_profile.md": observation.PROFILE_CONTRACT_SHA256,
         "docs/role_pool/trusted_owner_native_release_state.v1.jsonl": observation.RELEASE_STATE_ARTIFACT_SHA256,
         "docs/role_pool/trusted_owner_repository_registry.v1.json": observation.REGISTRY_ARTIFACT_SHA256,
-        "tools/check_role_pool_r0_bootstrap.py": observation.R0_CHECKER_SHA256,
-        "tests/test_check_role_pool_r0_bootstrap.py": observation.R0_CHECKER_TEST_SHA256,
-        "docs/codex_skills/mythic-edge-role-pool/scripts/check_pool_plan.py": observation.RELEASE_VALIDATOR_SHA256,
         "docs/role_pool_current_authority_index.md": observation.AUTHORITY_INDEX_SHA256,
     }
     assert all(
         hashlib.sha256((REPO_ROOT / path).read_bytes()).hexdigest() == expected
-        for path, expected in bindings.items()
+        for path, expected in unchanged_bindings.items()
     )
+    successor_drift = {
+        "docs/contracts/trusted_owner_native_role_pool_profile.md": (
+            observation.PROFILE_CONTRACT_SHA256,
+            "944c1a85d9e2454fb82a5df3e2a2ac572191e3cd135c7854e0c012ffc07ab43f",
+            "8f885dcab251143ed9afb9c091d3d4beaa695bb934248ab674dd8784e8a71952",
+        ),
+        "tools/check_role_pool_r0_bootstrap.py": (
+            observation.R0_CHECKER_SHA256,
+            "34e7eddb31d2e476c74f857a010d441ee1e199915658964bd8cc0f0da2f5d914",
+            "64057be2cec60724930db3a3a8f245dc352955aa387a01d2688de5fc5668e447",
+        ),
+        "tests/test_check_role_pool_r0_bootstrap.py": (
+            observation.R0_CHECKER_TEST_SHA256,
+            "976aaac0fab0d8651b89122c2bdcd46ce3abf10a3f0764083574c2243381ac34",
+            "2a1ae7a85888b545babca82096673f34dac64ea7d032e8d9589f1be6a0b1126e",
+        ),
+        "docs/codex_skills/mythic-edge-role-pool/scripts/check_pool_plan.py": (
+            observation.RELEASE_VALIDATOR_SHA256,
+            "af9b9aed5b74bc508c08ce6ab51ce2ee9377aecef5657fca884145fa80c4e62d",
+            "5e4a64391c14e0652fe30d333a1c9f2e33a048f67dd9fa08d08454d1f684e361",
+        ),
+    }
+    for path, (frozen_constant, predecessor, successor) in successor_drift.items():
+        assert frozen_constant == predecessor
+        current = hashlib.sha256((REPO_ROOT / path).read_bytes()).hexdigest()
+        assert current == successor
+        assert current != predecessor
+
+    with pytest.raises(observation.ObservationFailure) as error:
+        observation._load_checker(REPO_ROOT)
+    assert error.value.status == "observation_binding_rejected"
     assert observation.OBSERVATION_PROFILE["implementation_paths"] == [
         "tools/check_role_pool_r0_offline_observation.py",
         "tests/test_check_role_pool_r0_offline_observation.py",

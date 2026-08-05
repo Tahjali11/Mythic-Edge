@@ -177,7 +177,8 @@ PRE_APP_SERVER_ALLOWED_ADDED_PATHS = {
 }
 
 ACCEPTED_PRE_APP_SERVER_MANIFEST_FILE_COUNT = 37
-EXPECTED_CURRENT_MANIFEST_FILE_COUNT = 39
+ACCEPTED_APP_SERVER_MANIFEST_FILE_COUNT = 39
+EXPECTED_CURRENT_MANIFEST_FILE_COUNT = 41
 SUCCESSOR_SKILL_RELATIVE_PATH = (
     "references/external-isolation-broker-v3-corrective-successor.md"
 )
@@ -289,16 +290,46 @@ APP_SERVER_ADDED_PATHS = {
     APP_SERVER_ADAPTER_MANIFEST_PATH,
     APP_SERVER_ADAPTER_TEST_MANIFEST_PATH,
 }
-ALLOWED_ADDED_PATHS = PRE_APP_SERVER_ALLOWED_ADDED_PATHS | APP_SERVER_ADDED_PATHS
+PRE_APP_NATIVE_ALLOWED_ADDED_PATHS = (
+    PRE_APP_SERVER_ALLOWED_ADDED_PATHS | APP_SERVER_ADDED_PATHS
+)
+APP_NATIVE_ADAPTER_SKILL_RELATIVE_PATH = (
+    "scripts/trusted_native_app_direct_task_adapter.py"
+)
+APP_NATIVE_ADAPTER_MANIFEST_PATH = (
+    "mythic-edge-role-pool/" + APP_NATIVE_ADAPTER_SKILL_RELATIVE_PATH
+)
+APP_NATIVE_ADAPTER_SHA256 = (
+    "b0eb739e960a342d95f148f6d2c57b121a2bed48c972907bc379cdbd2042d831"
+)
+APP_NATIVE_ADAPTER_TEST_SKILL_RELATIVE_PATH = (
+    "scripts/test_trusted_native_app_direct_task_adapter.py"
+)
+APP_NATIVE_ADAPTER_TEST_MANIFEST_PATH = (
+    "mythic-edge-role-pool/" + APP_NATIVE_ADAPTER_TEST_SKILL_RELATIVE_PATH
+)
+APP_NATIVE_ADAPTER_TEST_SHA256 = (
+    "98bdec5936129946cc95a6cebce2645a3da50c81894e6c018e2b42739af50375"
+)
+APP_NATIVE_ADDED_PATHS = {
+    APP_NATIVE_ADAPTER_MANIFEST_PATH,
+    APP_NATIVE_ADAPTER_TEST_MANIFEST_PATH,
+}
+ALLOWED_ADDED_PATHS = PRE_APP_NATIVE_ALLOWED_ADDED_PATHS | APP_NATIVE_ADDED_PATHS
 PRE_APP_SERVER_PINNED_SUCCESSOR_DIGESTS = {
     SUCCESSOR_MANIFEST_PATH: SUCCESSOR_SHA256,
     V4_SUCCESSOR_MANIFEST_PATH: V4_SUCCESSOR_SHA256,
     V5_SUCCESSOR_MANIFEST_PATH: V5_SUCCESSOR_SHA256,
 }
-PINNED_SUCCESSOR_DIGESTS = {
+PRE_APP_NATIVE_PINNED_SUCCESSOR_DIGESTS = {
     **PRE_APP_SERVER_PINNED_SUCCESSOR_DIGESTS,
     APP_SERVER_ADAPTER_MANIFEST_PATH: APP_SERVER_ADAPTER_SHA256,
     APP_SERVER_ADAPTER_TEST_MANIFEST_PATH: APP_SERVER_ADAPTER_TEST_SHA256,
+}
+PINNED_SUCCESSOR_DIGESTS = {
+    **PRE_APP_NATIVE_PINNED_SUCCESSOR_DIGESTS,
+    APP_NATIVE_ADAPTER_MANIFEST_PATH: APP_NATIVE_ADAPTER_SHA256,
+    APP_NATIVE_ADAPTER_TEST_MANIFEST_PATH: APP_NATIVE_ADAPTER_TEST_SHA256,
 }
 REVIEWED_APP_SERVER_MODIFIED_DIGESTS = {
     (
@@ -307,6 +338,14 @@ REVIEWED_APP_SERVER_MODIFIED_DIGESTS = {
     (
         "mythic-edge-role-pool/scripts/test_check_pool_plan.py"
     ): "60201804ed1700d5d75b615a39fc06ad0585b7073ca0a48d07e4fc99579f7b49",
+}
+REVIEWED_APP_NATIVE_MODIFIED_DIGESTS = {
+    (
+        "mythic-edge-role-pool/scripts/check_pool_plan.py"
+    ): "5e4a64391c14e0652fe30d333a1c9f2e33a048f67dd9fa08d08454d1f684e361",
+    (
+        "mythic-edge-role-pool/scripts/test_check_pool_plan.py"
+    ): "a4b7a74925f16f12dc7c3b1de71a234bff832ea1aa645d884424466bad1fb93d",
 }
 
 
@@ -655,6 +694,8 @@ def current_skill_manifest() -> list[dict[str, str]]:
             V5_SUCCESSOR_SKILL_RELATIVE_PATH,
             APP_SERVER_ADAPTER_SKILL_RELATIVE_PATH,
             APP_SERVER_ADAPTER_TEST_SKILL_RELATIVE_PATH,
+            APP_NATIVE_ADAPTER_SKILL_RELATIVE_PATH,
+            APP_NATIVE_ADAPTER_TEST_SKILL_RELATIVE_PATH,
         )
     )
     pinned_paths_casefolded = {
@@ -663,6 +704,8 @@ def current_skill_manifest() -> list[dict[str, str]]:
         V5_SUCCESSOR_SKILL_RELATIVE_PATH.casefold(),
         APP_SERVER_ADAPTER_SKILL_RELATIVE_PATH.casefold(),
         APP_SERVER_ADAPTER_TEST_SKILL_RELATIVE_PATH.casefold(),
+        APP_NATIVE_ADAPTER_SKILL_RELATIVE_PATH.casefold(),
+        APP_NATIVE_ADAPTER_TEST_SKILL_RELATIVE_PATH.casefold(),
     }
     files: list[Path] = []
     for path in SKILL_ROOT.rglob("*", recurse_symlinks=False):
@@ -727,7 +770,7 @@ def _validated_manifest_state() -> tuple[
     if duplicates:
         raise ManifestTransitionError("duplicate manifest paths")
     if len(rows) != EXPECTED_CURRENT_MANIFEST_FILE_COUNT:
-        raise ManifestTransitionError("current manifest file count is not 39")
+        raise ManifestTransitionError("current manifest file count is not 41")
     if added != ALLOWED_ADDED_PATHS:
         raise ManifestTransitionError("unexpected or missing added paths")
     if modified != ALLOWED_MODIFIED_PATHS:
@@ -759,10 +802,15 @@ def _validated_manifest_state() -> tuple[
             raise ManifestTransitionError(
                 "app-server adapter digest does not match the reviewed digest"
             )
-    for path, digest in sorted(REVIEWED_APP_SERVER_MODIFIED_DIGESTS.items()):
+    for path in sorted(APP_NATIVE_ADDED_PATHS):
+        if current.get(path) != PINNED_SUCCESSOR_DIGESTS[path]:
+            raise ManifestTransitionError(
+                "app-native adapter digest does not match the reviewed digest"
+            )
+    for path, digest in sorted(REVIEWED_APP_NATIVE_MODIFIED_DIGESTS.items()):
         if current.get(path) != digest:
             raise ManifestTransitionError(
-                "reviewed app-server modified digest does not match"
+                "reviewed app-native modified digest does not match"
             )
     plan_path = "mythic-edge-role-pool/scripts/check_pool_plan.py"
     if current.get(plan_path) == STAGE2_BASELINE_FILES[plan_path]:

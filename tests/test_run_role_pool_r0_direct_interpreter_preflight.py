@@ -1418,17 +1418,108 @@ def test_inventory_delta_counts_added_removed_modified_renamed_and_kind_changed(
     assert target.inventory_row_delta_count(before.rows, after.rows) == 6
 
 
-def test_repository_role_pool_projection_matches_the_accepted_tree_binding() -> None:
-    inventory = target.observe_tree_inventory(
+def test_historical_role_pool_projection_and_current_successor_are_distinct() -> None:
+    current = target.observe_tree_inventory(
         REPOSITORY_ROOT / target.ROLE_POOL_SOURCE_PREFIX,
         exclude_top_level_git=False,
     )
-    assert target._tree_manifest_binding(inventory.rows) == (
+    reviewed_stage3_rows = {
+        "scripts/check_stage3_behavioral_planning.py": (
+            54224,
+            "8946eb85257109670cc9f72970972d2458c9f56486127d1c4571e530240dc3b6",
+        ),
+        "scripts/test_stage3_behavioral_planning.py": (
+            207666,
+            "800cea8db721ef1b1ca65f41acafd5ac2e45de29f251500ba495888acf6e81ec",
+        ),
+    }
+    reviewed_rows = tuple(
+        replace(
+            row,
+            byte_count=reviewed_stage3_rows[row.relative_path][0],
+            sha256=reviewed_stage3_rows[row.relative_path][1],
+        )
+        if row.relative_path in reviewed_stage3_rows
+        else row
+        for row in current.rows
+    )
+    reviewed_successor = target.TreeInventory(current.root_identity, reviewed_rows)
+    assert target._tree_manifest_binding(reviewed_successor.rows) == (
+        43,
+        38,
+        6840,
+        "ce8e3ed43be8d070702114302882316d656a14cf4e10a4efc6d857dd7b2af853",
+    )
+    assert {
+        current_row.relative_path
+        for current_row, reviewed_row in zip(
+            current.rows,
+            reviewed_successor.rows,
+            strict=True,
+        )
+        if current_row != reviewed_row
+    } == set(reviewed_stage3_rows)
+
+    added_paths = {
+        "scripts/test_trusted_native_app_direct_task_adapter.py",
+        "scripts/trusted_native_app_direct_task_adapter.py",
+    }
+    predecessor_rows = []
+    for row in reviewed_successor.rows:
+        if row.relative_path in added_paths:
+            continue
+        if row.relative_path == "scripts/check_pool_plan.py":
+            row = replace(
+                row,
+                byte_count=467960,
+                sha256=(
+                    "af9b9aed5b74bc508c08ce6ab51ce2ee9377aecef5657fca884145fa80c4e62d"
+                ),
+            )
+        elif row.relative_path == "scripts/test_check_pool_plan.py":
+            row = replace(
+                row,
+                byte_count=140448,
+                sha256=(
+                    "60201804ed1700d5d75b615a39fc06ad0585b7073ca0a48d07e4fc99579f7b49"
+                ),
+            )
+        predecessor_rows.append(row)
+    predecessor = target.TreeInventory(
+        current.root_identity,
+        tuple(predecessor_rows),
+    )
+    assert target._tree_manifest_binding(predecessor.rows) == (
         target.ROLE_POOL_TREE_NODE_COUNT,
         target.ROLE_POOL_TREE_FILE_COUNT,
         target.ROLE_POOL_TREE_MANIFEST_BYTE_COUNT,
         target.ROLE_POOL_TREE_SHA256,
     )
+
+    def repository_projection(inventory: target.TreeInventory) -> target.TreeInventory:
+        prefix = target.ROLE_POOL_SOURCE_PREFIX + "/"
+        return target.TreeInventory(
+            inventory.root_identity,
+            tuple(
+                replace(row, relative_path=prefix + row.relative_path)
+                for row in inventory.rows
+            ),
+        )
+
+    target._validate_role_pool_projection(
+        repository_projection(predecessor),
+        predecessor,
+    )
+    with pytest.raises(target.PreflightFailure):
+        target._validate_role_pool_projection(
+            repository_projection(reviewed_successor),
+            reviewed_successor,
+        )
+    with pytest.raises(target.PreflightFailure):
+        target._validate_role_pool_projection(
+            repository_projection(predecessor),
+            current,
+        )
 
 
 def test_residue_projection_and_inventory_budgets_are_exact(tmp_path, monkeypatch) -> None:
@@ -1699,8 +1790,28 @@ def test_installed_role_pool_root_is_derived_only_from_the_accepted_checker() ->
 
 def test_alternate_codex_home_cannot_supply_the_installed_root(monkeypatch) -> None:
     monkeypatch.setenv("CODEX_HOME", r"C:\synthetic-alternate-home")
-    with pytest.raises(target.PreflightFailure):
-        target._derive_installed_role_pool_root(REPOSITORY_ROOT, _parent_api())
+    canonical_skills_root = Path(r"C:\synthetic-canonical-home\skills")
+
+    class HistoricalChecker:
+        @staticmethod
+        def _production_roots():
+            return SimpleNamespace(
+                repository_root=REPOSITORY_ROOT,
+                installed_skills_root=canonical_skills_root,
+            )
+
+    class HistoricalParent:
+        @staticmethod
+        def _load_checker(repository_root):
+            assert repository_root == REPOSITORY_ROOT
+            return HistoricalChecker
+
+    derived = target._derive_installed_role_pool_root(
+        REPOSITORY_ROOT,
+        HistoricalParent,
+    )
+    assert derived == canonical_skills_root / "mythic-edge-role-pool"
+    assert derived != Path(r"C:\synthetic-alternate-home\skills\mythic-edge-role-pool")
 
 
 def test_network_count_is_executor_owned_without_child_isolation_claims() -> None:

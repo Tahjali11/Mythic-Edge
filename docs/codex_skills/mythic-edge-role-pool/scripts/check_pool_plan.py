@@ -33,6 +33,11 @@ from trusted_native_app_server_adapter import (
     APP_SERVER_ADAPTER_ID,
     AppServerAdapterError,
 )
+from trusted_native_app_direct_task_adapter import (
+    APP_NATIVE_DIRECT_ADAPTER_ID,
+    AppNativeDirectAdapterError,
+    task_identity_sha256 as app_native_task_identity_sha256,
+)
 
 PLAN_SCHEMA_VERSION = "mythic_edge_role_pool_plan.v3"
 RESULT_SCHEMA_VERSION = "mythic_edge_role_pool_result.v3"
@@ -8673,7 +8678,9 @@ def _validate_trusted_native_request_base(
                 ):
                     _native_error(errors, "request", "command_execution_forbidden")
     if release_record is not None:
-        release_errors = validate_trusted_native_release_record(release_record)
+        release_errors = validate_trusted_native_release_state_record(
+            release_record
+        )
         if release_errors:
             _native_error(errors, "request", "release_record_invalid")
         elif isinstance(release_record, dict) and request[
@@ -9413,6 +9420,27 @@ TRUSTED_NATIVE_RELEASE_RECORD_FIELDS = (
     "accepted_at_utc",
     "record_sha256",
 )
+TRUSTED_NATIVE_RELEASE_REBASELINE_FIELDS = (
+    "schema_version",
+    "record_id",
+    "predecessor_record_sha256",
+    "from_rung",
+    "to_rung",
+    "predecessor_contract_sha256",
+    "contract_sha256",
+    "predecessor_skill_tree_sha256",
+    "skill_tree_sha256",
+    "predecessor_registry_sha256",
+    "registry_sha256",
+    "predecessor_validator_bundle_sha256",
+    "validator_bundle_sha256",
+    "observation_receipt_sha256s",
+    "codex_e_review_ref",
+    "codex_e_review_sha256",
+    "owner_decision_ref",
+    "accepted_at_utc",
+    "record_sha256",
+)
 TRUSTED_NATIVE_RUNGS = tuple(f"R{index}" for index in range(9))
 TRUSTED_NATIVE_SAFE_TRANSITIONS = {
     "request_received": {"rejected", "validated"},
@@ -9708,7 +9736,14 @@ def trusted_native_task_create_once(
         getattr(synthetic_adapter, "adapter_identity", None)
         == APP_SERVER_ADAPTER_ID
     )
-    if app_server_adapter and request["role"] not in {"B", "E"}:
+    app_native_adapter = (
+        getattr(synthetic_adapter, "adapter_identity", None)
+        == APP_NATIVE_DIRECT_ADAPTER_ID
+    )
+    if (app_server_adapter or app_native_adapter) and request["role"] not in {
+        "B",
+        "E",
+    }:
         return {
             "status": "blocked_request_or_packet_invalid",
             "receipt": None,
@@ -9719,6 +9754,17 @@ def trusted_native_task_create_once(
         projection = (
             exc.profile_projection
             if app_server_adapter
+            and exc.profile_projection in TRUSTED_NATIVE_TERMINAL_OUTCOMES
+            else "failed_lane_known"
+        )
+        return {
+            "status": projection,
+            "receipt": None,
+        }
+    except AppNativeDirectAdapterError as exc:
+        projection = (
+            exc.profile_projection
+            if app_native_adapter
             and exc.profile_projection in TRUSTED_NATIVE_TERMINAL_OUTCOMES
             else "failed_lane_known"
         )
@@ -9740,11 +9786,64 @@ def trusted_native_task_create_once(
             "status": "failed_lane_known",
             "receipt": None,
         }
+    if app_native_adapter:
+        adapter_result = getattr(synthetic_adapter, "last_result", None)
+        if not isinstance(adapter_result, Mapping):
+            return {
+                "status": "failed_lane_known",
+                "receipt": None,
+            }
+        platform_receipt = adapter_result.get("platform_receipt")
+        if not isinstance(platform_receipt, Mapping):
+            return {
+                "status": "failed_lane_known",
+                "receipt": None,
+            }
+        platform_digest = platform_receipt.get("platform_receipt_sha256")
+        expected_ref = (
+            f"role_pool:app_native_direct:{str(platform_digest)[:32]}"
+        )
+        if (
+            receipt.get("platform_receipt_sha256") != platform_digest
+            or receipt.get("platform_receipt_ref") != expected_ref
+            or receipt.get("accepted_at_utc")
+            != platform_receipt.get("accepted_at_utc")
+            or platform_receipt.get("task_request_sha256")
+            != request["task_request_sha256"]
+            or platform_receipt.get("claim_observation_sha256")
+            != request["claim_observation_sha256"]
+            or platform_receipt.get("lane_packet_sha256")
+            != request["lane_packet_sha256"]
+            or platform_receipt.get("pre_worktree_observation_sha256")
+            != request["worktree_observation_sha256"]
+            or platform_receipt.get("repository_id") != request["repository_id"]
+            or platform_receipt.get("task_identity_sha256")
+            != app_native_task_identity_sha256(receipt["task_id"])
+            or platform_receipt.get("terminal_status") != "completed"
+            or not _native_is_sha256(
+                platform_receipt.get("terminal_readback_sha256")
+            )
+            or not _native_is_sha256(platform_receipt.get("typed_handoff_sha256"))
+            or not _native_is_sha256(
+                platform_receipt.get("post_worktree_observation_sha256")
+            )
+            or platform_receipt.get("automatic_retry_count") != 0
+            or platform_receipt.get("replacement_task_count") != 0
+            or platform_receipt.get("follow_up_message_count") != 0
+        ):
+            return {
+                "status": "failed_lane_known",
+                "receipt": None,
+            }
     return {
         "status": (
             "synthetic_app_server_receipt_accepted_non_live"
             if app_server_adapter
-            else "synthetic_task_receipt_accepted_non_live"
+            else (
+                "synthetic_app_native_receipt_accepted_non_live"
+                if app_native_adapter
+                else "synthetic_task_receipt_accepted_non_live"
+            )
         ),
         "receipt": receipt,
     }
@@ -9759,6 +9858,27 @@ def trusted_native_app_server_task_create_once(
 
     if (
         getattr(adapter, "adapter_identity", None) != APP_SERVER_ADAPTER_ID
+        or getattr(adapter, "synthetic_only", False) is not True
+    ):
+        return {
+            "status": "blocked_request_or_packet_invalid",
+            "receipt": None,
+        }
+    return trusted_native_task_create_once(
+        request,
+        synthetic_adapter=adapter,
+    )
+
+
+def trusted_native_app_direct_task_create_once(
+    request: object,
+    *,
+    adapter: object = None,
+) -> dict[str, object]:
+    """Invoke only the dedicated inert direct-task adapter once."""
+
+    if (
+        getattr(adapter, "adapter_identity", None) != APP_NATIVE_DIRECT_ADAPTER_ID
         or getattr(adapter, "synthetic_only", False) is not True
     ):
         return {
@@ -10825,18 +10945,104 @@ def validate_trusted_native_release_record(value: object) -> list[str]:
     return errors
 
 
+def validate_trusted_native_release_rebaseline_record(
+    value: object,
+) -> list[str]:
+    errors: list[str] = []
+    record = _native_validate_keys(
+        value,
+        TRUSTED_NATIVE_RELEASE_REBASELINE_FIELDS,
+        errors,
+        "release_rebaseline",
+    )
+    if record is None:
+        return errors
+    if (
+        record["schema_version"]
+        != "trusted_owner_native_release_rebaseline_record.v1"
+    ):
+        _native_error(errors, "release_rebaseline.schema_version", "value_invalid")
+    if not _native_is_id(record["record_id"]) or not str(record["record_id"]).startswith(
+        "r0.rebaseline."
+    ):
+        _native_error(errors, "release_rebaseline.record_id", "value_invalid")
+    if not _native_is_sha256(record["predecessor_record_sha256"]):
+        _native_error(errors, "release_rebaseline", "predecessor_invalid")
+    if record["from_rung"] != "R0" or record["to_rung"] != "R0":
+        _native_error(errors, "release_rebaseline", "r0_only")
+    for field in (
+        "predecessor_contract_sha256",
+        "contract_sha256",
+        "predecessor_skill_tree_sha256",
+        "skill_tree_sha256",
+        "predecessor_registry_sha256",
+        "registry_sha256",
+        "predecessor_validator_bundle_sha256",
+        "validator_bundle_sha256",
+        "codex_e_review_sha256",
+    ):
+        if not _native_is_sha256(record[field]):
+            _native_error(errors, f"release_rebaseline.{field}", "value_invalid")
+    if record["observation_receipt_sha256s"] != []:
+        _native_error(errors, "release_rebaseline", "observations_forbidden")
+    for field in ("codex_e_review_ref", "owner_decision_ref"):
+        if not _native_is_public_ref(record[field]):
+            _native_error(errors, f"release_rebaseline.{field}", "value_invalid")
+    if _native_parse_utc(record["accepted_at_utc"]) is None:
+        _native_error(errors, "release_rebaseline.accepted_at_utc", "value_invalid")
+    _native_validate_self_digest(
+        record,
+        "record_sha256",
+        errors,
+        "release_rebaseline",
+    )
+    return errors
+
+
+def validate_trusted_native_release_state_record(value: object) -> list[str]:
+    if not isinstance(value, dict):
+        return ["release_record:object_required"]
+    schema = value.get("schema_version")
+    if schema == "trusted_owner_native_release_record.v1":
+        return validate_trusted_native_release_record(value)
+    if schema == "trusted_owner_native_release_rebaseline_record.v1":
+        return validate_trusted_native_release_rebaseline_record(value)
+    return ["release_record:schema_version_invalid"]
+
+
+def _trusted_native_release_binding_tuple(
+    record: Mapping[str, object],
+) -> tuple[object, object, object, object]:
+    return tuple(
+        record[field]
+        for field in (
+            "contract_sha256",
+            "skill_tree_sha256",
+            "registry_sha256",
+            "validator_bundle_sha256",
+        )
+    )
+
+
 def validate_trusted_native_release_chain(value: object) -> list[str]:
     if not isinstance(value, list) or not value:
         return ["release_chain:records_required"]
     errors: list[str] = []
+    rebaseline_count = 0
     for index, record in enumerate(value):
-        record_errors = validate_trusted_native_release_record(record)
+        record_errors = validate_trusted_native_release_state_record(record)
         if record_errors:
             _native_error(errors, f"release_chain[{index}]", "record_invalid")
             continue
         assert isinstance(record, dict)
+        schema = record["schema_version"]
         if index == 0:
-            if record["to_rung"] != "R0":
+            if (
+                schema != "trusted_owner_native_release_record.v1"
+                or record["predecessor_record_sha256"] is not None
+                or record["from_rung"] is not None
+                or record["to_rung"] != "R0"
+            ):
                 _native_error(errors, "release_chain", "must_start_at_r0")
             continue
         previous = value[index - 1]
@@ -10844,21 +11050,55 @@ def validate_trusted_native_release_chain(value: object) -> list[str]:
             continue
         if record["predecessor_record_sha256"] != previous["record_sha256"]:
             _native_error(errors, "release_chain", "predecessor_mismatch")
-        if record["from_rung"] != previous["to_rung"]:
-            _native_error(errors, "release_chain", "from_rung_mismatch")
-        expected_index = TRUSTED_NATIVE_RUNGS.index(previous["to_rung"]) + 1
-        if expected_index >= len(TRUSTED_NATIVE_RUNGS) or record[
-            "to_rung"
-        ] != TRUSTED_NATIVE_RUNGS[expected_index]:
-            _native_error(errors, "release_chain", "rung_skip_or_duplicate")
-        for field in (
-            "contract_sha256",
-            "skill_tree_sha256",
-            "registry_sha256",
-            "validator_bundle_sha256",
-        ):
-            if record[field] != previous[field]:
-                _native_error(errors, "release_chain", f"{field}_drift")
+        if schema == "trusted_owner_native_release_rebaseline_record.v1":
+            rebaseline_count += 1
+            if (
+                rebaseline_count != 1
+                or index != 1
+                or previous.get("schema_version")
+                != "trusted_owner_native_release_record.v1"
+                or previous.get("to_rung") != "R0"
+                or previous.get("observation_receipt_sha256s") != []
+            ):
+                _native_error(errors, "release_chain", "rebaseline_position_invalid")
+            predecessor_fields = (
+                ("predecessor_contract_sha256", "contract_sha256"),
+                ("predecessor_skill_tree_sha256", "skill_tree_sha256"),
+                ("predecessor_registry_sha256", "registry_sha256"),
+                (
+                    "predecessor_validator_bundle_sha256",
+                    "validator_bundle_sha256",
+                ),
+            )
+            for predecessor_field, current_field in predecessor_fields:
+                if record[predecessor_field] != previous.get(current_field):
+                    _native_error(
+                        errors,
+                        "release_chain",
+                        f"{predecessor_field}_mismatch",
+                    )
+            if record["contract_sha256"] == previous.get("contract_sha256"):
+                _native_error(errors, "release_chain", "rebaseline_contract_unchanged")
+        else:
+            if record["from_rung"] != previous["to_rung"]:
+                _native_error(errors, "release_chain", "from_rung_mismatch")
+            expected_index = TRUSTED_NATIVE_RUNGS.index(previous["to_rung"]) + 1
+            if expected_index >= len(TRUSTED_NATIVE_RUNGS) or record[
+                "to_rung"
+            ] != TRUSTED_NATIVE_RUNGS[expected_index]:
+                _native_error(errors, "release_chain", "rung_skip_or_duplicate")
+            for field, expected in zip(
+                (
+                    "contract_sha256",
+                    "skill_tree_sha256",
+                    "registry_sha256",
+                    "validator_bundle_sha256",
+                ),
+                _trusted_native_release_binding_tuple(previous),
+                strict=True,
+            ):
+                if record[field] != expected:
+                    _native_error(errors, "release_chain", f"{field}_drift")
         previous_time = _native_parse_utc(previous["accepted_at_utc"])
         current_time = _native_parse_utc(record["accepted_at_utc"])
         if (
@@ -10893,6 +11133,24 @@ def trusted_native_current_rung(value: object) -> str | None:
         return None
     assert isinstance(value, list)
     return value[-1]["to_rung"]
+
+
+def trusted_native_current_release_bindings(
+    value: object,
+) -> dict[str, object] | None:
+    if validate_trusted_native_release_chain(value):
+        return None
+    assert isinstance(value, list)
+    tip = value[-1]
+    assert isinstance(tip, Mapping)
+    return {
+        "record_sha256": tip["record_sha256"],
+        "to_rung": tip["to_rung"],
+        "contract_sha256": tip["contract_sha256"],
+        "skill_tree_sha256": tip["skill_tree_sha256"],
+        "registry_sha256": tip["registry_sha256"],
+        "validator_bundle_sha256": tip["validator_bundle_sha256"],
+    }
 
 
 def validate_trusted_native_release_ceiling(
@@ -11266,6 +11524,9 @@ def validate_trusted_native_document(value: object) -> list[str]:
         ),
         "trusted_owner_native_release_record.v1": (
             validate_trusted_native_release_record
+        ),
+        "trusted_owner_native_release_rebaseline_record.v1": (
+            validate_trusted_native_release_rebaseline_record
         ),
     }
     validator = validators.get(schema)

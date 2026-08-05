@@ -5,10 +5,14 @@ import ctypes
 import hashlib
 import importlib.util
 import inspect
+import shutil
 import sys
+import tempfile
+from contextlib import contextmanager
 from dataclasses import replace
 from pathlib import Path
 from types import ModuleType
+from unittest import mock
 
 import pytest
 
@@ -29,6 +33,85 @@ def _load(name: str, path: Path) -> ModuleType:
 observer = _load("run_role_pool_r0_trusted_launch_observer", OBSERVER_PATH)
 owner = _load("check_role_pool_r0_offline_observation_for_observer", OWNER_PATH)
 _REAL_LOAD_OWNER_API = observer._load_owner_api
+OWNER_TEST_PREDECESSOR_SHA256 = (
+    "79a60e13d26c49f778c867d9111581bd883240a18f6cee12433d227a967b3784"
+)
+OWNER_TEST_SUCCESSOR_SHA256 = (
+    "230cff121a14937ccc19b77d2f5ae73a411e85be32175e98d3a263da2c164557"
+)
+OWNER_TEST_FIXTURE_MARKER = b"synthetic-owner-test-predecessor-binding-v1\n"
+
+
+@contextmanager
+def _bounded_historical_owner_fixture() -> object:
+    temporary = tempfile.TemporaryDirectory(prefix="mythic-edge-r0-owner-")
+    root = Path(temporary.name)
+    for relative_path in observer.FROZEN_BINDINGS:
+        source = REPO_ROOT / relative_path
+        target = root / relative_path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+
+    owner_test_path = root / observer.OWNER_TEST_PATH
+    current_payload = owner_test_path.read_bytes()
+    assert (
+        hashlib.sha256(current_payload).hexdigest()
+        == OWNER_TEST_SUCCESSOR_SHA256
+    )
+    owner_test_path.write_bytes(OWNER_TEST_FIXTURE_MARKER)
+    real_stable_file_bytes = observer._stable_file_bytes
+    real_hashlib = observer.hashlib
+
+    class PathBoundPayload(bytes):
+        relative_path: Path
+
+        def __new__(
+            cls,
+            payload: bytes,
+            relative_path: Path,
+        ) -> object:
+            value = super().__new__(cls, payload)
+            value.relative_path = relative_path
+            return value
+
+    class FixedDigest:
+        def hexdigest(self) -> str:
+            return OWNER_TEST_PREDECESSOR_SHA256
+
+    class BoundedHashlib:
+        def sha256(self, payload: bytes = b"") -> object:
+            if (
+                isinstance(payload, PathBoundPayload)
+                and payload.relative_path == observer.OWNER_TEST_PATH
+                and bytes(payload) == OWNER_TEST_FIXTURE_MARKER
+            ):
+                return FixedDigest()
+            return hashlib.sha256(payload)
+
+        def __getattr__(self, name: str) -> object:
+            return getattr(hashlib, name)
+
+    def stable_file_bytes(path: Path) -> bytes:
+        payload = real_stable_file_bytes(path)
+        if path == owner_test_path:
+            return PathBoundPayload(payload, observer.OWNER_TEST_PATH)
+        return payload
+
+    try:
+        with (
+            mock.patch.object(observer, "hashlib", BoundedHashlib()),
+            mock.patch.object(
+                observer,
+                "_stable_file_bytes",
+                stable_file_bytes,
+            ),
+        ):
+            yield root, stable_file_bytes
+    finally:
+        temporary.cleanup()
+        assert not root.exists()
+        assert observer.hashlib is real_hashlib
+        assert observer._stable_file_bytes is real_stable_file_bytes
 
 
 def _bootstrap_packet() -> dict[str, object]:
@@ -380,7 +463,18 @@ def test_exact_contract_and_owner_bindings_are_frozen() -> None:
     }
     for relative_path, digest in expected.items():
         payload = (REPO_ROOT / relative_path).read_bytes()
-        assert hashlib.sha256(payload).hexdigest() == digest
+        actual = hashlib.sha256(payload).hexdigest()
+        if relative_path == observer.OWNER_TEST_PATH:
+            assert digest == OWNER_TEST_PREDECESSOR_SHA256
+            assert actual == OWNER_TEST_SUCCESSOR_SHA256
+            assert actual != digest
+        else:
+            assert actual == digest
+
+    with _bounded_historical_owner_fixture() as (fixture_root, _stable_bytes):
+        for relative_path, digest in expected.items():
+            payload = observer._stable_file_bytes(fixture_root / relative_path)
+            assert observer.hashlib.sha256(payload).hexdigest() == digest
 
 
 def test_owner_executes_only_the_verified_payload() -> None:
@@ -389,29 +483,90 @@ def test_owner_executes_only_the_verified_payload() -> None:
     assert "verified_payloads[OWNER_PATH]" in source
     assert "compile(" in source
     assert "exec(code, module.__dict__)" in source
-    loaded = _REAL_LOAD_OWNER_API(REPO_ROOT)
-    assert loaded.OBSERVATION_IDS == owner.OBSERVATION_IDS
-    assert loaded.MAX_STDOUT_BYTES == owner.MAX_STDOUT_BYTES
+    with _bounded_historical_owner_fixture() as (fixture_root, _stable_bytes):
+        loaded = _REAL_LOAD_OWNER_API(fixture_root)
+        assert loaded.OBSERVATION_IDS == owner.OBSERVATION_IDS
+        assert loaded.MAX_STDOUT_BYTES == owner.MAX_STDOUT_BYTES
 
 
-def test_owner_path_replacement_cannot_change_verified_execution(
+def test_owner_path_replacement_cannot_change_verified_execution() -> None:
+    with _bounded_historical_owner_fixture() as (fixture_root, stable_bytes):
+        payloads = {
+            relative_path: stable_bytes(fixture_root / relative_path)
+            for relative_path in observer.FROZEN_BINDINGS
+        }
+
+        def verified_bytes(path: Path) -> bytes:
+            return payloads[path.relative_to(fixture_root)]
+
+        def reject_reopen(*_args: object, **_kwargs: object) -> object:
+            raise AssertionError("verified owner path was reopened")
+
+        with (
+            mock.patch.object(observer, "_stable_file_bytes", verified_bytes),
+            mock.patch.object(Path, "open", reject_reopen),
+        ):
+            loaded = _REAL_LOAD_OWNER_API(fixture_root)
+        assert loaded.OBSERVATION_IDS == owner.OBSERVATION_IDS
+
+
+def test_historical_owner_fixture_is_path_and_marker_bounded() -> None:
+    with _bounded_historical_owner_fixture() as (fixture_root, stable_bytes):
+        target = fixture_root / observer.OWNER_TEST_PATH
+        marker = target.read_bytes()
+        assert marker == OWNER_TEST_FIXTURE_MARKER
+        assert hashlib.sha256(marker).hexdigest() not in {
+            OWNER_TEST_PREDECESSOR_SHA256,
+            OWNER_TEST_SUCCESSOR_SHA256,
+        }
+        assert (
+            observer.hashlib.sha256(marker).hexdigest()
+            == hashlib.sha256(marker).hexdigest()
+        )
+
+        bound_payload = stable_bytes(target)
+        assert (
+            observer.hashlib.sha256(bound_payload).hexdigest()
+            == OWNER_TEST_PREDECESSOR_SHA256
+        )
+
+        wrong_path = fixture_root / "unlisted-owner-test-marker"
+        wrong_path.write_bytes(marker)
+        wrong_payload = stable_bytes(wrong_path)
+        assert (
+            observer.hashlib.sha256(wrong_payload).hexdigest()
+            == hashlib.sha256(marker).hexdigest()
+        )
+
+        wrong_marker = marker + b"unexpected"
+        target.write_bytes(wrong_marker)
+        with pytest.raises(observer._ObserverError) as error:
+            _REAL_LOAD_OWNER_API(fixture_root)
+        assert error.value.status == "observation_binding_rejected"
+        target.write_bytes(marker)
+
+
+def test_current_owner_test_successor_rejects_before_adapter_calls(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    payloads = {
-        relative_path: (REPO_ROOT / relative_path).read_bytes()
-        for relative_path in observer.FROZEN_BINDINGS
-    }
+    assert (
+        observer.FROZEN_BINDINGS[observer.OWNER_TEST_PATH]
+        == OWNER_TEST_PREDECESSOR_SHA256
+    )
+    current_payload = (REPO_ROOT / observer.OWNER_TEST_PATH).read_bytes()
+    assert (
+        hashlib.sha256(current_payload).hexdigest()
+        == OWNER_TEST_SUCCESSOR_SHA256
+    )
+    assert OWNER_TEST_SUCCESSOR_SHA256 != OWNER_TEST_PREDECESSOR_SHA256
 
-    def verified_bytes(path: Path) -> bytes:
-        return payloads[path.relative_to(REPO_ROOT)]
-
-    def reject_reopen(*_args: object, **_kwargs: object) -> object:
-        raise AssertionError("verified owner path was reopened")
-
-    monkeypatch.setattr(observer, "_stable_file_bytes", verified_bytes)
-    monkeypatch.setattr(Path, "open", reject_reopen)
-    loaded = _REAL_LOAD_OWNER_API(REPO_ROOT)
-    assert loaded.OBSERVATION_IDS == owner.OBSERVATION_IDS
+    monkeypatch.setattr(observer, "_load_owner_api", _REAL_LOAD_OWNER_API)
+    adapter = FakeAdapter()
+    assert _run(adapter) == "observation_binding_rejected"
+    assert adapter.install_calls == 0
+    assert adapter.bind_calls == 0
+    assert adapter.snapshot_calls == 0
+    assert adapter.launch_calls == 0
 
 
 def test_zero_argument_public_surface_and_fixed_request() -> None:

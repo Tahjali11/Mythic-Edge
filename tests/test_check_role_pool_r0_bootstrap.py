@@ -49,6 +49,21 @@ WORKFLOW_BINDINGS = {
     ),
 }
 
+STAGE3_VALIDATOR_RELATIVE_PATH = (
+    checker.SOURCE_SKILL_RELATIVE_PATH
+    / "scripts/check_stage3_behavioral_planning.py"
+)
+STAGE3_VALIDATOR_PREDECESSOR_SHA256 = (
+    "8946eb85257109670cc9f72970972d2458c9f56486127d1c4571e530240dc3b6"
+)
+STAGE3_VALIDATOR_SUCCESSOR_SHA256 = (
+    "177a530104461979c0ee0113be74e04092a7ad2a390300735b89f7e4835f4726"
+)
+STAGE3_VALIDATOR_FIXTURE_MARKER = (
+    b"synthetic-stage3-validator-predecessor-binding-v1\n"
+)
+_REAL_READ_STABLE_FILE = checker._read_stable_file
+
 
 @dataclass(frozen=True)
 class SyntheticFixture:
@@ -165,6 +180,45 @@ def _release_record(
     )
 
 
+def _release_rebaseline(
+    pool: object,
+    predecessor: dict[str, object],
+    *,
+    contract_sha256: str = "9" * 64,
+) -> dict[str, object]:
+    return _signed(
+        pool,
+        {
+            "schema_version": (
+                "trusted_owner_native_release_rebaseline_record.v1"
+            ),
+            "record_id": "r0.rebaseline.synthetic",
+            "predecessor_record_sha256": predecessor["record_sha256"],
+            "from_rung": "R0",
+            "to_rung": "R0",
+            "predecessor_contract_sha256": predecessor["contract_sha256"],
+            "contract_sha256": contract_sha256,
+            "predecessor_skill_tree_sha256": predecessor["skill_tree_sha256"],
+            "skill_tree_sha256": predecessor["skill_tree_sha256"],
+            "predecessor_registry_sha256": predecessor["registry_sha256"],
+            "registry_sha256": predecessor["registry_sha256"],
+            "predecessor_validator_bundle_sha256": predecessor[
+                "validator_bundle_sha256"
+            ],
+            "validator_bundle_sha256": predecessor[
+                "validator_bundle_sha256"
+            ],
+            "observation_receipt_sha256s": [],
+            "codex_e_review_ref": "review:codex-e-rebaseline",
+            "codex_e_review_sha256": "1" * 64,
+            "owner_decision_ref": "owner:rebaseline-decision",
+            "accepted_at_utc": "2026-07-30T00:00:01Z",
+            "record_sha256": "",
+        },
+        "record_sha256",
+    )
+
+
 def _write_registry(fixture: SyntheticFixture, registry: dict[str, object]) -> None:
     path = fixture.repository_root / checker.REGISTRY_RELATIVE_PATH
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -194,14 +248,105 @@ def _copy_workflow(target_root: Path) -> None:
 
 
 @contextmanager
+def _bounded_stage3_predecessor_fixture(
+    repository_root: Path,
+    installed_skills_root: Path,
+) -> None:
+    repository_path = repository_root / STAGE3_VALIDATOR_RELATIVE_PATH
+    installed_path = (
+        installed_skills_root
+        / "mythic-edge-role-pool"
+        / "scripts/check_stage3_behavioral_planning.py"
+    )
+    originals = {
+        repository_path: repository_path.read_bytes(),
+        installed_path: installed_path.read_bytes(),
+    }
+    assert {
+        hashlib.sha256(payload).hexdigest() for payload in originals.values()
+    } == {STAGE3_VALIDATOR_SUCCESSOR_SHA256}
+
+    class PathBoundPayload(bytes):
+        relative_path: Path
+
+        def __new__(
+            cls,
+            payload: bytes,
+            relative_path: Path,
+        ) -> object:
+            value = super().__new__(cls, payload)
+            value.relative_path = relative_path
+            return value
+
+    class FixedDigest:
+        def hexdigest(self) -> str:
+            return STAGE3_VALIDATOR_PREDECESSOR_SHA256
+
+    class BoundedHashlib:
+        def sha256(self, payload: bytes = b"") -> object:
+            if (
+                isinstance(payload, PathBoundPayload)
+                and payload.relative_path == STAGE3_VALIDATOR_RELATIVE_PATH
+                and bytes(payload) == STAGE3_VALIDATOR_FIXTURE_MARKER
+            ):
+                return FixedDigest()
+            return hashlib.sha256(payload)
+
+        def __getattr__(self, name: str) -> object:
+            return getattr(hashlib, name)
+
+    def read_stable_file(path: Path) -> object:
+        observation = _REAL_READ_STABLE_FILE(path)
+        if (
+            path == repository_path
+            and observation.payload is not None
+        ):
+            return checker.FileObservation(
+                observation.state,
+                PathBoundPayload(
+                    observation.payload,
+                    STAGE3_VALIDATOR_RELATIVE_PATH,
+                ),
+                observation.identity,
+            )
+        return observation
+
+    for path in originals:
+        path.write_bytes(STAGE3_VALIDATOR_FIXTURE_MARKER)
+    try:
+        with (
+            mock.patch.object(checker, "hashlib", BoundedHashlib()),
+            mock.patch.object(checker, "_read_stable_file", read_stable_file),
+        ):
+            yield
+    finally:
+        for path, payload in originals.items():
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(payload)
+
+
+@contextmanager
 def _exact_fixture(
     *,
     with_registry: bool = True,
+    bind_current_source_tree: bool = True,
+    bind_current_manifest: bool = True,
 ) -> SyntheticFixture:
     temporary = tempfile.TemporaryDirectory(prefix="mythic-edge-r0-bootstrap-")
     root = Path(temporary.name)
     repository_root = root / "repository"
     installed_skills_root = root / "user-home" / ".codex" / "skills"
+    previous_source_binding = (
+        checker.SOURCE_TREE_NODE_COUNT,
+        checker.SOURCE_TREE_FILE_COUNT,
+        checker.SOURCE_TREE_MANIFEST_BYTE_COUNT,
+        checker.SOURCE_TREE_SHA256,
+    )
+    previous_manifest_binding = (
+        checker.STAGE3_MANIFEST_FILE_COUNT,
+        checker.STAGE3_MANIFEST_BYTE_COUNT,
+        checker.STAGE3_MANIFEST_SHA256,
+    )
     try:
         for _, relative_path, _ in checker.FILE_BINDINGS:
             source = REPO_ROOT / relative_path
@@ -229,17 +374,73 @@ def _exact_fixture(
         _copy_workflow(installed_skills_root / "mythic-edge-workflow")
         roots = checker.EvaluationRoots(repository_root, installed_skills_root)
         owners = checker._load_owner_modules(repository_root)
-        fixture = SyntheticFixture(
-            root=root,
-            repository_root=repository_root,
-            installed_skills_root=installed_skills_root,
-            roots=roots,
-            owners=owners,
-        )
-        if with_registry:
-            _write_registry(fixture, _valid_registry(owners.pool))
-        yield fixture
+        with _bounded_stage3_predecessor_fixture(
+            repository_root,
+            installed_skills_root,
+        ):
+            if bind_current_manifest:
+                workflow_root = installed_skills_root / "mythic-edge-workflow"
+                owners.stage3.WORKFLOW_ROOT = workflow_root
+                owners.stage3.WORKFLOW_SNAPSHOT_FILES = tuple(
+                    workflow_root / relative_path
+                    for relative_path in checker.WORKFLOW_SNAPSHOT_RELATIVE_PATHS
+                )
+                rows = owners.stage3.current_skill_manifest()
+                current = {row["path"]: row["sha256"] for row in rows}
+                baseline = owners.stage3.STAGE2_BASELINE_FILES
+                owners.stage3.EXPECTED_CURRENT_MANIFEST_FILE_COUNT = len(rows)
+                owners.stage3.ALLOWED_ADDED_PATHS = set(current) - set(baseline)
+                owners.stage3.ALLOWED_MODIFIED_PATHS = {
+                    path
+                    for path in set(current) & set(baseline)
+                    if current[path] != baseline[path]
+                }
+                owners.stage3.REVIEWED_APP_SERVER_MODIFIED_DIGESTS = {
+                    path: current[path]
+                    for path in owners.stage3.REVIEWED_APP_SERVER_MODIFIED_DIGESTS
+                }
+                encoded_manifest = owners.stage3.canonical_bytes(rows)
+                checker.STAGE3_MANIFEST_FILE_COUNT = len(rows)
+                checker.STAGE3_MANIFEST_BYTE_COUNT = len(encoded_manifest)
+                checker.STAGE3_MANIFEST_SHA256 = hashlib.sha256(
+                    encoded_manifest
+                ).hexdigest()
+            if bind_current_source_tree:
+                snapshot = owners.installer._tree_snapshot(copied_source_skill)
+                assert snapshot is not None
+                (
+                    checker.SOURCE_TREE_NODE_COUNT,
+                    checker.SOURCE_TREE_FILE_COUNT,
+                    checker.SOURCE_TREE_MANIFEST_BYTE_COUNT,
+                    checker.SOURCE_TREE_SHA256,
+                ) = checker._tree_manifest(snapshot, owners.pool)
+            fixture = SyntheticFixture(
+                root=root,
+                repository_root=repository_root,
+                installed_skills_root=installed_skills_root,
+                roots=roots,
+                owners=owners,
+            )
+            if with_registry:
+                _write_registry(fixture, _valid_registry(owners.pool))
+            with mock.patch.object(
+                checker,
+                "_load_owner_modules",
+                return_value=owners,
+            ):
+                yield fixture
     finally:
+        (
+            checker.SOURCE_TREE_NODE_COUNT,
+            checker.SOURCE_TREE_FILE_COUNT,
+            checker.SOURCE_TREE_MANIFEST_BYTE_COUNT,
+            checker.SOURCE_TREE_SHA256,
+        ) = previous_source_binding
+        (
+            checker.STAGE3_MANIFEST_FILE_COUNT,
+            checker.STAGE3_MANIFEST_BYTE_COUNT,
+            checker.STAGE3_MANIFEST_SHA256,
+        ) = previous_manifest_binding
         temporary.cleanup()
         assert not root.exists()
 
@@ -248,30 +449,31 @@ def _run_raw_cli(
     fixture: SyntheticFixture,
     *arguments: str,
 ) -> subprocess.CompletedProcess[bytes]:
-    environment = os.environ.copy()
-    environment.pop("CODEX_HOME", None)
-    user_home = fixture.installed_skills_root.parents[1]
-    environment["HOME"] = str(user_home)
-    environment["USERPROFILE"] = str(user_home)
-    environment["PYTHONDONTWRITEBYTECODE"] = "1"
-    return subprocess.run(
-        [
-            sys.executable,
-            "-B",
-            str(
-                fixture.repository_root
-                / checker.CHECKER_RELATIVE_PATH
-            ),
-            *arguments,
-        ],
-        cwd=fixture.repository_root,
-        env=environment,
-        stdin=subprocess.DEVNULL,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=False,
-        timeout=60,
+    stdout_bytes = io.BytesIO()
+    stderr_bytes = io.BytesIO()
+    stdout = io.TextIOWrapper(stdout_bytes, encoding="utf-8", newline="")
+    stderr = io.TextIOWrapper(stderr_bytes, encoding="utf-8", newline="")
+    with (
+        mock.patch.object(
+            checker,
+            "_production_roots",
+            return_value=fixture.roots,
+        ),
+        redirect_stdout(stdout),
+        redirect_stderr(stderr),
+    ):
+        returncode = checker.run(list(arguments))
+    stdout.flush()
+    stderr.flush()
+    completed = subprocess.CompletedProcess(
+        args=list(arguments),
+        returncode=returncode,
+        stdout=stdout_bytes.getvalue(),
+        stderr=stderr_bytes.getvalue(),
     )
+    stdout.detach()
+    stderr.detach()
+    return completed
 
 
 def _exact_observations() -> object:
@@ -339,7 +541,10 @@ def test_successor_contract_and_profile_bindings_are_exact() -> None:
     }
 
     assert checker.PROFILE_CONTRACT_SHA256 == (
-        "944c1a85d9e2454fb82a5df3e2a2ac572191e3cd135c7854e0c012ffc07ab43f"
+        "8f885dcab251143ed9afb9c091d3d4beaa695bb934248ab674dd8784e8a71952"
+    )
+    assert checker.APP_NATIVE_CONTRACT_SHA256 == (
+        "00267797596c2de27e1bfcf06444534f66464370c7e4f2b25ff4090d3f6938d4"
     )
     assert checker.R0_CONTRACT_SHA256 == (
         "07ab1c7153ba1312533bdc27d984789127fb7fc02190d26853ffae1849c2ac82"
@@ -347,6 +552,19 @@ def test_successor_contract_and_profile_bindings_are_exact() -> None:
     assert binding_by_name["profile_contract"] == (
         Path("docs/contracts/trusted_owner_native_role_pool_profile.md"),
         checker.PROFILE_CONTRACT_SHA256,
+    )
+    assert binding_by_name["app_native_contract"] == (
+        Path(
+            "docs/contracts/role_pool_codex_app_native_direct_task_adapter.md"
+        ),
+        checker.APP_NATIVE_CONTRACT_SHA256,
+    )
+    assert binding_by_name["direct_fake_transport"] == (
+        checker.SOURCE_SKILL_RELATIVE_PATH
+        / "scripts/trusted_native_app_direct_task_adapter.py",
+        (
+            "b0eb739e960a342d95f148f6d2c57b121a2bed48c972907bc379cdbd2042d831"
+        ),
     )
     assert binding_by_name["r0_contract"] == (
         Path(
@@ -359,6 +577,104 @@ def test_successor_contract_and_profile_bindings_are_exact() -> None:
         Path("tools/install_codex_skills.py"),
         checker.INSTALLER_SHA256,
     )
+    assert binding_by_name["stage3_validator"] == (
+        STAGE3_VALIDATOR_RELATIVE_PATH,
+        STAGE3_VALIDATOR_PREDECESSOR_SHA256,
+    )
+
+
+def test_stage3_predecessor_fixture_is_path_and_marker_bounded() -> None:
+    with _exact_fixture() as fixture:
+        status, observed = checker._binding_status(fixture.repository_root)
+        assert status == "exact"
+        assert (
+            observed["stage3_validator"]
+            == STAGE3_VALIDATOR_PREDECESSOR_SHA256
+        )
+
+        target = fixture.repository_root / STAGE3_VALIDATOR_RELATIVE_PATH
+        marker = target.read_bytes()
+        assert marker == STAGE3_VALIDATOR_FIXTURE_MARKER
+        assert hashlib.sha256(marker).hexdigest() not in {
+            STAGE3_VALIDATOR_PREDECESSOR_SHA256,
+            STAGE3_VALIDATOR_SUCCESSOR_SHA256,
+        }
+        assert (
+            checker.hashlib.sha256(marker).hexdigest()
+            == hashlib.sha256(marker).hexdigest()
+        )
+
+        wrong_path = fixture.root / "unlisted-stage3-marker"
+        wrong_path.write_bytes(marker)
+        wrong_observation = checker._read_stable_file(wrong_path)
+        assert wrong_observation.payload is not None
+        assert (
+            checker.hashlib.sha256(wrong_observation.payload).hexdigest()
+            == hashlib.sha256(marker).hexdigest()
+        )
+
+        wrong_marker = marker + b"unexpected"
+        target.write_bytes(wrong_marker)
+        status, observed = checker._binding_status(fixture.repository_root)
+        assert status == "known_invalid"
+        assert observed["stage3_validator"] == hashlib.sha256(
+            wrong_marker
+        ).hexdigest()
+        target.write_bytes(marker)
+
+
+def test_current_stage3_successor_rejects_before_owner_loading() -> None:
+    binding = next(
+        (relative_path, digest)
+        for name, relative_path, digest in checker.FILE_BINDINGS
+        if name == "stage3_validator"
+    )
+    assert binding == (
+        STAGE3_VALIDATOR_RELATIVE_PATH,
+        STAGE3_VALIDATOR_PREDECESSOR_SHA256,
+    )
+    current_payload = (REPO_ROOT / STAGE3_VALIDATOR_RELATIVE_PATH).read_bytes()
+    assert (
+        hashlib.sha256(current_payload).hexdigest()
+        == STAGE3_VALIDATOR_SUCCESSOR_SHA256
+    )
+    assert (
+        STAGE3_VALIDATOR_SUCCESSOR_SHA256
+        != STAGE3_VALIDATOR_PREDECESSOR_SHA256
+    )
+
+    status, observed = checker._binding_status(REPO_ROOT)
+    assert status == "known_invalid"
+    assert observed["stage3_validator"] == STAGE3_VALIDATOR_SUCCESSOR_SHA256
+    with (
+        mock.patch.object(
+            checker,
+            "_load_owner_modules",
+            side_effect=AssertionError("owner loading reached"),
+        ),
+        pytest.raises(checker.PacketUnavailableError),
+    ):
+        checker._evaluate_for_tests(checker.EvaluationRoots(REPO_ROOT, None))
+
+
+def test_current_successor_tree_waits_for_separate_manifest_transition() -> None:
+    with _exact_fixture(
+        bind_current_source_tree=False,
+        bind_current_manifest=False,
+    ) as fixture:
+        packet, _ = checker._evaluate_for_tests(fixture.roots)
+
+    assert packet["contract_binding_status"] == "exact"
+    assert packet["validator_bundle_status"] == "exact"
+    assert packet["manifest_status"] == "known_invalid"
+    assert packet["source_install_status"] == "installed_drift"
+    assert packet["registry_status"] == "valid_exact"
+    assert packet["release_state_status"] == "absent_bootstrap_candidate"
+    assert packet["offline_validation_status"] == "passed"
+    assert packet["terminal_status"] == "blocked_manifest_invalid"
+    assert packet["eligible_for_independent_review"] is False
+    assert set(packet["effect_counts"].values()) == {0}
+    assert set(packet["authority_flags"].values()) == {False}
 
 
 def test_successor_pre_sync_projection_retains_source_drift_as_first_blocker() -> None:
@@ -388,17 +704,23 @@ def test_successor_pre_sync_projection_retains_source_drift_as_first_blocker() -
 def test_successor_post_sync_projection_advances_only_to_registry_blocker() -> None:
     with _exact_fixture(with_registry=False) as fixture:
         packet, _ = checker._evaluate_for_tests(fixture.roots)
+        expected_tree = (
+            checker.SOURCE_TREE_NODE_COUNT,
+            checker.SOURCE_TREE_FILE_COUNT,
+            checker.SOURCE_TREE_MANIFEST_BYTE_COUNT,
+            checker.SOURCE_TREE_SHA256,
+        )
 
     assert packet["contract_binding_status"] == "exact"
     assert packet["validator_bundle_status"] == "exact"
     assert packet["manifest_status"] == "exact"
     assert packet["source_install_status"] == "identical"
-    assert packet["installed_tree_node_count"] == checker.SOURCE_TREE_NODE_COUNT
-    assert packet["installed_tree_file_count"] == checker.SOURCE_TREE_FILE_COUNT
-    assert packet["installed_tree_manifest_byte_count"] == (
-        checker.SOURCE_TREE_MANIFEST_BYTE_COUNT
-    )
-    assert packet["installed_tree_sha256"] == checker.SOURCE_TREE_SHA256
+    assert (
+        packet["installed_tree_node_count"],
+        packet["installed_tree_file_count"],
+        packet["installed_tree_manifest_byte_count"],
+        packet["installed_tree_sha256"],
+    ) == expected_tree
     assert packet["registry_status"] == "absent"
     assert packet["release_state_status"] == "absent_bootstrap_candidate"
     assert packet["terminal_status"] == "blocked_registry_missing_or_invalid"
@@ -825,7 +1147,23 @@ def test_release_state_valid_r0_and_later_chains_are_conflicts() -> None:
         pool = fixture.owners.pool
         r0 = _release_record(pool)
         r1 = _release_record(pool, "R1", predecessor=r0)
-        for records in ([r0], [r0, r1]):
+        rebaseline = _release_rebaseline(pool, r0)
+        rebased_r1 = _release_record(pool, "R1", predecessor=rebaseline)
+        for field in (
+            "contract_sha256",
+            "skill_tree_sha256",
+            "registry_sha256",
+            "validator_bundle_sha256",
+        ):
+            rebased_r1[field] = rebaseline[field]
+        rebased_r1["accepted_at_utc"] = "2026-07-30T00:00:02Z"
+        rebased_r1 = _signed(pool, rebased_r1, "record_sha256")
+        for records in (
+            [r0],
+            [r0, r1],
+            [r0, rebaseline],
+            [r0, rebaseline, rebased_r1],
+        ):
             payload = b"".join(
                 pool.trusted_native_canonical_bytes(record)
                 for record in records
@@ -835,6 +1173,75 @@ def test_release_state_valid_r0_and_later_chains_are_conflicts() -> None:
                 pool,
             )
             assert status == "present_valid_chain"
+            assert digest == hashlib.sha256(payload).hexdigest()
+
+
+def test_release_state_selects_rebaseline_tip_and_rejects_invalid_forms() -> None:
+    with _exact_fixture() as fixture:
+        pool = fixture.owners.pool
+        r0 = _release_record(pool)
+        rebaseline = _release_rebaseline(pool, r0)
+        valid_payload = b"".join(
+            pool.trusted_native_canonical_bytes(record)
+            for record in (r0, rebaseline)
+        )
+        assert checker._parse_release_state(
+            checker.FileObservation("exact", valid_payload),
+            pool,
+        ) == ("present_valid_chain", hashlib.sha256(valid_payload).hexdigest())
+        assert pool.trusted_native_current_rung([r0, rebaseline]) == "R0"
+        bindings = pool.trusted_native_current_release_bindings(
+            [r0, rebaseline]
+        )
+        assert bindings is not None
+        assert bindings["record_sha256"] == rebaseline["record_sha256"]
+        assert bindings["contract_sha256"] == "9" * 64
+
+        stale = copy.deepcopy(rebaseline)
+        stale["predecessor_record_sha256"] = "0" * 64
+        stale = _signed(pool, stale, "record_sha256")
+
+        duplicate = copy.deepcopy(rebaseline)
+        duplicate["record_id"] = "r0.rebaseline.duplicate"
+        duplicate["predecessor_record_sha256"] = rebaseline["record_sha256"]
+        duplicate["accepted_at_utc"] = "2026-07-30T00:00:02Z"
+        duplicate = _signed(pool, duplicate, "record_sha256")
+
+        non_r0 = copy.deepcopy(rebaseline)
+        non_r0["to_rung"] = "R1"
+        non_r0 = _signed(pool, non_r0, "record_sha256")
+
+        wrong_binding = copy.deepcopy(rebaseline)
+        wrong_binding["predecessor_registry_sha256"] = "0" * 64
+        wrong_binding = _signed(pool, wrong_binding, "record_sha256")
+
+        unchanged = _release_rebaseline(
+            pool,
+            r0,
+            contract_sha256=str(r0["contract_sha256"]),
+        )
+
+        observed_r0 = copy.deepcopy(r0)
+        observed_r0["observation_receipt_sha256s"] = ["1" * 64, "2" * 64]
+        observed_r0 = _signed(pool, observed_r0, "record_sha256")
+
+        for records in (
+            [r0, stale],
+            [r0, rebaseline, duplicate],
+            [r0, non_r0],
+            [r0, wrong_binding],
+            [r0, unchanged],
+            [observed_r0, _release_rebaseline(pool, observed_r0)],
+        ):
+            payload = b"".join(
+                pool.trusted_native_canonical_bytes(record)
+                for record in records
+            )
+            status, digest = checker._parse_release_state(
+                checker.FileObservation("exact", payload),
+                pool,
+            )
+            assert status == "present_invalid_or_forked"
             assert digest == hashlib.sha256(payload).hexdigest()
 
 
@@ -930,7 +1337,10 @@ def test_packet_is_deterministic_self_digested_and_final_lf_exact() -> None:
 
 
 def test_cli_emits_canonical_packet_as_exact_binary_bytes() -> None:
-    with _exact_fixture() as fixture:
+    with _exact_fixture(
+        bind_current_source_tree=False,
+        bind_current_manifest=False,
+    ) as fixture:
         packet, encoded = checker._evaluate_for_tests(fixture.roots)
         completed = _run_raw_cli(fixture)
 
@@ -1178,9 +1588,13 @@ def test_cleanup_runs_after_success_and_failure() -> None:
         success_root = fixture.root
         checker._evaluate_for_tests(fixture.roots)
     assert not success_root.exists()
+    assert checker.hashlib is hashlib
+    assert checker._read_stable_file is _REAL_READ_STABLE_FILE
 
     failure_root: Path
     with pytest.raises(RuntimeError), _exact_fixture() as fixture:
         failure_root = fixture.root
         raise RuntimeError("synthetic failure")
     assert not failure_root.exists()
+    assert checker.hashlib is hashlib
+    assert checker._read_stable_file is _REAL_READ_STABLE_FILE
