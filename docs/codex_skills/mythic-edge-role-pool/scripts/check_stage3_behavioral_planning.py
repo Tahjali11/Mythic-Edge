@@ -300,7 +300,7 @@ APP_NATIVE_ADAPTER_MANIFEST_PATH = (
     "mythic-edge-role-pool/" + APP_NATIVE_ADAPTER_SKILL_RELATIVE_PATH
 )
 APP_NATIVE_ADAPTER_SHA256 = (
-    "fae7aa4aec168d02de0dbdd34ab6a181b9f545b85aba39110e8d741e8094dd98"
+    "a25394f3df664bfbde22851175fd8b747d0e48a33d4edfe7a6cf31747f81ff87"
 )
 APP_NATIVE_ADAPTER_TEST_SKILL_RELATIVE_PATH = (
     "scripts/test_trusted_native_app_direct_task_adapter.py"
@@ -309,7 +309,7 @@ APP_NATIVE_ADAPTER_TEST_MANIFEST_PATH = (
     "mythic-edge-role-pool/" + APP_NATIVE_ADAPTER_TEST_SKILL_RELATIVE_PATH
 )
 APP_NATIVE_ADAPTER_TEST_SHA256 = (
-    "48dee1083eb5f1a9b04af58e964946676b80d92c6f65d62f5137407897ab325e"
+    "6e781311f62fcd3d392cfe6c855f1bf4176f4b6ebf9ee864d7ccd20d6fff2b88"
 )
 APP_NATIVE_ADDED_PATHS = {
     APP_NATIVE_ADAPTER_MANIFEST_PATH,
@@ -345,7 +345,7 @@ REVIEWED_APP_NATIVE_MODIFIED_DIGESTS = {
     ): "5e4a64391c14e0652fe30d333a1c9f2e33a048f67dd9fa08d08454d1f684e361",
     (
         "mythic-edge-role-pool/scripts/test_check_pool_plan.py"
-    ): "8c9a0e3d063c601e000a5097a5dbeeac1dd6f0a33b5924f9df8186997bba935e",
+    ): "a4b7a74925f16f12dc7c3b1de71a234bff832ea1aa645d884424466bad1fb93d",
 }
 
 

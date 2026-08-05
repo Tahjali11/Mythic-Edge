@@ -1448,7 +1448,7 @@ def test_historical_role_pool_projection_and_current_successor_are_distinct() ->
         43,
         38,
         6840,
-        "f22d6557066a0449f3b7727621aa266bc3fda7ea5811965b30d964eebc4afc01",
+        "22d2ca28148196b221fd773559f8c1ab784b3ffac87e6746b00397c56571233d",
     )
     assert {
         current_row.relative_path

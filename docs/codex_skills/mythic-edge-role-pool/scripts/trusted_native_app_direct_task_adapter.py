@@ -664,10 +664,14 @@ def normalize_task_status(value: object) -> str:
         return "unavailable"
     if not all(isinstance(item, str) for item in observations):
         return "unknown"
+    if any(
+        item not in TERMINAL_STATUSES and item not in NONTERMINAL_STATUSES
+        for item in observations
+    ):
+        return "unknown"
     normalized = {
         item if item in TERMINAL_STATUSES else "running"
         for item in observations
-        if item in TERMINAL_STATUSES or item in NONTERMINAL_STATUSES
     }
     if len(normalized) > 1:
         return "conflicting"
@@ -1265,6 +1269,13 @@ class TrustedNativeAppDirectTaskAdapter:
             post_digest = readback["postWorktreeObservationSha256"]
             if post_digest is not None and not _is_sha256(post_digest):
                 raise AppNativeDirectAdapterError("post_worktree_observation_invalid")
+            if (
+                post_digest is not None
+                and post_digest != self._task_request["worktree_observation_sha256"]
+            ):
+                raise AppNativeDirectAdapterError(
+                    "post_worktree_observation_mismatch"
+                )
             if status == "completed" and post_digest is None:
                 raise AppNativeDirectAdapterError(
                     "post_worktree_observation_required"
@@ -1470,6 +1481,7 @@ class TrustedNativeAppDirectTaskAdapter:
                     "task_identity_changed",
                     "task_target_identity_changed",
                     "post_worktree_observation_invalid",
+                    "post_worktree_observation_mismatch",
                     "post_worktree_observation_required",
                 }
                 else "failed_lane_known"

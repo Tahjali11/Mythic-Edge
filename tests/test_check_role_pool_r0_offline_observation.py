@@ -1568,12 +1568,12 @@ def test_frozen_owner_bindings_and_current_successor_rejection_remain_exact() ->
         "tools/check_role_pool_r0_bootstrap.py": (
             observation.R0_CHECKER_SHA256,
             "34e7eddb31d2e476c74f857a010d441ee1e199915658964bd8cc0f0da2f5d914",
-            "954236dba7a39d3e6223fa114bc7190caf42ce853309870ed7c351ba12ae4289",
+            "3b895032e576fcf9dafb3f0b4d99a558480c588237baa5ddca87b1e19a3045da",
         ),
         "tests/test_check_role_pool_r0_bootstrap.py": (
             observation.R0_CHECKER_TEST_SHA256,
             "976aaac0fab0d8651b89122c2bdcd46ce3abf10a3f0764083574c2243381ac34",
-            "880c4e5c7b4692bbb156e87225b0451eedcfe4702ec31f19b3618c4d7fe2498f",
+            "86d183ca4f37432e879ea1a87b47926ef8e66b804014b0a5f2d6674371a2629b",
         ),
         "docs/codex_skills/mythic-edge-role-pool/scripts/check_pool_plan.py": (
             observation.RELEASE_VALIDATOR_SHA256,

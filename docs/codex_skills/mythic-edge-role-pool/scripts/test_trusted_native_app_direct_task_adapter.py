@@ -139,7 +139,7 @@ def _readback(
     base_sha: str = "b" * 40,
     operation_id: str | None = None,
     handoffs: list[object] | None = None,
-    post_sha256: str | None = "9" * 64,
+    post_sha256: str | None = "7" * 64,
     effect_counts: Mapping[str, int] | None = None,
 ) -> dict[str, object]:
     terminal = direct.normalize_task_status(status) in direct.TERMINAL_STATUSES
@@ -721,6 +721,64 @@ class LifecycleTests(unittest.TestCase):
         )
         self.assertIsNone(adapter.last_result["platform_receipt"])
         self.assertIsNone(adapter.last_result["task_receipt"])
+
+    def test_completed_with_changed_post_worktree_evidence_is_unknown(self) -> None:
+        client = FakeClient(read_responses=[_readback(post_sha256="9" * 64)])
+        adapter = _adapter(client)
+
+        with self.assertRaises(direct.AppNativeDirectAdapterError) as caught:
+            adapter.create_once(_request(lane=_lane()))
+
+        self.assertEqual(
+            caught.exception.code,
+            "post_worktree_observation_mismatch",
+        )
+        self.assertEqual(
+            caught.exception.profile_projection,
+            "unknown_outcome_reconciliation_required",
+        )
+        self.assertEqual(
+            adapter.last_result["status"],
+            "unknown_outcome_reconciliation_required",
+        )
+        self.assertIsNone(adapter.last_result["platform_receipt"])
+        self.assertIsNone(adapter.last_result["task_receipt"])
+
+    def test_mixed_recognized_and_unknown_status_requires_same_task(self) -> None:
+        mixed_status = ["completed", "newPlatformStatus"]
+        self.assertEqual(direct.normalize_task_status(mixed_status), "unknown")
+        client = FakeClient(
+            read_responses=[
+                _readback(status=mixed_status, handoffs=[]),
+                _readback(status=mixed_status, handoffs=[]),
+            ]
+        )
+        adapter = _adapter(
+            client,
+            monotonic_clock=_monotonic_clock(100.0, 5500.0),
+        )
+
+        with self.assertRaises(direct.AppNativeDirectAdapterError) as caught:
+            adapter.create_once(_request(lane=_lane()))
+
+        self.assertEqual(
+            caught.exception.profile_projection,
+            "unknown_outcome_reconciliation_required",
+        )
+        self.assertEqual(
+            adapter.last_result["status"],
+            "unknown_outcome_reconciliation_required",
+        )
+        self.assertEqual(
+            adapter.last_result["platform_receipt"]["terminal_status"],
+            "unknown",
+        )
+        self.assertEqual(
+            adapter.last_result["platform_receipt"]["reconciliation_status"],
+            "required_same_task",
+        )
+        self.assertEqual(len(client.create_calls), 1)
+        self.assertEqual(client.read_calls, [THREAD_ID, THREAD_ID])
 
     def test_completed_requires_exactly_one_unwrapped_valid_handoff(self) -> None:
         invalid_handoffs = (

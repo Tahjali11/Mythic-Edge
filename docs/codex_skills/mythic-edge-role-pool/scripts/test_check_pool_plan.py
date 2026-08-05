@@ -2516,7 +2516,9 @@ class TrustedOwnerNativeProfileTests(unittest.TestCase):
                     "operationId": operation_id,
                     "status": "completed",
                     "handoffs": [handoff],
-                    "postWorktreeObservationSha256": "9" * 64,
+                    "postWorktreeObservationSha256": task_request[
+                        "worktree_observation_sha256"
+                    ],
                     "effectCounts": {
                         field: 0 for field in app_direct.EFFECT_COUNT_FIELDS
                     },
