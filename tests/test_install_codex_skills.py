@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import hashlib
 import importlib.util
+import json
 import os
 import shutil
 import sys
@@ -15,6 +17,7 @@ assert SPEC.loader is not None
 installer = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = installer
 SPEC.loader.exec_module(installer)
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def _write_skill(repo_root: Path, name: str, body: str | None = None) -> Path:
@@ -81,6 +84,92 @@ def _configure_offline_sync(
         "_exact_native_task_capability_observed",
         lambda: pytest.fail("offline R0 sync must not query task capability"),
     )
+
+
+def _manifest_binding_from_metadata(
+    rows: list[dict[str, object]],
+) -> installer.TreeManifestBinding:
+    encoded = (
+        json.dumps(
+            {
+                "schema_version": "trusted_owner_role_pool_install_tree.v1",
+                "rows": rows,
+            },
+            ensure_ascii=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        + b"\n"
+    )
+    return installer.TreeManifestBinding(
+        node_count=len(rows),
+        file_count=sum(row["kind"] == "file" for row in rows),
+        canonical_byte_count=len(encoded),
+        sha256=hashlib.sha256(encoded).hexdigest(),
+    )
+
+
+def test_offline_r0_sync_app_native_tree_bindings_are_exact() -> None:
+    source_root = (
+        REPO_ROOT
+        / installer.SKILL_SOURCE_ROOT
+        / installer.TRUSTED_WINDOWS_SKILL_NAME
+    )
+    snapshot = installer._tree_snapshot(source_root)
+    assert snapshot is not None
+    source_rows = [
+        {
+            "path": relative_path,
+            "kind": kind,
+            "byte_count": len(payload),
+            "sha256": hashlib.sha256(payload).hexdigest(),
+        }
+        for relative_path, kind, payload in snapshot
+    ]
+    historical_modified = {
+        "scripts/check_pool_plan.py": (
+            467960,
+            "af9b9aed5b74bc508c08ce6ab51ce2ee9377aecef5657fca884145fa80c4e62d",
+        ),
+        "scripts/check_stage3_behavioral_planning.py": (
+            54224,
+            "8946eb85257109670cc9f72970972d2458c9f56486127d1c4571e530240dc3b6",
+        ),
+        "scripts/test_check_pool_plan.py": (
+            140448,
+            "60201804ed1700d5d75b615a39fc06ad0585b7073ca0a48d07e4fc99579f7b49",
+        ),
+        "scripts/test_stage3_behavioral_planning.py": (
+            207666,
+            "800cea8db721ef1b1ca65f41acafd5ac2e45de29f251500ba495888acf6e81ec",
+        ),
+    }
+    historical_added = {
+        "scripts/test_trusted_native_app_direct_task_adapter.py",
+        "scripts/trusted_native_app_direct_task_adapter.py",
+    }
+    predecessor_rows = []
+    for row in source_rows:
+        path = row["path"]
+        if path in historical_added:
+            continue
+        predecessor = dict(row)
+        if path in historical_modified:
+            byte_count, sha256 = historical_modified[path]
+            predecessor["byte_count"] = byte_count
+            predecessor["sha256"] = sha256
+        predecessor_rows.append(predecessor)
+
+    assert _manifest_binding_from_metadata(source_rows) == (
+        installer.OFFLINE_R0_SOURCE_BINDING
+    )
+    assert _manifest_binding_from_metadata(predecessor_rows) == (
+        installer.OFFLINE_R0_PREDECESSOR_BINDING
+    )
+    assert set(historical_modified) | historical_added == {
+        row["path"]
+        for row in source_rows
+        if row["path"] in set(historical_modified) | historical_added
+    }
 
 
 def test_discovers_only_skill_directories_with_skill_md(tmp_path: Path) -> None:

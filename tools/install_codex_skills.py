@@ -93,16 +93,16 @@ class _OfflineR0TargetRootMismatchError(Exception):
 
 
 OFFLINE_R0_SOURCE_BINDING = TreeManifestBinding(
+    node_count=43,
+    file_count=38,
+    canonical_byte_count=6840,
+    sha256="3aadf078fe594dafdd870df5577d342ccf1c8ea665f2a8f53cc79a58213717d6",
+)
+OFFLINE_R0_PREDECESSOR_BINDING = TreeManifestBinding(
     node_count=41,
     file_count=36,
     canonical_byte_count=6495,
     sha256="18c71ce37f79c8984b992d263a549b0bf354b66bb898a1a00a6b28ca8c50251f",
-)
-OFFLINE_R0_PREDECESSOR_BINDING = TreeManifestBinding(
-    node_count=39,
-    file_count=34,
-    canonical_byte_count=6159,
-    sha256="ab56582b39474db9e2cb50f83e7e05a341376efa7c9a10f0b1ec306c94d2009e",
 )
 
 
