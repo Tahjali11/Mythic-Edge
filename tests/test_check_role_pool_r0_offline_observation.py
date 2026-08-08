@@ -27,6 +27,53 @@ observation = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = observation
 SPEC.loader.exec_module(observation)
 _REAL_SHA256 = hashlib.sha256
+IMMUTABLE_R0_RELEASE_SHA256 = (
+    "723b1faeef731d9c526cdf9c19bfc2546b08d3eca94d4ee79eb62a5370f719c9"
+)
+IMMUTABLE_R0_RECORD_SHA256 = (
+    "78bff761396daaa72b0bd27ac1a799f5c01f5815f902a37ca84a024f5e4a9ba7"
+)
+IMMUTABLE_R0_RELEASE_LINE = (
+    b'{"schema_version":"trusted_owner_native_release_record.v1"'
+    b',"record_id":"r0.bootstrap.163224f847ac930a44e66aaa20f21543"'
+    b',"predecessor_record_sha256":null,"from_rung":null,"to_rung":"R0"'
+    b',"contract_sha256":"944c1a85d9e2454fb82a5df3e2a2ac572191e3cd135c7854e0c012ffc07ab43f"'
+    b',"skill_tree_sha256":"18c71ce37f79c8984b992d263a549b0bf354b66bb898a1a00a6b28ca8c50251f"'
+    b',"registry_sha256":"93a29e72b6e66ffff2879a427632d08e6b2424422745f6b1a5e1c3ac056d69a7"'
+    b',"validator_bundle_sha256":"ec792e6c3141e9e4138c4d14621b289dfa39617101db52ebdbd6a94cf77ea8a5"'
+    b',"observation_receipt_sha256s":[]'
+    b',"codex_e_review_ref":"https://github.com/Tahjali11/Mythic-Edge/issues/771#issuecomment-5142157228"'
+    b',"codex_e_review_sha256":"d5f1aeff5ac90d0ff00fd0e43386aed2057f93729d3b98a1fc6c3fedbf70f3ee"'
+    b',"owner_decision_ref":"https://github.com/Tahjali11/Mythic-Edge/issues/771#issuecomment-5142216555"'
+    b',"accepted_at_utc":"2026-07-31T11:09:36Z"'
+    b',"record_sha256":"78bff761396daaa72b0bd27ac1a799f5c01f5815f902a37ca84a024f5e4a9ba7"}\n'
+)
+IMMUTABLE_R0_FIELD_ORDER = (
+    "schema_version",
+    "record_id",
+    "predecessor_record_sha256",
+    "from_rung",
+    "to_rung",
+    "contract_sha256",
+    "skill_tree_sha256",
+    "registry_sha256",
+    "validator_bundle_sha256",
+    "observation_receipt_sha256s",
+    "codex_e_review_ref",
+    "codex_e_review_sha256",
+    "owner_decision_ref",
+    "accepted_at_utc",
+    "record_sha256",
+)
+SUCCESSOR_PROFILE_SHA256 = (
+    "8f885dcab251143ed9afb9c091d3d4beaa695bb934248ab674dd8784e8a71952"
+)
+SUCCESSOR_TREE_SHA256 = (
+    "3aadf078fe594dafdd870df5577d342ccf1c8ea665f2a8f53cc79a58213717d6"
+)
+SUCCESSOR_REGISTRY_SHA256 = (
+    "93a29e72b6e66ffff2879a427632d08e6b2424422745f6b1a5e1c3ac056d69a7"
+)
 
 
 class _FixedSha256:
@@ -40,10 +87,174 @@ class _FixedSha256:
         return bytes.fromhex(self._digest)
 
 
+class _PathBoundPayload(bytes):
+    relative_path: Path
+
+    def __new__(cls, payload: bytes, relative_path: Path) -> object:
+        value = super().__new__(cls, payload)
+        value.relative_path = relative_path
+        return value
+
+
 def _signed(document: dict[str, object], field: str) -> dict[str, object]:
     result = copy.deepcopy(document)
     result[field] = observation.self_digest(result, field)
     return result
+
+
+def _real_checker_and_pool() -> tuple[object, object]:
+    checker_spec = importlib.util.spec_from_file_location(
+        "_test_r0_checker_owner",
+        REPO_ROOT / observation.R0_CHECKER_RELATIVE_PATH,
+    )
+    assert checker_spec is not None and checker_spec.loader is not None
+    checker = importlib.util.module_from_spec(checker_spec)
+    sys.modules[checker_spec.name] = checker
+    checker_spec.loader.exec_module(checker)
+    return checker, checker._load_owner_modules(REPO_ROOT).pool
+
+
+def _immutable_r0_record(pool: object) -> dict[str, object]:
+    assert len(IMMUTABLE_R0_RELEASE_LINE) == 981
+    assert IMMUTABLE_R0_RELEASE_LINE.endswith(b"\n")
+    assert b"\r" not in IMMUTABLE_R0_RELEASE_LINE
+    assert hashlib.sha256(IMMUTABLE_R0_RELEASE_LINE).hexdigest() == (
+        IMMUTABLE_R0_RELEASE_SHA256
+    )
+    record = pool.parse_trusted_native_json(
+        IMMUTABLE_R0_RELEASE_LINE.decode("utf-8")
+    )
+    assert tuple(record) == IMMUTABLE_R0_FIELD_ORDER
+    assert record["record_sha256"] == IMMUTABLE_R0_RECORD_SHA256
+    assert pool.trusted_native_self_digest(record, "record_sha256") == (
+        IMMUTABLE_R0_RECORD_SHA256
+    )
+    assert pool.trusted_native_canonical_bytes(record) == IMMUTABLE_R0_RELEASE_LINE
+    assert pool.validate_trusted_native_release_record(record) == []
+    assert pool.validate_trusted_native_release_state_record(record) == []
+    assert pool.validate_trusted_native_release_chain([record]) == []
+    return record
+
+
+def _current_validator_bundle(checker: object, pool: object) -> str:
+    checker_path = REPO_ROOT / observation.R0_CHECKER_RELATIVE_PATH
+    checker_test_path = REPO_ROOT / "tests/test_check_role_pool_r0_bootstrap.py"
+    return checker._validator_bundle(
+        hashlib.sha256(checker_path.read_bytes()).hexdigest(),
+        hashlib.sha256(checker_test_path.read_bytes()).hexdigest(),
+        pool,
+    )
+
+
+def _validated_current_release(
+    checker: object,
+    pool: object,
+) -> tuple[bytes, list[dict[str, object]], dict[str, object]]:
+    payload = (REPO_ROOT / checker.RELEASE_STATE_RELATIVE_PATH).read_bytes()
+    assert payload.endswith(b"\n")
+    assert b"\r" not in payload
+    lines = payload.splitlines(keepends=True)
+    assert len(lines) in (1, 2)
+    assert b"".join(lines) == payload
+    assert lines[0] == IMMUTABLE_R0_RELEASE_LINE
+    records = [
+        pool.parse_trusted_native_json(line.decode("utf-8")) for line in lines
+    ]
+    assert all(
+        pool.validate_trusted_native_release_state_record(record) == []
+        for record in records
+    )
+    assert pool.validate_trusted_native_release_chain(records) == []
+    assert pool.trusted_native_current_rung(records) == "R0"
+    bindings = pool.trusted_native_current_release_bindings(records)
+    assert bindings is not None
+    if len(records) == 1:
+        assert payload == IMMUTABLE_R0_RELEASE_LINE
+        assert bindings["record_sha256"] == IMMUTABLE_R0_RECORD_SHA256
+    else:
+        predecessor, successor = records
+        assert successor["schema_version"] == (
+            "trusted_owner_native_release_rebaseline_record.v1"
+        )
+        assert successor["predecessor_record_sha256"] == (
+            predecessor["record_sha256"]
+        )
+        assert successor["predecessor_contract_sha256"] == (
+            predecessor["contract_sha256"]
+        )
+        assert successor["predecessor_skill_tree_sha256"] == (
+            predecessor["skill_tree_sha256"]
+        )
+        assert successor["predecessor_registry_sha256"] == (
+            predecessor["registry_sha256"]
+        )
+        assert successor["predecessor_validator_bundle_sha256"] == (
+            predecessor["validator_bundle_sha256"]
+        )
+        assert successor["contract_sha256"] == SUCCESSOR_PROFILE_SHA256
+        assert successor["skill_tree_sha256"] == SUCCESSOR_TREE_SHA256
+        assert successor["registry_sha256"] == SUCCESSOR_REGISTRY_SHA256
+        assert successor["validator_bundle_sha256"] == (
+            _current_validator_bundle(checker, pool)
+        )
+        assert successor["observation_receipt_sha256s"] == []
+        assert bindings["record_sha256"] == successor["record_sha256"]
+    return payload, records, bindings
+
+
+def _assert_authority_index_semantics(payload: bytes) -> None:
+    assert payload.endswith(b"\n")
+    assert b"\r" not in payload
+    text = payload.decode("ascii")
+    lines = text.splitlines()
+    assert lines[0] == "# Role Pool Current-Authority Index"
+    table_heading = "## Authority And Lifecycle Inventory"
+    table_header = (
+        "| surface_or_artifact_family | classification | canonical_reference | "
+        "observed_lifecycle_state | authority_effect_or_explicit_non_effect | "
+        "refresh_trigger |"
+    )
+    table_separator = "| --- | --- | --- | --- | --- | --- |"
+    assert lines.count(table_heading) == 1
+    assert lines.count(table_header) == 1
+    header_index = lines.index(table_header)
+    assert lines[header_index - 2] == table_heading
+    assert lines[header_index + 1] == table_separator
+
+    rows: list[tuple[str, ...]] = []
+    for line in lines[header_index + 2 :]:
+        if not line.startswith("|"):
+            break
+        cells = tuple(cell.strip() for cell in line[1:-1].split("|"))
+        assert len(cells) == 6
+        rows.append(cells)
+    assert rows
+    release_rows = [
+        row for row in rows if row[0] == "`trusted_owner_release_state`"
+    ]
+    assert len(release_rows) == 1
+    release_row = release_rows[0]
+    assert release_row[:4] == (
+        "`trusted_owner_release_state`",
+        "`current_normative_authority`",
+        "`docs/role_pool/trusted_owner_native_release_state.v1.jsonl`",
+        "`active_r0_offline_only_release_state`",
+    )
+    assert "R0 permits offline validation only" in release_row[4]
+    assert (
+        "creates no process, task, claim, command, dispatch, R1-R8, Stage-4, "
+        "or readiness authority"
+    ) in release_row[4]
+    assert "First release-record byte change" in release_row[5]
+
+    no_authority_heading = "## No Authority Or Readiness Claim"
+    assert lines.count(no_authority_heading) == 1
+    no_authority_index = lines.index(no_authority_heading)
+    assert no_authority_index > header_index
+    no_authority_text = "\n".join(lines[no_authority_index + 1 :])
+    assert "This index is navigational only." in no_authority_text
+    assert "R1-R8 advancement" in no_authority_text
+    assert "readiness" in no_authority_text
 
 
 def _receipt_bytes(position: int, variant: int = 0) -> bytes:
@@ -248,9 +459,7 @@ class _FakeChecker:
 
     def __init__(self) -> None:
         self.calls: list[str] = []
-        self._release = (
-            REPO_ROOT / self.RELEASE_STATE_RELATIVE_PATH
-        ).read_bytes()
+        self._release = IMMUTABLE_R0_RELEASE_LINE
         self._checker = b"synthetic historical R0 checker fixture"
         self._tests = b"synthetic historical R0 checker-test fixture"
         self._owners = SimpleNamespace(
@@ -272,12 +481,19 @@ class _FakeChecker:
 
     def _read_stable_file(self, path: Path) -> object:
         self.calls.append(f"read:{path.name}")
+        relative_path = path.relative_to(REPO_ROOT)
         payloads = {
-            self.RELEASE_STATE_RELATIVE_PATH.name: self._release,
-            self.CHECKER_RELATIVE_PATH.name: self._checker,
-            self.CHECKER_TEST_RELATIVE_PATH.name: self._tests,
+            self.RELEASE_STATE_RELATIVE_PATH: self._release,
+            self.CHECKER_RELATIVE_PATH: self._checker,
+            self.CHECKER_TEST_RELATIVE_PATH: self._tests,
         }
-        return SimpleNamespace(state="exact", payload=payloads[path.name])
+        payload = payloads[relative_path]
+        if relative_path in (
+            self.CHECKER_RELATIVE_PATH,
+            self.CHECKER_TEST_RELATIVE_PATH,
+        ):
+            payload = _PathBoundPayload(payload, relative_path)
+        return SimpleNamespace(state="exact", payload=payload)
 
     def _binding_status(self, root: Path) -> tuple[str, dict[str, str]]:
         assert root == REPO_ROOT
@@ -318,19 +534,77 @@ class _FakeChecker:
 
 def _historical_owner_hashes(checker: _FakeChecker) -> object:
     expected = {
-        checker._checker: observation.R0_CHECKER_SHA256,
-        checker._tests: observation.R0_CHECKER_TEST_SHA256,
+        checker.CHECKER_RELATIVE_PATH: (
+            checker._checker,
+            observation.R0_CHECKER_SHA256,
+        ),
+        checker.CHECKER_TEST_RELATIVE_PATH: (
+            checker._tests,
+            observation.R0_CHECKER_TEST_SHA256,
+        ),
     }
 
     def synthetic_sha256(payload: bytes = b"") -> object:
-        digest = expected.get(payload)
-        return _FixedSha256(digest) if digest is not None else _REAL_SHA256(payload)
+        binding = expected.get(getattr(payload, "relative_path", None))
+        if binding is not None and bytes(payload) == binding[0]:
+            return _FixedSha256(binding[1])
+        return _REAL_SHA256(payload)
 
     return mock.patch.object(
         observation.hashlib,
         "sha256",
         side_effect=synthetic_sha256,
     )
+
+
+def test_historical_owner_hashes_require_exact_path_and_payload_pairs() -> None:
+    checker = _FakeChecker()
+    checker_payload = _PathBoundPayload(
+        checker._checker,
+        checker.CHECKER_RELATIVE_PATH,
+    )
+    test_payload = _PathBoundPayload(
+        checker._tests,
+        checker.CHECKER_TEST_RELATIVE_PATH,
+    )
+    wrong_path = _PathBoundPayload(
+        checker._checker,
+        checker.CHECKER_TEST_RELATIVE_PATH,
+    )
+    wrong_payload = _PathBoundPayload(
+        checker._checker + b"-drift",
+        checker.CHECKER_RELATIVE_PATH,
+    )
+
+    with _historical_owner_hashes(checker):
+        assert observation.hashlib.sha256(checker_payload).hexdigest() == (
+            observation.R0_CHECKER_SHA256
+        )
+        assert observation.hashlib.sha256(test_payload).hexdigest() == (
+            observation.R0_CHECKER_TEST_SHA256
+        )
+        assert observation.hashlib.sha256(wrong_path).hexdigest() == (
+            _REAL_SHA256(wrong_path).hexdigest()
+        )
+        assert observation.hashlib.sha256(wrong_payload).hexdigest() == (
+            _REAL_SHA256(wrong_payload).hexdigest()
+        )
+        assert observation.hashlib.sha256(checker._checker).hexdigest() == (
+            _REAL_SHA256(checker._checker).hexdigest()
+        )
+
+
+def test_authority_index_semantics_reject_keyword_only_bytes() -> None:
+    fabricated = (
+        b"docs/role_pool/trusted_owner_native_release_state.v1.jsonl\n"
+        b"active_r0_offline_only_release_state\n"
+        b"R0 permits offline validation only\n"
+        b"R1-R8\n"
+        b"readiness authority\n"
+    )
+
+    with pytest.raises(AssertionError):
+        _assert_authority_index_semantics(fabricated)
 
 
 def _fake_roots() -> object:
@@ -1258,24 +1532,13 @@ def test_owner_projection_drift_fails_without_receipt() -> None:
 
 
 def test_current_release_uses_existing_owner_validation_and_exact_r0_ceiling() -> None:
-    checker_spec = importlib.util.spec_from_file_location(
-        "_test_r0_checker_owner",
-        REPO_ROOT / observation.R0_CHECKER_RELATIVE_PATH,
-    )
-    assert checker_spec is not None and checker_spec.loader is not None
-    checker = importlib.util.module_from_spec(checker_spec)
-    sys.modules[checker_spec.name] = checker
-    checker_spec.loader.exec_module(checker)
-    owners = checker._load_owner_modules(REPO_ROOT)
-    release = (REPO_ROOT / checker.RELEASE_STATE_RELATIVE_PATH).read_bytes()
-    records = [
-        owners.pool.parse_trusted_native_json(line.decode("utf-8"))
-        for line in release.splitlines(keepends=True)
-    ]
-    assert all(not owners.pool.validate_trusted_native_release_record(item) for item in records)
-    assert owners.pool.validate_trusted_native_release_chain(records) == []
-    assert owners.pool.trusted_native_current_rung(records) == "R0"
-    assert owners.pool.validate_trusted_native_release_ceiling(
+    checker, pool = _real_checker_and_pool()
+    immutable = _immutable_r0_record(pool)
+    _payload, records, bindings = _validated_current_release(checker, pool)
+    assert records[0] == immutable
+    assert bindings["to_rung"] == "R0"
+    assert records[-1]["observation_receipt_sha256s"] == []
+    assert pool.validate_trusted_native_release_ceiling(
         "R0",
         mode="offline",
         role=None,
@@ -1545,15 +1808,27 @@ def test_cli_unknown_owner_failure_never_echoes_raw_exception(
 
 
 def test_frozen_owner_bindings_and_current_successor_rejection_remain_exact() -> None:
+    release_before = (
+        REPO_ROOT / "docs/role_pool/trusted_owner_native_release_state.v1.jsonl"
+    ).read_bytes()
+    index_path = REPO_ROOT / "docs/role_pool_current_authority_index.md"
+    index_before = index_path.read_bytes()
+    checker, pool = _real_checker_and_pool()
+    _validated_current_release(checker, pool)
+    _assert_authority_index_semantics(index_before)
+    with pytest.raises(AssertionError):
+        _assert_authority_index_semantics(
+            b"active_r0_offline_only_release_state\n"
+        )
+    assert observation.RELEASE_STATE_ARTIFACT_SHA256 == IMMUTABLE_R0_RELEASE_SHA256
+
     unchanged_bindings = {
         observation.SEQUENCE_CONTRACT_RELATIVE_PATH.as_posix(): observation.SEQUENCE_CONTRACT_SHA256,
         observation.RECEIPT_ORDER_CONTRACT_RELATIVE_PATH.as_posix(): observation.RECEIPT_ORDER_CONTRACT_SHA256,
         observation.RECEIPT_ORDER_REVIEW_RELATIVE_PATH.as_posix(): observation.RECEIPT_ORDER_REVIEW_SHA256,
         observation.PROPORTIONATE_CONTRACT_RELATIVE_PATH.as_posix(): observation.PROPORTIONATE_CONTRACT_SHA256,
         observation.PROPORTIONATE_REVIEW_RELATIVE_PATH.as_posix(): observation.PROPORTIONATE_REVIEW_SHA256,
-        "docs/role_pool/trusted_owner_native_release_state.v1.jsonl": observation.RELEASE_STATE_ARTIFACT_SHA256,
         "docs/role_pool/trusted_owner_repository_registry.v1.json": observation.REGISTRY_ARTIFACT_SHA256,
-        "docs/role_pool_current_authority_index.md": observation.AUTHORITY_INDEX_SHA256,
     }
     assert all(
         hashlib.sha256((REPO_ROOT / path).read_bytes()).hexdigest() == expected
@@ -1570,11 +1845,6 @@ def test_frozen_owner_bindings_and_current_successor_rejection_remain_exact() ->
             "34e7eddb31d2e476c74f857a010d441ee1e199915658964bd8cc0f0da2f5d914",
             "897790936dc0c49401177958477f839d0cecac39bd0cf2e24849fc05954e781a",
         ),
-        "tests/test_check_role_pool_r0_bootstrap.py": (
-            observation.R0_CHECKER_TEST_SHA256,
-            "976aaac0fab0d8651b89122c2bdcd46ce3abf10a3f0764083574c2243381ac34",
-            "6378c9af6ffba7e8692b3f3653a722cbdb835ae5bcf9b86bdb4098691839dbdb",
-        ),
         "docs/codex_skills/mythic-edge-role-pool/scripts/check_pool_plan.py": (
             observation.RELEASE_VALIDATOR_SHA256,
             "af9b9aed5b74bc508c08ce6ab51ce2ee9377aecef5657fca884145fa80c4e62d",
@@ -1587,6 +1857,13 @@ def test_frozen_owner_bindings_and_current_successor_rejection_remain_exact() ->
         assert current == successor
         assert current != predecessor
 
+    assert observation.R0_CHECKER_TEST_SHA256 == (
+        "976aaac0fab0d8651b89122c2bdcd46ce3abf10a3f0764083574c2243381ac34"
+    )
+    assert hashlib.sha256(
+        (REPO_ROOT / "tests/test_check_role_pool_r0_bootstrap.py").read_bytes()
+    ).hexdigest() != observation.R0_CHECKER_TEST_SHA256
+
     with pytest.raises(observation.ObservationFailure) as error:
         observation._load_checker(REPO_ROOT)
     assert error.value.status == "observation_binding_rejected"
@@ -1598,6 +1875,10 @@ def test_frozen_owner_bindings_and_current_successor_rejection_remain_exact() ->
         observation._load_checker.__code__.co_names
     )
     assert "validate_running_direct_interpreter" not in observation.run.__code__.co_names
+    assert (
+        REPO_ROOT / "docs/role_pool/trusted_owner_native_release_state.v1.jsonl"
+    ).read_bytes() == release_before
+    assert index_path.read_bytes() == index_before
 
 
 def test_no_runtime_function_mutates_repository_or_grants_authority() -> None:
