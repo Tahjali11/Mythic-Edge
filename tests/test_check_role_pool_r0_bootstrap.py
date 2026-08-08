@@ -63,6 +63,53 @@ STAGE3_VALIDATOR_FIXTURE_MARKER = (
     b"synthetic-stage3-validator-predecessor-binding-v1\n"
 )
 _REAL_READ_STABLE_FILE = checker._read_stable_file
+IMMUTABLE_R0_RELEASE_SHA256 = (
+    "723b1faeef731d9c526cdf9c19bfc2546b08d3eca94d4ee79eb62a5370f719c9"
+)
+IMMUTABLE_R0_RECORD_SHA256 = (
+    "78bff761396daaa72b0bd27ac1a799f5c01f5815f902a37ca84a024f5e4a9ba7"
+)
+IMMUTABLE_R0_RELEASE_LINE = (
+    b'{"schema_version":"trusted_owner_native_release_record.v1"'
+    b',"record_id":"r0.bootstrap.163224f847ac930a44e66aaa20f21543"'
+    b',"predecessor_record_sha256":null,"from_rung":null,"to_rung":"R0"'
+    b',"contract_sha256":"944c1a85d9e2454fb82a5df3e2a2ac572191e3cd135c7854e0c012ffc07ab43f"'
+    b',"skill_tree_sha256":"18c71ce37f79c8984b992d263a549b0bf354b66bb898a1a00a6b28ca8c50251f"'
+    b',"registry_sha256":"93a29e72b6e66ffff2879a427632d08e6b2424422745f6b1a5e1c3ac056d69a7"'
+    b',"validator_bundle_sha256":"ec792e6c3141e9e4138c4d14621b289dfa39617101db52ebdbd6a94cf77ea8a5"'
+    b',"observation_receipt_sha256s":[]'
+    b',"codex_e_review_ref":"https://github.com/Tahjali11/Mythic-Edge/issues/771#issuecomment-5142157228"'
+    b',"codex_e_review_sha256":"d5f1aeff5ac90d0ff00fd0e43386aed2057f93729d3b98a1fc6c3fedbf70f3ee"'
+    b',"owner_decision_ref":"https://github.com/Tahjali11/Mythic-Edge/issues/771#issuecomment-5142216555"'
+    b',"accepted_at_utc":"2026-07-31T11:09:36Z"'
+    b',"record_sha256":"78bff761396daaa72b0bd27ac1a799f5c01f5815f902a37ca84a024f5e4a9ba7"}\n'
+)
+IMMUTABLE_R0_FIELD_ORDER = (
+    "schema_version",
+    "record_id",
+    "predecessor_record_sha256",
+    "from_rung",
+    "to_rung",
+    "contract_sha256",
+    "skill_tree_sha256",
+    "registry_sha256",
+    "validator_bundle_sha256",
+    "observation_receipt_sha256s",
+    "codex_e_review_ref",
+    "codex_e_review_sha256",
+    "owner_decision_ref",
+    "accepted_at_utc",
+    "record_sha256",
+)
+SUCCESSOR_PROFILE_SHA256 = (
+    "8f885dcab251143ed9afb9c091d3d4beaa695bb934248ab674dd8784e8a71952"
+)
+SUCCESSOR_TREE_SHA256 = (
+    "3aadf078fe594dafdd870df5577d342ccf1c8ea665f2a8f53cc79a58213717d6"
+)
+SUCCESSOR_REGISTRY_SHA256 = (
+    "93a29e72b6e66ffff2879a427632d08e6b2424422745f6b1a5e1c3ac056d69a7"
+)
 
 
 @dataclass(frozen=True)
@@ -83,6 +130,91 @@ def _signed(pool: object, document: dict[str, object], field: str) -> dict[str, 
     result = copy.deepcopy(document)
     result[field] = pool.trusted_native_self_digest(result, field)
     return result
+
+
+def _immutable_r0_record(pool: object) -> dict[str, object]:
+    assert len(IMMUTABLE_R0_RELEASE_LINE) == 981
+    assert IMMUTABLE_R0_RELEASE_LINE.endswith(b"\n")
+    assert b"\r" not in IMMUTABLE_R0_RELEASE_LINE
+    assert hashlib.sha256(IMMUTABLE_R0_RELEASE_LINE).hexdigest() == (
+        IMMUTABLE_R0_RELEASE_SHA256
+    )
+    record = pool.parse_trusted_native_json(
+        IMMUTABLE_R0_RELEASE_LINE.decode("utf-8")
+    )
+    assert tuple(record) == IMMUTABLE_R0_FIELD_ORDER
+    assert record["record_sha256"] == IMMUTABLE_R0_RECORD_SHA256
+    assert pool.trusted_native_self_digest(record, "record_sha256") == (
+        IMMUTABLE_R0_RECORD_SHA256
+    )
+    assert pool.trusted_native_canonical_bytes(record) == IMMUTABLE_R0_RELEASE_LINE
+    assert pool.validate_trusted_native_release_record(record) == []
+    assert pool.validate_trusted_native_release_state_record(record) == []
+    assert pool.validate_trusted_native_release_chain([record]) == []
+    return record
+
+
+def _current_validator_bundle(pool: object) -> str:
+    return checker._validator_bundle(
+        hashlib.sha256(MODULE_PATH.read_bytes()).hexdigest(),
+        hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+        pool,
+    )
+
+
+def _validated_current_release(
+    pool: object,
+) -> tuple[bytes, list[dict[str, object]], dict[str, object]]:
+    payload = (REPO_ROOT / checker.RELEASE_STATE_RELATIVE_PATH).read_bytes()
+    assert payload.endswith(b"\n")
+    assert b"\r" not in payload
+    lines = payload.splitlines(keepends=True)
+    assert len(lines) in (1, 2)
+    assert b"".join(lines) == payload
+    assert lines[0] == IMMUTABLE_R0_RELEASE_LINE
+    records = [
+        pool.parse_trusted_native_json(line.decode("utf-8")) for line in lines
+    ]
+    assert all(
+        pool.validate_trusted_native_release_state_record(record) == []
+        for record in records
+    )
+    assert pool.validate_trusted_native_release_chain(records) == []
+    assert pool.trusted_native_current_rung(records) == "R0"
+    bindings = pool.trusted_native_current_release_bindings(records)
+    assert bindings is not None
+    if len(records) == 1:
+        assert payload == IMMUTABLE_R0_RELEASE_LINE
+        assert bindings["record_sha256"] == IMMUTABLE_R0_RECORD_SHA256
+    else:
+        predecessor, successor = records
+        assert successor["schema_version"] == (
+            "trusted_owner_native_release_rebaseline_record.v1"
+        )
+        assert successor["predecessor_record_sha256"] == (
+            predecessor["record_sha256"]
+        )
+        assert successor["predecessor_contract_sha256"] == (
+            predecessor["contract_sha256"]
+        )
+        assert successor["predecessor_skill_tree_sha256"] == (
+            predecessor["skill_tree_sha256"]
+        )
+        assert successor["predecessor_registry_sha256"] == (
+            predecessor["registry_sha256"]
+        )
+        assert successor["predecessor_validator_bundle_sha256"] == (
+            predecessor["validator_bundle_sha256"]
+        )
+        assert successor["contract_sha256"] == SUCCESSOR_PROFILE_SHA256
+        assert successor["skill_tree_sha256"] == SUCCESSOR_TREE_SHA256
+        assert successor["registry_sha256"] == SUCCESSOR_REGISTRY_SHA256
+        assert successor["validator_bundle_sha256"] == (
+            _current_validator_bundle(pool)
+        )
+        assert successor["observation_receipt_sha256s"] == []
+        assert bindings["record_sha256"] == successor["record_sha256"]
+    return payload, records, bindings
 
 
 def _valid_registry(pool: object) -> dict[str, object]:
@@ -551,17 +683,17 @@ def _synthetic_installed_predecessor_projection(
         yield
 
 
-def _copy_current_registry_and_historical_release(
+def _copy_registry_and_immutable_release(
     fixture: SyntheticFixture,
 ) -> None:
     _copy_file(
         REPO_ROOT / checker.REGISTRY_RELATIVE_PATH,
         fixture.repository_root / checker.REGISTRY_RELATIVE_PATH,
     )
-    _copy_file(
-        REPO_ROOT / checker.RELEASE_STATE_RELATIVE_PATH,
-        fixture.repository_root / checker.RELEASE_STATE_RELATIVE_PATH,
-    )
+    _immutable_r0_record(fixture.owners.pool)
+    target = fixture.repository_root / checker.RELEASE_STATE_RELATIVE_PATH
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_bytes(IMMUTABLE_R0_RELEASE_LINE)
 
 
 def test_exact_synthetic_roots_are_eligible_and_owner_backed() -> None:
@@ -755,7 +887,7 @@ def test_current_successor_manifest_and_tree_bindings_are_exact() -> None:
 
 def test_successor_pre_sync_projection_retains_source_drift_as_first_blocker() -> None:
     with _exact_fixture(with_registry=False) as fixture:
-        _copy_current_registry_and_historical_release(fixture)
+        _copy_registry_and_immutable_release(fixture)
         with _synthetic_installed_predecessor_projection(fixture):
             packet, _ = checker._evaluate_for_tests(fixture.roots)
 
@@ -780,7 +912,7 @@ def test_successor_pre_sync_projection_retains_source_drift_as_first_blocker() -
 
 def test_successor_post_sync_projection_stops_at_release_conflict() -> None:
     with _exact_fixture(with_registry=False) as fixture:
-        _copy_current_registry_and_historical_release(fixture)
+        _copy_registry_and_immutable_release(fixture)
         packet, _ = checker._evaluate_for_tests(fixture.roots)
         expected_tree = (
             checker.SOURCE_TREE_NODE_COUNT,
@@ -1252,6 +1384,20 @@ def test_release_state_valid_r0_and_later_chains_are_conflicts() -> None:
             )
             assert status == "present_valid_chain"
             assert digest == hashlib.sha256(payload).hexdigest()
+
+
+def test_immutable_and_current_release_states_use_existing_owner_rules() -> None:
+    with _exact_fixture() as fixture:
+        pool = fixture.owners.pool
+        immutable = _immutable_r0_record(pool)
+        payload, records, bindings = _validated_current_release(pool)
+
+    assert records[0] == immutable
+    assert hashlib.sha256(payload).hexdigest() == hashlib.sha256(
+        b"".join(pool.trusted_native_canonical_bytes(record) for record in records)
+    ).hexdigest()
+    assert bindings["to_rung"] == "R0"
+    assert records[-1]["observation_receipt_sha256s"] == []
 
 
 def test_release_state_selects_rebaseline_tip_and_rejects_invalid_forms() -> None:

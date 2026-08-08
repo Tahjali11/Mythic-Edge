@@ -36,9 +36,6 @@ _REAL_LOAD_OWNER_API = observer._load_owner_api
 OWNER_TEST_PREDECESSOR_SHA256 = (
     "79a60e13d26c49f778c867d9111581bd883240a18f6cee12433d227a967b3784"
 )
-OWNER_TEST_SUCCESSOR_SHA256 = (
-    "8201a348b563b80fb7018851680adf44313e60ce583b944a528be2cfb4b3d60f"
-)
 OWNER_TEST_FIXTURE_MARKER = b"synthetic-owner-test-predecessor-binding-v1\n"
 
 
@@ -47,18 +44,14 @@ def _bounded_historical_owner_fixture() -> object:
     temporary = tempfile.TemporaryDirectory(prefix="mythic-edge-r0-owner-")
     root = Path(temporary.name)
     for relative_path in observer.FROZEN_BINDINGS:
-        source = REPO_ROOT / relative_path
         target = root / relative_path
         target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source, target)
+        if relative_path == observer.OWNER_TEST_PATH:
+            target.write_bytes(OWNER_TEST_FIXTURE_MARKER)
+        else:
+            shutil.copy2(REPO_ROOT / relative_path, target)
 
     owner_test_path = root / observer.OWNER_TEST_PATH
-    current_payload = owner_test_path.read_bytes()
-    assert (
-        hashlib.sha256(current_payload).hexdigest()
-        == OWNER_TEST_SUCCESSOR_SHA256
-    )
-    owner_test_path.write_bytes(OWNER_TEST_FIXTURE_MARKER)
     real_stable_file_bytes = observer._stable_file_bytes
     real_hashlib = observer.hashlib
 
@@ -466,7 +459,6 @@ def test_exact_contract_and_owner_bindings_are_frozen() -> None:
         actual = hashlib.sha256(payload).hexdigest()
         if relative_path == observer.OWNER_TEST_PATH:
             assert digest == OWNER_TEST_PREDECESSOR_SHA256
-            assert actual == OWNER_TEST_SUCCESSOR_SHA256
             assert actual != digest
         else:
             assert actual == digest
@@ -515,10 +507,7 @@ def test_historical_owner_fixture_is_path_and_marker_bounded() -> None:
         target = fixture_root / observer.OWNER_TEST_PATH
         marker = target.read_bytes()
         assert marker == OWNER_TEST_FIXTURE_MARKER
-        assert hashlib.sha256(marker).hexdigest() not in {
-            OWNER_TEST_PREDECESSOR_SHA256,
-            OWNER_TEST_SUCCESSOR_SHA256,
-        }
+        assert hashlib.sha256(marker).hexdigest() != OWNER_TEST_PREDECESSOR_SHA256
         assert (
             observer.hashlib.sha256(marker).hexdigest()
             == hashlib.sha256(marker).hexdigest()
@@ -546,7 +535,7 @@ def test_historical_owner_fixture_is_path_and_marker_bounded() -> None:
         target.write_bytes(marker)
 
 
-def test_current_owner_test_successor_rejects_before_adapter_calls(
+def test_current_owner_test_drift_rejects_before_adapter_calls(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     assert (
@@ -554,11 +543,9 @@ def test_current_owner_test_successor_rejects_before_adapter_calls(
         == OWNER_TEST_PREDECESSOR_SHA256
     )
     current_payload = (REPO_ROOT / observer.OWNER_TEST_PATH).read_bytes()
-    assert (
-        hashlib.sha256(current_payload).hexdigest()
-        == OWNER_TEST_SUCCESSOR_SHA256
+    assert hashlib.sha256(current_payload).hexdigest() != (
+        OWNER_TEST_PREDECESSOR_SHA256
     )
-    assert OWNER_TEST_SUCCESSOR_SHA256 != OWNER_TEST_PREDECESSOR_SHA256
 
     monkeypatch.setattr(observer, "_load_owner_api", _REAL_LOAD_OWNER_API)
     adapter = FakeAdapter()
