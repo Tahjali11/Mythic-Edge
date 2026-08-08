@@ -19,7 +19,7 @@ OPERATION = "evaluate_r0_bootstrap_eligibility_read_only"
 REPOSITORY_ID = 1235264383
 REPOSITORY_NAME = "tahjali11/mythic-edge"
 ISSUE_URL = "https://github.com/Tahjali11/Mythic-Edge/issues/761"
-BASE_COMMIT = "10d4a4a79053fe33297a612599667d9b58bb4296"
+BASE_COMMIT = "ad88b264a1c7947682a00b11c4a57963a43b7548"
 
 PROFILE_CONTRACT_SHA256 = (
     "8f885dcab251143ed9afb9c091d3d4beaa695bb934248ab674dd8784e8a71952"
@@ -31,21 +31,21 @@ APP_NATIVE_CONTRACT_SHA256 = (
     "00267797596c2de27e1bfcf06444534f66464370c7e4f2b25ff4090d3f6938d4"
 )
 R0_CONTRACT_SHA256 = (
-    "07ab1c7153ba1312533bdc27d984789127fb7fc02190d26853ffae1849c2ac82"
+    "ef440f1fe4ce9b0fd342057864e41cbdef93c1ac12ea85a1f9d01912eec4cd02"
 )
 INSTALLER_SHA256 = (
-    "0898b4c476a3d1ac8fff726b146e40c2340a96134a4b035928fcbeaaff78d2ad"
+    "52ee30e62554154bd6231f4b178a4e2fdbdd9121d799264156acfbc046829c8c"
 )
 STAGE3_MANIFEST_SHA256 = (
-    "cc88860794f918afbb050d6149df3cd11d195fab098b907be06f44ed88de7e06"
+    "9109457e5897139658183595fb11c8a7bf9d66e4fb5b5fe6842b20bac43fbce2"
 )
-STAGE3_MANIFEST_FILE_COUNT = 39
-STAGE3_MANIFEST_BYTE_COUNT = 5729
-SOURCE_TREE_NODE_COUNT = 41
-SOURCE_TREE_FILE_COUNT = 36
-SOURCE_TREE_MANIFEST_BYTE_COUNT = 6495
+STAGE3_MANIFEST_FILE_COUNT = 41
+STAGE3_MANIFEST_BYTE_COUNT = 6052
+SOURCE_TREE_NODE_COUNT = 43
+SOURCE_TREE_FILE_COUNT = 38
+SOURCE_TREE_MANIFEST_BYTE_COUNT = 6840
 SOURCE_TREE_SHA256 = (
-    "18c71ce37f79c8984b992d263a549b0bf354b66bb898a1a00a6b28ca8c50251f"
+    "3aadf078fe594dafdd870df5577d342ccf1c8ea665f2a8f53cc79a58213717d6"
 )
 
 CHECKER_RELATIVE_PATH = Path("tools/check_role_pool_r0_bootstrap.py")
@@ -98,7 +98,7 @@ FILE_BINDINGS = (
         "stage3_validator",
         SOURCE_SKILL_RELATIVE_PATH
         / "scripts/check_stage3_behavioral_planning.py",
-        "8946eb85257109670cc9f72970972d2458c9f56486127d1c4571e530240dc3b6",
+        "177a530104461979c0ee0113be74e04092a7ad2a390300735b89f7e4835f4726",
     ),
     (
         "fake_transport",
@@ -121,7 +121,7 @@ FILE_BINDINGS = (
         "r0_contract",
         Path(
             "docs/contracts/"
-            "role_pool_trusted_owner_r0_post_sync_evidence_binding_successor.md"
+            "role_pool_codex_app_native_r0_binding_and_sync_successor.md"
         ),
         R0_CONTRACT_SHA256,
     ),

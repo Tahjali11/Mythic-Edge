@@ -251,7 +251,12 @@ def _copy_workflow(target_root: Path) -> None:
 def _bounded_stage3_predecessor_fixture(
     repository_root: Path,
     installed_skills_root: Path,
+    *,
+    enabled: bool = True,
 ) -> None:
+    if not enabled:
+        yield
+        return
     repository_path = repository_root / STAGE3_VALIDATOR_RELATIVE_PATH
     installed_path = (
         installed_skills_root
@@ -377,6 +382,7 @@ def _exact_fixture(
         with _bounded_stage3_predecessor_fixture(
             repository_root,
             installed_skills_root,
+            enabled=False,
         ):
             if bind_current_manifest:
                 workflow_root = installed_skills_root / "mythic-edge-workflow"
@@ -513,6 +519,51 @@ def _replace_observations(observations: object, **changes: object) -> object:
     return checker.ComponentObservations(**values)
 
 
+@contextmanager
+def _synthetic_installed_predecessor_projection(
+    fixture: SyntheticFixture,
+) -> None:
+    installed_skill = (
+        fixture.installed_skills_root / "mythic-edge-role-pool"
+    )
+    marker = b"synthetic-app-native-installed-predecessor\n"
+    installed_skill.joinpath("SKILL.md").write_bytes(marker)
+    real_tree_manifest = checker._tree_manifest
+
+    def project_tree(snapshot: object, pool: object) -> tuple[int, int, int, str]:
+        if any(
+            relative_path == "SKILL.md" and payload == marker
+            for relative_path, _kind, payload in snapshot
+        ):
+            return (
+                41,
+                36,
+                6495,
+                "18c71ce37f79c8984b992d263a549b0bf354b66bb898a1a00a6b28ca8c50251f",
+            )
+        return real_tree_manifest(snapshot, pool)
+
+    with mock.patch.object(
+        checker,
+        "_tree_manifest",
+        side_effect=project_tree,
+    ):
+        yield
+
+
+def _copy_current_registry_and_historical_release(
+    fixture: SyntheticFixture,
+) -> None:
+    _copy_file(
+        REPO_ROOT / checker.REGISTRY_RELATIVE_PATH,
+        fixture.repository_root / checker.REGISTRY_RELATIVE_PATH,
+    )
+    _copy_file(
+        REPO_ROOT / checker.RELEASE_STATE_RELATIVE_PATH,
+        fixture.repository_root / checker.RELEASE_STATE_RELATIVE_PATH,
+    )
+
+
 def test_exact_synthetic_roots_are_eligible_and_owner_backed() -> None:
     with _exact_fixture() as fixture:
         packet, encoded = checker._evaluate_for_tests(fixture.roots)
@@ -547,7 +598,7 @@ def test_successor_contract_and_profile_bindings_are_exact() -> None:
         "00267797596c2de27e1bfcf06444534f66464370c7e4f2b25ff4090d3f6938d4"
     )
     assert checker.R0_CONTRACT_SHA256 == (
-        "07ab1c7153ba1312533bdc27d984789127fb7fc02190d26853ffae1849c2ac82"
+        "ef440f1fe4ce9b0fd342057864e41cbdef93c1ac12ea85a1f9d01912eec4cd02"
     )
     assert binding_by_name["profile_contract"] == (
         Path("docs/contracts/trusted_owner_native_role_pool_profile.md"),
@@ -569,7 +620,7 @@ def test_successor_contract_and_profile_bindings_are_exact() -> None:
     assert binding_by_name["r0_contract"] == (
         Path(
             "docs/contracts/"
-            "role_pool_trusted_owner_r0_post_sync_evidence_binding_successor.md"
+            "role_pool_codex_app_native_r0_binding_and_sync_successor.md"
         ),
         checker.R0_CONTRACT_SHA256,
     )
@@ -579,51 +630,79 @@ def test_successor_contract_and_profile_bindings_are_exact() -> None:
     )
     assert binding_by_name["stage3_validator"] == (
         STAGE3_VALIDATOR_RELATIVE_PATH,
-        STAGE3_VALIDATOR_PREDECESSOR_SHA256,
+        STAGE3_VALIDATOR_SUCCESSOR_SHA256,
+    )
+    assert checker.BASE_COMMIT == "ad88b264a1c7947682a00b11c4a57963a43b7548"
+    assert checker.INSTALLER_SHA256 == (
+        "52ee30e62554154bd6231f4b178a4e2fdbdd9121d799264156acfbc046829c8c"
+    )
+    assert (
+        checker.STAGE3_MANIFEST_FILE_COUNT,
+        checker.STAGE3_MANIFEST_BYTE_COUNT,
+        checker.STAGE3_MANIFEST_SHA256,
+    ) == (
+        41,
+        6052,
+        "9109457e5897139658183595fb11c8a7bf9d66e4fb5b5fe6842b20bac43fbce2",
+    )
+    assert (
+        checker.SOURCE_TREE_NODE_COUNT,
+        checker.SOURCE_TREE_FILE_COUNT,
+        checker.SOURCE_TREE_MANIFEST_BYTE_COUNT,
+        checker.SOURCE_TREE_SHA256,
+    ) == (
+        43,
+        38,
+        6840,
+        "3aadf078fe594dafdd870df5577d342ccf1c8ea665f2a8f53cc79a58213717d6",
     )
 
 
 def test_stage3_predecessor_fixture_is_path_and_marker_bounded() -> None:
     with _exact_fixture() as fixture:
-        status, observed = checker._binding_status(fixture.repository_root)
-        assert status == "exact"
-        assert (
-            observed["stage3_validator"]
-            == STAGE3_VALIDATOR_PREDECESSOR_SHA256
-        )
+        with _bounded_stage3_predecessor_fixture(
+            fixture.repository_root,
+            fixture.installed_skills_root,
+        ):
+            status, observed = checker._binding_status(fixture.repository_root)
+            assert status == "known_invalid"
+            assert (
+                observed["stage3_validator"]
+                == STAGE3_VALIDATOR_PREDECESSOR_SHA256
+            )
 
-        target = fixture.repository_root / STAGE3_VALIDATOR_RELATIVE_PATH
-        marker = target.read_bytes()
-        assert marker == STAGE3_VALIDATOR_FIXTURE_MARKER
-        assert hashlib.sha256(marker).hexdigest() not in {
-            STAGE3_VALIDATOR_PREDECESSOR_SHA256,
-            STAGE3_VALIDATOR_SUCCESSOR_SHA256,
-        }
-        assert (
-            checker.hashlib.sha256(marker).hexdigest()
-            == hashlib.sha256(marker).hexdigest()
-        )
+            target = fixture.repository_root / STAGE3_VALIDATOR_RELATIVE_PATH
+            marker = target.read_bytes()
+            assert marker == STAGE3_VALIDATOR_FIXTURE_MARKER
+            assert hashlib.sha256(marker).hexdigest() not in {
+                STAGE3_VALIDATOR_PREDECESSOR_SHA256,
+                STAGE3_VALIDATOR_SUCCESSOR_SHA256,
+            }
+            assert (
+                checker.hashlib.sha256(marker).hexdigest()
+                == hashlib.sha256(marker).hexdigest()
+            )
 
-        wrong_path = fixture.root / "unlisted-stage3-marker"
-        wrong_path.write_bytes(marker)
-        wrong_observation = checker._read_stable_file(wrong_path)
-        assert wrong_observation.payload is not None
-        assert (
-            checker.hashlib.sha256(wrong_observation.payload).hexdigest()
-            == hashlib.sha256(marker).hexdigest()
-        )
+            wrong_path = fixture.root / "unlisted-stage3-marker"
+            wrong_path.write_bytes(marker)
+            wrong_observation = checker._read_stable_file(wrong_path)
+            assert wrong_observation.payload is not None
+            assert (
+                checker.hashlib.sha256(wrong_observation.payload).hexdigest()
+                == hashlib.sha256(marker).hexdigest()
+            )
 
-        wrong_marker = marker + b"unexpected"
-        target.write_bytes(wrong_marker)
-        status, observed = checker._binding_status(fixture.repository_root)
-        assert status == "known_invalid"
-        assert observed["stage3_validator"] == hashlib.sha256(
-            wrong_marker
-        ).hexdigest()
-        target.write_bytes(marker)
+            wrong_marker = marker + b"unexpected"
+            target.write_bytes(wrong_marker)
+            status, observed = checker._binding_status(fixture.repository_root)
+            assert status == "known_invalid"
+            assert observed["stage3_validator"] == hashlib.sha256(
+                wrong_marker
+            ).hexdigest()
+            target.write_bytes(marker)
 
 
-def test_current_stage3_successor_rejects_before_owner_loading() -> None:
+def test_current_stage3_successor_reaches_owner_loading() -> None:
     binding = next(
         (relative_path, digest)
         for name, relative_path, digest in checker.FILE_BINDINGS
@@ -631,7 +710,7 @@ def test_current_stage3_successor_rejects_before_owner_loading() -> None:
     )
     assert binding == (
         STAGE3_VALIDATOR_RELATIVE_PATH,
-        STAGE3_VALIDATOR_PREDECESSOR_SHA256,
+        STAGE3_VALIDATOR_SUCCESSOR_SHA256,
     )
     current_payload = (REPO_ROOT / STAGE3_VALIDATOR_RELATIVE_PATH).read_bytes()
     assert (
@@ -644,7 +723,7 @@ def test_current_stage3_successor_rejects_before_owner_loading() -> None:
     )
 
     status, observed = checker._binding_status(REPO_ROOT)
-    assert status == "known_invalid"
+    assert status == "exact"
     assert observed["stage3_validator"] == STAGE3_VALIDATOR_SUCCESSOR_SHA256
     with (
         mock.patch.object(
@@ -652,48 +731,46 @@ def test_current_stage3_successor_rejects_before_owner_loading() -> None:
             "_load_owner_modules",
             side_effect=AssertionError("owner loading reached"),
         ),
-        pytest.raises(checker.PacketUnavailableError),
+        pytest.raises(AssertionError, match="owner loading reached"),
     ):
         checker._evaluate_for_tests(checker.EvaluationRoots(REPO_ROOT, None))
 
 
-def test_current_successor_tree_waits_for_separate_manifest_transition() -> None:
-    with _exact_fixture(
-        bind_current_source_tree=False,
-        bind_current_manifest=False,
-    ) as fixture:
+def test_current_successor_manifest_and_tree_bindings_are_exact() -> None:
+    with _exact_fixture() as fixture:
         packet, _ = checker._evaluate_for_tests(fixture.roots)
 
     assert packet["contract_binding_status"] == "exact"
     assert packet["validator_bundle_status"] == "exact"
-    assert packet["manifest_status"] == "known_invalid"
-    assert packet["source_install_status"] == "installed_drift"
+    assert packet["manifest_status"] == "exact"
+    assert packet["source_install_status"] == "identical"
     assert packet["registry_status"] == "valid_exact"
     assert packet["release_state_status"] == "absent_bootstrap_candidate"
     assert packet["offline_validation_status"] == "passed"
-    assert packet["terminal_status"] == "blocked_manifest_invalid"
-    assert packet["eligible_for_independent_review"] is False
+    assert packet["terminal_status"] == "eligible_for_independent_review"
+    assert packet["eligible_for_independent_review"] is True
     assert set(packet["effect_counts"].values()) == {0}
     assert set(packet["authority_flags"].values()) == {False}
 
 
 def test_successor_pre_sync_projection_retains_source_drift_as_first_blocker() -> None:
     with _exact_fixture(with_registry=False) as fixture:
-        installed = (
-            fixture.installed_skills_root
-            / "mythic-edge-role-pool"
-            / "SKILL.md"
-        )
-        installed.write_text("synthetic predecessor drift\n", encoding="utf-8")
-
-        packet, _ = checker._evaluate_for_tests(fixture.roots)
+        _copy_current_registry_and_historical_release(fixture)
+        with _synthetic_installed_predecessor_projection(fixture):
+            packet, _ = checker._evaluate_for_tests(fixture.roots)
 
     assert packet["contract_binding_status"] == "exact"
     assert packet["validator_bundle_status"] == "exact"
     assert packet["manifest_status"] == "exact"
     assert packet["source_install_status"] == "installed_drift"
-    assert packet["registry_status"] == "absent"
-    assert packet["release_state_status"] == "absent_bootstrap_candidate"
+    assert packet["registry_status"] == "valid_exact"
+    assert packet["registry_sha256"] == (
+        "93a29e72b6e66ffff2879a427632d08e6b2424422745f6b1a5e1c3ac056d69a7"
+    )
+    assert packet["release_state_status"] == "present_valid_chain"
+    assert packet["release_state_sha256"] == (
+        "723b1faeef731d9c526cdf9c19bfc2546b08d3eca94d4ee79eb62a5370f719c9"
+    )
     assert packet["offline_validation_status"] == "passed"
     assert packet["terminal_status"] == "blocked_skill_source_drift"
     assert packet["eligible_for_independent_review"] is False
@@ -701,8 +778,9 @@ def test_successor_pre_sync_projection_retains_source_drift_as_first_blocker() -
     assert set(packet["authority_flags"].values()) == {False}
 
 
-def test_successor_post_sync_projection_advances_only_to_registry_blocker() -> None:
+def test_successor_post_sync_projection_stops_at_release_conflict() -> None:
     with _exact_fixture(with_registry=False) as fixture:
+        _copy_current_registry_and_historical_release(fixture)
         packet, _ = checker._evaluate_for_tests(fixture.roots)
         expected_tree = (
             checker.SOURCE_TREE_NODE_COUNT,
@@ -721,9 +799,9 @@ def test_successor_post_sync_projection_advances_only_to_registry_blocker() -> N
         packet["installed_tree_manifest_byte_count"],
         packet["installed_tree_sha256"],
     ) == expected_tree
-    assert packet["registry_status"] == "absent"
-    assert packet["release_state_status"] == "absent_bootstrap_candidate"
-    assert packet["terminal_status"] == "blocked_registry_missing_or_invalid"
+    assert packet["registry_status"] == "valid_exact"
+    assert packet["release_state_status"] == "present_valid_chain"
+    assert packet["terminal_status"] == "blocked_release_state_conflict"
     assert packet["eligible_for_independent_review"] is False
     assert set(packet["effect_counts"].values()) == {0}
     assert set(packet["authority_flags"].values()) == {False}
