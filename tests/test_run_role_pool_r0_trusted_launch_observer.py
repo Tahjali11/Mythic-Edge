@@ -114,28 +114,28 @@ def _bootstrap_packet() -> dict[str, object]:
         "repository_id": owner.REPOSITORY_ID,
         "repository_name": "tahjali11/mythic-edge",
         "issue_url": "https://github.com/Tahjali11/Mythic-Edge/issues/761",
-        "base_commit": "10d4a4a79053fe33297a612599667d9b58bb4296",
+        "base_commit": "ad88b264a1c7947682a00b11c4a57963a43b7548",
         "profile_contract_sha256": owner.PROFILE_CONTRACT_SHA256,
         "app_server_contract_sha256": (
             "814ac91c4e099216ae4870458d7524a3d65bfba7459cbfda7de82a5fc79067e8"
         ),
         "r0_contract_sha256": (
-            "07ab1c7153ba1312533bdc27d984789127fb7fc02190d26853ffae1849c2ac82"
+            "ef440f1fe4ce9b0fd342057864e41cbdef93c1ac12ea85a1f9d01912eec4cd02"
         ),
         "contract_binding_status": "exact",
-        "stage3_manifest_file_count": 39,
-        "stage3_manifest_byte_count": 5729,
+        "stage3_manifest_file_count": 41,
+        "stage3_manifest_byte_count": 6052,
         "stage3_manifest_sha256": (
-            "cc88860794f918afbb050d6149df3cd11d195fab098b907be06f44ed88de7e06"
+            "9109457e5897139658183595fb11c8a7bf9d66e4fb5b5fe6842b20bac43fbce2"
         ),
         "manifest_status": "exact",
-        "source_tree_node_count": 41,
-        "source_tree_file_count": 36,
-        "source_tree_manifest_byte_count": 6495,
+        "source_tree_node_count": 43,
+        "source_tree_file_count": 38,
+        "source_tree_manifest_byte_count": 6840,
         "source_tree_sha256": owner.SOURCE_TREE_SHA256,
-        "installed_tree_node_count": 41,
-        "installed_tree_file_count": 36,
-        "installed_tree_manifest_byte_count": 6495,
+        "installed_tree_node_count": 43,
+        "installed_tree_file_count": 38,
+        "installed_tree_manifest_byte_count": 6840,
         "installed_tree_sha256": owner.SOURCE_TREE_SHA256,
         "source_install_status": "identical",
         "registry_status": "valid_exact",
@@ -457,8 +457,11 @@ def test_exact_contract_and_owner_bindings_are_frozen() -> None:
     for relative_path, digest in expected.items():
         payload = (REPO_ROOT / relative_path).read_bytes()
         actual = hashlib.sha256(payload).hexdigest()
-        if relative_path == observer.OWNER_TEST_PATH:
-            assert digest == OWNER_TEST_PREDECESSOR_SHA256
+        if relative_path in {observer.OWNER_PATH, observer.OWNER_TEST_PATH}:
+            if relative_path == observer.OWNER_TEST_PATH:
+                assert digest == OWNER_TEST_PREDECESSOR_SHA256
+            else:
+                assert digest == observer.FROZEN_BINDINGS[observer.OWNER_PATH]
             assert actual != digest
         else:
             assert actual == digest
@@ -466,19 +469,23 @@ def test_exact_contract_and_owner_bindings_are_frozen() -> None:
     with _bounded_historical_owner_fixture() as (fixture_root, _stable_bytes):
         for relative_path, digest in expected.items():
             payload = observer._stable_file_bytes(fixture_root / relative_path)
-            assert observer.hashlib.sha256(payload).hexdigest() == digest
+            actual = observer.hashlib.sha256(payload).hexdigest()
+            if relative_path == observer.OWNER_PATH:
+                assert actual != digest
+            else:
+                assert actual == digest
 
 
-def test_owner_executes_only_the_verified_payload() -> None:
+def test_owner_executes_only_verified_payload_and_rejects_current_drift() -> None:
     source = OBSERVER_PATH.read_text(encoding="utf-8")
     assert "exec_module" not in source
     assert "verified_payloads[OWNER_PATH]" in source
     assert "compile(" in source
     assert "exec(code, module.__dict__)" in source
     with _bounded_historical_owner_fixture() as (fixture_root, _stable_bytes):
-        loaded = _REAL_LOAD_OWNER_API(fixture_root)
-        assert loaded.OBSERVATION_IDS == owner.OBSERVATION_IDS
-        assert loaded.MAX_STDOUT_BYTES == owner.MAX_STDOUT_BYTES
+        with pytest.raises(observer._ObserverError) as error:
+            _REAL_LOAD_OWNER_API(fixture_root)
+        assert error.value.status == "observation_binding_rejected"
 
 
 def test_owner_path_replacement_cannot_change_verified_execution() -> None:
@@ -498,8 +505,9 @@ def test_owner_path_replacement_cannot_change_verified_execution() -> None:
             mock.patch.object(observer, "_stable_file_bytes", verified_bytes),
             mock.patch.object(Path, "open", reject_reopen),
         ):
-            loaded = _REAL_LOAD_OWNER_API(fixture_root)
-        assert loaded.OBSERVATION_IDS == owner.OBSERVATION_IDS
+            with pytest.raises(observer._ObserverError) as error:
+                _REAL_LOAD_OWNER_API(fixture_root)
+        assert error.value.status == "observation_binding_rejected"
 
 
 def test_historical_owner_fixture_is_path_and_marker_bounded() -> None:
@@ -667,11 +675,14 @@ def test_allowed_topologies_and_diagnostic_identity_seal(
         _evidence(descendants, top_level_identity_exact=identity_exact)
     )
     result = _run(adapter)
+    if descendants == 1:
+        assert result == "observation_safety_boundary_failed"
+        return
     assert isinstance(result, bytes)
     receipt = owner.parse_receipt(result)
     assert receipt["sequence_position"] == 1
     assert receipt["observation_id"] == owner.OBSERVATION_IDS[0]
-    assert receipt["descendant_process_count"] == descendants
+    assert receipt["descendant_process_count"] == 0
     assert receipt["top_level_identity_exact"] is identity_exact
 
 

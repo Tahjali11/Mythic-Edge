@@ -74,6 +74,10 @@ SUCCESSOR_TREE_SHA256 = (
 SUCCESSOR_REGISTRY_SHA256 = (
     "93a29e72b6e66ffff2879a427632d08e6b2424422745f6b1a5e1c3ac056d69a7"
 )
+LIVE_IDENTITY_TOKEN = "1" * 32
+LIVE_OBSERVATION_ID = (
+    "r0.app_native.offline.observation.1." + LIVE_IDENTITY_TOKEN
+)
 
 
 class _FixedSha256:
@@ -284,14 +288,9 @@ def _direct_metadata(**changes: object) -> object:
 
 
 def _consumption(position: int = 1) -> dict[str, object]:
+    if position != 1:
+        raise ValueError("observation_position_invalid")
     packet = copy.deepcopy(observation.SYNTHETIC_CONSUMPTION_KAT)
-    if position == 2:
-        packet["observation_id"] = observation.OBSERVATION_IDS[1]
-        packet["sequence_position"] = 2
-        packet["predecessor_consumption_sha256"] = "7" * 64
-        packet["expected_receipt_sha256s"] = list(
-            observation.EXPECTED_RECEIPT_SHA256S[1]
-        )
     packet["consumption_sha256"] = observation.self_digest(
         packet,
         "consumption_sha256",
@@ -325,28 +324,28 @@ def _bootstrap_packet() -> dict[str, object]:
         "repository_id": observation.REPOSITORY_ID,
         "repository_name": "tahjali11/mythic-edge",
         "issue_url": "https://github.com/Tahjali11/Mythic-Edge/issues/761",
-        "base_commit": "10d4a4a79053fe33297a612599667d9b58bb4296",
+        "base_commit": "ad88b264a1c7947682a00b11c4a57963a43b7548",
         "profile_contract_sha256": observation.PROFILE_CONTRACT_SHA256,
         "app_server_contract_sha256": (
             "814ac91c4e099216ae4870458d7524a3d65bfba7459cbfda7de82a5fc79067e8"
         ),
         "r0_contract_sha256": (
-            "07ab1c7153ba1312533bdc27d984789127fb7fc02190d26853ffae1849c2ac82"
+            "ef440f1fe4ce9b0fd342057864e41cbdef93c1ac12ea85a1f9d01912eec4cd02"
         ),
         "contract_binding_status": "exact",
-        "stage3_manifest_file_count": 39,
-        "stage3_manifest_byte_count": 5729,
+        "stage3_manifest_file_count": 41,
+        "stage3_manifest_byte_count": 6052,
         "stage3_manifest_sha256": (
-            "cc88860794f918afbb050d6149df3cd11d195fab098b907be06f44ed88de7e06"
+            "9109457e5897139658183595fb11c8a7bf9d66e4fb5b5fe6842b20bac43fbce2"
         ),
         "manifest_status": "exact",
-        "source_tree_node_count": 41,
-        "source_tree_file_count": 36,
-        "source_tree_manifest_byte_count": 6495,
+        "source_tree_node_count": 43,
+        "source_tree_file_count": 38,
+        "source_tree_manifest_byte_count": 6840,
         "source_tree_sha256": observation.SOURCE_TREE_SHA256,
-        "installed_tree_node_count": 41,
-        "installed_tree_file_count": 36,
-        "installed_tree_manifest_byte_count": 6495,
+        "installed_tree_node_count": 43,
+        "installed_tree_file_count": 38,
+        "installed_tree_manifest_byte_count": 6840,
         "installed_tree_sha256": observation.SOURCE_TREE_SHA256,
         "source_install_status": "identical",
         "registry_status": "valid_exact",
@@ -424,13 +423,27 @@ class _FakePool:
     def validate_trusted_native_release_record(value: object) -> list[str]:
         return [] if isinstance(value, dict) else ["invalid"]
 
+    validate_trusted_native_release_state_record = validate_trusted_native_release_record
+
     @staticmethod
     def validate_trusted_native_release_chain(value: object) -> list[str]:
-        return [] if isinstance(value, list) and len(value) == 1 else ["invalid"]
+        return [] if isinstance(value, list) and len(value) == 2 else ["invalid"]
 
     @staticmethod
     def trusted_native_current_rung(value: object) -> str | None:
-        return "R0" if isinstance(value, list) and len(value) == 1 else None
+        return "R0" if isinstance(value, list) and len(value) == 2 else None
+
+    @staticmethod
+    def trusted_native_current_release_bindings(value: object) -> dict[str, object] | None:
+        if not isinstance(value, list) or len(value) != 2:
+            return None
+        return {
+            "record_sha256": observation.RELEASE_RECORD_SHA256,
+            "contract_sha256": observation.PROFILE_CONTRACT_SHA256,
+            "skill_tree_sha256": observation.SOURCE_TREE_SHA256,
+            "registry_sha256": observation.REGISTRY_SHA256,
+            "validator_bundle_sha256": observation.VALIDATOR_BUNDLE_SHA256,
+        }
 
     @staticmethod
     def validate_trusted_native_release_ceiling(
@@ -459,13 +472,18 @@ class _FakeChecker:
 
     def __init__(self) -> None:
         self.calls: list[str] = []
-        self._release = IMMUTABLE_R0_RELEASE_LINE
+        self._release = (
+            REPO_ROOT / self.RELEASE_STATE_RELATIVE_PATH
+        ).read_bytes()
         self._checker = b"synthetic historical R0 checker fixture"
         self._tests = b"synthetic historical R0 checker-test fixture"
+        real_checker, _pool = _real_checker_and_pool()
+        real_owners = real_checker._load_owner_modules(REPO_ROOT)
         self._owners = SimpleNamespace(
-            pool=_FakePool(),
+            pool=real_owners.pool,
             stage3=object(),
             installer=object(),
+            direct_adapter=real_owners.direct_adapter,
         )
 
     def _evaluate_roots(self, roots: object) -> tuple[dict[str, object], bytes]:
@@ -503,7 +521,7 @@ class _FakeChecker:
     def _manifest_observation(self, stage3: object, workflow_root: Path) -> object:
         del stage3, workflow_root
         self.calls.append("manifest_observation")
-        return SimpleNamespace(status="exact", file_count=39)
+        return SimpleNamespace(status="exact", file_count=41)
 
     def _tree_observations(self, roots: object, owners: object) -> tuple[object, object, str]:
         del roots, owners
@@ -616,24 +634,23 @@ def _fake_roots() -> object:
 
 def test_profile_is_exact_known_answer() -> None:
     payload = observation.canonical_bytes(observation.OBSERVATION_PROFILE)
-    assert len(payload) == 1918
+    assert len(payload) == 1975
     assert hashlib.sha256(payload).hexdigest() == observation.OBSERVATION_PROFILE_SHA256
     assert observation.OBSERVATION_PROFILE["schema_version"].endswith(".v3")
     assert "direct_interpreter_binding_sha256" not in observation.OBSERVATION_PROFILE
     assert "launcher_mode" not in observation.OBSERVATION_PROFILE
     assert observation.OBSERVATION_PROFILE["fixed_command"] == [
-        "py",
-        "-3.13",
+        "python.exe",
         "-B",
         "tools/check_role_pool_r0_offline_observation.py",
         "<observation_id>",
     ]
-    assert observation.OBSERVATION_PROFILE["descendant_process_limit"] == 1
+    assert observation.OBSERVATION_PROFILE["descendant_process_limit"] == 0
     assert observation.OBSERVATION_PROFILE["surviving_process_limit"] == 0
     assert observation.OBSERVATION_PROFILE["top_level_identity_role"] == (
         "diagnostic_nonblocking"
     )
-    assert observation.OBSERVATION_PROFILE["observation_count"] == 2
+    assert observation.OBSERVATION_PROFILE["observation_count"] == 1
     assert observation.OBSERVATION_PROFILE["retry_limit"] == 0
 
 
@@ -840,21 +857,46 @@ def test_direct_interpreter_preflight_selector_covers_all_32_tuples() -> None:
 
 def test_predeclared_identities_derive_from_exact_preimages() -> None:
     assert observation.SEQUENCE_ID == (
-        "r0.offline.sequence.4.ff3d34eee94243a6a031d3334430bfca"
+        "r0.app_native.offline.sequence.1.00000000000000000000000000000000"
     )
     assert observation.OBSERVATION_IDS == (
-        "r0.offline.observation.1.v4.209f443bcbf144d99bbb5cecf8aa8bf3",
-        "r0.offline.observation.2.v4.b0dacd7eeb56422f9107c0775d972be4",
+        "r0.app_native.offline.observation.1.00000000000000000000000000000000",
     )
     assert set(observation.OBSERVATION_IDS).isdisjoint(
         observation.HISTORICAL_OBSERVATION_IDS
     )
     assert observation.SEQUENCE_ID not in observation.HISTORICAL_SEQUENCE_IDS
+    assert observation.observation_identity_pair(LIVE_OBSERVATION_ID) == (
+        "r0.app_native.offline.sequence.1." + LIVE_IDENTITY_TOKEN,
+        LIVE_OBSERVATION_ID,
+    )
+    with pytest.raises(observation.ObservationFailure):
+        observation.observation_identity_pair(observation.OBSERVATION_IDS[0])
+    assert observation.observation_identity_pair(
+        observation.OBSERVATION_IDS[0],
+        allow_synthetic=True,
+    ) == (observation.SEQUENCE_ID, observation.OBSERVATION_IDS[0])
+    for invalid in (
+        "r0.app_native.offline.observation.2." + LIVE_IDENTITY_TOKEN,
+        "r0.app_native.offline.observation.1." + ("A" * 32),
+        "r0.app_native.offline.observation.1.short",
+    ):
+        with pytest.raises(observation.ObservationFailure):
+            observation.observation_identity_pair(invalid)
+
+
+def test_app_native_synthetic_matrix_uses_only_fake_clients() -> None:
+    checker, _pool = _real_checker_and_pool()
+    owners = checker._load_owner_modules(REPO_ROOT)
+    observation._validate_app_native_synthetic_matrix(
+        owners.pool,
+        owners.direct_adapter,
+    )
 
 
 @pytest.mark.parametrize(
     ("position", "variant"),
-    itertools.product((1, 2), range(6)),
+    itertools.product((1,), range(3)),
 )
 def test_receipt_known_answers_are_byte_exact(position: int, variant: int) -> None:
     receipt = observation.EXPECTED_RECEIPTS[position - 1][variant]
@@ -875,13 +917,13 @@ def test_receipt_known_answers_are_byte_exact(position: int, variant: int) -> No
     ("position", "variant", "descendant_count", "identity_exact"),
     (
         (position, variant, descendant_count, identity_exact)
-        for position in (1, 2)
+        for position in (1,)
         for variant, (descendant_count, identity_exact) in enumerate(
             observation.RECEIPT_VARIANTS
         )
     ),
 )
-def test_pure_post_exit_sealer_reproduces_all_twelve_receipt_variants(
+def test_pure_post_exit_sealer_reproduces_all_three_receipt_variants(
     position: int,
     variant: int,
     descendant_count: int,
@@ -912,7 +954,7 @@ def test_pure_post_exit_sealer_reproduces_all_twelve_receipt_variants(
         ({"timed_out": True}, "observation_timeout_unknown"),
         ({"termination_uncertain": True}, "observation_timeout_unknown"),
         ({"cleanup_confirmed": False}, "observation_timeout_unknown"),
-        ({"descendant_process_count": 2}, "observation_safety_boundary_failed"),
+        ({"descendant_process_count": 1}, "observation_safety_boundary_failed"),
         ({"surviving_process_count": 1}, "observation_safety_boundary_failed"),
         ({"executor_network_operation_count": 1}, "observation_safety_boundary_failed"),
         ({"repository_write_count": 1}, "observation_safety_boundary_failed"),
@@ -1051,60 +1093,20 @@ def test_receipt_parser_rejects_duplicate_unknown_reordered_mistyped_and_mutated
             observation.parse_receipt(candidate)
 
 
-def test_receipt_pair_requires_exact_chronology_independent_of_digest_order() -> None:
-    first, second = _receipt_bytes(1), _receipt_bytes(2)
-    receipts = observation.validate_receipt_pair((first, second))
-    assert tuple(item["receipt_sha256"] for item in receipts) == (
-        observation.EXPECTED_RECEIPT_SHA256S[0][0],
-        observation.EXPECTED_RECEIPT_SHA256S[1][0],
-    )
-    bytewise_sorted = tuple(
-        sorted(
-            (first, second),
-            key=lambda payload: json.loads(payload)["receipt_sha256"],
-        )
-    )
-    assert bytewise_sorted != (first, second)
-
-    def mutated(position: int, **updates: object) -> bytes:
-        receipt = copy.deepcopy(observation.EXPECTED_RECEIPTS[position - 1][0])
-        receipt.update(updates)
-        receipt["receipt_sha256"] = observation.self_digest(
-            receipt,
-            "receipt_sha256",
-        )
-        return observation.canonical_bytes(receipt)
-
-    candidates = (
-        (second, first),
-        (first, first),
-        (second, second),
-        (first,),
-        (mutated(1, current_rung="R1"), second),
-        (mutated(1, sequence_position=2), second),
-        (mutated(1, sequence_id=observation.HISTORICAL_SEQUENCE_IDS[-1]), second),
-        (mutated(1, observation_id="r0.offline.observation.substituted"), second),
-        (mutated(1, observation_profile_sha256="0" * 64), second),
-        (first, mutated(2, predecessor_observation_id=None)),
-    )
-    for candidate in candidates:
-        with pytest.raises(observation.ObservationFailure):
+def test_observation_two_and_receipt_pairs_remain_unreachable() -> None:
+    first = _receipt_bytes(1)
+    for candidate in ((first,), (first, first), ()):
+        with pytest.raises(observation.ObservationFailure) as error:
             observation.validate_receipt_pair(candidate)
+        assert error.value.status == "observation_sequence_rejected"
 
-    old_first = copy.deepcopy(observation.EXPECTED_RECEIPTS[0][0])
-    old_first["sequence_id"] = observation.HISTORICAL_SEQUENCE_IDS[-1]
-    old_first["observation_id"] = observation.HISTORICAL_OBSERVATION_IDS[0]
-    old_first["observation_profile_sha256"] = (
-        "0d97f23b96dfab5b6b459bea92df63a8bc6675c50632ace60a36f7e1cbea2124"
-    )
-    old_first["receipt_sha256"] = observation.self_digest(
-        old_first,
-        "receipt_sha256",
-    )
-    with pytest.raises(observation.ObservationFailure):
-        observation.validate_receipt_pair(
-            (observation.canonical_bytes(old_first), second)
-        )
+    for identity in (
+        "r0.app_native.offline.observation.2." + LIVE_IDENTITY_TOKEN,
+        observation.HISTORICAL_OBSERVATION_IDS[0],
+    ):
+        with pytest.raises(observation.ObservationFailure) as error:
+            observation.observation_identity_pair(identity)
+        assert error.value.status == "observation_sequence_rejected"
 
 
 def test_receipt_pair_selector_covers_all_64_tuples_without_lexical_authority() -> None:
@@ -1155,16 +1157,16 @@ def test_consumption_known_answer_is_exact_and_nonpublishable() -> None:
         {key: value for key, value in packet.items() if key != "consumption_sha256"}
     )
     assert tuple(packet) == observation.CONSUMPTION_FIELDS
-    assert len(preimage) == 2869
-    assert len(payload) == 2957
+    assert len(preimage) == 2687
+    assert len(payload) == 2775
     assert packet["consumption_sha256"] == (
-        "4f54d1df7627e9ac544822d4b140ed87ba47dea682137a6bbc3654910f5b29ca"
+        "1a97a02bf48457a8af1398052ef3d467cec1c8d425ee8da347799d86051e779a"
     )
     assert hashlib.sha256(payload).hexdigest() == (
-        "eab4d6326ee187d641ed0a3b63e958229e66e4aea4cc3d2573a27916d79a57e1"
+        "c9d8a85b9ec79d44aeabfa9471bd6377133a1761b1d560941040cc5fa3c22265"
     )
     assert packet["sequence_contract_review_ref"].startswith(
-        "https://github.com/Tahjali11/Mythic-Edge/issues/776#"
+        "https://github.com/Tahjali11/Mythic-Edge/issues/826#"
     )
     assert packet["expected_receipt_sha256s"] == list(
         observation.EXPECTED_RECEIPT_SHA256S[0]
@@ -1202,11 +1204,11 @@ def test_consumption_parser_rejects_duplicate_reordered_wrong_type_and_digest() 
             observation.parse_consumption(candidate)
 
 
-@pytest.mark.parametrize("position", [1, 2])
+@pytest.mark.parametrize("position", [1])
 def test_consumption_rejects_every_receipt_allowlist_permutation(position: int) -> None:
     packet = _consumption(position)
     allowed = list(packet["expected_receipt_sha256s"])
-    assert len(allowed) == 6
+    assert len(allowed) == 3
     candidates = (
         list(reversed(allowed)),
         allowed[1:] + allowed[:1],
@@ -1304,32 +1306,23 @@ def test_fresh_task_reconciliation_is_terminal_and_never_relaunches(
     assert "relaunch" not in expected or expected == "completed_no_relaunch"
 
 
-def test_sequence_preflight_binds_single_use_and_observation_two_predecessors() -> None:
+def test_sequence_preflight_binds_single_use_and_rejects_predecessors() -> None:
     first = _consumption(1)
-    second = _consumption(2)
     observation.validate_sequence_preflight(
         observation.OBSERVATION_IDS[0],
         consumption=first,
     )
-    observation.validate_sequence_preflight(
-        observation.OBSERVATION_IDS[1],
-        consumption=second,
-        predecessor_consumption_sha256="7" * 64,
-        predecessor_receipt=_receipt_bytes(1),
-    )
     with pytest.raises(observation.ObservationFailure):
         observation.validate_sequence_preflight(
-            observation.OBSERVATION_IDS[1],
-            consumption=second,
-            predecessor_consumption_sha256="8" * 64,
+            observation.OBSERVATION_IDS[0],
+            consumption=first,
+            predecessor_consumption_sha256="7" * 64,
             predecessor_receipt=_receipt_bytes(1),
         )
     with pytest.raises(observation.ObservationFailure):
         observation.validate_sequence_preflight(
-            observation.OBSERVATION_IDS[1],
-            consumption=second,
-            predecessor_consumption_sha256="7" * 64,
-            predecessor_receipt=_receipt_bytes(2),
+            LIVE_OBSERVATION_ID,
+            consumption=first,
         )
 
 
@@ -1350,7 +1343,7 @@ def test_fake_receipt_publication_is_bounded_and_fail_closed(
     expected: str,
 ) -> None:
     assert observation.classify_publication(call_result, comment_state) == expected
-    observation.require_publication_issue(776)
+    observation.require_publication_issue(826)
     with pytest.raises(observation.ObservationFailure):
         observation.require_publication_issue(769)
 
@@ -1471,6 +1464,7 @@ def test_exact_in_process_owner_call_graph_projects_only_validation_payload() ->
             audit_boundary=audit,
             runtime_os_name="nt",
             runtime_sys_platform="win32",
+            allow_synthetic_identity=True,
         )
     assert payload == _validation_payload()
     assert observation.parse_validation_payload(payload) == _bootstrap_packet()
@@ -1501,6 +1495,7 @@ def test_trusted_runtime_rejects_non_windows_before_owner_evaluation(
             audit_boundary=audit,
             runtime_os_name=os_name,
             runtime_sys_platform=platform,
+            allow_synthetic_identity=True,
         )
     assert error.value.status == "observation_host_rejected"
     assert checker.calls == []
@@ -1527,6 +1522,7 @@ def test_owner_projection_drift_fails_without_receipt() -> None:
             ),
             runtime_os_name="nt",
             runtime_sys_platform="win32",
+            allow_synthetic_identity=True,
         )
     assert error.value.status == "observation_binding_rejected"
 
@@ -1562,7 +1558,7 @@ def test_current_release_uses_existing_owner_validation_and_exact_r0_ceiling() -
         ({"exit_code": None}, "observation_launch_unknown"),
         ({"top_level_process_count": 0}, "observation_launch_unknown"),
         ({"process_relationships_known": False}, "observation_launch_unknown"),
-        ({"descendant_process_count": 1}, "accepted_exact_r0_offline_observation"),
+        ({"descendant_process_count": 1}, "observation_safety_boundary_failed"),
         ({"descendant_process_count": 2}, "observation_safety_boundary_failed"),
         ({"surviving_process_count": 1}, "observation_safety_boundary_failed"),
         ({"top_level_identity_exact": False}, "accepted_exact_r0_offline_observation"),
@@ -1599,7 +1595,7 @@ def test_fake_launcher_enforces_process_timeout_output_and_cleanup_boundaries(
         (
             {},
             {"descendant_process_count": 1},
-            "accepted_exact_r0_offline_observation",
+            "observation_safety_boundary_failed",
         ),
         ({}, {"descendant_process_count": 2}, "observation_safety_boundary_failed"),
         ({}, {"timed_out": True}, "observation_timeout_unknown"),
@@ -1726,7 +1722,7 @@ def test_cli_rejects_wrong_working_directory_before_owner_load(
     )
     monkeypatch.setattr(observation.sys, "stdout", stdout)
     monkeypatch.setattr(observation.sys, "stderr", stderr)
-    assert observation.run([observation.OBSERVATION_IDS[0]]) == 2
+    assert observation.run([LIVE_OBSERVATION_ID]) == 2
     assert stdout.getvalue() == ""
     assert stderr.getvalue() == "observation_binding_rejected\n"
 
@@ -1748,7 +1744,7 @@ def test_cli_success_path_uses_fake_owner_and_emits_only_validation_payload(
     monkeypatch.setattr(observation.sys, "stdout", stdout)
     monkeypatch.setattr(observation.sys, "stderr", stderr)
     with _historical_owner_hashes(checker):
-        assert observation.run([observation.OBSERVATION_IDS[0]]) == 0
+        assert observation.run([LIVE_OBSERVATION_ID]) == 0
     assert stdout.getvalue().encode("utf-8") == _validation_payload()
     assert stderr.getvalue() == ""
 
@@ -1776,7 +1772,7 @@ def test_cli_does_not_use_retired_direct_interpreter_dependency(
     monkeypatch.setattr(observation.sys, "stdout", stdout)
     monkeypatch.setattr(observation.sys, "stderr", stderr)
     with _historical_owner_hashes(checker):
-        assert observation.run([observation.OBSERVATION_IDS[0]]) == 0
+        assert observation.run([LIVE_OBSERVATION_ID]) == 0
     assert owner.call_count == 1
     assert stdout.getvalue().encode("utf-8") == _validation_payload()
     assert stderr.getvalue() == ""
@@ -1801,7 +1797,7 @@ def test_cli_unknown_owner_failure_never_echoes_raw_exception(
     monkeypatch.setattr(observation, "_load_checker", lambda root: checker)
     monkeypatch.setattr(observation.sys, "stdout", stdout)
     monkeypatch.setattr(observation.sys, "stderr", stderr)
-    assert observation.run([observation.OBSERVATION_IDS[0]]) == 3
+    assert observation.run([LIVE_OBSERVATION_ID]) == 3
     assert stdout.getvalue() == ""
     assert stderr.getvalue() == "observation_result_unknown\n"
     assert "private" not in stderr.getvalue().lower()
@@ -1820,7 +1816,12 @@ def test_frozen_owner_bindings_and_current_successor_rejection_remain_exact() ->
         _assert_authority_index_semantics(
             b"active_r0_offline_only_release_state\n"
         )
-    assert observation.RELEASE_STATE_ARTIFACT_SHA256 == IMMUTABLE_R0_RELEASE_SHA256
+    assert observation.RELEASE_STATE_ARTIFACT_SHA256 == (
+        "fff6025bcb3937506b29828bbbb4bbd46e517ec7ae635744c4902d3716b125f2"
+    )
+    assert hashlib.sha256(release_before).hexdigest() == (
+        observation.RELEASE_STATE_ARTIFACT_SHA256
+    )
 
     unchanged_bindings = {
         observation.SEQUENCE_CONTRACT_RELATIVE_PATH.as_posix(): observation.SEQUENCE_CONTRACT_SHA256,
@@ -1834,42 +1835,37 @@ def test_frozen_owner_bindings_and_current_successor_rejection_remain_exact() ->
         hashlib.sha256((REPO_ROOT / path).read_bytes()).hexdigest() == expected
         for path, expected in unchanged_bindings.items()
     )
-    successor_drift = {
+    current_bindings = {
         "docs/contracts/trusted_owner_native_role_pool_profile.md": (
             observation.PROFILE_CONTRACT_SHA256,
-            "944c1a85d9e2454fb82a5df3e2a2ac572191e3cd135c7854e0c012ffc07ab43f",
             "8f885dcab251143ed9afb9c091d3d4beaa695bb934248ab674dd8784e8a71952",
         ),
         "tools/check_role_pool_r0_bootstrap.py": (
             observation.R0_CHECKER_SHA256,
-            "34e7eddb31d2e476c74f857a010d441ee1e199915658964bd8cc0f0da2f5d914",
             "897790936dc0c49401177958477f839d0cecac39bd0cf2e24849fc05954e781a",
         ),
         "docs/codex_skills/mythic-edge-role-pool/scripts/check_pool_plan.py": (
             observation.RELEASE_VALIDATOR_SHA256,
-            "af9b9aed5b74bc508c08ce6ab51ce2ee9377aecef5657fca884145fa80c4e62d",
             "5e4a64391c14e0652fe30d333a1c9f2e33a048f67dd9fa08d08454d1f684e361",
         ),
     }
-    for path, (frozen_constant, predecessor, successor) in successor_drift.items():
-        assert frozen_constant == predecessor
+    for path, (frozen_constant, successor) in current_bindings.items():
+        assert frozen_constant == successor
         current = hashlib.sha256((REPO_ROOT / path).read_bytes()).hexdigest()
         assert current == successor
-        assert current != predecessor
 
     assert observation.R0_CHECKER_TEST_SHA256 == (
-        "976aaac0fab0d8651b89122c2bdcd46ce3abf10a3f0764083574c2243381ac34"
+        "55a40f12d7d161eb40fca2905f442b3b6ecd1fc029e3313c81566db89dd6ae3f"
     )
     assert hashlib.sha256(
         (REPO_ROOT / "tests/test_check_role_pool_r0_bootstrap.py").read_bytes()
-    ).hexdigest() != observation.R0_CHECKER_TEST_SHA256
+    ).hexdigest() == observation.R0_CHECKER_TEST_SHA256
 
-    with pytest.raises(observation.ObservationFailure) as error:
-        observation._load_checker(REPO_ROOT)
-    assert error.value.status == "observation_binding_rejected"
+    assert observation._load_checker(REPO_ROOT) is not None
     assert observation.OBSERVATION_PROFILE["implementation_paths"] == [
         "tools/check_role_pool_r0_offline_observation.py",
         "tests/test_check_role_pool_r0_offline_observation.py",
+        "tests/test_run_role_pool_r0_trusted_launch_observer.py",
     ]
     assert "DIRECT_INTERPRETER_CONTRACT_RELATIVE_PATH" not in (
         observation._load_checker.__code__.co_names
