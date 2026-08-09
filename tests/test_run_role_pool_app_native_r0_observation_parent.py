@@ -1,0 +1,1266 @@
+from __future__ import annotations
+
+import ast
+import hashlib
+import importlib.util
+import inspect
+import io
+import json
+import sys
+from dataclasses import dataclass, replace
+from pathlib import Path
+from types import ModuleType
+
+import pytest
+
+ROOT = Path(__file__).resolve().parents[1]
+MODULE_PATH = ROOT / "tools" / "run_role_pool_app_native_r0_observation_parent.py"
+SPEC = importlib.util.spec_from_file_location("r0_app_native_parent", MODULE_PATH)
+assert SPEC is not None and SPEC.loader is not None
+parent = importlib.util.module_from_spec(SPEC)
+sys.modules[SPEC.name] = parent
+SPEC.loader.exec_module(parent)
+
+OBSERVATION_ID = "r0.app_native.offline.observation.1." + "1" * 32
+RECEIPT = b'{"receipt":"synthetic"}\n'
+PRIVATE_MARKER = "private-synthetic-marker"
+CLOSE_NAMES = (
+    "target_guard",
+    "stdin_read",
+    "stdin_write",
+    "stdout_read",
+    "stdout_write",
+    "stderr_read",
+    "stderr_write",
+    "job",
+    "completion_port",
+    "process",
+    "thread",
+    "attribute_list",
+)
+
+
+@dataclass(frozen=True)
+class FakePostExitFacts:
+    top_level_process_count: int
+    descendant_process_count: int
+    process_relationships_known: bool
+    process_terminal_states_known: bool
+    surviving_process_count: int
+    top_level_identity_exact: bool | None
+    timed_out: bool
+    termination_uncertain: bool
+    cleanup_confirmed: bool
+    output_complete: bool
+    executor_network_operation_count: int
+    repository_write_count: int
+    installed_write_count: int
+    external_effect_count: int
+    generated_residue_count: int
+
+
+class FakeOwner:
+    PostExitFacts = FakePostExitFacts
+
+    def __init__(self) -> None:
+        self.parse_calls = 0
+        self.seal_calls = 0
+        self.facts: FakePostExitFacts | None = None
+
+    @staticmethod
+    def observation_identity_pair(value: str) -> tuple[str, str]:
+        parent._validate_observation_id(value)
+        return value.replace("observation.1", "sequence.1"), value
+
+    def parse_validation_payload(self, payload: bytes) -> dict[str, object]:
+        self.parse_calls += 1
+        if payload != b"valid":
+            raise ValueError
+        return {"valid": True}
+
+    def seal_proportionate_observation_receipt(
+        self,
+        payload: bytes,
+        facts: FakePostExitFacts,
+        observation_id: str,
+    ) -> bytes:
+        self.seal_calls += 1
+        self.facts = facts
+        assert payload == b"valid"
+        assert observation_id == OBSERVATION_ID
+        return RECEIPT
+
+
+def empty_audit() -> object:
+    return parent._QueueAudit(0, (), 0, 0, True)
+
+
+def close_observations(**changes: bool) -> tuple[object, ...]:
+    return tuple(
+        parent._CloseObservation(name, 1, changes.get(name, True))
+        for name in CLOSE_NAMES
+    )
+
+
+def launch_evidence(**changes: object) -> object:
+    values: dict[str, object] = {
+        "creation_attempt_count": 1,
+        "top_level_created": True,
+        "top_level_process_id": 41,
+        "job_assigned_at_creation": True,
+        "job_handle_unique": True,
+        "events": (
+            parent._JobEvent("new", 41),
+            parent._JobEvent("exit", 41),
+            parent._JobEvent("active_zero", None),
+        ),
+        "cumulative_process_total": 1,
+        "active_process_count": 0,
+        "exit_code": 0,
+        "stdout": b"valid",
+        "stderr": b"",
+        "stdout_eof": True,
+        "stderr_eof": True,
+        "stdout_overflow": False,
+        "stderr_overflow": False,
+        "top_level_identity_exact": True,
+        "target_identity_exact": True,
+        "timed_out": False,
+        "termination_requested": False,
+        "termination_succeeded": None,
+        "terminal_wait_succeeded": True,
+        "close_observations": close_observations(),
+    }
+    values.update(changes)
+    return parent._LaunchEvidence(**values)
+
+
+class FakeAdapter:
+    def __init__(self) -> None:
+        self.os_name = "nt"
+        self.platform = "win32"
+        self.calls: list[str] = []
+        self.audits = [empty_audit(), empty_audit(), empty_audit()]
+        separator = chr(92)
+        self.private_line = "C:" + separator + "synthetic" + separator + "python.exe\r\n"
+        self.before = parent._EffectSnapshot(True, "repo", "installed", frozenset())
+        self.after = self.before
+        self.counts = parent._AuditCounts(0, 0, 0, 0)
+        self.evidence = launch_evidence()
+        self.target_exact: bool | None = True
+        self.launch_error: BaseException | None = None
+        self.request: object | None = None
+        self.set_mode_results: list[bool] = [True, True]
+        self.read_count = 0
+        self.clear_count = 0
+
+    def runtime_identity(self) -> tuple[str, str]:
+        self.calls.append("runtime")
+        return self.os_name, self.platform
+
+    def install_audit(self, repository_root: Path) -> None:
+        assert repository_root == ROOT
+        self.calls.append("install_audit")
+
+    def snapshot_effects(self, repository_root: Path) -> object:
+        assert repository_root == ROOT
+        self.calls.append("snapshot")
+        return self.before if self.calls.count("snapshot") == 1 else self.after
+
+    def windows_directory(self) -> str:
+        self.calls.append("windows_directory")
+        return "C:" + chr(92) + "Windows"
+
+    def open_console(self) -> tuple[object, int]:
+        self.calls.append("open_console")
+        return object(), parent.ENABLE_LINE_INPUT | parent.ENABLE_ECHO_INPUT
+
+    def set_console_mode(self, console: object, mode: int) -> bool:
+        del console
+        self.calls.append("set_console_mode")
+        return self.set_mode_results.pop(0)
+
+    def audit_console_queue(self, console: object) -> object:
+        del console
+        self.calls.append("queue_audit")
+        return self.audits.pop(0)
+
+    def read_console_line(self, console: object, capacity: int) -> object:
+        del console
+        assert capacity == parent.MAX_PRIVATE_PATH_UNITS + 2
+        self.calls.append("read_console")
+        self.read_count += 1
+        return self.private_line
+
+    def validate_target(self, private_line: object) -> object:
+        assert type(private_line) is str
+        self.calls.append("validate_target")
+        identity = parent._FileIdentity(1, 2, 3, 4, "a" * 64, "3.13", "3.13")
+        return parent._TargetBinding(bytearray(PRIVATE_MARKER.encode("ascii")), identity)
+
+    def clear_private(self, *values: object) -> bool:
+        self.calls.append("clear_private")
+        self.clear_count += 1
+        for value in values:
+            if isinstance(value, bytearray):
+                value[:] = b"\0" * len(value)
+        return True
+
+    def launch_once(self, request: object) -> object:
+        self.calls.append("launch")
+        self.request = request
+        if self.launch_error is not None:
+            raise self.launch_error
+        return self.evidence
+
+    def target_identity_exact(self, target: object) -> bool | None:
+        del target
+        self.calls.append("target_recheck")
+        return self.target_exact
+
+    def audit_counts(self) -> object:
+        self.calls.append("audit_counts")
+        return self.counts
+
+
+def run(adapter: FakeAdapter, owner: object | None = None) -> tuple[bytes | str, object]:
+    selected_owner = owner or FakeOwner()
+    result = parent._run_controller(
+        OBSERVATION_ID,
+        adapter,
+        repository_root=ROOT,
+        owner=selected_owner,
+    )
+    return result, selected_owner
+
+
+def sha(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def test_import_is_inert_and_frozen_dependencies_are_exact(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(parent, "_WindowsParentAdapter", lambda: pytest.fail("adapter constructed"))
+    for relative, expected in parent.FROZEN_BINDINGS.items():
+        assert sha(ROOT / relative) == expected
+    source = MODULE_PATH.read_text(encoding="ascii")
+    assert "import run_role_pool_r0_trusted_launch_observer" not in source
+    tree = ast.parse(source)
+    imported = {
+        alias.name
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.Import, ast.ImportFrom))
+        for alias in node.names
+    }
+    assert "subprocess" not in imported
+
+
+def test_real_owner_interface_loads_from_exact_bytes() -> None:
+    owner = parent._load_owner(ROOT)
+    assert callable(owner.observation_identity_pair)
+    assert callable(owner.parse_validation_payload)
+    assert callable(owner.seal_proportionate_observation_receipt)
+    assert owner.PostExitFacts.__name__ == "PostExitFacts"
+
+
+def test_audit_registration_requires_positive_self_witness(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    adapter = object.__new__(parent._WindowsParentAdapter)
+    adapter.audit = None
+    monkeypatch.setattr(parent.sys, "addaudithook", lambda _hook: None)
+    monkeypatch.setattr(parent.sys, "audit", lambda _event, *_args: None)
+
+    with pytest.raises(parent._ControllerError, match="observation_binding_rejected"):
+        adapter.install_audit(ROOT)
+
+    assert adapter.audit is None
+
+
+def test_audit_registration_is_stored_only_after_witness(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    adapter = object.__new__(parent._WindowsParentAdapter)
+    adapter.audit = None
+    hooks: list[object] = []
+
+    monkeypatch.setattr(parent.sys, "addaudithook", hooks.append)
+
+    def emit(event: str, *args: object) -> None:
+        for hook in tuple(hooks):
+            hook(event, args)
+
+    monkeypatch.setattr(parent.sys, "audit", emit)
+    adapter.install_audit(ROOT)
+
+    assert isinstance(adapter.audit, parent._AuditCounter)
+    assert adapter.audit.snapshot() == parent._AuditCounts(0, 0, 0, 0)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        None,
+        1,
+        "",
+        "x",
+        "-x",
+        "r0.app_native.offline.observation.1." + "0" * 32,
+        "r0.app_native.offline.observation.2." + "1" * 32,
+        "r0.app_native.offline.observation.1." + "A" * 32,
+        OBSERVATION_ID + "x",
+        OBSERVATION_ID + "\n",
+        OBSERVATION_ID[:-1],
+        chr(233) + OBSERVATION_ID,
+    ],
+)
+def test_public_identity_rejections(value: object) -> None:
+    with pytest.raises(parent._ControllerError, match="observation_sequence_rejected"):
+        parent._validate_observation_id(value)
+
+
+def test_public_identity_exact_positive() -> None:
+    assert parent._validate_observation_id(OBSERVATION_ID) == OBSERVATION_ID
+
+
+@pytest.mark.parametrize("runtime", [("posix", "linux"), ("nt", "linux"), ("posix", "win32")])
+def test_non_windows_fails_before_private_input(runtime: tuple[str, str]) -> None:
+    adapter = FakeAdapter()
+    adapter.os_name, adapter.platform = runtime
+    result, _owner = run(adapter)
+    assert result == "observation_host_rejected"
+    assert adapter.calls == ["runtime"]
+
+
+@pytest.mark.parametrize(
+    "audit",
+    [
+        parent._QueueAudit(None, (), None, None, False),
+        parent._QueueAudit(-1, (), 0, -1, True),
+        parent._QueueAudit(4097, (), None, 4097, True),
+        parent._QueueAudit(1, (), 0, 1, True),
+        parent._QueueAudit(1, (parent._QueueRecord(parent.KEY_EVENT, True, "x"),), 1, 1, True),
+        parent._QueueAudit(1, (parent._QueueRecord(parent.KEY_EVENT, True, "\0"),), 0, 1, True),
+        parent._QueueAudit(1, (parent._QueueRecord(parent.KEY_EVENT, True, "\0"),), 1, 2, True),
+        parent._QueueAudit(1, (parent._QueueRecord(parent.KEY_EVENT, "yes", "\0"),), 1, 1, True),
+        parent._QueueAudit(1, (parent._QueueRecord(parent.KEY_EVENT, True, "xx"),), 1, 1, True),
+    ],
+)
+def test_queue_audit_uncertainty_and_character_input_fail_closed(audit: object) -> None:
+    assert not parent._queue_is_empty(audit)
+
+
+@pytest.mark.parametrize(
+    "audit",
+    [
+        empty_audit(),
+        parent._QueueAudit(1, (parent._QueueRecord(2, False, "\0"),), 1, 1, True),
+        parent._QueueAudit(1, (parent._QueueRecord(parent.KEY_EVENT, False, "x"),), 1, 1, True),
+        parent._QueueAudit(1, (parent._QueueRecord(parent.KEY_EVENT, True, "\0"),), 1, 1, True),
+    ],
+)
+def test_queue_audit_non_character_records_are_non_consumingly_admitted(audit: object) -> None:
+    assert parent._queue_is_empty(audit)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        None,
+        "",
+        "unterminated",
+        "\r",
+        "\r\n",
+        "first\nsecond\r\n",
+        "first\rsecond\r\n",
+        "value\0\r\n",
+        "value\n",
+        "value\r\nextra",
+        "x" * (parent.MAX_PRIVATE_PATH_UNITS + 1) + "\r",
+        "\ud800\r",
+    ],
+    ids=lambda value: (
+        f"{type(value).__name__}-{len(value)}"
+        if isinstance(value, str)
+        else type(value).__name__
+    ),
+)
+def test_private_line_requires_one_complete_crlf_terminated_line(value: object) -> None:
+    with pytest.raises(parent._ControllerError, match="observation_binding_rejected"):
+        parent._private_line_text(value)
+
+
+@pytest.mark.parametrize("ending", ["\r", "\r\n"])
+def test_private_line_positive(ending: str) -> None:
+    assert parent._private_line_text("synthetic" + ending) == "synthetic"
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("C:" + chr(92) + "Python313" + chr(92) + "python.exe", True),
+        ("python.exe", False),
+        (chr(92) * 2 + "server" + chr(92) + "python.exe", False),
+        ("C:" + chr(92) + "Python313" + chr(92) + "python.exe:stream", False),
+        ("C:" + chr(92) + "Python313." + chr(92) + "python.exe", False),
+        ("C:" + chr(92) + "Python313 " + chr(92) + "python.exe", False),
+        ("C:" + chr(92) + "Python*" + chr(92) + "python.exe", False),
+        ("C:" + chr(92) + "Python313" + chr(92) + "py.exe", False),
+        (None, False),
+    ],
+)
+def test_private_target_lexical_policy(value: object, expected: bool) -> None:
+    assert parent._valid_private_target_text(value) is expected
+
+
+def test_success_uses_three_audits_one_read_and_restores_before_validation() -> None:
+    adapter = FakeAdapter()
+    result, _owner = run(adapter)
+    assert result == RECEIPT
+    assert adapter.read_count == 1
+    assert adapter.calls.index("validate_target") > adapter.calls.index("set_console_mode", 8)
+    assert adapter.calls[:13] == [
+        "runtime",
+        "install_audit",
+        "snapshot",
+        "open_console",
+        "set_console_mode",
+        "queue_audit",
+        "read_console",
+        "queue_audit",
+        "set_console_mode",
+        "queue_audit",
+        "validate_target",
+        "clear_private",
+        "windows_directory",
+    ]
+    assert adapter.calls.count("queue_audit") == 3
+    assert adapter.calls.count("read_console") == 1
+
+
+@pytest.mark.parametrize("audit_index", [0, 1, 2])
+def test_each_character_queue_boundary_rejects_before_launch(audit_index: int) -> None:
+    adapter = FakeAdapter()
+    adapter.audits[audit_index] = parent._QueueAudit(
+        1,
+        (parent._QueueRecord(parent.KEY_EVENT, True, "x"),),
+        1,
+        1,
+        True,
+    )
+    result, _owner = run(adapter)
+    assert result == "observation_binding_rejected"
+    assert "launch" not in adapter.calls
+    assert adapter.calls.count("read_console") == (0 if audit_index == 0 else 1)
+    assert adapter.calls.count("set_console_mode") == 2
+
+
+def test_mode_restore_failure_is_terminal_and_no_launch() -> None:
+    adapter = FakeAdapter()
+    adapter.set_mode_results = [True, False]
+    result, _owner = run(adapter)
+    assert result == "observation_timeout_unknown"
+    assert adapter.calls.count("set_console_mode") == 2
+    assert "launch" not in adapter.calls
+
+
+@pytest.mark.parametrize(
+    ("method", "status"),
+    [
+        ("open_console", "observation_binding_rejected"),
+        ("read_console_line", "observation_binding_rejected"),
+        ("validate_target", "observation_binding_rejected"),
+        ("windows_directory", "observation_binding_rejected"),
+    ],
+)
+def test_native_ingress_acquisition_failures_stop_without_process_entry(
+    method: str,
+    status: str,
+) -> None:
+    adapter = FakeAdapter()
+
+    def fail(*_args: object, **_kwargs: object) -> object:
+        raise parent._ControllerError(status)
+
+    setattr(adapter, method, fail)
+    result, _owner = run(adapter)
+    assert result == status
+    assert "launch" not in adapter.calls
+    if method in {"read_console_line", "validate_target"}:
+        assert adapter.calls.count("set_console_mode") == 2
+
+
+def test_private_buffer_clear_failure_is_cleanup_unknown() -> None:
+    adapter = FakeAdapter()
+
+    def fail_clear(*_values: object) -> bool:
+        adapter.calls.append("clear_private")
+        return False
+
+    adapter.clear_private = fail_clear
+    result, _owner = run(adapter)
+    assert result == "observation_timeout_unknown"
+    assert "launch" not in adapter.calls
+
+
+def test_private_value_never_enters_request_result_or_exception() -> None:
+    adapter = FakeAdapter()
+    result, _owner = run(adapter)
+    assert PRIVATE_MARKER.encode() not in result
+    assert PRIVATE_MARKER not in repr(adapter.request)
+    assert PRIVATE_MARKER not in " ".join(cast_request(adapter).tokens)
+    assert all(PRIVATE_MARKER not in item for item in adapter.calls)
+
+
+@pytest.mark.parametrize("identity", [True, False, None])
+def test_process_image_identity_retains_existing_three_variant_semantics(
+    identity: bool | None,
+) -> None:
+    adapter = FakeAdapter()
+    adapter.evidence = launch_evidence(top_level_identity_exact=identity)
+    result, owner = run(adapter)
+    assert result == RECEIPT
+    assert owner.facts.top_level_identity_exact is identity
+
+
+@pytest.mark.parametrize("target_exact", [False, None])
+def test_post_launch_target_file_drift_is_launch_unknown(target_exact: bool | None) -> None:
+    adapter = FakeAdapter()
+    adapter.target_exact = target_exact
+    result, owner = run(adapter)
+    assert result == "observation_launch_unknown"
+    assert owner.seal_calls == 0
+    assert adapter.clear_count == 2
+
+
+@pytest.mark.parametrize("observed", [False, None])
+def test_precreate_target_identity_uncertainty_rejects_before_entry(
+    observed: bool | None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    identity = parent._FileIdentity(1, 2, 3, 4, "a" * 64, "3.13", "3.13")
+    monkeypatch.setattr(parent, "_path_identity_exact", lambda _path, _identity: observed)
+
+    with pytest.raises(parent._ControllerError, match="observation_binding_rejected"):
+        parent._require_precreate_target_identity(PRIVATE_MARKER, identity)
+
+
+def test_precreate_target_identity_check_is_immediately_before_create_process() -> None:
+    source = inspect.getsource(parent._execute_windows_once)
+    binding = source.index("_require_precreate_target_identity")
+    deadline = source.index("deadline = time.monotonic()")
+    uncertain = source.index("created = None")
+    attempt = source.index("attempts = 1")
+    create = source.index("kernel32.CreateProcessW")
+    assert binding < deadline < uncertain < attempt < create
+
+
+def test_target_guard_is_closed_when_identity_capture_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class Kernel:
+        def __init__(self) -> None:
+            self.close_calls = 0
+
+        @staticmethod
+        def CreateFileW(*_args: object) -> int:
+            return 41
+
+        def CloseHandle(self, _handle: object) -> bool:
+            self.close_calls += 1
+            return True
+
+    target = tmp_path / "python.exe"
+    target.write_bytes(b"synthetic")
+    adapter = object.__new__(parent._WindowsParentAdapter)
+    adapter.kernel32 = Kernel()
+    adapter.guard = None
+    monkeypatch.setattr(
+        parent,
+        "_stable_file_bytes",
+        lambda _path: (_ for _ in ()).throw(parent._ControllerError("observation_binding_rejected")),
+    )
+
+    with pytest.raises(parent._ControllerError, match="observation_binding_rejected"):
+        adapter.validate_target(str(target))
+
+    assert adapter.guard is None
+    assert adapter.kernel32.close_calls == 1
+
+
+def test_attribute_list_is_owned_only_after_successful_initialization() -> None:
+    class Kernel:
+        def __init__(self) -> None:
+            self.initialize_calls = 0
+            self.delete_calls = 0
+
+        def InitializeProcThreadAttributeList(
+            self,
+            _pointer: object,
+            _count: int,
+            _flags: int,
+            size: object,
+        ) -> bool:
+            self.initialize_calls += 1
+            parent.ctypes.cast(size, parent.ctypes.POINTER(parent.ctypes.c_size_t)).contents.value = 64
+            return self.initialize_calls == 1
+
+        def DeleteProcThreadAttributeList(self, _pointer: object) -> None:
+            self.delete_calls += 1
+
+    kernel = Kernel()
+    attributes = parent._OwnedAttributeList(kernel)
+
+    with pytest.raises(parent._ControllerError, match="observation_launch_unknown"):
+        attributes.initialize()
+
+    assert attributes.pointer is None
+    assert attributes.buffer is None
+    assert attributes.close()
+    assert attributes.observation() == parent._CloseObservation("attribute_list", 1, True)
+    assert kernel.delete_calls == 0
+
+
+def test_uncertain_process_return_adopts_owned_handles_for_reconciliation() -> None:
+    class Kernel:
+        @staticmethod
+        def CloseHandle(_handle: object) -> bool:
+            return True
+
+    information = parent._ProcessInformation()
+    information.hProcess = 41
+    information.hThread = 42
+    handles: dict[str, object] = {}
+
+    assert parent._adopt_returned_process_handles(Kernel(), handles, information)
+    assert tuple(handles) == ("process", "thread")
+    assert all(handle.open for handle in handles.values())
+
+
+def test_process_entry_uncertainty_routes_through_reconciliation() -> None:
+    source = inspect.getsource(parent._execute_windows_once)
+    exception = source.index("except BaseException as exc:")
+    uncertain = source.index("attempts == 1 and created is not False", exception)
+    adoption = source.index("_adopt_returned_process_handles", uncertain)
+    release = source.index("attributes.close()", adoption)
+    inherited_closes = source.index('("stdin_read", "stdout_write", "stderr_write", "thread")', release)
+    recovery = source.index("_recover_postcreation_failure(", inherited_closes)
+    cleanup = source.index("finally:", recovery)
+    assert exception < uncertain < adoption < release < inherited_closes < recovery < cleanup
+
+
+def cast_request(adapter: FakeAdapter) -> object:
+    assert isinstance(adapter.request, parent._LaunchRequest)
+    return adapter.request
+
+
+def test_exact_child_request_has_no_shell_path_or_ambient_environment() -> None:
+    adapter = FakeAdapter()
+    result, _owner = run(adapter)
+    assert result == RECEIPT
+    request = cast_request(adapter)
+    assert request.tokens == ("python.exe", "-B", parent.FIXED_CHILD_SCRIPT, OBSERVATION_ID)
+    assert request.environment == (("PYTHONDONTWRITEBYTECODE", "1"), ("SYSTEMROOT", "C:" + chr(92) + "Windows"))
+    assert {name.upper() for name, _value in request.environment} == {"PYTHONDONTWRITEBYTECODE", "SYSTEMROOT"}
+    assert request.timeout_seconds == 120
+    assert request.max_stdout_bytes == 4096
+    assert request.max_stderr_bytes == 128
+
+
+def test_production_source_encodes_creation_time_job_and_handle_lists_only() -> None:
+    source = MODULE_PATH.read_text(encoding="ascii")
+    assert "PROC_THREAD_ATTRIBUTE_JOB_LIST" in source
+    assert "PROC_THREAD_ATTRIBUTE_HANDLE_LIST" in source
+    assert "ActiveProcessLimit = 1" in source
+    assert "JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE" in source
+    assert "CREATE_SUSPENDED" not in source
+    assert "AssignProcessToJobObject" not in source
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        RuntimeError("x"),
+        KeyboardInterrupt(),
+        parent._ControllerError("observation_launch_unknown"),
+    ],
+)
+def test_launch_exception_never_retries(error: BaseException) -> None:
+    adapter = FakeAdapter()
+    adapter.launch_error = error
+    result, _owner = run(adapter)
+    assert result in {"observation_launch_unknown", "observation_result_unknown"}
+    assert adapter.calls.count("launch") == 1
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"creation_attempt_count": 0},
+        {"creation_attempt_count": 2},
+        {"top_level_created": False},
+        {"top_level_process_id": None},
+        {"job_assigned_at_creation": False},
+        {"job_handle_unique": False},
+        {"cumulative_process_total": None},
+        {"cumulative_process_total": 2},
+        {"active_process_count": None},
+        {"events": (parent._JobEvent("unknown", None),)},
+        {"events": (parent._JobEvent("new", 41), parent._JobEvent("active_zero", None))},
+        {"events": (parent._JobEvent("new", 42), parent._JobEvent("exit", 42), parent._JobEvent("active_zero", None))},
+    ],
+)
+def test_job_membership_accounting_and_event_conflicts_are_launch_unknown(changes: dict[str, object]) -> None:
+    adapter = FakeAdapter()
+    adapter.evidence = launch_evidence(**changes)
+    result, _owner = run(adapter)
+    assert result == "observation_launch_unknown"
+
+
+def test_descendant_and_survivor_are_safety_failures() -> None:
+    adapter = FakeAdapter()
+    adapter.evidence = launch_evidence(
+        cumulative_process_total=2,
+        events=(
+            parent._JobEvent("new", 41),
+            parent._JobEvent("new", 42),
+            parent._JobEvent("exit", 41),
+            parent._JobEvent("exit", 42),
+            parent._JobEvent("active_zero", None),
+        ),
+    )
+    result, _owner = run(adapter)
+    assert result == "observation_safety_boundary_failed"
+    adapter = FakeAdapter()
+    adapter.evidence = launch_evidence(active_process_count=1)
+    result, _owner = run(adapter)
+    assert result == "observation_launch_unknown"
+
+
+def test_active_process_limit_message_is_known_safety_failure() -> None:
+    adapter = FakeAdapter()
+    adapter.evidence = launch_evidence(
+        events=(
+            parent._JobEvent("new", 41),
+            parent._JobEvent("exit", 41),
+            parent._JobEvent("active_limit", None),
+            parent._JobEvent("active_zero", None),
+        )
+    )
+    result, _owner = run(adapter)
+    assert result == "observation_safety_boundary_failed"
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"timed_out": True, "termination_requested": True, "termination_succeeded": True},
+        {"termination_requested": True, "termination_succeeded": False},
+        {"terminal_wait_succeeded": False},
+        {"exit_code": None},
+        {"close_observations": close_observations(process=False)},
+    ],
+)
+def test_timeout_termination_terminal_and_cleanup_unknown_precedence(changes: dict[str, object]) -> None:
+    adapter = FakeAdapter()
+    adapter.evidence = launch_evidence(**changes)
+    result, _owner = run(adapter)
+    assert result == "observation_timeout_unknown"
+
+
+@pytest.mark.parametrize("resource", CLOSE_NAMES)
+def test_every_owned_resource_requires_one_successful_close(resource: str) -> None:
+    adapter = FakeAdapter()
+    adapter.evidence = launch_evidence(close_observations=close_observations(**{resource: False}))
+    result, _owner = run(adapter)
+    assert result == "observation_timeout_unknown"
+
+
+@pytest.mark.parametrize(
+    "observations",
+    [
+        (parent._CloseObservation("job", 1, True),),
+        close_observations()[:-1],
+        close_observations() + (parent._CloseObservation("foreign", 1, True),),
+    ],
+)
+def test_cleanup_inventory_requires_the_exact_closed_resource_set(
+    observations: tuple[object, ...],
+) -> None:
+    adapter = FakeAdapter()
+    adapter.evidence = launch_evidence(close_observations=observations)
+    result, _owner = run(adapter)
+    assert result == "observation_timeout_unknown"
+
+
+@pytest.mark.parametrize(
+    "field",
+    ["network_operations", "repository_writes", "installed_writes", "external_effects"],
+)
+def test_each_observed_effect_is_safety_failure(field: str) -> None:
+    adapter = FakeAdapter()
+    adapter.counts = replace(adapter.counts, **{field: 1})
+    result, _owner = run(adapter)
+    assert result == "observation_safety_boundary_failed"
+
+
+@pytest.mark.parametrize("which", ["repository", "installed", "residue"])
+def test_pre_post_drift_and_residue_are_safety_failures(which: str) -> None:
+    adapter = FakeAdapter()
+    if which == "repository":
+        adapter.after = replace(adapter.after, repository_digest="changed")
+    elif which == "installed":
+        adapter.after = replace(adapter.after, installed_digest="changed")
+    else:
+        adapter.after = replace(adapter.after, generated_residue=frozenset({"new"}))
+    result, _owner = run(adapter)
+    assert result == "observation_safety_boundary_failed"
+
+
+def test_repository_tree_digest_covers_every_working_tree_path_except_git_metadata(
+    tmp_path: Path,
+) -> None:
+    repository = tmp_path / "repository"
+    repository.mkdir()
+    (repository / ".git").mkdir()
+    (repository / ".git" / "index").write_bytes(b"metadata-one")
+    (repository / "owned.txt").write_bytes(b"owned")
+    first = parent._tree_digest(
+        repository,
+        excluded_root_names=parent._REPOSITORY_METADATA_NAMES,
+        schema_version="trusted_owner_repository_working_tree.v1",
+    )
+
+    (repository / ".git" / "index").write_bytes(b"metadata-two")
+    assert parent._tree_digest(
+        repository,
+        excluded_root_names=parent._REPOSITORY_METADATA_NAMES,
+        schema_version="trusted_owner_repository_working_tree.v1",
+    ) == first
+
+    (repository / "foreign-output.txt").write_bytes(b"unexpected")
+    assert parent._tree_digest(
+        repository,
+        excluded_root_names=parent._REPOSITORY_METADATA_NAMES,
+        schema_version="trusted_owner_repository_working_tree.v1",
+    ) != first
+
+
+def test_unstable_effect_snapshot_is_cleanup_unknown() -> None:
+    adapter = FakeAdapter()
+    adapter.after = replace(adapter.after, exact=False)
+    result, _owner = run(adapter)
+    assert result == "observation_timeout_unknown"
+
+
+@pytest.mark.parametrize(
+    ("changes", "expected"),
+    [
+        ({"stdout_eof": False}, "observation_timeout_unknown"),
+        ({"stderr_eof": False}, "observation_timeout_unknown"),
+        ({"stdout_overflow": True}, "observation_result_unknown"),
+        ({"stderr_overflow": True}, "observation_result_unknown"),
+    ],
+)
+def test_stream_eof_overflow_and_drain_fail_closed(
+    changes: dict[str, object],
+    expected: str,
+) -> None:
+    adapter = FakeAdapter()
+    adapter.evidence = launch_evidence(**changes)
+    result, _owner = run(adapter)
+    assert result == expected
+
+
+def test_pipe_drain_continues_to_eof_after_overflow(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class PipeKernel:
+        def __init__(self) -> None:
+            self.peek_calls = 0
+            self.read_calls = 0
+
+        def PeekNamedPipe(
+            self,
+            _handle: object,
+            _buffer: object,
+            _size: int,
+            _read: object,
+            available: object,
+            _left: object,
+        ) -> bool:
+            self.peek_calls += 1
+            if self.peek_calls == 1:
+                parent.ctypes.cast(available, parent.ctypes.POINTER(parent.wintypes.DWORD)).contents.value = 3
+                return True
+            return False
+
+        def ReadFile(self, _handle: object, buffer: object, _size: int, read: object, _overlapped: object) -> bool:
+            self.read_calls += 1
+            parent.ctypes.memmove(buffer, b"xyz", 3)
+            parent.ctypes.cast(read, parent.ctypes.POINTER(parent.wintypes.DWORD)).contents.value = 3
+            return True
+
+    kernel = PipeKernel()
+    retained = bytearray(b"full")
+    handle = parent._OwnedHandle(kernel, "stdout_read", 1)
+    monkeypatch.setattr(parent.ctypes, "get_last_error", lambda: parent.ERROR_BROKEN_PIPE)
+
+    eof, overflow, exact = parent._drain_pipe(
+        kernel,
+        handle,
+        retained,
+        4,
+        False,
+        True,
+    )
+
+    assert (eof, overflow, exact) == (True, True, True)
+    assert retained == b"full"
+    assert kernel.read_calls == 1
+
+
+def test_postcreation_failure_requests_termination_and_reconciles_owned_state(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class Kernel:
+        def __init__(self) -> None:
+            self.terminate_calls = 0
+            self.wait_calls = 0
+
+        def TerminateJobObject(self, _job: object, _code: int) -> bool:
+            self.terminate_calls += 1
+            return True
+
+        def WaitForSingleObject(self, _process: object, _timeout: int) -> int:
+            self.wait_calls += 1
+            return parent.WAIT_OBJECT_0
+
+    kernel = Kernel()
+    handles = {
+        name: parent._OwnedHandle(kernel, name, index + 1)
+        for index, name in enumerate(("job", "process", "completion_port", "stdout_read", "stderr_read"))
+    }
+    request = parent._LaunchRequest(
+        parent._TargetBinding(bytearray(), parent._FileIdentity(1, 2, 3, 4, "a" * 64, "3.13", "3.13")),
+        ("python.exe", "-B", parent.FIXED_CHILD_SCRIPT, OBSERVATION_ID),
+        ROOT,
+        (),
+        120.0,
+        4096,
+        128,
+    )
+    drain_calls: list[str] = []
+    monkeypatch.setattr(parent, "_drain_job_events", lambda *_args: drain_calls.append("events") or True)
+    monkeypatch.setattr(
+        parent,
+        "_drain_pipe",
+        lambda _kernel, handle, _retained, _limit, _eof, overflow: (
+            True,
+            overflow,
+            drain_calls.append(handle.name) is None,
+        ),
+    )
+    monkeypatch.setattr(parent, "_query_accounting", lambda *_args: (1, 0))
+    monkeypatch.setattr(parent.time, "monotonic", lambda: 0.0)
+
+    result = parent._recover_postcreation_failure(
+        kernel,
+        handles,
+        [],
+        bytearray(),
+        bytearray(),
+        request,
+        False,
+        False,
+        False,
+        False,
+        False,
+        None,
+    )
+
+    assert result == (True, True, True, True, False, False, True, 1, 0)
+    assert kernel.terminate_calls == 1
+    assert kernel.wait_calls == 1
+    assert drain_calls == ["events", "stdout_read", "stderr_read"]
+
+
+def test_postcreation_exception_branch_routes_through_reconciliation() -> None:
+    source = inspect.getsource(parent._execute_windows_once)
+    exception = source.index("except BaseException as exc:")
+    recovery = source.index("_recover_postcreation_failure(", exception)
+    cleanup = source.index("finally:", recovery)
+    assert exception < recovery < cleanup
+
+
+def test_postcreation_failure_reconciliation_is_bounded_to_five_seconds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class Kernel:
+        def __init__(self) -> None:
+            self.wait_calls = 0
+
+        def TerminateJobObject(self, _job: object, _code: int) -> bool:
+            return True
+
+        def WaitForSingleObject(self, _process: object, _timeout: int) -> int:
+            self.wait_calls += 1
+            return parent.WAIT_TIMEOUT
+
+    kernel = Kernel()
+    handles = {
+        name: parent._OwnedHandle(kernel, name, index + 1)
+        for index, name in enumerate(("job", "process", "completion_port", "stdout_read", "stderr_read"))
+    }
+    request = parent._LaunchRequest(
+        parent._TargetBinding(bytearray(), parent._FileIdentity(1, 2, 3, 4, "a" * 64, "3.13", "3.13")),
+        ("python.exe", "-B", parent.FIXED_CHILD_SCRIPT, OBSERVATION_ID),
+        ROOT,
+        (),
+        120.0,
+        4096,
+        128,
+    )
+    times = iter((10.0, 11.0, 15.0))
+    sleeps: list[float] = []
+    monkeypatch.setattr(parent.time, "monotonic", lambda: next(times))
+    monkeypatch.setattr(parent.time, "sleep", sleeps.append)
+    monkeypatch.setattr(parent, "_drain_job_events", lambda *_args: True)
+    monkeypatch.setattr(
+        parent,
+        "_drain_pipe",
+        lambda _kernel, _handle, _retained, _limit, eof, overflow: (
+            eof,
+            overflow,
+            True,
+        ),
+    )
+    monkeypatch.setattr(parent, "_query_accounting", lambda *_args: (1, 1))
+
+    result = parent._recover_postcreation_failure(
+        kernel,
+        handles,
+        [],
+        bytearray(),
+        bytearray(),
+        request,
+        False,
+        False,
+        False,
+        False,
+        False,
+        None,
+    )
+
+    assert result[-3:] == (False, 1, 1)
+    assert kernel.wait_calls == 2
+    assert sleeps == [0.01]
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"exit_code": 1},
+        {"stderr": b"x"},
+        {"stdout": b"invalid"},
+        {"stdout": b"x" * 4097},
+        {"stderr": b"x" * 129},
+    ],
+)
+def test_child_exit_stderr_and_payload_validation_fail_closed(changes: dict[str, object]) -> None:
+    adapter = FakeAdapter()
+    adapter.evidence = launch_evidence(**changes)
+    result, _owner = run(adapter)
+    assert result == "observation_validation_failed"
+
+
+def test_all_fifteen_post_exit_facts_are_parent_derived_and_sealed_once() -> None:
+    adapter = FakeAdapter()
+    result, owner = run(adapter)
+    assert result == RECEIPT
+    assert owner.parse_calls == 1
+    assert owner.seal_calls == 1
+    assert owner.facts == FakePostExitFacts(
+        1,
+        0,
+        True,
+        True,
+        0,
+        True,
+        False,
+        False,
+        True,
+        True,
+        0,
+        0,
+        0,
+        0,
+        0,
+    )
+
+
+def test_success_is_deterministic_for_identical_parent_evidence() -> None:
+    first, _first_owner = run(FakeAdapter())
+    second, _second_owner = run(FakeAdapter())
+    assert first == second == RECEIPT
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        lambda adapter: setattr(adapter, "before", replace(adapter.before, exact=False)),
+        lambda adapter: setattr(adapter, "target_exact", None),
+        lambda adapter: setattr(adapter, "evidence", launch_evidence(exit_code=1)),
+        lambda adapter: setattr(adapter, "evidence", launch_evidence(stdout_eof=False)),
+    ],
+)
+def test_sealer_is_never_called_before_complete_terminal_success(mutation: object) -> None:
+    adapter = FakeAdapter()
+    mutation(adapter)
+    owner = FakeOwner()
+    result, _owner = run(adapter, owner)
+    assert result != RECEIPT
+    assert owner.seal_calls == 0
+
+
+@pytest.mark.parametrize(
+    ("sealed", "expected"),
+    [
+        ("observation_receipt_sealing_failed", "observation_receipt_sealing_failed"),
+        ("unexpected", "observation_result_unknown"),
+        (None, "observation_result_unknown"),
+    ],
+)
+def test_sealer_result_is_closed_and_no_unknown_value_echoes(
+    sealed: object,
+    expected: str,
+) -> None:
+    owner = FakeOwner()
+
+    def seal(*_args: object) -> object:
+        owner.seal_calls += 1
+        return sealed
+
+    owner.seal_proportionate_observation_receipt = seal
+    result, _owner = run(FakeAdapter(), owner)
+    assert result == expected
+    assert result != repr(sealed)
+
+
+def test_fixed_failure_output_is_symbolic_and_no_echo(monkeypatch: pytest.MonkeyPatch) -> None:
+    stdout = io.StringIO()
+    stderr = io.StringIO()
+    monkeypatch.setattr(sys, "stdout", stdout)
+    monkeypatch.setattr(sys, "stderr", stderr)
+    monkeypatch.setattr(parent, "_repository_root", lambda: ROOT)
+    monkeypatch.setattr(parent, "_load_owner", lambda _root: FakeOwner())
+    adapter = FakeAdapter()
+    adapter.audits[0] = parent._QueueAudit(
+        1,
+        (parent._QueueRecord(parent.KEY_EVENT, True, "x"),),
+        1,
+        1,
+        True,
+    )
+    monkeypatch.setattr(parent, "_WindowsParentAdapter", lambda: adapter)
+    assert parent.main([OBSERVATION_ID]) == 2
+    assert stdout.getvalue() == ""
+    assert stderr.getvalue() == "observation_binding_rejected\n"
+    assert PRIVATE_MARKER not in stderr.getvalue()
+
+
+@pytest.mark.parametrize("arguments", [[], [OBSERVATION_ID, "extra"], ["--help"], [OBSERVATION_ID, OBSERVATION_ID]])
+def test_main_rejects_missing_extra_option_and_duplicate_arguments(
+    arguments: list[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    stderr = io.StringIO()
+    monkeypatch.setattr(sys, "stderr", stderr)
+    assert parent.main(arguments) == 2
+    assert stderr.getvalue() == "observation_sequence_rejected\n"
+
+
+def test_operation_free_fake_never_touches_process_network_github_or_durable_state() -> None:
+    adapter = FakeAdapter()
+    result, _owner = run(adapter)
+    assert result == RECEIPT
+    assert adapter.calls.count("launch") == 1
+    assert adapter.counts == parent._AuditCounts(0, 0, 0, 0)
+    assert not any(word in " ".join(adapter.calls) for word in ("github", "publish", "task", "network"))
+    assert adapter.clear_count == 2
+
+
+def _real_validation_payload(owner: ModuleType) -> bytes:
+    packet: dict[str, object] = {
+        "schema_version": "trusted_owner_r0_offline_bootstrap_evidence.v1",
+        "operation": "evaluate_r0_bootstrap_eligibility_read_only",
+        "repository_id": owner.REPOSITORY_ID,
+        "repository_name": "tahjali11/mythic-edge",
+        "issue_url": "https://github.com/Tahjali11/Mythic-Edge/issues/761",
+        "base_commit": "ad88b264a1c7947682a00b11c4a57963a43b7548",
+        "profile_contract_sha256": owner.PROFILE_CONTRACT_SHA256,
+        "app_server_contract_sha256": "814ac91c4e099216ae4870458d7524a3d65bfba7459cbfda7de82a5fc79067e8",
+        "r0_contract_sha256": "ef440f1fe4ce9b0fd342057864e41cbdef93c1ac12ea85a1f9d01912eec4cd02",
+        "contract_binding_status": "exact",
+        "stage3_manifest_file_count": 41,
+        "stage3_manifest_byte_count": 6052,
+        "stage3_manifest_sha256": "9109457e5897139658183595fb11c8a7bf9d66e4fb5b5fe6842b20bac43fbce2",
+        "manifest_status": "exact",
+        "source_tree_node_count": 43,
+        "source_tree_file_count": 38,
+        "source_tree_manifest_byte_count": 6840,
+        "source_tree_sha256": owner.SOURCE_TREE_SHA256,
+        "installed_tree_node_count": 43,
+        "installed_tree_file_count": 38,
+        "installed_tree_manifest_byte_count": 6840,
+        "installed_tree_sha256": owner.SOURCE_TREE_SHA256,
+        "source_install_status": "identical",
+        "registry_status": "valid_exact",
+        "registry_sha256": owner.REGISTRY_SHA256,
+        "release_state_status": "present_valid_chain",
+        "release_state_sha256": owner.RELEASE_STATE_ARTIFACT_SHA256,
+        "checker_sha256": owner.R0_CHECKER_SHA256,
+        "checker_test_sha256": owner.R0_CHECKER_TEST_SHA256,
+        "validator_bundle_sha256": owner.VALIDATOR_BUNDLE_SHA256,
+        "validator_bundle_status": "exact",
+        "offline_validation_status": "passed",
+        "terminal_status": "blocked_release_state_conflict",
+        "eligible_for_independent_review": False,
+        "effect_counts": {
+            "app_server_process_start_count": 0,
+            "task_creation_count": 0,
+            "network_operation_count": 0,
+            "repository_command_count": 0,
+            "persistent_mutation_count": 0,
+        },
+        "authority_flags": {field: False for field in owner.AUTHORITY_FIELDS},
+        "evidence_sha256": "",
+    }
+    packet["evidence_sha256"] = owner.self_digest(packet, "evidence_sha256")
+    return owner.canonical_bytes(packet)
+
+
+def test_success_path_calls_the_exact_integrated_owner_parser_and_sealer() -> None:
+    owner = parent._load_owner(ROOT)
+    adapter = FakeAdapter()
+    adapter.evidence = launch_evidence(stdout=_real_validation_payload(owner))
+    result, _owner = run(adapter, owner)
+    assert type(result) is bytes
+    receipt = owner.parse_receipt(result)
+    assert receipt["observation_id"] == OBSERVATION_ID
+    assert all(value is False for value in receipt["authority_flags"].values())
+
+
+def test_canonical_helpers_and_windows_quoting_are_deterministic() -> None:
+    assert parent._canonical_bytes({"b": 1, "a": 2}) == b'{"a":2,"b":1}'
+    tokens = ("python.exe", "-B", parent.FIXED_CHILD_SCRIPT, OBSERVATION_ID)
+    assert parent._command_line(tokens) == parent._command_line(tokens)
+    assert PRIVATE_MARKER not in parent._command_line(tokens)
+    with pytest.raises(parent._ControllerError):
+        parent._environment_block((("PATH", "x"), ("path", "y")))
+
+
+def test_test_artifact_contains_no_real_private_path_or_secret_marker() -> None:
+    payload = Path(__file__).read_bytes()
+    private_runtime_fragment = b"AppData" + b"\\Local" + b"\\Programs" + b"\\Python"
+    assert private_runtime_fragment not in payload
+    json.dumps({"sha256": hashlib.sha256(payload).hexdigest()})
