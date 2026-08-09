@@ -19,19 +19,23 @@
 - Accepted context discipline:
   [`ADR-0012`](../decisions/ADR-0012-long-horizon-context-and-delegation-discipline.md).
 - Risk tier: high.
-- Authoritative base commit:
-  `f8e6fc186094182c68a98ebdf229123809e3d5cc`.
-- Authoritative base tree:
-  `816ad1985c54961048dce582a3825bfac3d26c34`.
+- Correction base commit:
+  `e1fd3cf6939ef79c94e81c767d86d92f9d461c64`.
+- Correction base tree:
+  `1405abef7771738e3a5d3b139ef6138eb1f82e43`.
 
 The owner's current instruction is a task-scoped `explicit_user_override` for
-this one Codex B artifact while issue #826 remains blocked. It expires with
-this handoff. It creates no implementation, private-input, controller-start,
-process-launch, observation, consumption, publication, or rung authority.
+this one successor-parent-controller correction under open lifecycle issue
+#826. It expires with this handoff. It creates no private-input,
+controller-start, process-launch, observation, consumption, publication, or
+rung authority.
 
-Issue #828 is open with zero comments. Issue #769 is open with zero comments.
-Open pull requests #374 and #391 do not own any path in this contract or its
-future two-path implementation envelope.
+Issue #828 is closed and historical. PR #829 integrated the exact controller
+and controller test; PR #830 integrated the accepted predecessor version of
+this contract. Issue #769 remains open with zero comments and is not a
+coordination surface for this correction. The pre-existing
+`frontend/.wrangler/` residue in the main checkout is preserved without
+inspection or mutation and must not be represented as fresh-review cleanliness.
 
 ## Findings And Decision
 
@@ -46,9 +50,10 @@ future two-path implementation envelope.
    evidence at SHA-256
    `ab46fdc687e2e1f1074cc202100869a8183bb95e8377eaac8c7f30061cdf098a`.
    It is not a successor implementation dependency.
-4. **Decision:** add one successor-only Windows parent controller and one
-   operation-free focused test. The controller imports only the accepted #826
-   harness interface and independently owns its native boundary.
+4. **Observed:** PR #829 already integrated one successor-only Windows parent
+   controller and one operation-free focused test. The bounded repair remains
+   exactly those two implementation paths; it does not reopen the completed
+   capability issue or authorize another implementation surface.
 5. **Decision:** private target selection uses bounded attached-console input
    through `ReadConsoleW` with echo disabled. The private target path is never
    a command argument, environment value, file, registry value, clipboard
@@ -57,18 +62,75 @@ future two-path implementation envelope.
    Codex shell is not a conforming live caller. That nonclaim does not block
    inert implementation or operation-free review, but it does block live use
    until a fresh owner decision selects a conforming interactive Windows host.
-7. **Observed:** independent review found that the initial ingress sequence did
-   not reject character-producing input already buffered before `ReadConsoleW`
-   or prove that no second line remained queued after the bounded read.
-8. **Decision:** close only that console-buffer boundary with three bounded,
-   non-consuming queue audits. No process, identity, schema, lifecycle, or
-   implementation-path requirement changes.
+7. **Observed:** six post-merge review threads remain unresolved: PR #829 found
+   that authority and checkout eligibility were assigned to the controller and
+   that continuously productive drains could postpone the deadline; PR #830
+   found an unguarded child-checker byte window, a prospective sequence that
+   contradicted the integrated implementation, and an overclaim about console
+   queue stability.
+8. **Decision:** the external owner-operated preflight exclusively owns
+   current-main, clean-worktree, GitHub decision, and exact consumption
+   verification. The controller receives no new authority input, performs no
+   Git or GitHub operation, and makes no authority-authentication claim.
+9. **Decision:** controller-owned pre/post repository-effect comparison and
+   critical-artifact guards remain mandatory. The exact child checker gains a
+   write/delete-denying guard held from prelaunch through terminal cleanup.
+10. **Decision:** every stdout, stderr, and completion-port servicing step is
+    deadline-aware and work-bounded so continuous production cannot postpone
+    timeout, termination, or cleanup.
+11. **Decision:** the attached console is a trusted owner-controlled ingress
+    boundary. Bounded audits reject observed prebuffered character input and
+    multiline paste, but do not claim protection against an adversarial process
+    concurrently mutating the same console queue.
+12. **Decision:** this correction is retrospective. The implementation and
+    predecessor contract are already integrated; this successor correction
+    governs only the exact bounded contract, controller, and controller-test
+    repair package.
 
 Finding `ME-RP-826-PARENT-A-001` is
 `contracted_successor_boundary_pending_independent_review`.
 
 Finding `ME-RP-828-E-001` is
-`contract_corrected_pending_independent_confirmation`.
+`superseded_by_trusted_console_boundary_pending_independent_confirmation`.
+
+Finding `ME-RP-826-E-004` is
+`six_post_merge_review_threads_contracted_pending_independent_confirmation`.
+
+Finding `ME-RP-826-E-005` is
+`fresh_clean_review_worktree_required_after_integration`; the existing main
+checkout is not cleaned or mutated to satisfy that later gate.
+
+### Historical predecessor and review evidence
+
+- Accepted predecessor contract: `35296` bytes; SHA-256
+  `a54caf3f16abb3f01becb0e8addcb8923c65714b4ed889ef67e38a4f013154d0`.
+- Integrated controller: SHA-256
+  `b0fd13c96b264230562113abfc90d880c7fbbc51a50ef6abec9ddfeeab923e64`.
+- Integrated controller test: SHA-256
+  `e4f2dce0341be0ad0d710de3142a2fa4bde7dc1895ea536aa135074788307410`.
+- PR #829 reviewed head: `a7eab2e41615da49d8212535fddfe06d084c0aee`;
+  unresolved threads `PRRT_kwDOSaCjf86Xq998`,
+  `PRRT_kwDOSaCjf86Xq999`, and `PRRT_kwDOSaCjf86Xq9-A`.
+- PR #830 reviewed head: `a73c42474f7bd9e0869757d3200e66e87ef635a0`;
+  exact-head contract-only review `PRR_kwDOSaCjf88AAAABI5yAMg`; unresolved
+  threads `PRRT_kwDOSaCjf86XrITJ`, `PRRT_kwDOSaCjf86XrITM`, and
+  `PRRT_kwDOSaCjf86XrITN`.
+
+These hashes and references are immutable historical evidence. This correction
+supersedes the affected requirements prospectively; it does not rewrite or
+erase the accepted predecessor review record.
+
+| Review thread | Finding | Contract disposition |
+| --- | --- | --- |
+| `PRRT_kwDOSaCjf86Xq998` | Controller claimed decision/consumption authority | Current-main, clean-worktree, GitHub decision, and exact consumption verification belong exclusively to external owner-operated preflight; controller authentication claim forbidden. |
+| `PRRT_kwDOSaCjf86Xq999` | Continuous drains can postpone timeout | Every stdout, stderr, and completion-port service cycle is monotonic-deadline-aware and work-bounded. |
+| `PRRT_kwDOSaCjf86Xq9-A` | Controller did not prove exact checkout | Exact checkout eligibility belongs to external preflight; controller retains only frozen-critical-artifact checks and pre/post repository-effect comparison. |
+| `PRRT_kwDOSaCjf86XrITJ` | Child-checker bytes unguarded across launch | Exact checker is opened with write/delete sharing denied and held through terminal cleanup with exactly-once close evidence. |
+| `PRRT_kwDOSaCjf86XrITM` | Prospective sequence contradicted integrated paths | Sequence is retrospective; only the exact bounded repair is prospective, and the stale absent-path stop condition is superseded. |
+| `PRRT_kwDOSaCjf86XrITN` | Queue audit overclaimed same-count stability | Console is explicitly trusted and owner-controlled; observed buffered/multiline input rejects, while adversarial concurrent mutation protection is a nonclaim. |
+
+Every row is `contracted_pending_fresh_contract_only_E_confirmation`. Thread
+resolution is a later GitHub lifecycle effect and is not performed by Codex B.
 
 ## Exact Frozen Bindings
 
@@ -76,6 +138,9 @@ Finding `ME-RP-828-E-001` is
 | --- | --- |
 | Repository ID | `1235264383` |
 | Repository name | `tahjali11/mythic-edge` |
+| Accepted predecessor parent-controller contract | `35296` bytes; `a54caf3f16abb3f01becb0e8addcb8923c65714b4ed889ef67e38a4f013154d0` |
+| Integrated parent controller | `b0fd13c96b264230562113abfc90d880c7fbbc51a50ef6abec9ddfeeab923e64` |
+| Integrated parent-controller test | `e4f2dce0341be0ad0d710de3142a2fa4bde7dc1895ea536aa135074788307410` |
 | Accepted #826 lifecycle contract | `37249` bytes; `be7974ba998257981df5c876dfa441b03326ae776405bd269d1470957a785cde` |
 | Accepted #826 harness | `88401` bytes; `cfd3a0baaff6c4bbc5144403fd72f404722b8b96e8eca30fbf588f3180ec0b42` |
 | Accepted #826 harness test | `76211` bytes; `3fc6c35eada99f3a319e1ebe94bd5f33494821301cfdf1ec67f5f35bfc97dc4c` |
@@ -107,54 +172,86 @@ is unedited and unconsumed, but it is nontransferable to this controller and
 its identity is not reusable. A later controller execution requires a fresh
 eligibility review and a fresh exact, expiring, single-use owner decision.
 
-## Future Authority Sequence
+## Retrospective Correction And Future Authority Sequence
 
-No controller process starts before this complete later sequence:
+PR #829 already integrated the controller and controller test, and PR #830
+already integrated the accepted predecessor contract. Their integration is
+historical evidence, not proof that the six later review findings are closed.
+The only prospective implementation work authorized by this correction is a
+Codex D repair to those exact two integrated implementation paths after fresh
+contract-only Codex E acceptance.
 
-1. this exact contract receives independent Codex E acceptance;
-2. a separate owner decision authorizes only the exact two-file inert
-   implementation;
-3. Codex C implements only those files and fresh Codex E accepts their exact
-   bytes;
-4. Codex F and Codex G integrate the reviewed package under separate authority;
-5. fresh Codex E eligibility review binds current repository, source/install,
-   registry, release, index, validator, harness, controller, and test bytes;
-6. the owner publishes one fresh 12-hour, single-use execution decision that
-   binds the exact controller runtime version, length, SHA-256, stable file
-   identity, exact target executable version, length, SHA-256, stable file
-   identity, fresh observation ID, and all accepted lifecycle bindings; and
-7. the existing #826 consumption owner publishes and exactly reads back one
-   canonical consumption record before the controller starts.
+The conditional correction sequence is:
 
-The controller does not create, post, fetch, repair, or infer authority. A
-controller start after exact consumption is the sole execution attempt. Every
-startup, ingress, binding, launch, cancellation, timeout, cleanup, output,
-sealing, or publication outcome after consumption permanently retires that
-decision and identity. Unknown consumption or readback stops before controller
-start and permits no replacement.
+1. fresh Codex E reviews this corrected contract only;
+2. if E accepts it, Codex D changes exactly the controller and controller test;
+3. fresh Codex E reviews the corrected contract and exact two implementation
+   files and reproduces the required operation-free checks;
+4. only with no blocking finding, Codex F submits exactly those three paths in
+   one draft PR targeting `main`;
+5. only if the submitted head remains exact, all required checks pass, every
+   review thread is resolved, and fresh exact-head E review is clean, Codex G
+   may squash-merge that exact three-path package; and
+6. after integration, a fresh current-main eligibility review runs from a newly
+   created clean review worktree. The existing main checkout is not cleaned or
+   mutated to satisfy this gate. One public-safe #826 comment is permitted only
+   if every exact eligibility gate passes.
+
+The conditional chain stops on head drift, scope expansion, unknown GitHub
+state, failed validation, unresolved review finding, private-value requirement,
+operational process, or generated residue in the fresh review worktree. Codex G
+must not close #826 or mutate #769, #746, or #813.
+
+Any later controller execution is outside this correction authority. Before a
+controller process may start, an external owner-operated preflight must prove
+the exact current `main` commit and tree, synchronization with `origin/main`, a
+clean dedicated operation worktree, exact integrated artifact bytes, required
+GitHub issue states, one fresh 12-hour single-use owner decision, and a
+byte-identical canonical consumption record and readback. The preflight keeps
+that evidence outside controller inputs and starts the controller at most once
+only after every predicate passes.
+
+The controller does not authenticate or claim GitHub authority. It does not
+create, post, fetch, repair, or infer a decision or consumption record; inspect
+`.git`; determine branch, HEAD, remote synchronization, or worktree
+cleanliness; invoke Git; access the network; or accept an authority token,
+decision reference, consumption reference, commit, tree, or cleanliness claim
+as a new input. External preflight success is a necessary precondition, not a
+controller-produced fact and not sufficient execution authority by itself.
+
+After exact external consumption, the controller start is the sole execution
+attempt. Every startup, ingress, binding, launch, cancellation, timeout,
+cleanup, output, sealing, or publication outcome permanently retires that
+decision and identity. Unknown decision, consumption, readback, current-main,
+or clean-worktree state stops in the external preflight before controller start
+and permits no replacement or retry.
 
 ## Owning Layer And Files
 
-The successor parent owns only private executable custody and parent-observed
-process, stream, timeout, termination, cleanup, effect, and `PostExitFacts`
-evidence. The accepted #826 harness remains sole owner of child validation,
-schema parsing, status selection, canonical receipt construction, and sealing.
-GitHub remains the durable owner of later decision, consumption, and candidate
-publication evidence. The human owner alone grants execution authority.
+The successor parent owns only private executable custody; critical-artifact
+guards; parent-observed process, stream, timeout, termination, cleanup, and
+effect evidence; and `PostExitFacts`. The accepted #826 harness remains sole
+owner of child validation, schema parsing, status selection, canonical receipt
+construction, and sealing. GitHub remains the durable owner of later decision,
+consumption, and candidate-publication evidence. The external owner-operated
+preflight owns current-main, clean-worktree, GitHub decision, and consumption
+verification. The human owner alone grants execution authority.
 
-This contract creates only:
+This Codex B correction changes only:
 
 - `docs/contracts/role_pool_codex_app_native_r0_successor_parent_controller.md`
 
-The exact later Codex C implementation envelope is two new paths:
+The exact later Codex D repair envelope is the two integrated paths:
 
 1. `tools/run_role_pool_app_native_r0_observation_parent.py`
 2. `tests/test_run_role_pool_app_native_r0_observation_parent.py`
 
-Both paths are absent at this base. No third implementation, test, fixture,
-bootstrap, configuration, schema, service, broker, or evidence path is
+No third implementation, test, fixture, bootstrap, configuration, schema,
+status, receipt, lifecycle contract, predecessor observer, service, broker,
+GitHub client, launcher, helper, fallback, private ingress, or evidence path is
 permitted. Every accepted #826 path and the predecessor observer remain
-byte-identical.
+byte-identical. The complete future submission envelope is exactly this
+contract plus those two implementation paths; no fourth path is permitted.
 
 ## Public Interface
 
@@ -183,7 +280,8 @@ environment, timeout, receipt field, process fact, or authority claim through
 private and dependency-injected only by operation-free tests; it cannot accept
 caller-selected process parameters.
 
-The owner starts the controller once from an already-running interactive
+After the external owner-operated preflight passes, the owner starts the
+controller once from an already-running trusted owner-controlled interactive
 Windows console using a separately bound direct controller runtime. The
 controller runtime must itself be an exact ordinary, non-reparse file bound by
 version, length, SHA-256, and stable file identity in the future owner decision.
@@ -198,16 +296,19 @@ controller start.
 
 ## Private Executable Ingress And Custody
 
-After every public binding and the external exact consumption readback are
-complete, `main` obtains the target executable through the attached console:
+External exact decision and consumption verification are preconditions, not
+controller steps or claims. After that external preflight is complete, `main`
+obtains the target executable through the trusted owner-controlled attached
+console:
 
 1. require Windows `os.name == "nt"` and `sys.platform == "win32"`;
 2. require `GetStdHandle(STD_INPUT_HANDLE)` to identify an attached console
    accepted by `GetConsoleMode`, not a pipe, file, pseudo-input, or redirect;
 3. snapshot the exact console input mode and require `ENABLE_LINE_INPUT`;
 4. disable `ENABLE_ECHO_INPUT` without changing unrelated mode bits;
-5. perform the pre-read queue audit defined below; require a stable queue with
-   zero pending character-producing input before `ReadConsoleW`;
+5. perform the pre-read queue audit defined below; require that the bounded
+   snapshots expose zero pending character-producing input before
+   `ReadConsoleW`;
 6. read exactly one complete terminated line with one `ReadConsoleW` call into
    one mutable buffer bounded to `32767` UTF-16 code units excluding its line
    terminator and NUL;
@@ -225,7 +326,8 @@ complete, `main` obtains the target executable through the attached console:
     route with one best-effort overwrite, without claiming impossible total
     zeroization.
 
-Each queue audit is the same closed non-consuming operation:
+Each queue audit is the same closed non-consuming operation within the trusted
+owner-controlled console boundary:
 
 1. call `GetNumberOfConsoleInputEvents` and reject failure or a count greater
    than `4096`;
@@ -235,13 +337,22 @@ Each queue audit is the same closed non-consuming operation:
 4. reject any `KEY_EVENT` record whose `bKeyDown` is true and whose
    `UnicodeChar` is not NUL.
 
-An API failure, short peek, malformed record, over-limit count, or changed
-count is queue-inspection uncertainty and selects `observation_binding_rejected`
-before process entry. Prebuffered character input is never accepted as the
-owner's contemporaneous line. A multi-line paste cannot be reduced to its
-first line. Queue records are never dequeued by an audit. Input arriving after
-the final successful audit cannot affect the child because the controller
-performs no further console input operation.
+An API failure, short peek, malformed record, over-limit count, or observed
+changed count is queue-inspection uncertainty and selects
+`observation_binding_rejected` before process entry. Within the trusted
+owner-controlled boundary, observed prebuffered character input is never
+accepted as the owner's contemporaneous line, and an observed multi-line paste
+cannot be reduced to its first line. Queue records are never dequeued by an
+audit. Input arriving after the final successful audit cannot affect the child
+because the controller performs no further console input operation.
+
+The audits do not establish atomic queue snapshots, exclusivity, or protection
+against an adversarial process concurrently consuming, replacing, reordering,
+or appending console input records. The owner must ensure no untrusted or
+competing process can mutate the attached console queue for the duration of
+ingress. Loss of that trusted boundary stops before controller start; the
+controller neither detects every same-count replacement nor claims hostile
+same-console containment.
 
 The admitted path is one absolute local drive path. UNC, device, relative,
 environment-expanded, wildcard, alternate-data-stream, trailing-dot,
@@ -263,6 +374,20 @@ line, argument vector, environment block, cwd, title, file, registry, clipboard,
 cache, receipt, comment, prompt, handoff, or durable artifact. Visibility to
 the trusted Windows operating-system control plane remains an explicit
 nonclaim; the controller does not claim to hide the target from that boundary.
+
+Before the sole process-entry call, the controller independently opens the
+exact child checker
+`tools/check_role_pool_r0_offline_observation.py` as an ordinary non-reparse
+file while denying write and delete sharing. It verifies stable volume/file
+identity, exact byte length, and SHA-256 against the frozen R0-checker binding,
+then retains that guard continuously across process entry, child lifetime,
+terminal readback, post-exit inventory, and cleanup. A replacement, write, or
+delete attempt must be denied while the guard is held. Any pre-entry checker
+identity or byte mismatch is `observation_binding_rejected`; any post-entry
+identity uncertainty is fail-closed. The checker guard receives exactly one
+close attempt during terminal cleanup, and a failed or unknown close makes
+`cleanup_confirmed=false` and selects the cleanup-failure route. The guard does
+not change the fixed relative child command or disclose a new child path.
 
 ## Fixed Child Construction
 
@@ -319,7 +444,25 @@ not substitutes. Unknown parentage or terminal state fails closed.
 
 - The monotonic `120`-second deadline is established immediately before the
   sole `CreateProcessW` attempt.
-- Stdout and stderr are drained concurrently from process entry through EOF.
+- Stdout, stderr, and completion-port work are serviced concurrently from
+  process entry through the complete terminal boundary by a closed scheduler.
+  Every service cycle performs at most one bounded nonblocking stdout read, at
+  most one bounded nonblocking stderr read, at most `32` completion-port packet
+  reads, and one terminal-state query. The cycle checks the monotonic clock
+  before and after every native operation and returns to the deadline decision
+  after that finite work; no drain helper may loop until a producer becomes
+  empty.
+- Every pipe read is capped to the remaining retained ceiling plus one overflow
+  sentinel byte. Every completion-port call is nonblocking or bounded by the
+  lesser of the remaining monotonic time and the current reconciliation
+  deadline. An empty, busy, or continuously replenished source yields control
+  after its per-cycle budget.
+- When the `120`-second deadline is reached, ordinary servicing stops, timeout
+  becomes terminal for the acceptance route, and the controller makes at most
+  one termination request. The `5`-second reconciliation grace uses the same
+  bounded service-cycle rules and its own monotonic deadline. Continuous
+  stdout, stderr, or completion-port production therefore cannot postpone
+  timeout, termination, zero-survivor reconciliation, or cleanup.
 - Stdout may retain at most `4096` bytes and stderr at most `128` bytes. The
   first overflow closes the acceptance route and requests termination.
 - Success requires child exit `0`, complete stdout EOF containing exactly one
@@ -329,14 +472,15 @@ not substitutes. Unknown parentage or terminal state fails closed.
   causes at most one `TerminateJobObject` request followed by one bounded
   `5`-second reconciliation wait. There is no relaunch or replacement.
 - Every proven-owned process, thread, job, completion-port, target-guard,
-  stdin, stdout, stderr, and pipe handle receives exactly one close attempt.
+  checker-guard, stdin, stdout, stderr, and pipe handle receives exactly one
+  close attempt.
   Close attempts continue in reverse acquisition order after failures and
   aggregate deterministically.
 - `DeleteProcThreadAttributeList` is attempted exactly once only after
   successful attribute-list initialization. It is not a handle-close event.
 - Console-mode restoration is attempted exactly once if and only if mode
   mutation succeeded. The console handle is borrowed and is never closed.
-- Any required close, deletion, mode restoration, drain, terminal query,
+- Any required close, deletion, mode restoration, bounded drain, terminal query,
   buffer clearing, or survivor check that fails or is unknown makes
   `cleanup_confirmed=false`.
 
@@ -349,7 +493,7 @@ the only failure output; raw errors and exception chains are suppressed.
 
 The controller installs its Python audit observer before its first baseline and
 keeps it active through sealing and cleanup. Before private input and again
-after child termination, drain, and cleanup, it derives bounded stable
+after child termination, bounded drain, and cleanup, it derives bounded stable
 inventories for:
 
 - the exact repository tree;
@@ -359,10 +503,15 @@ inventories for:
 - contract-defined generated residue under the repository and installed tree.
 
 Each inventory requires an ordinary, non-reparse root, deterministic ordinal
-path ordering, stable file identity during hashing, and exact current digest.
-Any sampling, identity, read, or equality uncertainty fails closed. The
-controller performs no repair, cleanup of pre-existing state, reset, revert,
-or deletion.
+path ordering, and stable file identity during hashing. The pre-entry and
+post-exit inventories must be exactly equal, and every separately frozen
+critical artifact must match its accepted byte binding. Any sampling,
+identity, read, guard, or equality uncertainty fails closed. This comparison
+detects controller-lifetime repository effects; it does not authenticate Git
+HEAD, branch, remote synchronization, or pre-existing worktree cleanliness.
+Those eligibility predicates belong only to the external owner-operated
+preflight. The controller performs no Git subprocess, network operation,
+repair, cleanup of pre-existing state, reset, revert, or deletion.
 
 The 15 `PostExitFacts` fields are derived as follows:
 
@@ -376,7 +525,7 @@ The 15 `PostExitFacts` fields are derived as follows:
 | `top_level_identity_exact` | Diagnostic comparison of the retained target identity with available process-image metadata; `true`, `false`, or `null` retains #826 semantics. |
 | `timed_out` | Monotonic deadline expired before the complete terminal boundary. |
 | `termination_uncertain` | Required termination or terminal reconciliation was unavailable, contradictory, or unsuccessful. |
-| `cleanup_confirmed` | Every required drain, terminal, zero-survivor, close, deletion, mode-restoration, effect, and residue check completed exactly. |
+| `cleanup_confirmed` | Every required bounded drain, terminal, zero-survivor, target/checker-guard close, other close, deletion, mode-restoration, effect, and residue check completed exactly. |
 | `output_complete` | Both bounded pipes reached EOF with no overflow and all retained bytes remained available. |
 | `executor_network_operation_count` | Controller-owned Python network audit events; acceptance requires `0`. |
 | `repository_write_count` | Controller-owned repository write events plus one mismatch event for unequal pre/post repository inventory; acceptance requires `0`. |
@@ -450,15 +599,19 @@ It must prove:
 3. exact line-mode admission, echo disable, exactly one bounded `ReadConsoleW`,
    exact mode restoration, cancellation, unterminated or truncated input,
    malformed UTF-16, and best-effort buffer clearing;
-4. stable bounded queue audits proving that prebuffered character input,
+4. bounded queue audits proving that observed prebuffered character input,
    multi-line paste with a queued second line, queue-inspection failure or
-   instability, and any prelaunch character input reject before child entry,
-   while one ordinary complete terminated line with empty character queues is
-   admitted; the fakes must also prove no audit dequeues or flushes input;
+   observed instability, and any observed prelaunch character input reject
+   before child entry, while one ordinary trusted complete terminated line with
+   empty character queues remains reachable; the fakes must also prove no audit
+   dequeues or flushes input and must preserve the explicit nonclaim for an
+   adversarial process concurrently mutating the same console queue;
 5. private path absence from every public value, call record, exception,
    fixture representation, output, and serialized test artifact;
 6. ordinary/non-reparse component validation, stable identity, exact owner
-   binding, denied write/delete sharing, and every drift route;
+   binding, denied write/delete sharing for both the target and exact child
+   checker, checker replacement blocked while its guard is held, and every
+   pre/post identity or byte-drift route;
 7. exact four-token child construction, fixed cwd and environment, and
    rejection of shell, PATH, `py.exe`, alias, shim, wrapper, alternate script,
    caller argument, and fallback routes;
@@ -470,15 +623,20 @@ It must prove:
 11. zero descendants can pass and every descendant, survivor, unknown
     relationship, or unknown terminal state fails;
 12. stdout and stderr boundaries at, below, and above their exact limits,
-    concurrent drain, EOF, nonzero exit, nonempty stderr, and malformed payload;
-13. timeout at the deadline, one termination request, five-second
-    reconciliation, and no retry or replacement;
+    bounded concurrent servicing, EOF, nonzero exit, nonempty stderr, and
+    malformed payload; synthetic endless stdout, endless stderr, and endless
+    completion-port production must each yield to the monotonic deadline;
+13. timeout at the exact deadline despite continuous production, one
+    termination request, bounded five-second reconciliation, and no retry or
+    replacement;
 14. every owned-resource acquisition prefix and every close-failure
     permutation receives exactly one reverse-order close attempt without
-    short-circuiting;
+    short-circuiting; checker-guard close failure remains fail-closed with
+    `cleanup_confirmed=false`;
 15. attribute-list deletion and console-mode restoration ownership rules;
-16. deterministic pre/post equality, write, network, external-effect, residue,
-    unstable-read, and sampling-unknown cases without hard-coded effect counts;
+16. deterministic pre/post equality, repository-effect drift, write, network,
+    external-effect, residue, unstable-read, and sampling-unknown cases without
+    hard-coded effect counts;
 17. exact construction of all 15 immutable `PostExitFacts` fields from parent
     evidence only;
 18. exactly one call to the accepted pure sealer after complete cleanup and
@@ -487,8 +645,12 @@ It must prove:
     public-safe and no-echo;
 20. the accepted #826 files and predecessor observer remain byte-identical and
     no predecessor-observer function is imported or called; and
-21. no process, task, network, GitHub, repository, installed-tree, registry,
-    release, identity, consumption, or publication operation occurs.
+21. current-main, clean-worktree, GitHub decision, and consumption verification
+    remain external preconditions rather than controller inputs or claims; the
+    controller performs no Git subprocess or network access; and
+22. one launch attempt, no retry, full cleanup, and no real process, task,
+    network, GitHub, repository write, installed-tree write, registry, release,
+    identity, consumption, or publication operation occurs.
 
 Required later implementation validation:
 
@@ -504,14 +666,17 @@ git diff --check
 
 ## Acceptance And Stop Conditions
 
-Contract acceptance permits only a later owner decision about the exact
-two-file inert implementation. Implementation acceptance and integration make
-only a fresh current-binding eligibility review possible. They do not activate
-the controller or observation.
+Contract acceptance permits only the conditionally authorized Codex D repair
+of the exact two integrated implementation paths. Repair acceptance and exact
+three-path integration make only a fresh current-main eligibility review from a
+new clean review worktree possible. They do not activate the controller or
+Observation 1.
 
 Stop and return to Codex A or the owner if:
 
-- either implementation path already exists or a third path is required;
+- either integrated implementation path is missing, a fourth submission path
+  is required, or the repair cannot remain exactly within the contract plus
+  those two implementation paths;
 - any accepted #826 file or predecessor observer must change;
 - a private value must enter a model-visible, durable, redirected, or
   non-console surface;
@@ -524,13 +689,19 @@ Stop and return to Codex A or the owner if:
 - a new schema, selector input, status, receipt, digest family, lifecycle,
   authority field, or publication mechanism is required;
 - current bindings drift; or
+- external preflight would need the controller to authenticate GitHub, inspect
+  `.git`, accept a new authority input, invoke Git, or access the network;
+- the trusted owner-controlled console boundary cannot be maintained without
+  claiming adversarial same-console containment; or
 - issue #769 would require any read beyond state/comment-count validation or
   any mutation.
 
-This contract does not authorize implementation, private-path access,
-controller start, child creation, identity generation or consumption,
-observation execution, candidate publication, Observation 2, task dispatch,
-R1-R8, Stage 4, submission, merge, deployment, assurance, privacy guarantees,
+This contract does not by itself authorize implementation. Under the owner's
+conditional activation, fresh contract-only E acceptance activates only the
+exact two-file Codex D repair described above. No current authority permits
+private-path access, controller start, child creation, identity generation or
+consumption, observation execution, candidate publication, Observation 2,
+task dispatch, R1-R8, Stage 4, deployment, assurance, privacy guarantees,
 security guarantees, or live readiness.
 
 ## Next Workflow Action
@@ -543,44 +714,56 @@ Pasteable prompt:
 Use the current Mythic Edge repository authority.
 Use $mythic-edge-workflow.
 
-Act as Codex E: Independent App-Native R0 Successor Parent Controller Contract
+Act as Codex E: Fresh Contract-Only Successor Parent-Controller Correction
 Reviewer.
 
 Repository: Tahjali11/Mythic-Edge
-Issue: https://github.com/Tahjali11/Mythic-Edge/issues/828
-Source issue: https://github.com/Tahjali11/Mythic-Edge/issues/826
+Lifecycle issue: https://github.com/Tahjali11/Mythic-Edge/issues/826
+Completed capability issue: https://github.com/Tahjali11/Mythic-Edge/issues/828
 Tracker: https://github.com/Tahjali11/Mythic-Edge/issues/746
 Protected issue: https://github.com/Tahjali11/Mythic-Edge/issues/769
+Implementation PR: https://github.com/Tahjali11/Mythic-Edge/pull/829
+Contract PR: https://github.com/Tahjali11/Mythic-Edge/pull/830
 
 Review exactly:
 docs/contracts/role_pool_codex_app_native_r0_successor_parent_controller.md
 
-Bind the exact SHA-256 reported by Codex B. Refresh origin/main and GitHub
-state. Confirm the exact two-path implementation envelope is complete and that
-every accepted #826 path and the frozen predecessor observer remain unchanged.
+Bind the exact byte count and SHA-256 reported by Codex B. Refresh origin/main
+and use the GitHub connector for current issue, PR, review-thread, and check
+evidence. Treat #828 and the PR integrations as historical. Confirm issue #826
+is open, issue #769 is open with zero comments, all six PR #829/#830 review
+threads remain the correction source, and the accepted predecessor contract
+hash and review references remain preserved as historical evidence.
 
-Independently review the owner-operated attached-console ingress, private-value
-custody, exact structured child construction, creation-time Job Object
-membership, zero-descendant topology, bounded streams, timeout, termination,
-exactly-once close evidence, pre/post effects, all 15 PostExitFacts derivations,
-failure precedence, pure-sealer call, nonretry lifecycle, and operation-free
-tests. Confirm `ME-RP-828-E-001` is closed by stable bounded queue audits before
-the read, after the complete terminated single-line read, and immediately
-before launch. Verify prebuffered character input, multi-line paste, queue
-inspection uncertainty, and prelaunch character input fail before child entry;
-verify an ordinary single line remains reachable; and verify no queue flush,
-discard, retry, schema, lifecycle, helper, or third implementation path was
-introduced. Confirm the current Codex shell remains a live-execution nonclaim.
+Independently verify that the contract closes all six findings within exactly
+the existing contract plus two implementation paths: deadline-aware
+work-bounded stdout/stderr/completion-port servicing; a write/delete-denying
+exact child-checker guard through terminal cleanup with exactly-once close;
+external owner-operated current-main, clean-worktree, GitHub-decision, and
+consumption preflight; controller-owned pre/post repository-effect comparison;
+trusted owner-controlled console ingress that rejects observed prebuffered and
+multiline input without claiming adversarial concurrent-queue protection; and
+truthful retrospective correction wording.
+
+Verify the fixed child command, creation-time Job Object membership, zero
+descendants and survivors, bounded output, cleanup inventory, all 15
+PostExitFacts, pure sealer, nonretry lifecycle, and false-authority boundaries
+remain unchanged. Confirm no Git subprocess, network access, authority input,
+fourth path, harness change, lifecycle-contract change, predecessor-observer
+change, schema, status, receipt, broker, launcher, helper, fallback, or new
+private ingress was introduced.
 
 Run contract-only structural and operation-free existing regression checks. Do
 not implement, access a private path, start a controller or child, generate or
 consume an identity, publish a receipt, touch issue #769, authorize Observation
 1 or 2, advance R0-R8 or Stage 4, submit, merge, deploy, or claim readiness.
 
-Lead with findings. Return the reviewed SHA-256, contract verdict, two-path and
-private-ingress constructibility verdicts, validation, authority flags,
-generated residue count, and workflow_handoff. If accepted, route to a separate
-owner implementation decision and then Codex C.
+Lead with findings. Return the reviewed SHA-256 and byte count, one disposition
+for each of the six threads, the exact future two-file repair scope, validation,
+authority flags, generated residue evidence, and workflow_handoff. If accepted,
+route directly to the conditionally authorized exact-scope Codex D repair. If
+any finding requires wider scope or weaker containment, stop and route to
+Codex A/owner.
 ```
 
 ```yaml
@@ -588,16 +771,16 @@ instruction_context:
   role: "B"
   risk_tier: "high"
   observed:
-    - "The accepted #826 harness exposes immutable PostExitFacts and a pure sealer but no native parent operation."
-    - "The current Codex shell exposes a command string, not the required structured native evidence surface."
+    - "PR #829 integrated the controller and test; PR #830 integrated the accepted predecessor contract."
+    - "Six post-merge PR #829/#830 review threads remain unresolved."
     - "Issue #769 is open with zero comments."
-    - "Independent review found the initial ingress did not reject prebuffered or queued second-line character input."
+    - "The main checkout contains preserved pre-existing frontend/.wrangler/ residue and is not a clean-review-worktree proof."
   derived:
-    - "A two-file owner-operated controller can close the parent-evidence boundary without changing accepted #826 bytes."
-    - "Attached-console ReadConsoleW ingress avoids command, environment, file, and durable private-path transfer."
-    - "Three bounded non-consuming queue audits close E-001 without changing the process or receipt boundary."
+    - "All six findings fit the existing contract plus exact two-file repair envelope."
+    - "External preflight ownership avoids a GitHub client, Git subprocess, or new controller authority input."
+    - "A trusted-console nonclaim closes the overstatement without weakening buffered or multiline rejection."
   proposed:
-    - "One successor-only controller plus one operation-free fake-native test."
+    - "One exact contract correction followed conditionally by a two-file Codex D repair."
   unknown:
     - "The future exact controller-runtime and target-executable bindings, which belong to a later owner decision."
     - "Whether independent review will prove every Win32 ownership route constructible within two files."
@@ -606,30 +789,42 @@ instruction_context:
 workflow_handoff:
   role_performed: "Codex B: App-Native R0 Successor Parent Controller Contract Writer"
   repository: "Tahjali11/Mythic-Edge"
-  issue: "https://github.com/Tahjali11/Mythic-Edge/issues/828"
-  source_issue: "https://github.com/Tahjali11/Mythic-Edge/issues/826"
+  issue: "https://github.com/Tahjali11/Mythic-Edge/issues/826"
+  historical_capability_issue: "https://github.com/Tahjali11/Mythic-Edge/issues/828"
   tracker: "https://github.com/Tahjali11/Mythic-Edge/issues/746"
   protected_issue: "https://github.com/Tahjali11/Mythic-Edge/issues/769"
-  base_commit: "f8e6fc186094182c68a98ebdf229123809e3d5cc"
+  base_commit: "e1fd3cf6939ef79c94e81c767d86d92f9d461c64"
+  base_tree: "1405abef7771738e3a5d3b139ef6138eb1f82e43"
   target_artifact: "docs/contracts/role_pool_codex_app_native_r0_successor_parent_controller.md"
   implementation_paths:
     - "tools/run_role_pool_app_native_r0_observation_parent.py"
     - "tests/test_run_role_pool_app_native_r0_observation_parent.py"
   implementation_path_count: 2
-  private_ingress: "bounded_attached_console_ReadConsoleW_no_echo_with_three_queue_audits"
+  private_ingress: "trusted_owner_controlled_attached_console_ReadConsoleW_no_echo_with_bounded_queue_audits"
   finding_status:
-    ME-RP-828-E-001: "contract_corrected_pending_independent_confirmation"
+    ME-RP-828-E-001: "superseded_by_trusted_console_boundary_pending_independent_confirmation"
+    ME-RP-826-E-004: "six_post_merge_review_threads_contracted_pending_independent_confirmation"
+    ME-RP-826-E-005: "fresh_clean_review_worktree_required_after_integration"
   current_codex_shell_live_compatible: false
   implementation_authorized: false
+  conditional_d_authorized_only_after_fresh_contract_e_acceptance: true
+  submission_authorized_now: false
+  conditional_f_authorized_only_after_fresh_implementation_e_acceptance: true
+  merge_authorized_now: false
+  conditional_g_authorized_only_for_unchanged_clean_exact_head: true
   private_path_accessed: false
   controller_started: false
   child_created: false
   identity_created_or_consumed: false
   observation_authorized: false
+  observation_1_decision_authorized: false
   receipt_publication_authorized: false
   observation_2_authorized: false
+  r0_r8_advancement_authorized: false
   r1_r8_authorized: false
   stage4_authorized: false
+  deployment_authorized: false
+  issue_769_mutation_authorized: false
   live_ready: false
-  next_recommended_role: "Codex E: Independent App-Native R0 Successor Parent Controller Contract Reviewer"
+  next_recommended_role: "Codex E: Fresh Contract-Only Successor Parent-Controller Correction Reviewer"
 ```
