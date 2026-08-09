@@ -17,7 +17,7 @@ import sys
 import time
 from collections.abc import Mapping, Sequence
 from ctypes import wintypes
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path, PureWindowsPath
 from types import ModuleType
 from typing import Protocol, cast
@@ -68,6 +68,7 @@ MAX_PRIVATE_PATH_UNITS = 32767
 MAX_QUEUE_EVENTS = 4096
 MAX_STDOUT_BYTES = 4096
 MAX_STDERR_BYTES = 128
+MAX_COMPLETION_EVENTS_PER_CYCLE = 32
 _AUDIT_REGISTRATION_EVENT = "mythic_edge.r0_parent.audit_registration"
 _REPOSITORY_METADATA_NAMES = frozenset({".git"})
 
@@ -135,6 +136,7 @@ _REQUIRED_CLOSE_RESOURCES = frozenset(
         "stderr_write",
         "job",
         "completion_port",
+        "checker_guard",
         "process",
         "thread",
         "attribute_list",
@@ -276,6 +278,8 @@ class ParentAdapter(Protocol):
     def clear_private(self, *values: object) -> bool: ...
 
     def launch_once(self, request: _LaunchRequest) -> _LaunchEvidence: ...
+
+    def finish_checker_guard(self) -> tuple[bool | None, _CloseObservation | None]: ...
 
     def target_identity_exact(self, target: _TargetBinding) -> bool | None: ...
 
@@ -560,6 +564,8 @@ def _run_controller(
         if not before.exact:
             return "observation_binding_rejected"
         target = _acquire_target(adapter)
+        checker_exact: bool | None = None
+        checker_close: _CloseObservation | None = None
         try:
             request = _LaunchRequest(
                 target=target,
@@ -576,11 +582,28 @@ def _run_controller(
             counts = adapter.audit_counts()
         finally:
             try:
+                checker_exact, checker_close = adapter.finish_checker_guard()
+            except BaseException:
+                checker_exact = None
+                checker_close = None
+            try:
                 target_cleared = adapter.clear_private(target.opaque_path)
             except BaseException:
                 target_cleared = False
             if not target_cleared:
                 raise _ControllerError("observation_timeout_unknown")
+            if checker_close is not None and (
+                checker_close.attempt_count != 1 or checker_close.succeeded is not True
+            ):
+                raise _ControllerError("observation_timeout_unknown")
+        if checker_close is None:
+            raise _ControllerError("observation_timeout_unknown")
+        evidence = replace(
+            evidence,
+            close_observations=evidence.close_observations + (checker_close,),
+        )
+        if checker_exact is not True:
+            raise _ControllerError("observation_launch_unknown")
     except _SafetyEffect:
         return "observation_safety_boundary_failed"
     except _ControllerError as exc:
@@ -882,6 +905,71 @@ class _OwnedAttributeList:
 
     def observation(self) -> _CloseObservation:
         return _CloseObservation("attribute_list", self.attempt_count, self.succeeded)
+
+
+def _checker_file_identity(path: Path) -> tuple[int, int, int, int, str]:
+    payload = _stable_file_bytes(path)
+    info = path.lstat()
+    digest = hashlib.sha256(payload).hexdigest()
+    if len(payload) != int(info.st_size):
+        raise _ControllerError("observation_binding_rejected")
+    return (
+        int(info.st_dev),
+        int(info.st_ino),
+        int(info.st_size),
+        int(info.st_mtime_ns),
+        digest,
+    )
+
+
+def _open_checker_guard(
+    repository_root: Path,
+    kernel32: object,
+) -> _OwnedHandle:
+    checker = repository_root / OWNER_PATH
+    current = repository_root
+    try:
+        for index, part in enumerate(OWNER_PATH.parts):
+            current /= part
+            info = current.lstat()
+            if index == len(OWNER_PATH.parts) - 1:
+                if not _ordinary_nonreparse(info):
+                    raise _ControllerError("observation_binding_rejected")
+            elif not _ordinary_nonreparse(info, directory=True):
+                raise _ControllerError("observation_binding_rejected")
+    except _ControllerError:
+        raise
+    except OSError as exc:
+        raise _ControllerError("observation_binding_rejected") from exc
+    guard = _OwnedHandle(
+        kernel32,
+        "checker_guard",
+        cast(
+            int,
+            kernel32.CreateFileW(
+                os.fspath(checker),
+                GENERIC_READ | FILE_READ_ATTRIBUTES,
+                FILE_SHARE_READ,
+                None,
+                OPEN_EXISTING,
+                FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OPEN_REPARSE_POINT,
+                None,
+            ),
+        ),
+    )
+    if not guard.open:
+        raise _ControllerError("observation_binding_rejected")
+    return guard
+
+
+def _checker_identity_exact(
+    repository_root: Path,
+    expected: tuple[int, int, int, int, str],
+) -> bool | None:
+    try:
+        return _checker_file_identity(repository_root / OWNER_PATH) == expected
+    except BaseException:
+        return None
 
 
 def _kernel32() -> object:
@@ -1269,6 +1357,9 @@ class _WindowsParentAdapter:
         self.audit: _AuditCounter | None = None
         self.launch_calls = 0
         self.guard: _OwnedHandle | None = None
+        self.checker_guard: _OwnedHandle | None = None
+        self.checker_identity: tuple[int, int, int, int, str] | None = None
+        self.checker_repository_root: Path | None = None
         self.last_target_exact: bool | None = None
 
     def runtime_identity(self) -> tuple[str, str]:
@@ -1476,10 +1567,57 @@ class _WindowsParentAdapter:
             or request.environment != _fixed_environment(self.windows_directory())
         ):
             raise _ControllerError("observation_binding_rejected")
+        if self.checker_guard is not None or self.checker_identity is not None:
+            raise _ControllerError("observation_binding_rejected")
+        try:
+            self.checker_guard = _open_checker_guard(
+                request.repository_root,
+                self.kernel32,
+            )
+            self.checker_repository_root = request.repository_root
+            self.checker_identity = _checker_file_identity(
+                request.repository_root / OWNER_PATH
+            )
+            if self.checker_identity[-1] != FROZEN_BINDINGS[OWNER_PATH]:
+                raise _ControllerError("observation_binding_rejected")
+        except BaseException:
+            _checker_exact, checker_close = self.finish_checker_guard()
+            self.guard.close()
+            target_close = self.guard.observation()
+            if any(
+                observation is not None
+                and (
+                    observation.attempt_count != 1
+                    or observation.succeeded is not True
+                )
+                for observation in (checker_close, target_close)
+            ):
+                raise _ControllerError("observation_timeout_unknown") from None
+            raise
         path = bytes(cast(bytearray, request.target.opaque_path)).decode("utf-16-le")
         evidence = _execute_windows_once(request, path, self.kernel32, self.guard)
         self.last_target_exact = evidence.target_identity_exact
         return evidence
+
+    def finish_checker_guard(self) -> tuple[bool | None, _CloseObservation | None]:
+        guard = self.checker_guard
+        identity = self.checker_identity
+        repository_root = self.checker_repository_root
+        if guard is None:
+            return None, None
+        try:
+            exact = (
+                _checker_identity_exact(repository_root, identity)
+                if identity is not None and repository_root is not None
+                else None
+            )
+        finally:
+            guard.close()
+            observation = guard.observation()
+            self.checker_guard = None
+            self.checker_identity = None
+            self.checker_repository_root = None
+        return exact, observation
 
     def target_identity_exact(self, target: _TargetBinding) -> bool | None:
         del target
@@ -1609,21 +1747,47 @@ def _execute_windows_once(
         for name in ("stdin_read", "stdout_write", "stderr_write", "thread"):
             handles[name].close()
         while True:
-            event_exact = _drain_job_events(kernel32, handles["completion_port"], events) and event_exact
-            stdout_eof, stdout_overflow, out_exact = _drain_pipe(
-                kernel32, handles["stdout_read"], stdout, request.max_stdout_bytes, stdout_eof, stdout_overflow
-            )
-            stderr_eof, stderr_overflow, err_exact = _drain_pipe(
-                kernel32, handles["stderr_read"], stderr, request.max_stderr_bytes, stderr_eof, stderr_overflow
-            )
-            event_exact = event_exact and out_exact and err_exact
-            process_stopped = (
-                kernel32.WaitForSingleObject(
-                    wintypes.HANDLE(handles["process"].value), 0
+            service_deadline = grace_deadline if grace_deadline is not None else deadline
+            completion_queue_empty = False
+            if time.monotonic() < service_deadline:
+                cycle_exact, completion_queue_empty = _drain_job_events(
+                    kernel32,
+                    handles["completion_port"],
+                    events,
+                    service_deadline,
                 )
-                == WAIT_OBJECT_0
-            )
-            total, active = _query_accounting(kernel32, handles["job"])
+                event_exact = cycle_exact and event_exact
+            if time.monotonic() < service_deadline:
+                stdout_eof, stdout_overflow, out_exact = _drain_pipe(
+                    kernel32,
+                    handles["stdout_read"],
+                    stdout,
+                    request.max_stdout_bytes,
+                    stdout_eof,
+                    stdout_overflow,
+                    service_deadline,
+                )
+                event_exact = event_exact and out_exact
+            if time.monotonic() < service_deadline:
+                stderr_eof, stderr_overflow, err_exact = _drain_pipe(
+                    kernel32,
+                    handles["stderr_read"],
+                    stderr,
+                    request.max_stderr_bytes,
+                    stderr_eof,
+                    stderr_overflow,
+                    service_deadline,
+                )
+                event_exact = event_exact and err_exact
+            if time.monotonic() < service_deadline:
+                process_stopped = (
+                    kernel32.WaitForSingleObject(
+                        wintypes.HANDLE(handles["process"].value), 0
+                    )
+                    == WAIT_OBJECT_0
+                )
+            if time.monotonic() < service_deadline:
+                total, active = _query_accounting(kernel32, handles["job"])
             unsafe = (
                 stdout_overflow
                 or stderr_overflow
@@ -1632,11 +1796,16 @@ def _execute_windows_once(
                 or (type(total) is int and total > 1)
             )
             now = time.monotonic()
-            if now >= deadline:
+            if grace_deadline is None and now >= deadline:
                 timed_out = True
                 unsafe = True
-            complete = process_stopped and active == 0 and stdout_eof and stderr_eof and any(
-                event.kind == "active_zero" for event in events
+            complete = (
+                completion_queue_empty
+                and process_stopped
+                and active == 0
+                and stdout_eof
+                and stderr_eof
+                and any(event.kind == "active_zero" for event in events)
             )
             if unsafe and not termination_requested:
                 termination_requested = True
@@ -1771,43 +1940,55 @@ def _reconcile_after_failure(
     total: int | None = None
     active: int | None = None
     while True:
-        try:
-            _drain_job_events(kernel32, handles["completion_port"], events)
-        except BaseException:
-            pass
-        try:
-            stdout_eof, stdout_overflow, _stdout_exact = _drain_pipe(
-                kernel32,
-                handles["stdout_read"],
-                stdout,
-                request.max_stdout_bytes,
-                stdout_eof,
-                stdout_overflow,
-            )
-        except BaseException:
-            pass
-        try:
-            stderr_eof, stderr_overflow, _stderr_exact = _drain_pipe(
-                kernel32,
-                handles["stderr_read"],
-                stderr,
-                request.max_stderr_bytes,
-                stderr_eof,
-                stderr_overflow,
-            )
-        except BaseException:
-            pass
-        try:
-            process_stopped = (
-                kernel32.WaitForSingleObject(wintypes.HANDLE(handles["process"].value), 0)
-                == WAIT_OBJECT_0
-            )
-        except BaseException:
-            process_stopped = False
-        try:
-            total, active = _query_accounting(kernel32, handles["job"])
-        except BaseException:
-            total = active = None
+        if time.monotonic() < deadline:
+            try:
+                _drain_job_events(
+                    kernel32,
+                    handles["completion_port"],
+                    events,
+                    deadline,
+                )
+            except BaseException:
+                pass
+        if time.monotonic() < deadline:
+            try:
+                stdout_eof, stdout_overflow, _stdout_exact = _drain_pipe(
+                    kernel32,
+                    handles["stdout_read"],
+                    stdout,
+                    request.max_stdout_bytes,
+                    stdout_eof,
+                    stdout_overflow,
+                    deadline,
+                )
+            except BaseException:
+                pass
+        if time.monotonic() < deadline:
+            try:
+                stderr_eof, stderr_overflow, _stderr_exact = _drain_pipe(
+                    kernel32,
+                    handles["stderr_read"],
+                    stderr,
+                    request.max_stderr_bytes,
+                    stderr_eof,
+                    stderr_overflow,
+                    deadline,
+                )
+            except BaseException:
+                pass
+        if time.monotonic() < deadline:
+            try:
+                process_stopped = (
+                    kernel32.WaitForSingleObject(wintypes.HANDLE(handles["process"].value), 0)
+                    == WAIT_OBJECT_0
+                )
+            except BaseException:
+                process_stopped = False
+        if time.monotonic() < deadline:
+            try:
+                total, active = _query_accounting(kernel32, handles["job"])
+            except BaseException:
+                total = active = None
         now = time.monotonic()
         if process_stopped and active == 0 and stdout_eof and stderr_eof:
             break
@@ -1919,16 +2100,25 @@ def _query_process_identity(
         ctypes.memset(ctypes.addressof(buffer), 0, ctypes.sizeof(buffer))
 
 
-def _drain_job_events(kernel32: object, port: _OwnedHandle, events: list[_JobEvent]) -> bool:
-    while True:
+def _drain_job_events(
+    kernel32: object,
+    port: _OwnedHandle,
+    events: list[_JobEvent],
+    deadline: float,
+) -> tuple[bool, bool]:
+    for _ in range(MAX_COMPLETION_EVENTS_PER_CYCLE):
+        if time.monotonic() >= deadline:
+            return True, False
         message = wintypes.DWORD()
         key = ctypes.c_size_t()
         overlapped = wintypes.LPVOID()
         ok = kernel32.GetQueuedCompletionStatus(
             wintypes.HANDLE(port.value), ctypes.byref(message), ctypes.byref(key), ctypes.byref(overlapped), 0
         )
+        deadline_reached = time.monotonic() >= deadline
         if not ok:
-            return ctypes.get_last_error() == WAIT_TIMEOUT
+            empty = ctypes.get_last_error() == WAIT_TIMEOUT
+            return empty, empty
         pid = int(ctypes.cast(overlapped, ctypes.c_void_p).value or 0)
         if message.value == JOB_OBJECT_MSG_NEW_PROCESS:
             events.append(_JobEvent("new", pid))
@@ -1939,7 +2129,10 @@ def _drain_job_events(kernel32: object, port: _OwnedHandle, events: list[_JobEve
         elif message.value == JOB_OBJECT_MSG_ACTIVE_PROCESS_LIMIT:
             events.append(_JobEvent("active_limit", None))
         else:
-            return False
+            return False, False
+        if deadline_reached:
+            return True, False
+    return True, False
 
 
 def _drain_pipe(
@@ -1949,32 +2142,42 @@ def _drain_pipe(
     limit: int,
     prior_eof: bool,
     prior_overflow: bool,
+    deadline: float,
 ) -> tuple[bool, bool, bool]:
     eof = prior_eof
     overflow = prior_overflow
-    while not eof:
-        available = wintypes.DWORD()
-        if not kernel32.PeekNamedPipe(
-            wintypes.HANDLE(handle.value), None, 0, None, ctypes.byref(available), None
-        ):
-            if ctypes.get_last_error() == ERROR_BROKEN_PIPE:
-                eof = True
-                break
-            return eof, overflow, False
-        if available.value == 0:
-            break
-        size = min(int(available.value), 65536)
-        chunk = ctypes.create_string_buffer(size)
-        read = wintypes.DWORD()
-        if not kernel32.ReadFile(wintypes.HANDLE(handle.value), chunk, size, ctypes.byref(read), None):
-            if ctypes.get_last_error() == ERROR_BROKEN_PIPE:
-                eof = True
-                break
-            return eof, overflow, False
-        payload = chunk.raw[: read.value]
-        room = max(0, limit - len(retained))
-        retained.extend(payload[:room])
-        overflow = overflow or len(payload) > room
+    if eof or time.monotonic() >= deadline:
+        return eof, overflow, True
+    available = wintypes.DWORD()
+    if not kernel32.PeekNamedPipe(
+        wintypes.HANDLE(handle.value), None, 0, None, ctypes.byref(available), None
+    ):
+        if ctypes.get_last_error() == ERROR_BROKEN_PIPE:
+            eof = True
+            return eof, overflow, True
+        return eof, overflow, False
+    if time.monotonic() >= deadline or available.value == 0:
+        return eof, overflow, True
+    room = max(0, limit - len(retained))
+    size = min(int(available.value), room + 1, 65536)
+    chunk = ctypes.create_string_buffer(size)
+    read = wintypes.DWORD()
+    if time.monotonic() >= deadline:
+        return eof, overflow, True
+    read_ok = kernel32.ReadFile(
+        wintypes.HANDLE(handle.value), chunk, size, ctypes.byref(read), None
+    )
+    deadline_reached = time.monotonic() >= deadline
+    if not read_ok:
+        if ctypes.get_last_error() == ERROR_BROKEN_PIPE:
+            eof = True
+            return eof, overflow, True
+        return eof, overflow, False
+    payload = chunk.raw[: read.value]
+    retained.extend(payload[:room])
+    overflow = overflow or len(payload) > room
+    if deadline_reached:
+        return eof, overflow, True
     return eof, overflow, True
 
 

@@ -24,7 +24,7 @@ SPEC.loader.exec_module(parent)
 OBSERVATION_ID = "r0.app_native.offline.observation.1." + "1" * 32
 RECEIPT = b'{"receipt":"synthetic"}\n'
 PRIVATE_MARKER = "private-synthetic-marker"
-CLOSE_NAMES = (
+LAUNCH_CLOSE_NAMES = (
     "target_guard",
     "stdin_read",
     "stdin_write",
@@ -38,6 +38,7 @@ CLOSE_NAMES = (
     "thread",
     "attribute_list",
 )
+CLOSE_NAMES = LAUNCH_CLOSE_NAMES + ("checker_guard",)
 
 
 @dataclass(frozen=True)
@@ -98,7 +99,7 @@ def empty_audit() -> object:
 def close_observations(**changes: bool) -> tuple[object, ...]:
     return tuple(
         parent._CloseObservation(name, 1, changes.get(name, True))
-        for name in CLOSE_NAMES
+        for name in LAUNCH_CLOSE_NAMES
     )
 
 
@@ -153,6 +154,9 @@ class FakeAdapter:
         self.set_mode_results: list[bool] = [True, True]
         self.read_count = 0
         self.clear_count = 0
+        self.checker_exact: bool | None = True
+        self.checker_close_succeeded = True
+        self.checker_guard_owned = False
 
     def runtime_identity(self) -> tuple[str, str]:
         self.calls.append("runtime")
@@ -209,9 +213,24 @@ class FakeAdapter:
     def launch_once(self, request: object) -> object:
         self.calls.append("launch")
         self.request = request
+        self.checker_guard_owned = True
         if self.launch_error is not None:
             raise self.launch_error
         return self.evidence
+
+    def finish_checker_guard(self) -> tuple[bool | None, object | None]:
+        self.calls.append("finish_checker_guard")
+        if not self.checker_guard_owned:
+            return None, None
+        self.checker_guard_owned = False
+        return (
+            self.checker_exact,
+            parent._CloseObservation(
+                "checker_guard",
+                1,
+                self.checker_close_succeeded,
+            ),
+        )
 
     def target_identity_exact(self, target: object) -> bool | None:
         del target
@@ -588,6 +607,111 @@ def test_target_guard_is_closed_when_identity_capture_fails(
     assert adapter.kernel32.close_calls == 1
 
 
+def test_checker_guard_binds_exact_bytes_and_denies_write_delete_sharing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class Kernel:
+        def __init__(self) -> None:
+            self.create_args: tuple[object, ...] | None = None
+            self.close_calls = 0
+
+        def CreateFileW(self, *args: object) -> int:
+            self.create_args = args
+            return 51
+
+        def CloseHandle(self, _handle: object) -> bool:
+            self.close_calls += 1
+            return True
+
+    payload = b"synthetic checker"
+    checker = tmp_path / parent.OWNER_PATH
+    checker.parent.mkdir(parents=True)
+    checker.write_bytes(payload)
+    monkeypatch.setitem(
+        parent.FROZEN_BINDINGS,
+        parent.OWNER_PATH,
+        hashlib.sha256(payload).hexdigest(),
+    )
+    kernel = Kernel()
+
+    guard = parent._open_checker_guard(tmp_path, kernel)
+    identity = parent._checker_file_identity(checker)
+
+    assert guard.open
+    assert identity[-1] == hashlib.sha256(payload).hexdigest()
+    assert kernel.create_args is not None
+    assert kernel.create_args[0] == str(checker)
+    assert kernel.create_args[2] == parent.FILE_SHARE_READ
+    assert guard.close()
+    assert kernel.close_calls == 1
+
+
+@pytest.mark.parametrize(
+    ("target_close_succeeds", "expected_status"),
+    [
+        (True, "observation_binding_rejected"),
+        (False, "observation_timeout_unknown"),
+    ],
+)
+def test_checker_preentry_failure_closes_checker_then_target_guard(
+    monkeypatch: pytest.MonkeyPatch,
+    target_close_succeeds: bool,
+    expected_status: str,
+) -> None:
+    class Kernel:
+        def __init__(self) -> None:
+            self.closed: list[int] = []
+
+        def CloseHandle(self, handle: object) -> bool:
+            value = int(getattr(handle, "value", 0) or 0)
+            self.closed.append(value)
+            return value != 11 or target_close_succeeds
+
+    kernel = Kernel()
+    adapter = object.__new__(parent._WindowsParentAdapter)
+    adapter.kernel32 = kernel
+    adapter.launch_calls = 0
+    adapter.guard = parent._OwnedHandle(kernel, "target_guard", 11)
+    adapter.checker_guard = None
+    adapter.checker_identity = None
+    adapter.checker_repository_root = None
+    adapter.last_target_exact = None
+    adapter.windows_directory = lambda: "C:" + chr(92) + "Windows"
+    monkeypatch.setattr(
+        parent,
+        "_open_checker_guard",
+        lambda _root, _kernel: parent._OwnedHandle(kernel, "checker_guard", 22),
+    )
+    monkeypatch.setattr(
+        parent,
+        "_checker_file_identity",
+        lambda _path: (_ for _ in ()).throw(
+            parent._ControllerError("observation_binding_rejected")
+        ),
+    )
+    target = parent._TargetBinding(
+        bytearray(),
+        parent._FileIdentity(1, 2, 3, 4, "a" * 64, "3.13", "3.13"),
+    )
+    request = parent._LaunchRequest(
+        target,
+        ("python.exe", "-B", parent.FIXED_CHILD_SCRIPT, OBSERVATION_ID),
+        ROOT,
+        (("PYTHONDONTWRITEBYTECODE", "1"), ("SYSTEMROOT", "C:" + chr(92) + "Windows")),
+        parent.TIMEOUT_SECONDS,
+        parent.MAX_STDOUT_BYTES,
+        parent.MAX_STDERR_BYTES,
+    )
+
+    with pytest.raises(parent._ControllerError, match=expected_status):
+        adapter.launch_once(request)
+
+    assert kernel.closed == [22, 11]
+    assert adapter.checker_guard is None
+    assert not adapter.guard.open
+
+
 def test_attribute_list_is_owned_only_after_successful_initialization() -> None:
     class Kernel:
         def __init__(self) -> None:
@@ -693,6 +817,18 @@ def test_launch_exception_never_retries(error: BaseException) -> None:
     assert adapter.calls.count("launch") == 1
 
 
+def test_checker_guard_close_failure_overrides_preentry_binding_rejection() -> None:
+    adapter = FakeAdapter()
+    adapter.launch_error = parent._ControllerError("observation_binding_rejected")
+    adapter.checker_close_succeeded = False
+
+    result, _owner = run(adapter)
+
+    assert result == "observation_timeout_unknown"
+    assert adapter.calls.count("launch") == 1
+    assert adapter.calls.count("finish_checker_guard") == 1
+
+
 @pytest.mark.parametrize(
     "changes",
     [
@@ -771,9 +907,29 @@ def test_timeout_termination_terminal_and_cleanup_unknown_precedence(changes: di
 @pytest.mark.parametrize("resource", CLOSE_NAMES)
 def test_every_owned_resource_requires_one_successful_close(resource: str) -> None:
     adapter = FakeAdapter()
-    adapter.evidence = launch_evidence(close_observations=close_observations(**{resource: False}))
+    if resource == "checker_guard":
+        adapter.checker_close_succeeded = False
+    else:
+        adapter.evidence = launch_evidence(
+            close_observations=close_observations(**{resource: False})
+        )
     result, _owner = run(adapter)
     assert result == "observation_timeout_unknown"
+
+
+@pytest.mark.parametrize("checker_exact", [False, None])
+def test_checker_guard_drift_after_post_inventory_fails_closed(
+    checker_exact: bool | None,
+) -> None:
+    adapter = FakeAdapter()
+    adapter.checker_exact = checker_exact
+
+    result, owner = run(adapter)
+
+    assert result == "observation_launch_unknown"
+    assert owner.seal_calls == 0
+    assert adapter.calls.index("snapshot", 3) < adapter.calls.index("finish_checker_guard")
+    assert adapter.calls.index("audit_counts") < adapter.calls.index("finish_checker_guard")
 
 
 @pytest.mark.parametrize(
@@ -879,6 +1035,7 @@ def test_pipe_drain_continues_to_eof_after_overflow(
         def __init__(self) -> None:
             self.peek_calls = 0
             self.read_calls = 0
+            self.read_sizes: list[int] = []
 
         def PeekNamedPipe(
             self,
@@ -895,10 +1052,11 @@ def test_pipe_drain_continues_to_eof_after_overflow(
                 return True
             return False
 
-        def ReadFile(self, _handle: object, buffer: object, _size: int, read: object, _overlapped: object) -> bool:
+        def ReadFile(self, _handle: object, buffer: object, size: int, read: object, _overlapped: object) -> bool:
             self.read_calls += 1
-            parent.ctypes.memmove(buffer, b"xyz", 3)
-            parent.ctypes.cast(read, parent.ctypes.POINTER(parent.wintypes.DWORD)).contents.value = 3
+            self.read_sizes.append(size)
+            parent.ctypes.memmove(buffer, b"x" * size, size)
+            parent.ctypes.cast(read, parent.ctypes.POINTER(parent.wintypes.DWORD)).contents.value = size
             return True
 
     kernel = PipeKernel()
@@ -906,18 +1064,250 @@ def test_pipe_drain_continues_to_eof_after_overflow(
     handle = parent._OwnedHandle(kernel, "stdout_read", 1)
     monkeypatch.setattr(parent.ctypes, "get_last_error", lambda: parent.ERROR_BROKEN_PIPE)
 
-    eof, overflow, exact = parent._drain_pipe(
+    first = parent._drain_pipe(
         kernel,
         handle,
         retained,
         4,
         False,
         True,
+        float("inf"),
+    )
+    second = parent._drain_pipe(
+        kernel,
+        handle,
+        retained,
+        4,
+        first[0],
+        first[1],
+        float("inf"),
     )
 
-    assert (eof, overflow, exact) == (True, True, True)
+    assert first == (False, True, True)
+    assert second == (True, True, True)
     assert retained == b"full"
     assert kernel.read_calls == 1
+    assert kernel.read_sizes == [1]
+
+
+@pytest.mark.parametrize(
+    ("resource", "limit"),
+    [("stdout_read", parent.MAX_STDOUT_BYTES), ("stderr_read", parent.MAX_STDERR_BYTES)],
+)
+def test_continuously_available_pipe_performs_one_bounded_read_per_cycle(
+    resource: str,
+    limit: int,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class Kernel:
+        def __init__(self) -> None:
+            self.peek_calls = 0
+            self.read_sizes: list[int] = []
+
+        def PeekNamedPipe(
+            self,
+            _handle: object,
+            _buffer: object,
+            _size: int,
+            _read: object,
+            available: object,
+            _left: object,
+        ) -> bool:
+            self.peek_calls += 1
+            parent.ctypes.cast(
+                available,
+                parent.ctypes.POINTER(parent.wintypes.DWORD),
+            ).contents.value = 65536
+            return True
+
+        def ReadFile(
+            self,
+            _handle: object,
+            buffer: object,
+            size: int,
+            read: object,
+            _overlapped: object,
+        ) -> bool:
+            self.read_sizes.append(size)
+            parent.ctypes.memset(buffer, ord("x"), size)
+            parent.ctypes.cast(
+                read,
+                parent.ctypes.POINTER(parent.wintypes.DWORD),
+            ).contents.value = size
+            return True
+
+    kernel = Kernel()
+    monkeypatch.setattr(parent.time, "monotonic", lambda: 0.0)
+
+    result = parent._drain_pipe(
+        kernel,
+        parent._OwnedHandle(kernel, resource, 1),
+        bytearray(),
+        limit,
+        False,
+        False,
+        1.0,
+    )
+
+    assert result == (False, True, True)
+    assert kernel.peek_calls == 1
+    assert kernel.read_sizes == [limit + 1]
+
+
+def test_completion_port_service_cycle_is_bounded_to_32_packets(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class Kernel:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def GetQueuedCompletionStatus(
+            self,
+            _port: object,
+            message: object,
+            _key: object,
+            overlapped: object,
+            _timeout: int,
+        ) -> bool:
+            self.calls += 1
+            parent.ctypes.cast(
+                message,
+                parent.ctypes.POINTER(parent.wintypes.DWORD),
+            ).contents.value = parent.JOB_OBJECT_MSG_NEW_PROCESS
+            parent.ctypes.cast(
+                overlapped,
+                parent.ctypes.POINTER(parent.wintypes.LPVOID),
+            ).contents.value = self.calls
+            return True
+
+    kernel = Kernel()
+    events: list[object] = []
+    monkeypatch.setattr(parent.time, "monotonic", lambda: 0.0)
+
+    assert parent._drain_job_events(
+        kernel,
+        parent._OwnedHandle(kernel, "completion_port", 1),
+        events,
+        1.0,
+    ) == (True, False)
+    assert kernel.calls == parent.MAX_COMPLETION_EVENTS_PER_CYCLE
+    assert len(events) == parent.MAX_COMPLETION_EVENTS_PER_CYCLE
+
+
+def test_completion_port_requires_observed_empty_after_33rd_conflicting_packet(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class Kernel:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def GetQueuedCompletionStatus(
+            self,
+            _port: object,
+            message: object,
+            _key: object,
+            overlapped: object,
+            _timeout: int,
+        ) -> bool:
+            self.calls += 1
+            if self.calls == 34:
+                return False
+            value = (
+                parent.JOB_OBJECT_MSG_ACTIVE_PROCESS_LIMIT
+                if self.calls == 33
+                else parent.JOB_OBJECT_MSG_NEW_PROCESS
+            )
+            parent.ctypes.cast(
+                message,
+                parent.ctypes.POINTER(parent.wintypes.DWORD),
+            ).contents.value = value
+            parent.ctypes.cast(
+                overlapped,
+                parent.ctypes.POINTER(parent.wintypes.LPVOID),
+            ).contents.value = 41
+            return True
+
+    kernel = Kernel()
+    events: list[object] = []
+    handle = parent._OwnedHandle(kernel, "completion_port", 1)
+    monkeypatch.setattr(parent.time, "monotonic", lambda: 0.0)
+    monkeypatch.setattr(parent.ctypes, "get_last_error", lambda: parent.WAIT_TIMEOUT)
+
+    assert parent._drain_job_events(kernel, handle, events, 1.0) == (True, False)
+    assert not any(event.kind == "active_limit" for event in events)
+    assert parent._drain_job_events(kernel, handle, events, 1.0) == (True, True)
+    assert events[-1].kind == "active_limit"
+
+
+def test_continuous_completion_production_yields_at_deadline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class Kernel:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def GetQueuedCompletionStatus(
+            self,
+            _port: object,
+            message: object,
+            _key: object,
+            overlapped: object,
+            _timeout: int,
+        ) -> bool:
+            self.calls += 1
+            parent.ctypes.cast(
+                message,
+                parent.ctypes.POINTER(parent.wintypes.DWORD),
+            ).contents.value = parent.JOB_OBJECT_MSG_NEW_PROCESS
+            parent.ctypes.cast(
+                overlapped,
+                parent.ctypes.POINTER(parent.wintypes.LPVOID),
+            ).contents.value = 41
+            return True
+
+    kernel = Kernel()
+    clock = iter((0.0, 0.0, 0.4, 0.4, 0.8, 1.0))
+    monkeypatch.setattr(parent.time, "monotonic", lambda: next(clock, 1.0))
+
+    assert parent._drain_job_events(
+        kernel,
+        parent._OwnedHandle(kernel, "completion_port", 1),
+        [],
+        1.0,
+    ) == (True, False)
+    assert kernel.calls == 3
+
+
+def test_expired_service_deadline_performs_no_native_drain_operation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class Kernel:
+        @staticmethod
+        def PeekNamedPipe(*_args: object) -> bool:
+            raise AssertionError("pipe operation after deadline")
+
+        @staticmethod
+        def GetQueuedCompletionStatus(*_args: object) -> bool:
+            raise AssertionError("completion operation after deadline")
+
+    kernel = Kernel()
+    monkeypatch.setattr(parent.time, "monotonic", lambda: 2.0)
+
+    assert parent._drain_pipe(
+        kernel,
+        parent._OwnedHandle(kernel, "stdout_read", 1),
+        bytearray(),
+        4,
+        False,
+        False,
+        2.0,
+    ) == (False, False, True)
+    assert parent._drain_job_events(
+        kernel,
+        parent._OwnedHandle(kernel, "completion_port", 2),
+        [],
+        2.0,
+    ) == (True, False)
 
 
 def test_postcreation_failure_requests_termination_and_reconciles_owned_state(
@@ -955,7 +1345,7 @@ def test_postcreation_failure_requests_termination_and_reconciles_owned_state(
     monkeypatch.setattr(
         parent,
         "_drain_pipe",
-        lambda _kernel, handle, _retained, _limit, _eof, overflow: (
+        lambda _kernel, handle, _retained, _limit, _eof, overflow, _deadline: (
             True,
             overflow,
             drain_calls.append(handle.name) is None,
@@ -1021,15 +1411,22 @@ def test_postcreation_failure_reconciliation_is_bounded_to_five_seconds(
         4096,
         128,
     )
-    times = iter((10.0, 11.0, 15.0))
+    times = iter((10.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0, 11.0))
+    current = 11.0
     sleeps: list[float] = []
-    monkeypatch.setattr(parent.time, "monotonic", lambda: next(times))
+
+    def monotonic() -> float:
+        nonlocal current
+        current = next(times, 15.0)
+        return current
+
+    monkeypatch.setattr(parent.time, "monotonic", monotonic)
     monkeypatch.setattr(parent.time, "sleep", sleeps.append)
     monkeypatch.setattr(parent, "_drain_job_events", lambda *_args: True)
     monkeypatch.setattr(
         parent,
         "_drain_pipe",
-        lambda _kernel, _handle, _retained, _limit, eof, overflow: (
+        lambda _kernel, _handle, _retained, _limit, eof, overflow, _deadline: (
             eof,
             overflow,
             True,
@@ -1053,7 +1450,7 @@ def test_postcreation_failure_reconciliation_is_bounded_to_five_seconds(
     )
 
     assert result[-3:] == (False, 1, 1)
-    assert kernel.wait_calls == 2
+    assert kernel.wait_calls == 1
     assert sleeps == [0.01]
 
 
