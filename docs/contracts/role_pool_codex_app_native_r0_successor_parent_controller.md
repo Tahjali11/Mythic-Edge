@@ -19,10 +19,10 @@
 - Accepted context discipline:
   [`ADR-0012`](../decisions/ADR-0012-long-horizon-context-and-delegation-discipline.md).
 - Risk tier: high.
-- Correction base commit:
-  `e1fd3cf6939ef79c94e81c767d86d92f9d461c64`.
-- Correction base tree:
-  `1405abef7771738e3a5d3b139ef6138eb1f82e43`.
+- Split-integration correction base commit:
+  `68e3eff41ef1c531ced5e1df0b0b136562ee7e30`.
+- Split-integration correction base tree:
+  `27c4874937a915894f63d9ef6204f3177e7828e9`.
 
 The owner's current instruction is a task-scoped `explicit_user_override` for
 this one successor-parent-controller correction under open lifecycle issue
@@ -86,6 +86,19 @@ inspection or mutation and must not be represented as fresh-review cleanliness.
     predecessor contract are already integrated; this successor correction
     governs only the exact bounded contract, controller, and controller-test
     repair package.
+13. **Observed:** PR #831 integrated this correction contract alone at
+    `68e3eff41ef1c531ced5e1df0b0b136562ee7e30`. Fresh independent review then
+    accepted the exact two-file correction at controller SHA-256
+    `2f7daaca6b9643dd39182e208501e50062164c99cd177638d72e13743abd572e`
+    and test SHA-256
+    `32a2e01667613ec5aed404bf639f575995e32b2b8bb005674dd0194940a5daa3`.
+    Requiring that already integrated contract path to appear unchanged in the
+    later implementation PR is no longer constructible.
+14. **Decision:** correct only that sequencing error. This exact amendment is
+    one contract-only integration package. After its independent acceptance
+    and integration, the exact accepted controller and test form a separate
+    two-file implementation package. Neither package may contain another path,
+    and no implementation behavior or reviewed byte is reopened.
 
 Finding `ME-RP-826-PARENT-A-001` is
 `contracted_successor_boundary_pending_independent_review`.
@@ -99,6 +112,35 @@ Finding `ME-RP-826-E-004` is
 Finding `ME-RP-826-E-005` is
 `fresh_clean_review_worktree_required_after_integration`; the existing main
 checkout is not cleaned or mutated to satisfy that later gate.
+
+Finding `ME-RP-826-SPLIT-B-001` is
+`split_integration_sequence_contracted_pending_independent_confirmation`.
+
+### Split-integration sequencing correction
+
+This subsection supersedes only the same-PR and three-path-integration wording
+in the future authority sequence, submission-envelope paragraph, acceptance
+paragraph, review prompt, and workflow handoff. Every technical requirement,
+implementation boundary, validation requirement, nonclaim, and authority
+ceiling elsewhere in this contract remains unchanged.
+
+The immutable sequencing predecessor is the `48527`-byte contract integrated
+by PR #831 at SHA-256
+`0d46c5f5466d542e56fbe8ee138b4710acb7d8e5878a7be3ecb20dbb629b2581`.
+PR #831 remains historical accepted contract-only integration evidence. The
+accepted implementation candidate remains exactly:
+
+1. `tools/run_role_pool_app_native_r0_observation_parent.py`: `82771` bytes;
+   SHA-256
+   `2f7daaca6b9643dd39182e208501e50062164c99cd177638d72e13743abd572e`;
+2. `tests/test_run_role_pool_app_native_r0_observation_parent.py`: `56400`
+   bytes; SHA-256
+   `32a2e01667613ec5aed404bf639f575995e32b2b8bb005674dd0194940a5daa3`.
+
+The implementation candidate's independent technical acceptance remains
+evidence, not submission authority. This amendment neither changes those bytes
+nor permits a new Codex D repair unless later review identifies a concrete
+technical defect.
 
 ### Historical predecessor and review evidence
 
@@ -177,25 +219,29 @@ eligibility review and a fresh exact, expiring, single-use owner decision.
 PR #829 already integrated the controller and controller test, and PR #830
 already integrated the accepted predecessor contract. Their integration is
 historical evidence, not proof that the six later review findings are closed.
-The only prospective implementation work authorized by this correction is a
-Codex D repair to those exact two integrated implementation paths after fresh
-contract-only Codex E acceptance.
+The exact two-file repair is complete and independently accepted. No further
+Codex D work is authorized absent a new concrete implementation finding.
 
 The conditional correction sequence is:
 
-1. fresh Codex E reviews this corrected contract only;
-2. if E accepts it, Codex D changes exactly the controller and controller test;
-3. fresh Codex E reviews the corrected contract and exact two implementation
-   files and reproduces the required operation-free checks;
-4. only with no blocking finding, Codex F submits exactly those three paths in
-   one draft PR targeting `main`;
-5. only if the submitted head remains exact, all required checks pass, every
-   review thread is resolved, and fresh exact-head E review is clean, Codex G
-   may squash-merge that exact three-path package; and
-6. after integration, a fresh current-main eligibility review runs from a newly
-   created clean review worktree. The existing main checkout is not cleaned or
-   mutated to satisfy this gate. One public-safe #826 comment is permitted only
-   if every exact eligibility gate passes.
+1. fresh Codex E reviews this split-integration correction only;
+2. after acceptance and a separate owner submission decision, Codex F submits
+   exactly this one contract path in one draft PR targeting `main`;
+3. only if that submitted head remains exact, required checks pass, and fresh
+   exact-head E review is clean may Codex G integrate the contract-only package;
+4. from the resulting exact current `main`, fresh Codex E confirms the merged
+   contract and the exact two-file implementation candidate together and
+   reproduces the required operation-free checks;
+5. after that acceptance and a separate owner submission decision, Codex F
+   submits exactly the two implementation paths in one draft PR targeting
+   `main`;
+6. only if the implementation head remains exact, all required checks pass,
+   every applicable review thread is resolved, and fresh exact-head E review is
+   clean may Codex G squash-merge that exact two-file package; and
+7. after both integrations, a fresh current-main eligibility review runs from
+   a newly created clean review worktree. The existing main checkout is not
+   cleaned or mutated to satisfy this gate. One public-safe #826 comment is
+   permitted only if every exact eligibility gate passes.
 
 The conditional chain stops on head drift, scope expansion, unknown GitHub
 state, failed validation, unresolved review finding, private-value requirement,
@@ -241,7 +287,7 @@ This Codex B correction changes only:
 
 - `docs/contracts/role_pool_codex_app_native_r0_successor_parent_controller.md`
 
-The exact later Codex D repair envelope is the two integrated paths:
+The exact accepted implementation envelope is the two integrated paths:
 
 1. `tools/run_role_pool_app_native_r0_observation_parent.py`
 2. `tests/test_run_role_pool_app_native_r0_observation_parent.py`
@@ -250,8 +296,10 @@ No third implementation, test, fixture, bootstrap, configuration, schema,
 status, receipt, lifecycle contract, predecessor observer, service, broker,
 GitHub client, launcher, helper, fallback, private ingress, or evidence path is
 permitted. Every accepted #826 path and the predecessor observer remain
-byte-identical. The complete future submission envelope is exactly this
-contract plus those two implementation paths; no fourth path is permitted.
+byte-identical. The complete future submission envelope is exactly two ordered,
+nonoverlapping packages: first this one contract path, then the two
+implementation paths. No package may add another path, and the implementation
+package cannot precede exact contract integration and current-main E review.
 
 ## Public Interface
 
@@ -666,17 +714,19 @@ git diff --check
 
 ## Acceptance And Stop Conditions
 
-Contract acceptance permits only the conditionally authorized Codex D repair
-of the exact two integrated implementation paths. Repair acceptance and exact
-three-path integration make only a fresh current-main eligibility review from a
-new clean review worktree possible. They do not activate the controller or
+Contract acceptance permits only the ordered split-integration route defined
+above. The exact two-file repair is complete and independently accepted; this
+amendment does not authorize further implementation. Exact ordered integration
+of this contract-only amendment and the separately reviewed two-file
+implementation package makes only a fresh current-main eligibility review from
+a new clean review worktree possible. It does not activate the controller or
 Observation 1.
 
 Stop and return to Codex A or the owner if:
 
-- either integrated implementation path is missing, a fourth submission path
-  is required, or the repair cannot remain exactly within the contract plus
-  those two implementation paths;
+- either integrated implementation path is missing, either ordered package
+  requires an extra path, the implementation candidate bytes drift, or the
+  implementation package would precede exact contract integration;
 - any accepted #826 file or predecessor observer must change;
 - a private value must enter a model-visible, durable, redirected, or
   non-console surface;
@@ -696,13 +746,16 @@ Stop and return to Codex A or the owner if:
 - issue #769 would require any read beyond state/comment-count validation or
   any mutation.
 
-This contract does not by itself authorize implementation. Under the owner's
-conditional activation, fresh contract-only E acceptance activates only the
-exact two-file Codex D repair described above. No current authority permits
-private-path access, controller start, child creation, identity generation or
-consumption, observation execution, candidate publication, Observation 2,
-task dispatch, R1-R8, Stage 4, deployment, assurance, privacy guarantees,
-security guarantees, or live readiness.
+This contract does not authorize implementation. Fresh contract-only E
+acceptance creates eligibility only for a separate owner decision about Codex F
+submission of this exact contract-only amendment. The accepted two-file
+implementation package remains ineligible for submission until the amendment
+is integrated and fresh current-main E review accepts the combined binding. No
+current authority permits private-path access, controller start, child
+creation, identity generation or consumption, observation execution,
+candidate publication, Observation 2, task dispatch, R1-R8, Stage 4,
+deployment, assurance, privacy guarantees, security guarantees, or live
+readiness.
 
 ## Next Workflow Action
 
@@ -714,7 +767,7 @@ Pasteable prompt:
 Use the current Mythic Edge repository authority.
 Use $mythic-edge-workflow.
 
-Act as Codex E: Fresh Contract-Only Successor Parent-Controller Correction
+Act as Codex E: Fresh Parent-Controller Split-Integration Sequencing Contract
 Reviewer.
 
 Repository: Tahjali11/Mythic-Edge
@@ -724,6 +777,7 @@ Tracker: https://github.com/Tahjali11/Mythic-Edge/issues/746
 Protected issue: https://github.com/Tahjali11/Mythic-Edge/issues/769
 Implementation PR: https://github.com/Tahjali11/Mythic-Edge/pull/829
 Contract PR: https://github.com/Tahjali11/Mythic-Edge/pull/830
+Correction contract PR: https://github.com/Tahjali11/Mythic-Edge/pull/831
 
 Review exactly:
 docs/contracts/role_pool_codex_app_native_r0_successor_parent_controller.md
@@ -753,6 +807,18 @@ fourth path, harness change, lifecycle-contract change, predecessor-observer
 change, schema, status, receipt, broker, launcher, helper, fallback, or new
 private ingress was introduced.
 
+Review `ME-RP-826-SPLIT-B-001` specifically. Confirm PR #831 integrated the
+immutable predecessor contract alone at merge commit
+`68e3eff41ef1c531ced5e1df0b0b136562ee7e30`, making its former single-PR
+three-path instruction impossible. Confirm the amendment changes only
+sequencing: first one contract-only package, then after integration and fresh
+current-main E confirmation one exact two-file implementation package. Verify
+the accepted controller and test remain exactly `82771`/`56400` bytes at
+SHA-256 `2f7daaca6b9643dd39182e208501e50062164c99cd177638d72e13743abd572e`
+and `32a2e01667613ec5aed404bf639f575995e32b2b8bb005674dd0194940a5daa3`.
+No Codex D repair is authorized unless review finds a new concrete technical
+defect.
+
 Run contract-only structural and operation-free existing regression checks. Do
 not implement, access a private path, start a controller or child, generate or
 consume an identity, publish a receipt, touch issue #769, authorize Observation
@@ -761,9 +827,10 @@ consume an identity, publish a receipt, touch issue #769, authorize Observation
 Lead with findings. Return the reviewed SHA-256 and byte count, one disposition
 for each of the six threads, the exact future two-file repair scope, validation,
 authority flags, generated residue evidence, and workflow_handoff. If accepted,
-route directly to the conditionally authorized exact-scope Codex D repair. If
-any finding requires wider scope or weaker containment, stop and route to
-Codex A/owner.
+route to a separate owner decision for Codex F submission of the exact
+contract-only package. Do not submit or merge during review. If any finding
+requires wider scope, changed implementation bytes, or weaker containment,
+stop and route to Codex A/owner.
 ```
 
 ```yaml
@@ -772,15 +839,18 @@ instruction_context:
   risk_tier: "high"
   observed:
     - "PR #829 integrated the controller and test; PR #830 integrated the accepted predecessor contract."
+    - "PR #831 integrated the correction contract separately before the exact two-file correction could be submitted."
+    - "Fresh E review accepted the exact two-file correction and found only the now-impossible single-PR sequencing clause."
     - "Six post-merge PR #829/#830 review threads remain unresolved."
     - "Issue #769 is open with zero comments."
     - "The main checkout contains preserved pre-existing frontend/.wrangler/ residue and is not a clean-review-worktree proof."
   derived:
     - "All six findings fit the existing contract plus exact two-file repair envelope."
+    - "The contract digest is not embedded by either implementation file, so split integration requires no byte change."
     - "External preflight ownership avoids a GitHub client, Git subprocess, or new controller authority input."
     - "A trusted-console nonclaim closes the overstatement without weakening buffered or multiline rejection."
   proposed:
-    - "One exact contract correction followed conditionally by a two-file Codex D repair."
+    - "One contract-only sequencing amendment followed, after integration and E confirmation, by the exact accepted two-file package."
   unknown:
     - "The future exact controller-runtime and target-executable bindings, which belong to a later owner decision."
     - "Whether independent review will prove every Win32 ownership route constructible within two files."
@@ -793,8 +863,8 @@ workflow_handoff:
   historical_capability_issue: "https://github.com/Tahjali11/Mythic-Edge/issues/828"
   tracker: "https://github.com/Tahjali11/Mythic-Edge/issues/746"
   protected_issue: "https://github.com/Tahjali11/Mythic-Edge/issues/769"
-  base_commit: "e1fd3cf6939ef79c94e81c767d86d92f9d461c64"
-  base_tree: "1405abef7771738e3a5d3b139ef6138eb1f82e43"
+  base_commit: "68e3eff41ef1c531ced5e1df0b0b136562ee7e30"
+  base_tree: "27c4874937a915894f63d9ef6204f3177e7828e9"
   target_artifact: "docs/contracts/role_pool_codex_app_native_r0_successor_parent_controller.md"
   implementation_paths:
     - "tools/run_role_pool_app_native_r0_observation_parent.py"
@@ -805,11 +875,13 @@ workflow_handoff:
     ME-RP-828-E-001: "superseded_by_trusted_console_boundary_pending_independent_confirmation"
     ME-RP-826-E-004: "six_post_merge_review_threads_contracted_pending_independent_confirmation"
     ME-RP-826-E-005: "fresh_clean_review_worktree_required_after_integration"
+    ME-RP-826-SPLIT-B-001: "split_integration_sequence_contracted_pending_independent_confirmation"
   current_codex_shell_live_compatible: false
   implementation_authorized: false
-  conditional_d_authorized_only_after_fresh_contract_e_acceptance: true
+  further_codex_d_repair_authorized: false
   submission_authorized_now: false
-  conditional_f_authorized_only_after_fresh_implementation_e_acceptance: true
+  contract_submission_eligible_only_after_fresh_contract_e_acceptance_and_owner_decision: true
+  implementation_submission_eligible_only_after_contract_integration_fresh_e_acceptance_and_owner_decision: true
   merge_authorized_now: false
   conditional_g_authorized_only_for_unchanged_clean_exact_head: true
   private_path_accessed: false
@@ -826,5 +898,5 @@ workflow_handoff:
   deployment_authorized: false
   issue_769_mutation_authorized: false
   live_ready: false
-  next_recommended_role: "Codex E: Fresh Contract-Only Successor Parent-Controller Correction Reviewer"
+  next_recommended_role: "Codex E: Fresh Parent-Controller Split-Integration Sequencing Contract Reviewer"
 ```
