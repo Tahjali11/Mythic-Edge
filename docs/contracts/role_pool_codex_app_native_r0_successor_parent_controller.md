@@ -19,10 +19,10 @@
 - Accepted context discipline:
   [`ADR-0012`](../decisions/ADR-0012-long-horizon-context-and-delegation-discipline.md).
 - Risk tier: high.
-- Stream-semantics correction base commit:
-  `aa7cc5eba690c8bb5c1eb9530bf4a94fa3c8b811`.
-- Stream-semantics correction base tree:
-  `d10093c208a6e82f2449acaafbb8b20175c1dc9a`.
+- Guarded-output and admission-precedence correction base commit:
+  `e5e225b28d9bd0f67b581eb9e7266a6b0c18bcdd`.
+- Guarded-output and admission-precedence correction base tree:
+  `9bb2af50263457a601f2c83da17992dbecd639e6`.
 
 The owner's current instruction is a task-scoped `explicit_user_override` for
 this one successor-parent-controller contract amendment under open lifecycle issue
@@ -155,6 +155,18 @@ inspection or mutation and must not be represented as fresh-review cleanliness.
     it is never accepted, published as authoritative, used in an owner
     decision, or retried. All canonical acceptance and private-value rules
     remain exact.
+26. **Observed:** current main's guarded-output probe made one complete write,
+    made zero flush calls, retained `abc`, and returned success even though the
+    synthetic stream was configured to fail on flush. Buffered delivery failure
+    is therefore not observed before success.
+27. **Observed:** current main resolves the repository root before validating
+    the public mode. A malformed mode combined with repository-root rejection
+    selected `observation_binding_rejected` instead of the contracted
+    `observation_sequence_rejected`.
+28. **Decision:** require one flush after one complete write and before success,
+    with no repair or retry. Require non-Windows host rejection first, then a
+    pure public-admission phase, and only then repository-root and current-byte
+    checks. Exactly the existing controller and focused test may change.
 
 Finding `ME-RP-826-PARENT-A-001` is
 `fixed_confirmed_current_bytes`.
@@ -182,7 +194,47 @@ Finding `ME-RP-826-TARGET-BINDING-B-001` is
 `target_binding_loop_defined_pending_independent_confirmation`.
 
 Finding `ME-RP-826-E-007` is
+`fixed_confirmed_contract_only`.
+
+Finding `ME-RP-826-E-009` is
 `contracted_pending_independent_confirmation`.
+
+Finding `ME-RP-826-E-010` is
+`contracted_pending_independent_confirmation`.
+
+### Guarded-output and public-admission-precedence correction
+
+This subsection supersedes only the stale no-controller-edit scope, the
+write-only success boundary, and any sequencing that permits repository-root
+inspection before complete public admission. It does not change either public
+mode, the 18-field binding, private ingress, process containment, receipt
+sealing, lifecycle, status vocabulary, nonretry behavior, or authority.
+
+Every selected successful output uses exactly one bounded write attempt for
+the complete bytes, requires the exact complete reported count, then performs
+exactly one required flush before returning success. A short count prevents
+flush. A write exception, short count, flush exception, or uncertain completion
+selects existing `observation_result_unknown`. Flush performs no write, repair,
+suffix, replacement, or retry. Partial or merely buffered output remains
+malformed and non-authoritative and cannot pass strict parsing, complete byte
+count, canonical SHA-256, self-digest, transport, or external readback. No
+private value may enter output, exceptions, logs, or durable evidence.
+
+Public admission has three ordered boundaries. First, the existing non-Windows
+host check may select `observation_host_rejected`. Second, pure operation-free
+validation must completely classify the public mode, argument count and order,
+observation identity, binding transport, and canonical binding structure before
+repository-root inspection. Any malformed public value selects
+`observation_sequence_rejected`, including when later repository state would be
+absent, stale, nonordinary, reparse-backed, or otherwise invalid. Third, only a
+valid public form may proceed to repository-root and current-binding checks;
+their failures remain `observation_binding_rejected`.
+
+Before public admission succeeds, the controller constructs no adapter, loads
+no owner module, reads no private console input, attempts no process entry,
+consumes no identity or authority, and performs no external effect. This
+ordering adds no public mode, helper, schema, lifecycle state, status, or
+authority field.
 
 ### Metadata-output stream-semantics correction
 
@@ -193,13 +245,15 @@ canonicalization, cleanup, private-custody, process, lifecycle, nonretry, or
 authority rule.
 
 The controller makes exactly one bounded output-write attempt for the complete
-canonical target-binding artifact. A short reported count, raised output
-exception, flush uncertainty, or any other output failure is terminal and
-nonretryable. A stream may already have emitted a bounded proper prefix before
-reporting failure. Such bytes are malformed, non-authoritative evidence and
-must fail strict canonical parsing, complete byte-count verification, canonical
-artifact SHA-256 verification, internal `binding_sha256` verification, exact
-transport verification, external readback, and owner-decision eligibility.
+canonical target-binding artifact. Only an exact complete reported count may
+proceed to exactly one required flush, and only successful flush completion may
+return success. A short reported count, raised write or flush exception, flush
+uncertainty, or any other output failure is terminal and nonretryable. A stream
+may already have emitted or buffered a bounded proper prefix before reporting
+failure. Such bytes are malformed, non-authoritative evidence and must fail
+strict canonical parsing, complete byte-count verification, canonical artifact
+SHA-256 verification, internal `binding_sha256` verification, exact transport
+verification, external readback, and owner-decision eligibility.
 
 Any emitted prefix may contain only bytes from the public-safe canonical
 binding. No private path, private value, credential, token, environment value,
@@ -208,12 +262,13 @@ durable or public surface. Only the complete canonical artifact, including its
 single final LF, exact byte count, canonical artifact SHA-256, internal
 self-digest, and exact transport encoding, may support a later owner decision.
 
-Success remains one complete output-write attempt, a complete reported length,
-successful required output completion, no stderr, and exact external readback.
-Output failure retains the existing `observation_result_unknown` status and
-exit behavior. No second write, retry, repair, suffix write, replacement
-artifact, new status, schema field, lifecycle state, cleanup route, or receipt
-family is permitted.
+Success requires one complete output-write attempt, an exact complete reported
+length, exactly one successful flush after that write, no stderr, and exact
+external readback. A short write performs no flush. Output failure retains the
+existing `observation_result_unknown` status and exit behavior. No flush-based
+write or second write to the selected output stream, retry, repair, suffix
+write, replacement artifact, new status, schema field, lifecycle state,
+cleanup route, or receipt family is permitted.
 
 ### Split-integration sequencing correction
 
@@ -309,11 +364,13 @@ threads do not restart the workflow or invalidate accepted dispositions.
 | Repository ID | `1235264383` |
 | Repository name | `tahjali11/mythic-edge` |
 | Accepted predecessor parent-controller contract | `35296` bytes; `a54caf3f16abb3f01becb0e8addcb8923c65714b4ed889ef67e38a4f013154d0` |
-| Current integrated parent controller | `tools/run_role_pool_app_native_r0_observation_parent.py`; `82771` bytes; `2f7daaca6b9643dd39182e208501e50062164c99cd177638d72e13743abd572e` |
-| Current integrated parent-controller test | `tests/test_run_role_pool_app_native_r0_observation_parent.py`; `56400` bytes; `32a2e01667613ec5aed404bf639f575995e32b2b8bb005674dd0194940a5daa3` |
-| Reviewed target-binding controller candidate, frozen for this correction | `tools/run_role_pool_app_native_r0_observation_parent.py`; `100528` bytes; `8af672c6341432b05574885c069ea0076975c51b0bc37be76559ebbb14138dc4` |
-| Starting focused-test candidate | `tests/test_run_role_pool_app_native_r0_observation_parent.py`; `71072` bytes; `289ad0ff8bc920d23bd9068ed700abab5d7be44d450fe3fad78d06c302b09069` |
-| Stream-semantics contract predecessor | `72153` bytes; `367a9e27e125dc3751a23944b5263bbb697fac82a23633da01f3c2e6dc6639f2` |
+| Historical pre-target-binding integrated parent controller | `tools/run_role_pool_app_native_r0_observation_parent.py`; `82771` bytes; `2f7daaca6b9643dd39182e208501e50062164c99cd177638d72e13743abd572e` |
+| Historical pre-target-binding parent-controller test | `tests/test_run_role_pool_app_native_r0_observation_parent.py`; `56400` bytes; `32a2e01667613ec5aed404bf639f575995e32b2b8bb005674dd0194940a5daa3` |
+| Current integrated parent controller | `tools/run_role_pool_app_native_r0_observation_parent.py`; `100528` bytes; `8af672c6341432b05574885c069ea0076975c51b0bc37be76559ebbb14138dc4` |
+| Current integrated focused test | `tests/test_run_role_pool_app_native_r0_observation_parent.py`; `72662` bytes; `805819519274e2fbc2f846996b141e16bb7ee6b3766a3d1e8aab12d2fb9b4ff4` |
+| Historical pre-short-write focused-test candidate | `tests/test_run_role_pool_app_native_r0_observation_parent.py`; `71072` bytes; `289ad0ff8bc920d23bd9068ed700abab5d7be44d450fe3fad78d06c302b09069` |
+| Historical target-binding-loop contract | `72153` bytes; `367a9e27e125dc3751a23944b5263bbb697fac82a23633da01f3c2e6dc6639f2` |
+| Guarded-output correction contract predecessor | `77570` bytes; `9986a9dfcf18d61ed3562497305a54a0f837cbd95f89bd211ba51d36c1a0df5d` |
 | Accepted #826 lifecycle contract | `37249` bytes; `be7974ba998257981df5c876dfa441b03326ae776405bd269d1470957a785cde` |
 | Accepted #826 harness | `88401` bytes; `cfd3a0baaff6c4bbc5144403fd72f404722b8b96e8eca30fbf588f3180ec0b42` |
 | Accepted #826 harness test | `76211` bytes; `3fc6c35eada99f3a319e1ebe94bd5f33494821301cfdf1ec67f5f35bfc97dc4c` |
@@ -335,13 +392,13 @@ threads do not restart the workflow or invalidate accepted dispositions.
 | Observation timeout | `120` seconds |
 | Termination reconciliation grace | `5` seconds |
 
-Each row is bound in its named lifecycle context. Historical integrated rows
-remain immutable evidence and are not required to coexist byte-for-byte at the
-same path with the reviewed candidate rows. The reviewed controller candidate
-and starting focused test must each remain an ordinary, non-reparse file at
-their exact candidate length and digest; those are the only current candidate
-file gates for this correction. The source and installed trees must remain
-exact and equal. Drift stops before private input or child creation.
+Each row is bound in its named lifecycle context. Historical rows remain
+immutable evidence and are not required to coexist byte-for-byte with current
+rows at the same path. The current integrated controller and focused test must
+each remain an ordinary, non-reparse file at their exact current length and
+digest; those are the only implementation starting gates for this correction.
+The source and installed trees must remain exact and equal. Drift stops before
+private input or child creation.
 
 The owner decision at
 <https://github.com/Tahjali11/Mythic-Edge/issues/826#issuecomment-5232244853>
@@ -351,25 +408,25 @@ eligibility review and a fresh exact, expiring, single-use owner decision.
 
 ## Integrated History And Future Authority Sequence
 
-PRs #829 through #835 are immutable integrated history. They establish the
+PRs #829 through #838 are immutable integrated history. They establish the
 current contract, controller, focused test, review dispositions, and exact
 current-byte eligibility evidence. They do not establish a canonical target
 binding or authorize a controller execution. The prior owner decision at
 comment `5232244853` remains historical and nontransferable.
 
-The only prospective sequence under this stream-semantics amendment is:
+The only prospective sequence under this correction is:
 
-1. fresh Codex E reviews this contract amendment, the reproduced short-write
-   witness, and the frozen controller candidate;
+1. fresh Codex E reviews this contract amendment, both reproduced defects, and
+   the exact current controller and focused test;
 2. after acceptance and separate owner submission authority, Codex F/G may
    integrate exactly this one contract path;
 3. after exact contract integration and a separate owner corrective decision,
-   Codex D may add the exact synthetic short-write test by modifying only the
-   focused test file; the controller candidate remains byte-frozen;
-4. fresh Codex E reviews the exact frozen controller and corrected focused test
-   as the complete two-file package before any submission or integration
-   decision;
-5. after exact implementation integration, fresh current-main Codex E review
+   Codex D may correct exactly the controller and focused test for E-009 and
+   E-010;
+4. fresh Codex E reviews those exact two implementation paths and required
+   operation-free tests before any submission or integration decision;
+5. after separately authorized implementation submission and exact integration,
+   fresh current-main Codex E review
    determines eligibility for one separately authorized metadata-only binding
    operation;
 6. one fresh, exact, expiring, nonreusable owner decision may authorize that
@@ -422,19 +479,10 @@ This Codex B amendment changes only:
 
 - `docs/contracts/role_pool_codex_app_native_r0_successor_parent_controller.md`
 
-The exact eventual package envelope remains limited to:
+The exact corrective implementation scope is limited to:
 
 1. `tools/run_role_pool_app_native_r0_observation_parent.py`
 2. `tests/test_run_role_pool_app_native_r0_observation_parent.py`
-
-For `ME-RP-826-E-007`, the exact later corrective edit scope is only:
-
-- `tests/test_run_role_pool_app_native_r0_observation_parent.py`
-
-The controller candidate is frozen at `100528` bytes and SHA-256
-`8af672c6341432b05574885c069ea0076975c51b0bc37be76559ebbb14138dc4`.
-Codex D may add the required focused test after contract integration and
-separate authority, but may not edit the controller.
 
 No third implementation, test, fixture, bootstrap, configuration, receipt,
 lifecycle contract, predecessor observer, service, broker, GitHub client,
@@ -442,9 +490,8 @@ launcher, helper, fallback, private ingress, or evidence path is permitted.
 The new target-binding object is private to this controller boundary and is
 not a Role Pool receipt or lifecycle family. Every accepted #826 path and the
 predecessor observer remain byte-identical. Contract integration and a
-separate owner corrective decision are required before the focused test may
-change. A controller edit requires a newly proven current-byte defect and a
-new contract route.
+separate owner corrective decision are required before either implementation
+path may change. E-009 and E-010 authorize no other implementation behavior.
 
 ## Public Interface
 
@@ -486,6 +533,18 @@ encoding, noncanonical re-encoding, overflow, or decoded bytes that are not the
 exact canonical object plus one LF are `observation_sequence_rejected` before
 private input. The decoded bytes are public-safe expected metadata, not an
 executable path, authority token, receipt, or process parameter.
+
+Before repository-root inspection, the controller first preserves the existing
+non-Windows host rejection, then completes pure public admission. Metadata mode
+must match its exact one-token form. Execution mode must validate exact argument
+count and order, observation identity, binding transport, decoded canonical
+structure, and every public cross-field rule. Malformed public input is
+`observation_sequence_rejected` even when repository-root inspection would be
+absent, stale, nonordinary, reparse-backed, or otherwise invalid. Only a valid
+public form may request the repository root; repository-root or current-binding
+failure then remains `observation_binding_rejected`. Adapter construction,
+owner loading, private ingress, process entry, identity consumption, and
+external effects remain forbidden until public admission succeeds.
 
 The external owner-operated preflight must prove that the decoded bytes equal
 the exact binding bytes in the consumed owner decision before execution-mode
@@ -649,18 +708,21 @@ sealing, receipt creation, or GitHub/network operation. It:
    executor-owned network operations, zero external effects, and zero residue;
    and
 8. only after complete successful cleanup makes exactly one bounded write
-   attempt for the complete canonical object on stdout and writes nothing to
-   stderr on the successful route.
+   attempt for the complete canonical object on stdout, requires the exact
+   complete reported count, performs exactly one successful flush, and writes
+   nothing to stderr on the successful route.
 
 Any host, state, queue, ingress, target, metadata, stable-read, close, cleanup,
 effect, or encoding uncertainty before the output attempt emits only the
 applicable existing closed failure status on stderr and no binding. Once the
-single output attempt begins, a short write, raised exception, flush
-uncertainty, or other output failure is terminal `observation_result_unknown`.
-Any already-emitted public-safe prefix is malformed and non-authoritative; it
-is never accepted, used, repaired, completed, or retried. The operation
-consumes no observation identity or authority. It is one separately authorized
-local metadata operation; no automatic retry is allowed.
+single output attempt begins, a short write prevents flush; a complete write
+requires exactly one flush before success. A write exception, short count,
+flush exception, flush uncertainty, or other output failure is terminal
+`observation_result_unknown`. Any already-emitted or buffered public-safe bytes
+are malformed and non-authoritative; they are never accepted, used, repaired,
+completed, or retried. The operation consumes no observation identity or
+authority. It is one separately authorized local metadata operation; no
+automatic retry is allowed.
 
 Execution mode first decodes and strictly validates the expected binding,
 then requires the privately inspected current controller process image to
@@ -883,8 +945,9 @@ No transcript, staging file, runtime-status file, log, cache, private evidence,
 or durable controller artifact is created. Metadata-only mode's only successful
 local output is the complete canonical target-binding artifact; execution
 mode's only successful local output is the unchanged canonical receipt bytes.
-A fixed existing status plus final LF is the only failure output; raw errors
-and exception chains are suppressed.
+A fixed existing status plus final LF is the only authoritative failure
+indicator; any bytes emitted or buffered before write or flush failure remain
+non-authoritative evidence. Raw errors and exception chains are suppressed.
 
 ## Before And After Effect Evidence
 
@@ -968,7 +1031,7 @@ The first applicable row wins:
 | --- | --- | --- |
 | 1 | Non-Windows host | `observation_host_rejected` |
 | 2 | Invalid public mode, identity, binding transport, or canonical binding structure | `observation_sequence_rejected` |
-| 3 | Stale artifact, unsafe or uncertain console queue, unsafe private target, expected-binding mismatch, or pre-entry baseline mismatch | `observation_binding_rejected` |
+| 3 | Invalid repository root, stale artifact, unsafe or uncertain console queue, unsafe private target, expected-binding mismatch, or pre-entry baseline mismatch | `observation_binding_rejected` |
 | 4 | Process entry may have occurred but ownership, job membership, or top-level identity is unknown | `observation_launch_unknown` |
 | 5 | Timeout, termination uncertainty, unknown terminal state, failed required close, mode-restoration failure, survivor ambiguity, or cleanup uncertainty | `observation_timeout_unknown` |
 | 6 | Any descendant, survivor, write, controller-observed network operation, external effect, or residue | `observation_safety_boundary_failed` |
@@ -993,6 +1056,13 @@ It must prove:
 
 1. exact admission of only the two public modes and rejection of every missing,
    extra, reordered, duplicate, option-like, malformed, or oversized argument;
+   non-Windows rejection remains first; malformed mode, identity, transport, or
+   canonical binding remains `observation_sequence_rejected` when a fake later
+   repository-root inspection would fail; valid metadata and execution forms
+   reach repository-root inspection, whose failure remains
+   `observation_binding_rejected`; every public-admission failure proves zero
+   adapter construction, owner loading, private ingress, process entry,
+   identity consumption, and external effect;
 2. strict base64url decoding, canonical re-encoding, duplicate-key rejection,
    exact 18-field order and types, self-digest validation, complete-artifact
    digest validation, and the `715`/`800`/`1067` known-answer vector;
@@ -1008,13 +1078,15 @@ It must prove:
    `sys.executable`, PATH, registry, or caller-selected identity sources;
 5. every metadata-only host, queue, target, metadata, identity, close, cleanup,
    and effect failure before output emits no binding and creates no authority;
-   output uses exactly one bounded write attempt; a synthetic stream that emits
-   a `17`-byte proper prefix and reports a short count must select
-   `observation_result_unknown`, make no second write, launch, child, identity,
-   decision, observation, receipt, network, or external effect, and expose no
-   private value; the prefix must fail strict canonical parsing, exact complete
-   byte count, canonical artifact SHA-256, internal self-digest, and exact
-   transport verification;
+   complete output makes one write followed by exactly one flush and succeeds
+   only when both complete; a flush exception after a complete write selects
+   `observation_result_unknown`; a synthetic stream that emits a `17`-byte
+   proper prefix and reports a short count performs no flush or later write,
+   selects `observation_result_unknown`, makes no launch, child, identity,
+   decision, observation, receipt, network, or external effect, and exposes no
+   private value; partial or buffered bytes must fail strict canonical parsing,
+   exact complete byte count, canonical artifact SHA-256, internal self-digest,
+   exact transport, and external readback verification;
 6. execution mode parses the expected binding before private ingress, rejects
    a current controller process-image mismatch, and rejects each individual
    target constant, version, length, file digest, stable identity,
@@ -1088,13 +1160,13 @@ git diff --check
 
 ## Acceptance And Stop Conditions
 
-Contract acceptance establishes only that the corrected stream semantics are
-precise enough for contract integration routing. It does not authorize a test
-edit, metadata inspection, private-path access, controller start, Observation
-1, or publication. After contract integration and separate authority, the only
-corrective edit is the focused synthetic short-write test. Fresh independent E
-review must verify the frozen controller and corrected test as the complete
-two-file package before implementation integration.
+Contract acceptance establishes only that guarded output and public-admission
+precedence are precise enough for contract integration routing. It does not
+authorize implementation, metadata inspection, private-path access, controller
+start, Observation 1, or publication. After contract integration and separate
+authority, Codex D may correct exactly the controller and focused test for
+E-009 and E-010. Fresh independent E review must verify those exact two files
+before implementation integration.
 
 Stop and return to Codex A or the owner if:
 
@@ -1121,12 +1193,12 @@ Stop and return to Codex A or the owner if:
 - issue #769 would require any read beyond state/comment-count validation or
   any mutation.
 
-The reviewed `100528`-byte controller candidate already satisfies the corrected
-one-attempt stream behavior and is frozen against edit. Fresh contract
-acceptance permits only contract integration routing. After the separately
-authorized focused-test correction, exact two-file review, and later exact
-implementation integration, fresh current-main review may establish eligibility
-for one metadata-only owner decision, not Observation 1. No current authority permits
+The current `100528`-byte controller is the exact repair starting point, not an
+accepted corrected result. Fresh contract acceptance permits only contract
+integration routing. After the separately authorized exact two-file correction,
+fresh implementation review, and later exact implementation integration, fresh
+current-main review may establish eligibility for one metadata-only owner
+decision, not Observation 1. No current authority permits
 private-path access, controller start, child creation, identity generation or
 consumption, observation execution, binding or receipt publication,
 Observation 2, task dispatch, R1-R8, Stage 4, deployment, assurance, privacy or
@@ -1142,16 +1214,16 @@ Pasteable prompt:
 Use the current Mythic Edge repository authority.
 Use $mythic-edge-workflow.
 
-Act as Codex E: Independent Successor Parent-Controller Stream-Semantics
-Contract Reviewer.
+Act as Codex E: Independent Successor Parent-Controller Guarded-Output and
+Admission-Precedence Contract Reviewer.
 
 Repository: Tahjali11/Mythic-Edge
 Lifecycle issue: https://github.com/Tahjali11/Mythic-Edge/issues/826
 Completed capability issue: https://github.com/Tahjali11/Mythic-Edge/issues/828
 Tracker: https://github.com/Tahjali11/Mythic-Edge/issues/746
 Protected issue: https://github.com/Tahjali11/Mythic-Edge/issues/769
-Reviewed base commit: aa7cc5eba690c8bb5c1eb9530bf4a94fa3c8b811
-Reviewed base tree: d10093c208a6e82f2449acaafbb8b20175c1dc9a
+Reviewed base commit: e5e225b28d9bd0f67b581eb9e7266a6b0c18bcdd
+Reviewed base tree: 9bb2af50263457a601f2c83da17992dbecd639e6
 
 Review exactly:
 docs/contracts/role_pool_codex_app_native_r0_successor_parent_controller.md
@@ -1160,44 +1232,43 @@ Bind the exact byte count and SHA-256 reported by Codex B. Refresh origin/main
 and live issue state. Confirm #826 is open, #828 is closed, and #769 is open
 with zero comments.
 
-Review `ME-RP-826-E-007`. Independently confirm the frozen controller candidate
-is `100528` bytes at SHA-256
+Review `ME-RP-826-E-009` and `ME-RP-826-E-010`. Independently confirm the
+current controller is `100528` bytes at SHA-256
 `8af672c6341432b05574885c069ea0076975c51b0bc37be76559ebbb14138dc4`
-and the starting focused test is `71072` bytes at SHA-256
-`289ad0ff8bc920d23bd9068ed700abab5d7be44d450fe3fad78d06c302b09069`.
-Confirm the controller makes exactly one bounded output-write attempt, detects
-a short reported count, selects existing `observation_result_unknown`, performs
-no retry, and emits no private value.
+and the focused test is `72662` bytes at SHA-256
+`805819519274e2fbc2f846996b141e16bb7ee6b3766a3d1e8aab12d2fb9b4ff4`.
 
-Reproduce the public-safe synthetic `17`-byte short-write prefix. Confirm it is
-malformed and cannot pass complete canonical parsing, byte-count, canonical
-artifact SHA-256, internal self-digest, transport, external-readback, or
-owner-decision checks. Confirm the contract truthfully permits only that
-public-safe prefix as unavoidable stream behavior while forbidding acceptance,
-authoritative publication, repair, completion, use, or retry.
+Reproduce that a complete write currently returns without flush and that
+malformed public input can be masked by repository-root rejection. Confirm the
+contract now requires one complete write, exact count, exactly one successful
+flush before success, and terminal `observation_result_unknown` for write,
+count, flush, or completion uncertainty without retry or repair.
 
-Confirm complete refusal and successful full-output routes remain exact. Verify
-the 18-field schema, vectors, private ingress, guards, fixed command, Job Object,
-streams, cleanup, all 15 `PostExitFacts`, sealer, lifecycle, no-retry behavior,
-anti-circular thread policy, and every false-authority boundary remain
-unchanged.
+Confirm non-Windows rejection remains first and complete pure public admission
+precedes repository-root inspection. Malformed mode, identity, transport, or
+canonical binding must be `observation_sequence_rejected` even when repository
+state is invalid. Valid public forms may then reach repository checks, whose
+failure remains `observation_binding_rejected`. Confirm zero adapter, owner,
+private-ingress, process-entry, identity-consumption, or external-effect calls
+before admission succeeds.
 
-Confirm the corrective edit scope is exactly the focused test file and the
-controller is frozen. The eventual reviewed implementation package may contain
-the frozen controller and corrected test, but no controller edit or third path
-is authorized. Do not implement or edit files.
+Verify the two modes, 18-field schema and vectors, private ingress, guards,
+fixed command, Job Object, streams, cleanup, all 15 `PostExitFacts`, sealer,
+lifecycle, no-retry behavior, anti-circular thread policy, and false-authority
+boundaries remain unchanged. Confirm the later repair scope is exactly the
+controller and focused test, with no third path. Do not implement or edit files.
 
 Run contract-only structural and operation-free existing regression checks. Do
 not implement, access a private path, start a controller or child, generate or
 consume an identity, publish a receipt, touch issue #769, authorize Observation
 1 or 2, advance R0-R8 or Stage 4, submit, merge, deploy, or claim readiness.
 
-Lead with findings. Return the reviewed SHA-256 and byte count, short-write
-witness, controller-freeze verdict, exact one-test corrective scope, validation,
-authority flags, generated residue, and workflow_handoff. If exact, report
-contract acceptance and eligibility only for a separate owner decision about
-contract submission. Do not authorize a test edit, metadata inspection,
-private access, Observation 1, submission, merge, or execution.
+Lead with findings. Return the reviewed SHA-256 and byte count, both probe
+results, exact two-file repair scope, validation, authority flags, generated
+residue, and workflow_handoff. If exact, report contract acceptance and
+eligibility only for a separate owner contract-submission decision. Do not
+authorize implementation, metadata inspection, private access, Observation 1,
+submission, merge, or execution.
 ```
 
 ```yaml
@@ -1216,18 +1287,18 @@ instruction_context:
     - "ADR-0008"
     - "ADR-0012"
   observed:
-    - "Current main is aa7cc5eba690c8bb5c1eb9530bf4a94fa3c8b811 at tree d10093c208a6e82f2449acaafbb8b20175c1dc9a."
-    - "The reviewed 100528-byte controller candidate makes one output-write attempt and detects a short reported count."
-    - "A synthetic stream emitted a 17-byte public-safe prefix before the controller selected observation_result_unknown."
-    - "Issue #826 is open and #828 is closed."
+    - "Current main is e5e225b28d9bd0f67b581eb9e7266a6b0c18bcdd at tree 9bb2af50263457a601f2c83da17992dbecd639e6."
+    - "A complete synthetic write made one write call, zero flush calls, and returned success."
+    - "Malformed public mode plus repository-root rejection selected observation_binding_rejected."
+    - "PR #838 is merged and issue #826 remains open."
     - "Issue #769 is open with zero comments."
     - "The main checkout contains preserved pre-existing frontend/.wrangler/ residue and is not a clean-review-worktree proof."
   derived:
-    - "A stream can emit bytes before reporting a short count, so zero emitted bytes is not enforceable after output begins."
-    - "Strict complete-artifact verification makes any prefix malformed and non-authoritative without changing the schema."
-    - "The controller already satisfies the corrected one-attempt terminal semantics."
+    - "Successful write return is insufficient evidence of delivered buffered output without one required flush."
+    - "Repository-root inspection currently masks the higher-precedence public-admission result."
+    - "Both defects are correctable inside the existing controller and focused test."
   proposed:
-    - "One contract-only semantics correction followed later by one focused synthetic test."
+    - "One contract correction followed later by one exact two-file Codex D repair."
   unknown:
     - "The future metadata operation remains separately authorized and unexecuted."
   protected_surfaces:
@@ -1237,12 +1308,12 @@ instruction_context:
     - "release, registry, installed tree, and receipt state"
   authority_conflicts_found: false
   stop_conditions:
-    - "A controller edit or path beyond the focused test is required."
-    - "A partial binding would need acceptance, repair, authoritative publication, or retry."
+    - "A third implementation path, helper, schema, status, or lifecycle change is required."
+    - "Output completion would require retry, repair, or private-value publication."
     - "Private custody, exact identity, containment, lifecycle, or authority would need weakening."
 
 workflow_handoff:
-  role_performed: "Codex B: Narrow Successor Parent-Controller Stream-Semantics Contract Corrector"
+  role_performed: "Codex B: Narrow Successor Parent-Controller Guarded-Output and Admission-Precedence Contract Corrector"
   completed_thread: "B"
   next_thread: "E"
   risk_tier: "high"
@@ -1254,23 +1325,20 @@ workflow_handoff:
   protected_issue: "https://github.com/Tahjali11/Mythic-Edge/issues/769"
   base_branch: "origin/main"
   target_branch: "main"
-  branch: "codex/app-native-r0-target-binding-loop-contract-826"
-  base_commit: "aa7cc5eba690c8bb5c1eb9530bf4a94fa3c8b811"
-  base_tree: "d10093c208a6e82f2449acaafbb8b20175c1dc9a"
-  source_artifact: "ME-RP-826-E-007"
+  branch: "codex/app-native-r0-stream-semantics-contract-826"
+  base_commit: "e5e225b28d9bd0f67b581eb9e7266a6b0c18bcdd"
+  base_tree: "9bb2af50263457a601f2c83da17992dbecd639e6"
+  source_artifact: "PRRT_kwDOSaCjf86X6B7O and PRRT_kwDOSaCjf86X6B7V"
   target_artifact: "docs/contracts/role_pool_codex_app_native_r0_successor_parent_controller.md"
   files_changed:
     - "docs/contracts/role_pool_codex_app_native_r0_successor_parent_controller.md"
   corrective_implementation_paths:
-    - "tests/test_run_role_pool_app_native_r0_observation_parent.py"
-  corrective_implementation_path_count: 1
-  eventual_package_paths:
     - "tools/run_role_pool_app_native_r0_observation_parent.py"
     - "tests/test_run_role_pool_app_native_r0_observation_parent.py"
-  eventual_package_path_count: 2
-  controller_change_required: false
-  controller_frozen_sha256: "8af672c6341432b05574885c069ea0076975c51b0bc37be76559ebbb14138dc4"
-  starting_test_sha256: "289ad0ff8bc920d23bd9068ed700abab5d7be44d450fe3fad78d06c302b09069"
+  corrective_implementation_path_count: 2
+  controller_change_required: true
+  starting_controller_sha256: "8af672c6341432b05574885c069ea0076975c51b0bc37be76559ebbb14138dc4"
+  starting_test_sha256: "805819519274e2fbc2f846996b141e16bb7ee6b3766a3d1e8aab12d2fb9b4ff4"
   private_ingress: "trusted_owner_controlled_attached_console_ReadConsoleW_no_echo_with_bounded_queue_audits"
   finding_status:
     ME-RP-828-E-001: "superseded_historical"
@@ -1280,7 +1348,9 @@ workflow_handoff:
     ME-RP-826-ELIG-B-001: "fixed_confirmed_current_bytes"
     ME-RP-826-E-006: "fixed_confirmed_current_bytes"
     ME-RP-826-TARGET-BINDING-B-001: "target_binding_loop_defined_pending_independent_confirmation"
-    ME-RP-826-E-007: "contracted_pending_independent_confirmation"
+    ME-RP-826-E-007: "fixed_confirmed_contract_only"
+    ME-RP-826-E-009: "contracted_pending_independent_confirmation"
+    ME-RP-826-E-010: "contracted_pending_independent_confirmation"
   target_binding_schema: "trusted_owner_app_native_r0_successor_target_binding.v1"
   predecision_mode: "metadata_only_no_child_no_observation_authority"
   execution_transport: "bounded_unpadded_base64url_of_exact_canonical_binding_bytes"
@@ -1294,7 +1364,7 @@ workflow_handoff:
   eligibility_clarification_integrated: true
   current_binding_correction_integrated: true
   target_binding_contract_integrated: true
-  target_binding_candidate_integrated: false
+  target_binding_candidate_integrated: true
   contract_submission_eligible: false
   owner_observation_1_decision_eligible: false
   merge_authorized_now: false
@@ -1316,13 +1386,14 @@ workflow_handoff:
   issue_769_mutation_authorized: false
   live_ready: false
   validation:
-    - "17-byte synthetic short-write selected observation_result_unknown after exactly one write"
-    - "226 controller tests passed"
+    - "complete write returned success after one write and zero flush calls"
+    - "malformed mode plus repository-root rejection selected observation_binding_rejected"
+    - "227 controller tests passed"
     - "247 adjacent operation-free tests passed"
     - "agent docs, protected-surface, private-marker, and diff checks passed"
   stop_conditions:
-    - "a controller edit or path beyond the focused test is required"
-    - "partial output must become authoritative, repairable, or retryable"
+    - "a third implementation path, helper, schema, status, or lifecycle change is required"
+    - "output completion requires retry, repair, or private-value publication"
     - "private custody, containment, lifecycle, or authority must weaken"
-  next_recommended_role: "Codex E: Independent Successor Parent-Controller Stream-Semantics Contract Reviewer"
+  next_recommended_role: "Codex E: Independent Successor Parent-Controller Guarded-Output and Admission-Precedence Contract Reviewer"
 ```
