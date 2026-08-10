@@ -19,10 +19,10 @@
 - Accepted context discipline:
   [`ADR-0012`](../decisions/ADR-0012-long-horizon-context-and-delegation-discipline.md).
 - Risk tier: high.
-- Buffered-flush clarification base commit:
-  `9168b3bfcf3ced53f9c23f9882896ef0e65e8921`.
-- Buffered-flush clarification base tree:
-  `1699b09f2ffe7103f46cfbabcda10c24b16a20cc`.
+- Controller-image sole-target amendment base commit:
+  `eadcc35d9e7629a3d2d479678aba7d6d6305adb9`.
+- Controller-image sole-target amendment base tree:
+  `80761a6ffdf0697f215009cfb71a36123e06ac92`.
 
 The owner's current instruction is a task-scoped `explicit_user_override` for
 this one successor-parent-controller contract amendment under open lifecycle issue
@@ -54,10 +54,9 @@ inspection or mutation and must not be represented as fresh-review cleanliness.
    controller and one operation-free focused test. The bounded repair remains
    exactly those two implementation paths; it does not reopen the completed
    capability issue or authorize another implementation surface.
-5. **Decision:** private target selection uses bounded attached-console input
-   through `ReadConsoleW` with echo disabled. The private target path is never
-   a command argument, environment value, file, registry value, clipboard
-   value, prompt, log, exception, result, receipt, comment, or handoff value.
+5. **Historical decision:** the predecessor design selected a second private
+   target through attached-console `ReadConsoleW`. Decision 30 below supersedes
+   that selection mechanism without reinterpreting its historical evidence.
 6. **Decision:** this is an owner-operated boundary. The current noninteractive
    Codex shell is not a conforming live caller. That nonclaim does not block
    inert implementation or operation-free review, but it does block live use
@@ -79,10 +78,10 @@ inspection or mutation and must not be represented as fresh-review cleanliness.
 10. **Decision:** every stdout, stderr, and completion-port servicing step is
     deadline-aware and work-bounded so continuous production cannot postpone
     timeout, termination, or cleanup.
-11. **Decision:** the attached console is a trusted owner-controlled ingress
-    boundary. Bounded audits reject observed prebuffered character input and
-    multiline paste, but do not claim protection against an adversarial process
-    concurrently mutating the same console queue.
+11. **Historical decision:** the predecessor second-ingress design treated the
+    attached console as a trusted owner-controlled input boundary. Decision 31
+    removes that input operation; the old queue-audit evidence remains
+    historical and creates no current readiness requirement.
 12. **Decision:** this correction is retrospective. The implementation and
     predecessor contract are already integrated; this successor correction
     governs only the exact bounded contract, controller, and controller-test
@@ -167,6 +166,24 @@ inspection or mutation and must not be represented as fresh-review cleanliness.
     with no repair or retry. Require non-Windows host rejection first, then a
     pure public-admission phase, and only then repository-root and current-byte
     checks. Exactly the existing controller and focused test may change.
+29. **Observed:** current main obtains the running controller image once through
+    `QueryFullProcessImageNameW`, retains `controller_image_guard`, then performs
+    a second private `ReadConsoleW` path acquisition and opens `target_guard`.
+    The exact controller and focused test are `101049` and `76838` bytes.
+30. **Decision:** the exact executable manually selected by the trusted owner to
+    start the controller is the sole metadata and Observation 1 target. The
+    controller derives its private path only from
+    `QueryFullProcessImageNameW(GetCurrentProcess(), 0, ...)`, opens exactly one
+    `controller_image_guard`, and uses that guarded image as
+    `CreateProcessW.lpApplicationName`.
+31. **Decision:** remove the second target-path `ReadConsoleW`, every target
+    queue/mode readiness step, and `target_guard`. No replacement ingress,
+    helper, wrapper, launcher, or handshake is introduced. Manual trusted-owner
+    controller launch remains an external prerequisite and no current operation
+    is authorized.
+32. **Decision:** the prior metadata-only decision and associated attempt are
+    spent, nonreusable historical evidence. This amendment neither accepts nor
+    rejects its output and creates no retry, replacement, or execution route.
 
 Finding `ME-RP-826-PARENT-A-001` is
 `fixed_confirmed_current_bytes`.
@@ -205,12 +222,40 @@ Finding `ME-RP-826-E-010` is
 Finding `ME-RP-826-E-011` is
 `contracted_pending_independent_confirmation`.
 
+Finding `ME-RP-826-SOLE-TARGET-B-001` is
+`contracted_pending_independent_confirmation`.
+
+### Controller-image sole-target amendment
+
+This amendment supersedes every active clause that requires a second target
+path, `ReadConsoleW`, console queue or mode readiness, target-path
+normalization, `target_guard`, or controller-to-entered-target equality. It
+preserves both public modes, the exact 18-field canonical binding and vectors,
+all Role Pool schemas and statuses, process containment, receipt sealing,
+lifecycle, nonretry, and false-authority boundaries.
+
+The owner selects one executable by manually starting the controller with the
+exact intended ordinary, non-reparse CPython `python.exe`. The controller does
+not accept that path through `argv`, stdin, the environment, or another local
+channel. It recovers the running image path once through
+`QueryFullProcessImageNameW`, opens and retains one `controller_image_guard`,
+derives the existing canonical binding from that guarded image, and compares
+the complete binding to the exact owner-decision binding before process entry.
+
+`controller_image_guard` has one owner: the parent adapter from successful
+acquisition through finalization. Process-launch code may borrow the guard and
+private path but must not close, replace, or take ownership of either. The
+adapter gives the guard exactly one close attempt on every acquisition prefix,
+after the last required metadata check when process entry occurred. Close
+failure or uncertainty remains cleanup failure. No second executable guard or
+guard alias is permitted.
+
 ### Guarded-output and public-admission-precedence correction
 
 This subsection supersedes only the stale no-controller-edit scope, the
 write-only success boundary, and any sequencing that permits repository-root
 inspection before complete public admission. It does not change either public
-mode, the 18-field binding, private ingress, process containment, receipt
+mode, the 18-field binding, process containment, receipt
 sealing, lifecycle, status vocabulary, nonretry behavior, or authority.
 
 Every selected successful output uses exactly one bounded write attempt for
@@ -373,12 +418,15 @@ threads do not restart the workflow or invalidate accepted dispositions.
 | Accepted predecessor parent-controller contract | `35296` bytes; `a54caf3f16abb3f01becb0e8addcb8923c65714b4ed889ef67e38a4f013154d0` |
 | Historical pre-target-binding integrated parent controller | `tools/run_role_pool_app_native_r0_observation_parent.py`; `82771` bytes; `2f7daaca6b9643dd39182e208501e50062164c99cd177638d72e13743abd572e` |
 | Historical pre-target-binding parent-controller test | `tests/test_run_role_pool_app_native_r0_observation_parent.py`; `56400` bytes; `32a2e01667613ec5aed404bf639f575995e32b2b8bb005674dd0194940a5daa3` |
-| Current integrated parent controller | `tools/run_role_pool_app_native_r0_observation_parent.py`; `100528` bytes; `8af672c6341432b05574885c069ea0076975c51b0bc37be76559ebbb14138dc4` |
-| Current integrated focused test | `tests/test_run_role_pool_app_native_r0_observation_parent.py`; `72662` bytes; `805819519274e2fbc2f846996b141e16bb7ee6b3766a3d1e8aab12d2fb9b4ff4` |
+| Historical pre-flush parent controller | `tools/run_role_pool_app_native_r0_observation_parent.py`; `100528` bytes; `8af672c6341432b05574885c069ea0076975c51b0bc37be76559ebbb14138dc4` |
+| Historical pre-flush focused test | `tests/test_run_role_pool_app_native_r0_observation_parent.py`; `72662` bytes; `805819519274e2fbc2f846996b141e16bb7ee6b3766a3d1e8aab12d2fb9b4ff4` |
+| Current integrated parent controller | `tools/run_role_pool_app_native_r0_observation_parent.py`; `101049` bytes; `27def2ba3b099bf530b54349bcdbc0ad3875193cf63d9d5d9014c5a8f8a67acf` |
+| Current integrated focused test | `tests/test_run_role_pool_app_native_r0_observation_parent.py`; `76838` bytes; `97671e0710f6677b3597f2920676ef7bdbf5894fa15389d069edf48b15e571cd` |
 | Historical pre-short-write focused-test candidate | `tests/test_run_role_pool_app_native_r0_observation_parent.py`; `71072` bytes; `289ad0ff8bc920d23bd9068ed700abab5d7be44d450fe3fad78d06c302b09069` |
 | Historical target-binding-loop contract | `72153` bytes; `367a9e27e125dc3751a23944b5263bbb697fac82a23633da01f3c2e6dc6639f2` |
 | Guarded-output correction contract predecessor | `77570` bytes; `9986a9dfcf18d61ed3562497305a54a0f837cbd95f89bd211ba51d36c1a0df5d` |
 | Buffered-flush clarification contract predecessor | `82743` bytes; `fdf170af1bafb1f6dec4a9842e62f1fab2af9afcff084d1804f599b828b76c99` |
+| Controller-image sole-target contract predecessor | `83373` bytes; `636bfeda4718b55dc6db0e61611999b37ad72b8095be69bd019f8403438bc6da` |
 | Accepted #826 lifecycle contract | `37249` bytes; `be7974ba998257981df5c876dfa441b03326ae776405bd269d1470957a785cde` |
 | Accepted #826 harness | `88401` bytes; `cfd3a0baaff6c4bbc5144403fd72f404722b8b96e8eca30fbf588f3180ec0b42` |
 | Accepted #826 harness test | `76211` bytes; `3fc6c35eada99f3a319e1ebe94bd5f33494821301cfdf1ec67f5f35bfc97dc4c` |
@@ -406,7 +454,7 @@ rows at the same path. The current integrated controller and focused test must
 each remain an ordinary, non-reparse file at their exact current length and
 digest; those are the only implementation starting gates for this correction.
 The source and installed trees must remain exact and equal. Drift stops before
-private input or child creation.
+controller-image inspection or child creation.
 
 The owner decision at
 <https://github.com/Tahjali11/Mythic-Edge/issues/826#issuecomment-5232244853>
@@ -414,23 +462,30 @@ is unedited and unconsumed, but it is nontransferable to this controller and
 its identity is not reusable. A later controller execution requires a fresh
 eligibility review and a fresh exact, expiring, single-use owner decision.
 
+The metadata-only decision at
+<https://github.com/Tahjali11/Mythic-Edge/issues/826#issuecomment-5245321673>
+and the resulting metadata attempt are spent and permanently nonreusable. This
+amendment neither accepts, rejects, repairs, nor reinterprets that attempt or
+any bytes it may have emitted. No decision, identity, binding, or evidence from
+that attempt transfers to the sole-target design.
+
 ## Integrated History And Future Authority Sequence
 
-PRs #829 through #839 are immutable integrated history. They establish the
+PRs #829 through #841 are immutable integrated history. They establish the
 current contract, controller, focused test, review dispositions, and exact
 current-byte eligibility evidence. They do not establish a canonical target
 binding or authorize a controller execution. The prior owner decision at
 comment `5232244853` remains historical and nontransferable.
 
-The only prospective sequence under this correction is:
+The only prospective sequence under this amendment is:
 
-1. fresh Codex E reviews this contract amendment, both reproduced defects, and
-   the exact current controller and focused test;
+1. fresh Codex E reviews this exact contract amendment and the unchanged
+   current controller and focused test;
 2. after acceptance and separate owner submission authority, Codex F/G may
    integrate exactly this one contract path;
-3. after exact contract integration and a separate owner corrective decision,
-   Codex D may correct exactly the controller and focused test for E-009 and
-   E-010;
+3. after exact contract integration and a separate owner implementation
+   decision, Codex C may implement the sole-target design in exactly the
+   controller and focused test;
 4. fresh Codex E reviews those exact two implementation paths and required
    operation-free tests before any submission or integration decision;
 5. after separately authorized implementation submission and exact integration,
@@ -474,7 +529,7 @@ replacement or retry.
 
 ## Owning Layer And Files
 
-The successor parent owns only private executable custody; critical-artifact
+The successor parent owns only guarded controller-image custody; critical-artifact
 guards; parent-observed process, stream, timeout, termination, cleanup, and
 effect evidence; and `PostExitFacts`. The accepted #826 harness remains sole
 owner of child validation, schema parsing, status selection, canonical receipt
@@ -494,12 +549,13 @@ The exact corrective implementation scope is limited to:
 
 No third implementation, test, fixture, bootstrap, configuration, receipt,
 lifecycle contract, predecessor observer, service, broker, GitHub client,
-launcher, helper, fallback, private ingress, or evidence path is permitted.
+launcher, helper, fallback, second executable ingress, or evidence path is
+permitted.
 The new target-binding object is private to this controller boundary and is
 not a Role Pool receipt or lifecycle family. Every accepted #826 path and the
 predecessor observer remain byte-identical. Contract integration and a
-separate owner corrective decision are required before either implementation
-path may change. E-009 and E-010 authorize no other implementation behavior.
+separate owner implementation decision are required before either implementation
+path may change. This amendment authorizes no other implementation behavior.
 
 ## Public Interface
 
@@ -532,14 +588,14 @@ is accepted. The observation ID in execution mode must match exactly
 `r0.app_native.offline.observation.1.[0-9a-f]{32}`, must not be all zero, and
 must equal the separately reviewed and consumed owner decision. Missing,
 extra, reordered, duplicate, option-like, non-ASCII, or nonexact input is
-`observation_sequence_rejected` before private input.
+`observation_sequence_rejected` before controller-image inspection.
 
 The binding transport uses only the RFC 4648 URL-safe base64 alphabet, omits
 padding, is at most `2048` ASCII characters, and decodes to at most `1536`
 bytes. Decoding must be unique and strict: invalid alphabet, padding, alternate
 encoding, noncanonical re-encoding, overflow, or decoded bytes that are not the
 exact canonical object plus one LF are `observation_sequence_rejected` before
-private input. The decoded bytes are public-safe expected metadata, not an
+controller-image inspection. The decoded bytes are public-safe expected metadata, not an
 executable path, authority token, receipt, or process parameter.
 
 Before repository-root inspection, the controller first preserves the existing
@@ -551,36 +607,36 @@ structure, and every public cross-field rule. Malformed public input is
 absent, stale, nonordinary, reparse-backed, or otherwise invalid. Only a valid
 public form may request the repository root; repository-root or current-binding
 failure then remains `observation_binding_rejected`. Adapter construction,
-owner loading, private ingress, process entry, identity consumption, and
-external effects remain forbidden until public admission succeeds.
+owner loading, controller-image inspection, process entry, identity
+consumption, and external effects remain forbidden until public admission
+succeeds.
 
 The external owner-operated preflight must prove that the decoded bytes equal
 the exact binding bytes in the consumed owner decision before execution-mode
 start. The controller independently parses the same bytes and compares the
-opened target. It does not claim to authenticate the decision.
+guarded running controller image. It does not claim to authenticate the
+decision.
 
 The controller accepts no executable path, command, child argument list, cwd,
 environment, timeout, receipt field, process fact, decision reference, or
-authority claim through `argv`. It accepts no redirected stdin. Its internal
+authority claim through `argv`. It reads no stdin. Its internal
 fake-native interface is private and dependency-injected only by
 operation-free tests; it cannot accept caller-selected process parameters.
 
-After the external owner-operated preflight passes, the owner starts the
-controller once from an already-running trusted owner-controlled interactive
-Windows console using a separately bound direct controller runtime. The
-controller runtime must be the same exact ordinary, non-reparse `python.exe`
-file as the target entered through the console. Metadata-only mode proves that
-equality before emitting the binding. Execution mode proves the running
-controller image and entered target both equal the expected owner-decision
-binding before child entry.
+After the external owner-operated preflight passes, the owner manually starts
+the controller once with the exact selected ordinary, non-reparse CPython
+`python.exe`. That running image is the sole target. Metadata-only mode binds
+it; execution mode proves it equals the expected owner-decision binding before
+child entry and uses it as `CreateProcessW.lpApplicationName`. No second input,
+console readiness handshake, or controller-to-target equality step remains.
 No PATH lookup, `py.exe`, WindowsApps alias, file association, shim, wrapper,
 shell child launch, broker, service, scheduled task, task API, alternate
 runtime, or fallback is permitted.
 
-The current Codex `shell_command` surface is not a conforming interactive
-caller and is not authorized to start this controller. This contract does not
-claim a general structured-launch capability or automate the owner-operated
-controller start.
+The current Codex `shell_command` surface is not authorized to start this
+controller. This is an authority statement, not a claim that the host cannot
+launch a process. The contract does not add a general launch capability or
+automate the owner-operated controller start.
 
 ## Canonical Successor Target Binding
 
@@ -632,8 +688,14 @@ Closed value rules are:
   `private_path_source` is exactly `owner_supplied_local_absolute_path`, and
   `private_path_publication_authorized` is `false`.
 
-Stable identity comes from `GetFileInformationByHandle` on the retained target
-guard. The raw `dwVolumeSerialNumber` and combined 64-bit file index form this
+The unchanged `private_path_source` value now means the owner-selected absolute
+executable used for the manual controller start, independently recovered by the
+controller through `QueryFullProcessImageNameW`. It does not mean a second path
+was supplied after controller start.
+
+Stable identity comes from `GetFileInformationByHandle` on the retained
+`controller_image_guard`. The raw `dwVolumeSerialNumber` and combined 64-bit
+file index form this
 exact ASCII preimage:
 
 ```text
@@ -686,159 +748,94 @@ reordered equivalent JSON, historical object, shortened label, or owner prose
 is insufficient. These lines extend the existing decision binding only; they
 create no new decision, consumption, receipt, or lifecycle schema.
 
-## Two-Phase Target-Binding Loop
+## Two-Phase Sole-Image Binding Loop
 
 The current controller image path is obtained only through one bounded
 `QueryFullProcessImageNameW(GetCurrentProcess(), 0, ...)` call. `sys.executable`,
-PATH, registry lookup, command-line reconstruction, and caller claims are not
-identity sources. The returned path remains private, passes the same component
-and reparse checks, and is opened under `controller_image_guard` before its
-metadata is used.
+stdin, PATH, registry lookup, command-line reconstruction, and caller claims are
+not identity sources. The returned path remains private, passes exact lexical,
+component, ordinary-file, and reparse checks, and is opened under the sole
+`controller_image_guard` before metadata is used.
 
-Metadata-only mode uses the existing attached-console no-echo ingress and
-target-validation algorithm. It performs no observation-ID parsing,
-consumption, child construction, `CreateProcessW` entry, owner-harness parsing,
-sealing, receipt creation, or GitHub/network operation. It:
+Metadata-only mode performs no stdin or console operation, observation-ID
+parsing, consumption, child construction, `CreateProcessW` entry, owner-harness
+parsing, sealing, receipt creation, or GitHub/network operation. It:
 
-1. verifies Windows and exact repository/controller state and privately opens
-   the current controller process image as an ordinary non-reparse file;
-2. installs the existing audit boundary and captures exact before effects;
-3. performs all three non-consuming queue audits and one bounded
-   `ReadConsoleW` private-path read;
-4. opens one ordinary non-reparse `python.exe` target with the same denied
-   write/delete sharing and derives all 18 canonical fields;
-5. requires the retained controller-image and target guards to reproduce the
-   same stable identity, versions, length, and SHA-256, then independently
-   repeats stable reads needed to establish metadata equality;
-6. closes every owned handle exactly once, restores console mode, clears
-   mutable private buffers, and captures exact after effects;
-7. requires zero child-entry calls, zero observed writes, zero
-   executor-owned network operations, zero external effects, and zero residue;
-   and
-8. only after complete successful cleanup makes exactly one bounded write
-   attempt for the complete canonical object on stdout, requires the exact
-   complete reported count, performs exactly one successful flush, and writes
-   nothing to stderr on the successful route.
+1. verifies Windows and exact repository/controller state;
+2. obtains the running image path once and opens the sole guard while denying
+   write and delete sharing;
+3. derives all 18 canonical fields from that guarded image and repeats the
+   complete version, product-version, length, SHA-256, stable-identity,
+   ordinary-file, and non-reparse checks before accepting the binding;
+4. installs the existing audit boundary and captures exact before/after effects;
+5. closes the sole guard exactly once and requires confirmed cleanup, zero
+   child-entry calls, zero observed writes, zero executor-owned network
+   operations, zero external effects, and zero residue; and
+6. only after complete cleanup makes exactly one bounded write attempt for the
+   complete canonical object, requires the exact count and one successful
+   flush, and writes nothing to stderr on success.
 
-Any host, state, queue, ingress, target, metadata, stable-read, close, cleanup,
-effect, or encoding uncertainty before the output attempt emits only the
-applicable existing closed failure status on stderr and no binding. Once the
-single output attempt begins, a short write prevents flush; a complete write
-requires exactly one flush before success. A write exception, short count,
-flush exception, flush uncertainty, or other output failure is terminal
-`observation_result_unknown`. Any already-emitted or buffered public-safe bytes
-are malformed and non-authoritative; they are never accepted, used, repaired,
-completed, or retried. The operation consumes no observation identity or
-authority. It is one separately authorized local metadata operation; no
-automatic retry is allowed.
+Any host, repository, controller-image, metadata, stable-read, close, cleanup,
+effect, or encoding uncertainty before output emits only the applicable
+existing closed failure status and no binding. Once output begins, all existing
+short-write, flush, malformed-prefix, nonauthority, and nonretry rules remain
+exact. Metadata mode consumes no observation identity or authority and remains
+a separately authorized, single-use future operation.
 
-Execution mode first decodes and strictly validates the expected binding,
-then requires the privately inspected current controller process image to
-match it before private ingress. After the same no-echo path acquisition, the
-retained target guard must independently reproduce every field from
-`host_os_name` through `private_path_publication_authorized` and the resulting
-`binding_sha256`. Any mismatch or unavailable field is
-`observation_binding_rejected` before `CreateProcessW` and permanently spends
-the already consumed Observation 1 decision and identity. Exact equality does
-not itself authorize launch; every existing state, guard, process, effect, and
-cleanup predicate must also pass.
+Execution mode first decodes and strictly validates the expected binding, then
+obtains and guards the running controller image. That one guarded image must
+reproduce every canonical field and `binding_sha256` before process entry. The
+controller repeats file version, product version, byte length, SHA-256, stable
+identity, ordinary-file, and non-reparse validation immediately before
+`CreateProcessW`; mismatch or uncertainty is `observation_binding_rejected`.
+It supplies the same private image path as `lpApplicationName`, retains the
+same guard through terminal readback, repeats all seven checks afterward, and
+maps post-entry mismatch or uncertainty to `observation_launch_unknown`.
 
 The expected binding remains public-safe transient input. It may appear in the
 owner decision and external preflight evidence, but it is not copied into the
 receipt, child argv, child environment, cwd, logs, errors, or private-path
-buffers. The controller emits no normalized, repaired, or inferred binding in
-execution mode.
+memory. The controller emits no normalized, repaired, or inferred binding in
+execution mode. Exact equality alone authorizes nothing; every existing state,
+process, effect, cleanup, and lifecycle predicate must also pass.
 
-`controller_image_guard` is one new internal owned-resource label, not a public
-field. Metadata-only mode closes it and `target_guard` before output. Execution
-mode retains both through terminal cleanup. Every acquisition prefix gives
-each proven-owned guard exactly one close attempt in reverse acquisition order;
-any failed or unknown close makes cleanup unconfirmed. No `PostExitFacts`,
-receipt, status, or lifecycle field is added.
+## Controller-Image Custody
 
-## Private Executable Ingress And Custody
+External exact decision and consumption verification remain preconditions only
+for execution mode, not controller steps or claims. Metadata-only mode still
+requires its own fresh decision and grants no observation authority. Neither
+mode reads stdin, changes console mode, audits a console queue, or asks the
+owner to enter an executable path after controller start. No second-ingress
+readiness handshake remains necessary.
 
-External exact decision and consumption verification are preconditions only
-for execution mode, not controller steps or claims. Metadata-only mode instead
-requires its own fresh local-operation decision and no observation authority.
-In either mode, `main` obtains the target executable through the trusted
-owner-controlled attached console:
-
-1. require Windows `os.name == "nt"` and `sys.platform == "win32"`;
-2. require `GetStdHandle(STD_INPUT_HANDLE)` to identify an attached console
-   accepted by `GetConsoleMode`, not a pipe, file, pseudo-input, or redirect;
-3. snapshot the exact console input mode and require `ENABLE_LINE_INPUT`;
-4. disable `ENABLE_ECHO_INPUT` without changing unrelated mode bits;
-5. perform the pre-read queue audit defined below; require that the bounded
-   snapshots expose zero pending character-producing input before
-   `ReadConsoleW`;
-6. read exactly one complete terminated line with one `ReadConsoleW` call into
-   one mutable buffer bounded to `32767` UTF-16 code units excluding its line
-   terminator and NUL;
-7. perform the post-read queue audit while echo remains disabled; reject a
-   second line or any other pending character-producing input;
-8. require exactly one terminal carriage return, optionally followed by one
-   line feed, with no earlier CR or LF; reject empty, unterminated, truncated,
-   multi-line, NUL-containing, or unpaired-surrogate input without echo;
-9. restore the exact original console mode in one attempt before child entry;
-10. perform one final prelaunch queue audit after restoration and immediately
-    before private target validation; reject any pending character-producing
-    input or audit uncertainty;
-11. perform no later console read, queue flush, input discard, or purge; and
-12. clear every mutable input, queue-audit, and normalized-path buffer on every
-    route with one best-effort overwrite, without claiming impossible total
-    zeroization.
-
-Each queue audit is the same closed non-consuming operation within the trusted
-owner-controlled console boundary:
-
-1. call `GetNumberOfConsoleInputEvents` and reject failure or a count greater
-   than `4096`;
-2. when the count is nonzero, call `PeekConsoleInputW` once into a bounded
-   mutable `INPUT_RECORD` buffer and require exactly that count to be returned;
-3. call `GetNumberOfConsoleInputEvents` again and require the same count; and
-4. reject any `KEY_EVENT` record whose `bKeyDown` is true and whose
-   `UnicodeChar` is not NUL.
-
-An API failure, short peek, malformed record, over-limit count, or observed
-changed count is queue-inspection uncertainty and selects
-`observation_binding_rejected` before process entry. Within the trusted
-owner-controlled boundary, observed prebuffered character input is never
-accepted as the owner's contemporaneous line, and an observed multi-line paste
-cannot be reduced to its first line. Queue records are never dequeued by an
-audit. Input arriving after the final successful audit cannot affect the child
-because the controller performs no further console input operation.
-
-The audits do not establish atomic queue snapshots, exclusivity, or protection
-against an adversarial process concurrently consuming, replacing, reordering,
-or appending console input records. The owner must ensure no untrusted or
-competing process can mutate the attached console queue for the duration of
-ingress. Loss of that trusted boundary stops before controller start; the
-controller neither detects every same-count replacement nor claims hostile
-same-console containment.
-
-The admitted path is one absolute local drive path. UNC, device, relative,
-environment-expanded, wildcard, alternate-data-stream, trailing-dot,
-trailing-space, dot-segment, and reparse paths are rejected. The immediate
+The owner selects the executable through the manual controller launch. The
+controller independently requires Windows `os.name == "nt"` and
+`sys.platform == "win32"`, obtains the running image path once through
+`QueryFullProcessImageNameW`, and admits only one absolute local drive path.
+UNC, device, relative, environment-expanded, wildcard, alternate-data-stream,
+trailing-dot, trailing-space, dot-segment, and reparse paths are rejected. The
 file and every traversed component must be ordinary and non-reparse.
 
-The controller opens the target with read and execute-attribute access while
-denying write and delete sharing. In metadata-only mode it derives the
-canonical binding, closes the guard exactly once, and emits only after cleanup.
-In execution mode it compares stable volume/file identity, byte length,
-SHA-256, exact version metadata, basename, and every constant field to the
-expected binding. It then rechecks identity immediately before the sole
-process-entry call and after terminal readback while retaining the open guard
-handle. Mismatch or uncertainty is `observation_binding_rejected` before entry,
-or `observation_launch_unknown` after entry.
+The adapter opens that image with read and execute-attribute access while
+denying write and delete sharing. It alone owns `controller_image_guard`.
+Metadata mode derives and revalidates the canonical binding, then closes the
+guard exactly once before output. Execution mode compares every canonical
+field to the expected binding, revalidates immediately before entry, retains
+the guard through terminal readback, performs the complete post-terminal
+revalidation, and then closes it exactly once. Process-launch and cleanup
+helpers borrow but never own or close the guard. No `target_guard`, alias,
+second executable handle owner, or ownership transfer is permitted.
 
 The private path may exist only in bounded controller memory and the necessary
-Win32 application-image buffer. It must never enter stdout, stderr, a Python
-exception string or chain, `repr`, logging, tracing, audit output, command
-line, argument vector, environment block, cwd, title, file, registry, clipboard,
-cache, receipt, comment, prompt, handoff, or durable artifact. Visibility to
-the trusted Windows operating-system control plane remains an explicit
-nonclaim; the controller does not claim to hide the target from that boundary.
+Win32 application-image buffers. The controller must clear its mutable path and
+command-line buffers when their use ends, without claiming impossible total
+zeroization. It must never emit the path through stdout, stderr, an exception,
+`repr`, logging, tracing, audit output, child argument vector, environment,
+cwd, title, file, registry, clipboard, cache, receipt, comment, prompt,
+handoff, or durable artifact. The external manual launch mechanism and trusted
+Windows operating-system control plane may observe the selected image; this
+contract makes no shell-history, process-list, OS-isolation, or concealment
+claim about those external surfaces.
 
 Before the sole process-entry call, the controller independently opens the
 exact child checker
@@ -859,7 +856,7 @@ not change the fixed relative child command or disclose a new child path.
 The controller performs exactly one `CreateProcessW` entry attempt. It uses:
 
 ```text
-lpApplicationName = <private exact owner-bound python.exe>
+lpApplicationName = <private path of the guarded running controller image>
 argv = ["python.exe", "-B",
         "tools/check_role_pool_r0_offline_observation.py",
         <fresh_owner_bound_observation_id>]
@@ -936,17 +933,17 @@ not substitutes. Unknown parentage or terminal state fails closed.
 - Timeout, cancellation, overflow, unsafe topology, or uncertain terminal state
   causes at most one `TerminateJobObject` request followed by one bounded
   `5`-second reconciliation wait. There is no relaunch or replacement.
-- Every proven-owned process, thread, job, completion-port, target-guard,
-  checker-guard, stdin, stdout, stderr, and pipe handle receives exactly one
+- Every proven-owned process, thread, job, completion-port,
+  controller-image-guard, checker-guard, stdin, stdout, stderr, and pipe handle
+  receives exactly one
   close attempt.
   Close attempts continue in reverse acquisition order after failures and
   aggregate deterministically.
 - `DeleteProcThreadAttributeList` is attempted exactly once only after
   successful attribute-list initialization. It is not a handle-close event.
-- Console-mode restoration is attempted exactly once if and only if mode
-  mutation succeeded. The console handle is borrowed and is never closed.
-- Any required close, deletion, mode restoration, bounded drain, terminal query,
-  buffer clearing, or survivor check that fails or is unknown makes
+- The controller performs no console-mode mutation or executable-path input.
+- Any required close, deletion, bounded drain, terminal query, buffer clearing,
+  or survivor check that fails or is unknown makes
   `cleanup_confirmed=false`.
 
 No transcript, staging file, runtime-status file, log, cache, private evidence,
@@ -960,7 +957,7 @@ non-authoritative evidence. Raw errors and exception chains are suppressed.
 ## Before And After Effect Evidence
 
 The controller installs its Python audit observer before its first baseline and
-keeps it active through sealing and cleanup. Before private input and again
+keeps it active through sealing and cleanup. Before controller-image inspection and again
 after child termination, bounded drain, and cleanup, it derives bounded stable
 inventories for:
 
@@ -990,10 +987,10 @@ The 15 `PostExitFacts` fields are derived as follows:
 | `process_relationships_known` | Creation-time job membership and complete, noncontradictory job accounting. |
 | `process_terminal_states_known` | One top-level terminal state, complete job exits, and final active count `0`. |
 | `surviving_process_count` | Final active job members; acceptance requires `0`. |
-| `top_level_identity_exact` | Diagnostic comparison of the retained target identity with available process-image metadata; `true`, `false`, or `null` retains #826 semantics. |
+| `top_level_identity_exact` | Diagnostic comparison of the retained guarded controller-image identity with the created process image; `true`, `false`, or `null` retains #826 semantics. |
 | `timed_out` | Monotonic deadline expired before the complete terminal boundary. |
 | `termination_uncertain` | Required termination or terminal reconciliation was unavailable, contradictory, or unsuccessful. |
-| `cleanup_confirmed` | Every required bounded drain, terminal, zero-survivor, target/checker-guard close, other close, deletion, mode-restoration, effect, and residue check completed exactly. |
+| `cleanup_confirmed` | Every required bounded drain, terminal, zero-survivor, controller-image/checker-guard close, other close, deletion, effect, and residue check completed exactly. |
 | `output_complete` | Both bounded pipes reached EOF with no overflow and all retained bytes remained available. |
 | `executor_network_operation_count` | Controller-owned Python network audit events; acceptance requires `0`. |
 | `repository_write_count` | Controller-owned repository write events plus one mismatch event for unequal pre/post repository inventory; acceptance requires `0`. |
@@ -1039,9 +1036,9 @@ The first applicable row wins:
 | --- | --- | --- |
 | 1 | Non-Windows host | `observation_host_rejected` |
 | 2 | Invalid public mode, identity, binding transport, or canonical binding structure | `observation_sequence_rejected` |
-| 3 | Invalid repository root, stale artifact, unsafe or uncertain console queue, unsafe private target, expected-binding mismatch, or pre-entry baseline mismatch | `observation_binding_rejected` |
+| 3 | Invalid repository root, stale artifact, unsafe or uncertain controller image, expected-binding mismatch, or pre-entry baseline mismatch | `observation_binding_rejected` |
 | 4 | Process entry may have occurred but ownership, job membership, or top-level identity is unknown | `observation_launch_unknown` |
-| 5 | Timeout, termination uncertainty, unknown terminal state, failed required close, mode-restoration failure, survivor ambiguity, or cleanup uncertainty | `observation_timeout_unknown` |
+| 5 | Timeout, termination uncertainty, unknown terminal state, failed required close, survivor ambiguity, or cleanup uncertainty | `observation_timeout_unknown` |
 | 6 | Any descendant, survivor, write, controller-observed network operation, external effect, or residue | `observation_safety_boundary_failed` |
 | 7 | Output overflow, incomplete EOF/drain, or unavailable complete output | `observation_result_unknown` |
 | 8 | Nonzero child exit, nonempty stderr, or malformed validation payload | `observation_validation_failed` |
@@ -1056,7 +1053,7 @@ second process-entry attempt, or evidence reconstruction.
 
 ## Operation-Free Tests
 
-The focused test uses only fake console, filesystem, hashing, clock, audit,
+The focused test uses only fake filesystem, hashing, clock, audit,
 Win32, job, completion, process, stream, and sealer adapters. It launches no
 real process and accesses no private executable.
 
@@ -1069,7 +1066,7 @@ It must prove:
    repository-root inspection would fail; valid metadata and execution forms
    reach repository-root inspection, whose failure remains
    `observation_binding_rejected`; every public-admission failure proves zero
-   adapter construction, owner loading, private ingress, process entry,
+   adapter construction, owner loading, controller-image inspection, process entry,
    identity consumption, and external effect;
 2. strict base64url decoding, canonical re-encoding, duplicate-key rejection,
    exact 18-field order and types, self-digest validation, complete-artifact
@@ -1077,15 +1074,15 @@ It must prove:
 3. the `112`-byte stable-identity preimage and
    `e860ac1f60d36d5d0e670c181d0bd563641f3f001d775db525a64a5beb9003a3`
    known answer, with raw identity values absent from all public output;
-4. metadata-only success proves the current controller process image and
-   entered target are the same exact file, performs one private ingress, zero
-   observation-ID, owner-harness, sealer, child-construction, or process-entry
-   calls, closes every owned resource once, proves zero effects, and emits
-   exactly one canonical binding line only after cleanup;
-   the fake must prove one bounded `QueryFullProcessImageNameW` source and zero
-   `sys.executable`, PATH, registry, or caller-selected identity sources;
-5. every metadata-only host, queue, target, metadata, identity, close, cleanup,
-   and effect failure before output emits no binding and creates no authority;
+4. metadata-only success proves the guarded current controller process image is
+   the sole target, performs one bounded `QueryFullProcessImageNameW` operation,
+   zero stdin, console-input, target-path, observation-ID, owner-harness,
+   sealer, child-construction, or process-entry calls, closes every owned
+   resource once, proves zero effects, and emits exactly one canonical binding
+   line only after cleanup; the fake must prove zero `sys.executable`, PATH,
+   registry, caller-selected identity, or second-ingress identity sources;
+5. every metadata-only host, controller-image, metadata, identity, close,
+   cleanup, and effect failure before output emits no binding and creates no authority;
    complete output makes one write followed by exactly one flush and succeeds
    only when both complete; a flush exception after a complete write selects
    `observation_result_unknown`; a synthetic stream that emits a `17`-byte
@@ -1095,29 +1092,33 @@ It must prove:
    private value; partial or buffered bytes must fail strict canonical parsing,
    exact complete byte count, canonical artifact SHA-256, internal self-digest,
    exact transport, and external readback verification;
-6. execution mode parses the expected binding before private ingress, rejects
-   a current controller process-image mismatch, and rejects each individual
-   target constant, version, length, file digest, stable identity,
+6. execution mode parses the expected binding before controller-image
+   inspection, rejects a guarded current controller process-image mismatch, and
+   rejects each individual target constant, version, length, file digest, stable identity,
    ordinary-file, reparse, source, publication, and self-digest mismatch before
    process entry;
 7. historical schema, issue, stable-identity schema, exact object, and digest
    `2315511a22881182565b4e8f0dd3764c79982c0287e573c562b1bd1f6f902333`
    are rejected and never normalized into the successor representation;
-8. non-Windows and redirected-console rejection before private input;
-9. exact line-mode admission, echo disable, exactly one bounded `ReadConsoleW`,
-   exact mode restoration, cancellation, unterminated or truncated input,
-   malformed UTF-16, and best-effort buffer clearing in both modes;
-10. bounded queue audits proving that observed prebuffered character input,
-    multi-line paste with a queued second line, queue-inspection failure or
-    observed instability, and any observed prelaunch character input reject
-    before child entry, while one ordinary trusted complete terminated line
-    remains reachable; audits dequeue or flush nothing and preserve the
-    adversarial same-console nonclaim;
-11. private path absence from every public value, call record, exception,
-    fixture representation, output, transport, and serialized test artifact;
-12. ordinary/non-reparse validation, denied write/delete sharing for target and
-    checker, guard retention, checker replacement denial, and continued
-    immediate pre-entry and post-terminal identity or byte-drift detection;
+8. non-Windows rejection before controller-image inspection;
+9. both public modes prove zero `GetStdHandle`, `GetConsoleMode`,
+   `SetConsoleMode`, `ReadConsoleW`, `PeekConsoleInputW`, `ReadConsoleInputW`,
+   stdin-read, queue-audit, target-path normalization, and `validate_target`
+   calls; no second-ingress readiness handshake or private-input cancellation
+   route remains;
+10. the fake controller process image is the sole target in both modes, and
+    execution passes its guarded private path unchanged as `CreateProcessW`
+    `lpApplicationName`; no second executable or caller-selected path is reachable;
+11. the recovered private path is absent from every public value, call record
+    visible outside the fake adapter, exception, fixture representation,
+    output, transport, and serialized test artifact; tests preserve the
+    nonclaim that the owner's external manual launch and Windows may observe it;
+12. ordinary/non-reparse validation, denied write/delete sharing for the sole
+    controller-image target and checker, one unambiguous adapter-owned image
+    guard, guard retention, checker replacement denial, exactly one image-guard
+    close attempt after the last terminal recheck, and continued immediate
+    pre-entry and post-terminal version, length, digest, stable-identity,
+    ordinary-file, reparse, or byte-drift detection;
 13. exact four-token child construction, fixed cwd and environment, and
     rejection of shell, PATH, `py.exe`, alias, shim, wrapper, alternate script,
     caller argument, and fallback routes;
@@ -1134,7 +1135,7 @@ It must prove:
     reconciliation, and no retry or replacement;
 20. every acquisition prefix and close-failure permutation receives exactly
     one reverse-order close attempt without short-circuiting;
-21. attribute-list deletion and console-mode restoration ownership rules;
+21. attribute-list deletion and sole controller-image-guard ownership rules;
 22. deterministic pre/post equality, repository-effect drift, write, network,
     external-effect, residue, unstable-read, and sampling-unknown cases without
     hard-coded effect counts;
@@ -1168,13 +1169,13 @@ git diff --check
 
 ## Acceptance And Stop Conditions
 
-Contract acceptance establishes only that guarded output and public-admission
-precedence are precise enough for contract integration routing. It does not
+Contract acceptance establishes only that the sole-controller-image target
+design is precise enough for contract integration routing. It does not
 authorize implementation, metadata inspection, private-path access, controller
 start, Observation 1, or publication. After contract integration and separate
-authority, Codex D may correct exactly the controller and focused test for
-E-009 and E-010. Fresh independent E review must verify those exact two files
-before implementation integration.
+owner implementation authority, Codex C may change exactly the controller and
+focused test to implement this design. Fresh independent E review must verify
+those exact two files before implementation integration.
 
 Stop and return to Codex A or the owner if:
 
@@ -1183,8 +1184,13 @@ Stop and return to Codex A or the owner if:
   authority;
 - any accepted #826 file or predecessor observer must change;
 - a private value must enter a model-visible, durable, redirected, or
-  non-console surface;
-- a conforming owner-operated interactive Windows console cannot be used;
+  public surface;
+- the owner-selected controller process image cannot be recovered exactly by
+  one bounded `QueryFullProcessImageNameW` operation, guarded as one ordinary
+  non-reparse file, and reused unchanged as `CreateProcessW`
+  `lpApplicationName`;
+- a second executable-path ingress, console-input readiness handshake, second
+  target guard, or controller-to-target equality bridge is required;
 - a generic runner, shell child, PATH lookup, `py.exe`, alias, shim, wrapper,
   helper, broker, service, task API, fallback, retry, or replacement is needed;
 - creation-time Job Object assignment, exact handle inheritance, complete
@@ -1196,17 +1202,16 @@ Stop and return to Codex A or the owner if:
 - current bindings drift; or
 - external preflight would need the controller to authenticate GitHub, inspect
   `.git`, accept a new authority input, invoke Git, or access the network;
-- the trusted owner-controlled console boundary cannot be maintained without
-  claiming adversarial same-console containment; or
 - issue #769 would require any read beyond state/comment-count validation or
   any mutation.
 
-The current `100528`-byte controller is the exact repair starting point, not an
-accepted corrected result. Fresh contract acceptance permits only contract
-integration routing. After the separately authorized exact two-file correction,
-fresh implementation review, and later exact implementation integration, fresh
-current-main review may establish eligibility for one metadata-only owner
-decision, not Observation 1. No current authority permits
+The current `101049`-byte controller and `76838`-byte focused test are the exact
+implementation starting inputs, not accepted sole-target results. Fresh
+contract acceptance permits only contract integration routing. After the
+separately authorized exact two-file implementation, fresh implementation
+review, and later exact implementation integration, fresh current-main review
+may establish eligibility for one metadata-only owner decision, not
+Observation 1. No current authority permits
 private-path access, controller start, child creation, identity generation or
 consumption, observation execution, binding or receipt publication,
 Observation 2, task dispatch, R1-R8, Stage 4, deployment, assurance, privacy or
@@ -1222,16 +1227,15 @@ Pasteable prompt:
 Use the current Mythic Edge repository authority.
 Use $mythic-edge-workflow.
 
-Act as Codex E: Independent Successor Parent-Controller Guarded-Output and
-Admission-Precedence Contract Reviewer.
+Act as Codex E: Independent R0 Controller-Image Sole-Target Contract Reviewer.
 
 Repository: Tahjali11/Mythic-Edge
 Lifecycle issue: https://github.com/Tahjali11/Mythic-Edge/issues/826
 Completed capability issue: https://github.com/Tahjali11/Mythic-Edge/issues/828
 Tracker: https://github.com/Tahjali11/Mythic-Edge/issues/746
 Protected issue: https://github.com/Tahjali11/Mythic-Edge/issues/769
-Reviewed base commit: 9168b3bfcf3ced53f9c23f9882896ef0e65e8921
-Reviewed base tree: 1699b09f2ffe7103f46cfbabcda10c24b16a20cc
+Reviewed base commit: eadcc35d9e7629a3d2d479678aba7d6d6305adb9
+Reviewed base tree: 80761a6ffdf0697f215009cfb71a36123e06ac92
 
 Review exactly:
 docs/contracts/role_pool_codex_app_native_r0_successor_parent_controller.md
@@ -1240,77 +1244,73 @@ Bind the exact byte count and SHA-256 reported by Codex B. Refresh origin/main
 and live issue state. Confirm #826 is open, #828 is closed, and #769 is open
 with zero comments.
 
-Review `ME-RP-826-E-009` and `ME-RP-826-E-011`, and confirm the clarification
-preserves the accepted `ME-RP-826-E-010` admission-precedence contract.
-Independently confirm the
-current controller is `100528` bytes at SHA-256
-`8af672c6341432b05574885c069ea0076975c51b0bc37be76559ebbb14138dc4`
-and the focused test is `72662` bytes at SHA-256
-`805819519274e2fbc2f846996b141e16bb7ee6b3766a3d1e8aab12d2fb9b4ff4`.
+Read without editing:
+- tools/run_role_pool_app_native_r0_observation_parent.py
+  SHA-256: 27def2ba3b099bf530b54349bcdbc0ad3875193cf63d9d5d9014c5a8f8a67acf
+- tests/test_run_role_pool_app_native_r0_observation_parent.py
+  SHA-256: 97671e0710f6677b3597f2920676ef7bdbf5894fa15389d069edf48b15e571cd
 
-Reproduce that a complete write currently returns without flush and that
-malformed public input can be masked by repository-root rejection. Confirm the
-contract now requires one complete application-level write, exact count, and
-exactly one successful flush before success. Confirm the flush may perform the
-underlying raw drain of the complete buffered payload without becoming a second
-application-level write. Write, count, flush, or completion uncertainty remains
-terminal `observation_result_unknown` without retry or repair.
+Review ME-RP-826-SOLE-TARGET-B-001. Confirm the amendment removes the second
+ReadConsoleW target-path ingress, target queue/mode handshake, target_guard,
+and controller-to-entered-target bridge without adding another ingress or
+executable selector. The executable manually selected by the owner to start
+the controller must be recovered only through one bounded
+QueryFullProcessImageNameW operation, guarded as one ordinary non-reparse file,
+and used as the sole metadata and Observation 1 target.
 
-Confirm non-Windows rejection remains first and complete pure public admission
-precedes repository-root inspection. Malformed mode, identity, transport, or
-canonical binding must be `observation_sequence_rejected` even when repository
-state is invalid. Valid public forms may then reach repository checks, whose
-failure remains `observation_binding_rejected`. Confirm zero adapter, owner,
-private-ingress, process-entry, identity-consumption, or external-effect calls
-before admission succeeds.
+Confirm metadata mode derives the unchanged 18-field canonical binding only
+from that guarded image. Confirm execution mode parses the exact public-safe
+expected binding before image inspection, compares every field against the
+guarded running image before process entry, and supplies the same private path
+unchanged as CreateProcessW lpApplicationName. Version, product version, byte
+length, SHA-256, stable file identity, ordinary-file, and non-reparse evidence
+must be exact immediately before entry and after terminal readback.
 
-Verify the two modes, 18-field schema and vectors, private ingress, guards,
-fixed command, Job Object, streams, cleanup, all 15 `PostExitFacts`, sealer,
-lifecycle, no-retry behavior, anti-circular thread policy, and false-authority
-boundaries remain unchanged. Confirm the later repair scope is exactly the
-controller and focused test, with no third path. Do not implement or edit files.
+Confirm the parent adapter is the sole controller-image-guard owner, launch and
+cleanup helpers only borrow it, and exactly one close attempt occurs after the
+last required recheck. Confirm fixed arguments, cwd, environment, Job Object,
+streams, deadlines, termination, cleanup, effects, all 15 PostExitFacts, pure
+sealing, statuses, schemas, permanent nonretry, and false-authority boundaries
+remain unchanged.
 
-Run contract-only structural and operation-free existing regression checks. Do
-not implement, access a private path, start a controller or child, generate or
-consume an identity, publish a receipt, touch issue #769, authorize Observation
-1 or 2, advance R0-R8 or Stage 4, submit, merge, deploy, or claim readiness.
+Confirm the metadata decision and attempt at issue comment 5245321673 are
+spent, historical, and nontransferable, and that the amendment neither accepts
+nor reinterprets their output. Confirm no second-ingress readiness handshake
+remains and no helper, wrapper, launcher, broker, service, schema, status,
+lifecycle, or third implementation path is required.
 
-Lead with findings. Return the reviewed SHA-256 and byte count, both probe
-results, exact two-file repair scope, validation, authority flags, generated
-residue, and workflow_handoff. If exact, report contract acceptance and
-eligibility only for a separate owner contract-submission decision. Do not
-authorize implementation, metadata inspection, private access, Observation 1,
-submission, merge, or execution.
+Run contract-only structural checks and the existing 231 focused and 247
+adjacent operation-free regressions. Do not implement, access a private path,
+start a controller or child, generate or consume an identity or decision,
+publish a binding or receipt, touch issue #769, authorize Observation 1 or 2,
+advance R0-R8 or Stage 4, submit, merge, deploy, or claim readiness.
+
+Lead with findings. Return the reviewed contract SHA-256 and byte count,
+sole-target constructibility verdict, exact future two-file scope, invariant
+and schema-preservation verdicts, validation, authority flags, generated
+residue, and workflow_handoff. If exact, report eligibility only for a separate
+owner contract-submission decision.
 ```
 
 ```yaml
 instruction_context:
   role: "B"
   risk_tier: "high"
-  global_router_read: true
-  repo_agents_read: true
-  repo_rules_read: true
-  repo_constitution_read: true
-  repo_workflow_read: true
-  role_doc_read: true
-  issue_or_tracker_read: true
-  contract_or_handoff_read: true
   accepted_adrs_read:
     - "ADR-0008"
     - "ADR-0012"
   observed:
-    - "Current main is 9168b3bfcf3ced53f9c23f9882896ef0e65e8921 at tree 1699b09f2ffe7103f46cfbabcda10c24b16a20cc."
-    - "A buffered-stream reproduction performed zero raw writes during application write and one raw drain during flush."
-    - "PR #839 integrated the guarded-output and admission-precedence contract."
+    - "Current main is eadcc35d9e7629a3d2d479678aba7d6d6305adb9 at tree 80761a6ffdf0697f215009cfb71a36123e06ac92."
+    - "The current controller has separate controller-image and ReadConsoleW target-path acquisition with separate guards."
+    - "The owner selected the sole-target design and prohibited a replacement ingress, helper, or execution lane."
     - "Issue #769 is open with zero comments."
-    - "The main checkout contains preserved pre-existing frontend/.wrangler/ residue and is not a clean-review-worktree proof."
   derived:
-    - "The single required flush may perform the underlying raw drain without constituting a second application-level write."
-    - "This wording correction does not change the two-file implementation scope or any runtime requirement."
+    - "The manually selected controller image can own metadata and child application identity through one retained guard."
+    - "Removing the second ingress does not require a schema, status, lifecycle, receipt, or third-path change."
   proposed:
-    - "One contract-only buffered-flush clarification followed by fresh Codex E review."
+    - "One contract amendment followed by fresh independent Codex E review."
   unknown:
-    - "The future metadata operation remains separately authorized and unexecuted."
+    - "The sole-target implementation remains unimplemented and unexecuted."
   protected_surfaces:
     - "private executable path"
     - "Observation 1 authority and identity"
@@ -1318,12 +1318,12 @@ instruction_context:
     - "release, registry, installed tree, and receipt state"
   authority_conflicts_found: false
   stop_conditions:
-    - "A third implementation path, helper, schema, status, or lifecycle change is required."
-    - "Output completion would require retry, repair, or private-value publication."
-    - "Private custody, exact identity, containment, lifecycle, or authority would need weakening."
+    - "A second executable ingress, third implementation path, helper, schema, status, or lifecycle is required."
+    - "The controller image cannot remain guarded through exact pre-entry and post-terminal verification."
+    - "Private custody, identity equality, containment, lifecycle, or authority must weaken."
 
 workflow_handoff:
-  role_performed: "Codex B: Narrow Successor Parent-Controller Buffered-Flush Contract Clarifier"
+  role_performed: "Codex B: R0 Controller-Image Sole-Target Contract Writer"
   completed_thread: "B"
   next_thread: "E"
   risk_tier: "high"
@@ -1335,51 +1335,37 @@ workflow_handoff:
   protected_issue: "https://github.com/Tahjali11/Mythic-Edge/issues/769"
   base_branch: "origin/main"
   target_branch: "main"
-  branch: "codex/app-native-r0-buffered-flush-contract-826"
-  base_commit: "9168b3bfcf3ced53f9c23f9882896ef0e65e8921"
-  base_tree: "1699b09f2ffe7103f46cfbabcda10c24b16a20cc"
-  source_artifact: "ME-RP-826-E-011"
+  branch: "codex/app-native-r0-controller-image-sole-target-826"
+  base_commit: "eadcc35d9e7629a3d2d479678aba7d6d6305adb9"
+  base_tree: "80761a6ffdf0697f215009cfb71a36123e06ac92"
+  source_artifact: "owner sole-target instruction plus spent metadata attempt"
   target_artifact: "docs/contracts/role_pool_codex_app_native_r0_successor_parent_controller.md"
   files_changed:
     - "docs/contracts/role_pool_codex_app_native_r0_successor_parent_controller.md"
-  corrective_implementation_paths:
+  future_implementation_paths:
     - "tools/run_role_pool_app_native_r0_observation_parent.py"
     - "tests/test_run_role_pool_app_native_r0_observation_parent.py"
-  corrective_implementation_path_count: 2
-  controller_change_required: true
-  starting_controller_sha256: "8af672c6341432b05574885c069ea0076975c51b0bc37be76559ebbb14138dc4"
-  starting_test_sha256: "805819519274e2fbc2f846996b141e16bb7ee6b3766a3d1e8aab12d2fb9b4ff4"
-  private_ingress: "trusted_owner_controlled_attached_console_ReadConsoleW_no_echo_with_bounded_queue_audits"
+  future_implementation_path_count: 2
+  starting_controller_sha256: "27def2ba3b099bf530b54349bcdbc0ad3875193cf63d9d5d9014c5a8f8a67acf"
+  starting_test_sha256: "97671e0710f6677b3597f2920676ef7bdbf5894fa15389d069edf48b15e571cd"
+  executable_selection: "manual_owner_launch_of_exact_controller_image"
+  executable_path_source: "QueryFullProcessImageNameW_of_guarded_current_process"
+  second_target_ingress: "removed"
+  guard_owner: "parent_adapter_only"
   finding_status:
-    ME-RP-828-E-001: "superseded_historical"
-    ME-RP-826-E-004: "fixed_confirmed_current_bytes"
-    ME-RP-826-E-005: "fresh_clean_review_worktree_satisfied_for_source_review_revalidation_required"
-    ME-RP-826-SPLIT-B-001: "fixed_confirmed_current_bytes"
-    ME-RP-826-ELIG-B-001: "fixed_confirmed_current_bytes"
-    ME-RP-826-E-006: "fixed_confirmed_current_bytes"
-    ME-RP-826-TARGET-BINDING-B-001: "target_binding_loop_defined_pending_independent_confirmation"
-    ME-RP-826-E-007: "fixed_confirmed_contract_only"
-    ME-RP-826-E-009: "contracted_pending_independent_confirmation"
-    ME-RP-826-E-010: "contracted_confirmed_pending_implementation"
-    ME-RP-826-E-011: "contracted_pending_independent_confirmation"
-  target_binding_schema: "trusted_owner_app_native_r0_successor_target_binding.v1"
-  predecision_mode: "metadata_only_no_child_no_observation_authority"
-  execution_transport: "bounded_unpadded_base64url_of_exact_canonical_binding_bytes"
-  current_codex_shell_live_compatible: false
+    ME-RP-826-SOLE-TARGET-B-001: "contracted_pending_independent_confirmation"
+  target_binding_schema: "trusted_owner_app_native_r0_successor_target_binding.v1_unchanged"
+  metadata_mode: "sole_guarded_controller_image_no_child_no_observation_authority"
+  execution_transport: "bounded_unpadded_base64url_of_exact_canonical_binding_bytes_unchanged"
+  spent_metadata_attempt_reused: false
   implementation_authorized: false
   codex_d_authorized: false
   metadata_operation_authorized: false
   binding_created_or_published: false
   submission_authorized_now: false
-  predecessor_contract_integrated: true
-  eligibility_clarification_integrated: true
-  current_binding_correction_integrated: true
-  target_binding_contract_integrated: true
-  target_binding_candidate_integrated: true
   contract_submission_eligible: false
   owner_observation_1_decision_eligible: false
   merge_authorized_now: false
-  further_merge_authorized: false
   private_path_accessed: false
   controller_started: false
   child_created: false
@@ -1387,7 +1373,6 @@ workflow_handoff:
   owner_decision_created_or_consumed: false
   observation_authorized: false
   observation_1_authorized: false
-  observation_1_decision_authorized: false
   receipt_publication_authorized: false
   observation_2_authorized: false
   r0_r8_authorized: false
@@ -1396,15 +1381,5 @@ workflow_handoff:
   deployment_authorized: false
   issue_769_mutation_authorized: false
   live_ready: false
-  validation:
-    - "buffered write made zero raw writes before flush and one raw drain during flush"
-    - "contract distinguishes one application-level write from the required flush drain"
-    - "227 controller tests passed"
-    - "247 adjacent operation-free tests passed"
-    - "agent docs, protected-surface, private-marker, and diff checks passed"
-  stop_conditions:
-    - "a third implementation path, helper, schema, status, or lifecycle change is required"
-    - "output completion requires retry, repair, or private-value publication"
-    - "private custody, containment, lifecycle, or authority must weaken"
-  next_recommended_role: "Codex E: Independent Successor Parent-Controller Buffered-Flush Contract Clarification Reviewer"
+  next_recommended_role: "Codex E: Independent R0 Controller-Image Sole-Target Contract Reviewer"
 ```
