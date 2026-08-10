@@ -19,13 +19,13 @@
 - Accepted context discipline:
   [`ADR-0012`](../decisions/ADR-0012-long-horizon-context-and-delegation-discipline.md).
 - Risk tier: high.
-- Current-binding correction base commit:
-  `2291fd538cd24c1525b5104565b3a29c7613d6b6`.
-- Current-binding correction base tree:
-  `9fe60f93e3ff7ba208da9c2a79f647089864088b`.
+- Target-binding loop contract base commit:
+  `30e07d773b18c58136084212ba3d25ec88b21249`.
+- Target-binding loop contract base tree:
+  `271bb1ec46d839fe300ad9083d6a500812c84b9f`.
 
 The owner's current instruction is a task-scoped `explicit_user_override` for
-this one successor-parent-controller correction under open lifecycle issue
+this one successor-parent-controller contract amendment under open lifecycle issue
 #826. It expires with this handoff. It creates no private-input,
 controller-start, process-launch, observation, consumption, publication, or
 rung authority.
@@ -122,6 +122,23 @@ inspection or mutation and must not be represented as fresh-review cleanliness.
     hashes solely as historical PR #829 evidence. This reproduced PR #834
     finding is not appended to the bounded ten-thread historical table and
     creates no implementation or lifecycle change.
+19. **Observed:** PR #835 integrated the corrected contract at current main
+    `30e07d773b18c58136084212ba3d25ec88b21249`. The integrated controller still
+    accepts only an observation ID and derives target metadata after private
+    ingress; no canonical successor target-binding object exists for a future
+    owner decision.
+20. **Derived:** comparing the target immediately before process entry to the
+    identity derived from that same target detects mutation, but cannot prove
+    agreement with a previously published owner decision.
+21. **Decision:** close only that loop with two modes in the same controller:
+    one no-child metadata-only binding emission and one post-consumption
+    execution that receives the exact public-safe expected binding and compares
+    every field before `CreateProcessW`.
+22. **Decision:** the new binding is a distinct issue-#826 successor schema.
+    Historical direct-interpreter binding
+    `2315511a22881182565b4e8f0dd3764c79982c0287e573c562b1bd1f6f902333`
+    remains nontransferable evidence and is never accepted as the successor
+    binding.
 
 Finding `ME-RP-826-PARENT-A-001` is
 `fixed_confirmed_current_bytes`.
@@ -143,7 +160,10 @@ Finding `ME-RP-826-ELIG-B-001` is
 `fixed_confirmed_current_bytes`.
 
 Finding `ME-RP-826-E-006` is
-`current_bindings_corrected_pending_independent_confirmation`.
+`fixed_confirmed_current_bytes`.
+
+Finding `ME-RP-826-TARGET-BINDING-B-001` is
+`target_binding_loop_defined_pending_independent_confirmation`.
 
 ### Split-integration sequencing correction
 
@@ -272,78 +292,60 @@ is unedited and unconsumed, but it is nontransferable to this controller and
 its identity is not reusable. A later controller execution requires a fresh
 eligibility review and a fresh exact, expiring, single-use owner decision.
 
-## Retrospective Correction And Future Authority Sequence
+## Integrated History And Future Authority Sequence
 
-PR #829 already integrated the controller and controller test, and PR #830
-already integrated the accepted predecessor contract. Their integration is
-historical evidence, not proof that the six later review findings are closed.
-The exact two-file repair is complete and independently accepted. No further
-Codex D work is authorized absent a new concrete implementation finding.
+PRs #829 through #835 are immutable integrated history. They establish the
+current contract, controller, focused test, review dispositions, and exact
+current-byte eligibility evidence. They do not establish a canonical target
+binding or authorize a controller execution. The prior owner decision at
+comment `5232244853` remains historical and nontransferable.
 
-The conditional correction sequence is:
+The only prospective sequence under this amendment is:
 
-1. fresh Codex E reviews this split-integration correction only;
-2. after acceptance and a separate owner submission decision, Codex F submits
-   exactly this one contract path in one draft PR targeting `main`;
-3. only if that submitted head remains exact, required checks pass, and fresh
-   exact-head E review is clean may Codex G integrate the contract-only package;
-4. from the resulting exact current `main`, fresh Codex E confirms the merged
-   contract and the exact two-file implementation candidate together and
-   reproduces the required operation-free checks;
-5. after that acceptance and a separate owner submission decision, Codex F
-   submits exactly the two implementation paths in one draft PR targeting
-   `main`;
-6. only if the implementation head remains exact, all required checks pass,
-   every applicable current-byte finding has a durable nonblocking disposition,
-   and fresh exact-head E review is clean may Codex G squash-merge that exact
-   two-file package; and
-7. after both integrations, a fresh current-main eligibility review runs from
-   a newly created clean review worktree. The existing main checkout is not
-   cleaned or mutated to satisfy this gate. One public-safe #826 comment is
-   permitted only if every exact eligibility gate passes.
+1. fresh Codex E reviews this contract amendment and its canonical vectors;
+2. after acceptance and separate owner submission authority, Codex F/G may
+   integrate exactly this one contract path;
+3. after exact contract integration and a separate owner implementation
+   decision, Codex C may modify exactly the controller and its focused test;
+4. fresh Codex E reviews those exact two implementation paths and all required
+   operation-free tests before any submission or integration decision;
+5. after exact implementation integration, fresh current-main Codex E review
+   determines eligibility for one separately authorized metadata-only binding
+   operation;
+6. one fresh, exact, expiring, nonreusable owner decision may authorize that
+   metadata-only operation once; failure or ambiguity permits no automatic
+   retry and creates no Observation 1 authority;
+7. the emitted public-safe binding receives independent exact-byte review; and
+8. only then may the human owner make a separate Observation 1 decision that
+   binds those exact canonical bytes and the current repository/controller
+   tuple. Consumption and execution remain separate later actions.
 
-At this correction base, steps 1 through 6 are immutable history: PR #832
-integrated the sequencing clarification at
-`c4a0a2549a6a60c4997f3436161ab78a8e05f8ab`, PR #833 integrated the exact
-two-file implementation at `4b38f50013f18e02ab8ae130ae25933b0562eae0`,
-and PR #834 integrated the eligibility clarification at
-`2291fd538cd24c1525b5104565b3a29c7613d6b6`. The only prospective contract
-work is independent review and contract-only integration of this exact
-two-row current-binding correction. One fresh current-main E eligibility
-review then applies the same finite ten-row table and confirms
-`ME-RP-826-E-006` against the corrected table. That integration and review
-create no execution authority.
+The chain stops on base, contract, implementation, issue, worktree, source or
+installed tree, target-binding, GitHub, process, validation, or residue drift;
+scope expansion; private-value disclosure; or any unknown outcome. No step may
+be inferred from a prior decision, repeated automatically, or replaced by a
+new operation under spent authority. Codex G must not close #826 or mutate
+#769, #746, or #813.
 
-The conditional chain stops on head drift, scope expansion, unknown GitHub
-state, failed validation, an `open_blocking_current_bytes` disposition,
-private-value requirement, operational process, or generated residue in the
-fresh review worktree. An unresolved UI thread without a reproduced current-byte
-finding is recorded but does not independently stop the chain. Codex G must not
-close #826 or mutate #769, #746, or #813.
+External owner-operated preflight continues to own current-main, clean
+worktree, GitHub decision, exact binding transport, consumption, and readback
+verification. Before execution mode starts, it must prove that decoding the
+public transport yields byte-for-byte the canonical binding published in the
+fresh consumed owner decision. The controller independently validates the
+binding structure and target equality but does not authenticate GitHub.
 
-Any later controller execution is outside this correction authority. Before a
-controller process may start, an external owner-operated preflight must prove
-the exact current `main` commit and tree, synchronization with `origin/main`, a
-clean dedicated operation worktree, exact integrated artifact bytes, required
-GitHub issue states, one fresh 12-hour single-use owner decision, and a
-byte-identical canonical consumption record and readback. The preflight keeps
-that evidence outside controller inputs and starts the controller at most once
-only after every predicate passes.
+The controller does not create, post, fetch, repair, or infer a decision or
+consumption record; inspect `.git`; determine branch, HEAD, synchronization, or
+worktree cleanliness; invoke Git; or access the network. It accepts no
+authority token, decision reference, consumption reference, commit, tree, or
+cleanliness claim. External preflight is necessary evidence, not a
+controller-produced fact and not execution authority by itself.
 
-The controller does not authenticate or claim GitHub authority. It does not
-create, post, fetch, repair, or infer a decision or consumption record; inspect
-`.git`; determine branch, HEAD, remote synchronization, or worktree
-cleanliness; invoke Git; access the network; or accept an authority token,
-decision reference, consumption reference, commit, tree, or cleanliness claim
-as a new input. External preflight success is a necessary precondition, not a
-controller-produced fact and not sufficient execution authority by itself.
-
-After exact external consumption, the controller start is the sole execution
+After exact external consumption, execution-mode start is the sole observation
 attempt. Every startup, ingress, binding, launch, cancellation, timeout,
-cleanup, output, sealing, or publication outcome permanently retires that
-decision and identity. Unknown decision, consumption, readback, current-main,
-or clean-worktree state stops in the external preflight before controller start
-and permits no replacement or retry.
+cleanup, output, or sealing outcome permanently retires that decision and
+identity. Unknown external state stops before controller start and permits no
+replacement or retry.
 
 ## Owning Layer And Files
 
@@ -356,23 +358,23 @@ consumption, and candidate-publication evidence. The external owner-operated
 preflight owns current-main, clean-worktree, GitHub decision, and consumption
 verification. The human owner alone grants execution authority.
 
-This Codex B correction changes only:
+This Codex B amendment changes only:
 
 - `docs/contracts/role_pool_codex_app_native_r0_successor_parent_controller.md`
 
-The exact accepted implementation envelope is the two integrated paths:
+The exact later implementation envelope is limited to:
 
 1. `tools/run_role_pool_app_native_r0_observation_parent.py`
 2. `tests/test_run_role_pool_app_native_r0_observation_parent.py`
 
-No third implementation, test, fixture, bootstrap, configuration, schema,
-status, receipt, lifecycle contract, predecessor observer, service, broker,
-GitHub client, launcher, helper, fallback, private ingress, or evidence path is
-permitted. Every accepted #826 path and the predecessor observer remain
-byte-identical. The complete future submission envelope is exactly two ordered,
-nonoverlapping packages: first this one contract path, then the two
-implementation paths. No package may add another path, and the implementation
-package cannot precede exact contract integration and current-main E review.
+No third implementation, test, fixture, bootstrap, configuration, receipt,
+lifecycle contract, predecessor observer, service, broker, GitHub client,
+launcher, helper, fallback, private ingress, or evidence path is permitted.
+The new target-binding object is private to this controller boundary and is
+not a Role Pool receipt or lifecycle family. Every accepted #826 path and the
+predecessor observer remain byte-identical. Contract integration and a
+separate owner implementation decision are required before either
+implementation path may change.
 
 ## Public Interface
 
@@ -382,30 +384,58 @@ The production module exposes only:
 main(argv: Sequence[str] | None = None) -> int
 ```
 
-The logical controller invocation contains exactly one public value:
+It has exactly two closed modes.
+
+Metadata-only predecision mode:
 
 ```text
 ["tools/run_role_pool_app_native_r0_observation_parent.py",
- "<fresh_owner_bound_observation_id>"]
+ "--emit-target-binding"]
 ```
 
-The observation ID must match exactly
+Post-consumption execution mode:
+
+```text
+["tools/run_role_pool_app_native_r0_observation_parent.py",
+ "<fresh_owner_bound_observation_id>",
+ "--expected-target-binding-v1",
+ "<unpadded_base64url_of_exact_canonical_binding_bytes>"]
+```
+
+No other mode, order, option, argument count, empty value, or duplicate value
+is accepted. The observation ID in execution mode must match exactly
 `r0.app_native.offline.observation.1.[0-9a-f]{32}`, must not be all zero, and
 must equal the separately reviewed and consumed owner decision. Missing,
 extra, reordered, duplicate, option-like, non-ASCII, or nonexact input is
 `observation_sequence_rejected` before private input.
 
-The controller accepts no executable, command, argument list, cwd,
-environment, timeout, receipt field, process fact, or authority claim through
-`argv`. It accepts no redirected stdin. Its internal fake-native interface is
-private and dependency-injected only by operation-free tests; it cannot accept
-caller-selected process parameters.
+The binding transport uses only the RFC 4648 URL-safe base64 alphabet, omits
+padding, is at most `2048` ASCII characters, and decodes to at most `1536`
+bytes. Decoding must be unique and strict: invalid alphabet, padding, alternate
+encoding, noncanonical re-encoding, overflow, or decoded bytes that are not the
+exact canonical object plus one LF are `observation_sequence_rejected` before
+private input. The decoded bytes are public-safe expected metadata, not an
+executable path, authority token, receipt, or process parameter.
+
+The external owner-operated preflight must prove that the decoded bytes equal
+the exact binding bytes in the consumed owner decision before execution-mode
+start. The controller independently parses the same bytes and compares the
+opened target. It does not claim to authenticate the decision.
+
+The controller accepts no executable path, command, child argument list, cwd,
+environment, timeout, receipt field, process fact, decision reference, or
+authority claim through `argv`. It accepts no redirected stdin. Its internal
+fake-native interface is private and dependency-injected only by
+operation-free tests; it cannot accept caller-selected process parameters.
 
 After the external owner-operated preflight passes, the owner starts the
 controller once from an already-running trusted owner-controlled interactive
 Windows console using a separately bound direct controller runtime. The
-controller runtime must itself be an exact ordinary, non-reparse file bound by
-version, length, SHA-256, and stable file identity in the future owner decision.
+controller runtime must be the same exact ordinary, non-reparse `python.exe`
+file as the target entered through the console. Metadata-only mode proves that
+equality before emitting the binding. Execution mode proves the running
+controller image and entered target both equal the expected owner-decision
+binding before child entry.
 No PATH lookup, `py.exe`, WindowsApps alias, file association, shim, wrapper,
 shell child launch, broker, service, scheduled task, task API, alternate
 runtime, or fallback is permitted.
@@ -415,12 +445,179 @@ caller and is not authorized to start this controller. This contract does not
 claim a general structured-launch capability or automate the owner-operated
 controller start.
 
+## Canonical Successor Target Binding
+
+`trusted_owner_app_native_r0_successor_target_binding.v1` is one closed
+18-field public-safe object. Fields appear in exactly this order:
+
+1. `schema_version`;
+2. `repository_id`;
+3. `issue_number`;
+4. `host_os_name`;
+5. `host_sys_platform`;
+6. `runtime_implementation`;
+7. `executable_basename`;
+8. `file_version`;
+9. `product_version`;
+10. `byte_length`;
+11. `file_sha256`;
+12. `stable_identity_schema`;
+13. `stable_identity_sha256`;
+14. `ordinary_file`;
+15. `reparse_point`;
+16. `private_path_source`;
+17. `private_path_publication_authorized`; and
+18. `binding_sha256`.
+
+Encoding is ASCII-only JSON, insertion order as listed, no insignificant
+whitespace, no escaped-equivalent spelling, no BOM, and exactly one final LF.
+Duplicate, unknown, missing, reordered, mistyped, or noncanonical fields fail
+closed. `binding_sha256` is lowercase SHA-256 over the exact compact object
+with field 18 omitted and with no final LF. The complete artifact SHA-256 is
+over all 18 fields plus the final LF.
+
+Closed value rules are:
+
+- `schema_version` is exactly
+  `trusted_owner_app_native_r0_successor_target_binding.v1`;
+- `repository_id` is integer `1235264383` and `issue_number` is integer `826`;
+- host fields are exactly `nt` and `win32`;
+- runtime and basename are exactly `CPython` and `python.exe`;
+- each version field matches exactly
+  `3\.13\.(0|[1-9][0-9]*)(\.(0|[1-9][0-9]*))?`; the owner decision binds
+  its complete exact value;
+- `byte_length` is an integer from `1` through `9223372036854775807`;
+- both metadata digests and `binding_sha256` are exactly 64 lowercase
+  hexadecimal characters;
+- `stable_identity_schema` is exactly
+  `trusted_owner_app_native_r0_successor_file_identity.v1`;
+- `ordinary_file` is `true`, `reparse_point` is `false`,
+  `private_path_source` is exactly `owner_supplied_local_absolute_path`, and
+  `private_path_publication_authorized` is `false`.
+
+Stable identity comes from `GetFileInformationByHandle` on the retained target
+guard. The raw `dwVolumeSerialNumber` and combined 64-bit file index form this
+exact ASCII preimage:
+
+```text
+trusted_owner_app_native_r0_successor_file_identity.v1|volume_serial_number=<8 lowercase hex>|file_index=<16 lowercase hex>
+```
+
+Only SHA-256 of that preimage becomes `stable_identity_sha256`. Raw volume,
+file-index, handle, path, account, machine, or device values never leave
+bounded private memory. Synthetic identity `1234abcd` / `0123456789abcdef`
+produces a `112`-byte preimage and SHA-256
+`e860ac1f60d36d5d0e670c181d0bd563641f3f001d775db525a64a5beb9003a3`.
+
+This synthetic known-answer object contains no real target metadata:
+
+```json
+{"schema_version":"trusted_owner_app_native_r0_successor_target_binding.v1","repository_id":1235264383,"issue_number":826,"host_os_name":"nt","host_sys_platform":"win32","runtime_implementation":"CPython","executable_basename":"python.exe","file_version":"3.13.14","product_version":"3.13.14","byte_length":105696,"file_sha256":"1111111111111111111111111111111111111111111111111111111111111111","stable_identity_schema":"trusted_owner_app_native_r0_successor_file_identity.v1","stable_identity_sha256":"2222222222222222222222222222222222222222222222222222222222222222","ordinary_file":true,"reparse_point":false,"private_path_source":"owner_supplied_local_absolute_path","private_path_publication_authorized":false,"binding_sha256":"06cfed1c779da954fac24d2126042421730601de8bbc4d8fd6a9abfb57d27a49"}
+```
+
+- self-digest preimage: `715` bytes;
+- `binding_sha256`:
+  `06cfed1c779da954fac24d2126042421730601de8bbc4d8fd6a9abfb57d27a49`;
+- complete object: `800` bytes including final LF;
+- complete artifact SHA-256:
+  `aa95693b259eaa888e7d1146fc1c67fcf981ab79ca559faed635c71117ebb700`;
+- unpadded base64url transport length: `1067` characters.
+
+The historical 18-field direct-interpreter object is structural precedent
+only. Its schema, issue `780`, stable-identity schema, exact bytes, and
+`2315511a22881182565b4e8f0dd3764c79982c0287e573c562b1bd1f6f902333`
+digest are rejected by this successor parser. No field or digest is silently
+transferred.
+
+A future Observation 1 owner decision adopts one independently reviewed
+binding by including these five contiguous public-safe lines in this exact
+order, in addition to every existing decision field:
+
+```text
+target_binding_schema=trusted_owner_app_native_r0_successor_target_binding.v1
+target_binding_artifact_byte_count=<exact positive decimal integer>
+target_binding_sha256=<exact binding_sha256>
+target_binding_artifact_sha256=<sha256 of complete object plus LF>
+target_binding_transport_base64url=<exact unpadded canonical transport>
+```
+
+The byte count and both digests must reproduce the decoded transport and its
+parsed object. External consumption readback must preserve all five lines
+byte-for-byte. The execution argument must equal
+`target_binding_transport_base64url`; a digest alone, reconstructed object,
+reordered equivalent JSON, historical object, shortened label, or owner prose
+is insufficient. These lines extend the existing decision binding only; they
+create no new decision, consumption, receipt, or lifecycle schema.
+
+## Two-Phase Target-Binding Loop
+
+The current controller image path is obtained only through one bounded
+`QueryFullProcessImageNameW(GetCurrentProcess(), 0, ...)` call. `sys.executable`,
+PATH, registry lookup, command-line reconstruction, and caller claims are not
+identity sources. The returned path remains private, passes the same component
+and reparse checks, and is opened under `controller_image_guard` before its
+metadata is used.
+
+Metadata-only mode uses the existing attached-console no-echo ingress and
+target-validation algorithm. It performs no observation-ID parsing,
+consumption, child construction, `CreateProcessW` entry, owner-harness parsing,
+sealing, receipt creation, or GitHub/network operation. It:
+
+1. verifies Windows and exact repository/controller state and privately opens
+   the current controller process image as an ordinary non-reparse file;
+2. installs the existing audit boundary and captures exact before effects;
+3. performs all three non-consuming queue audits and one bounded
+   `ReadConsoleW` private-path read;
+4. opens one ordinary non-reparse `python.exe` target with the same denied
+   write/delete sharing and derives all 18 canonical fields;
+5. requires the retained controller-image and target guards to reproduce the
+   same stable identity, versions, length, and SHA-256, then independently
+   repeats stable reads needed to establish metadata equality;
+6. closes every owned handle exactly once, restores console mode, clears
+   mutable private buffers, and captures exact after effects;
+7. requires zero child-entry calls, zero observed writes, zero
+   executor-owned network operations, zero external effects, and zero residue;
+   and
+8. only after complete successful cleanup writes the canonical object once to
+   stdout and nothing to stderr.
+
+Any host, state, queue, ingress, target, metadata, stable-read, close, cleanup,
+effect, output, or encoding uncertainty emits only the applicable existing
+closed failure status on stderr and emits no partial binding. The operation
+consumes no observation identity or authority. It is one separately
+authorized local metadata operation; no automatic retry is allowed.
+
+Execution mode first decodes and strictly validates the expected binding,
+then requires the privately inspected current controller process image to
+match it before private ingress. After the same no-echo path acquisition, the
+retained target guard must independently reproduce every field from
+`host_os_name` through `private_path_publication_authorized` and the resulting
+`binding_sha256`. Any mismatch or unavailable field is
+`observation_binding_rejected` before `CreateProcessW` and permanently spends
+the already consumed Observation 1 decision and identity. Exact equality does
+not itself authorize launch; every existing state, guard, process, effect, and
+cleanup predicate must also pass.
+
+The expected binding remains public-safe transient input. It may appear in the
+owner decision and external preflight evidence, but it is not copied into the
+receipt, child argv, child environment, cwd, logs, errors, or private-path
+buffers. The controller emits no normalized, repaired, or inferred binding in
+execution mode.
+
+`controller_image_guard` is one new internal owned-resource label, not a public
+field. Metadata-only mode closes it and `target_guard` before output. Execution
+mode retains both through terminal cleanup. Every acquisition prefix gives
+each proven-owned guard exactly one close attempt in reverse acquisition order;
+any failed or unknown close makes cleanup unconfirmed. No `PostExitFacts`,
+receipt, status, or lifecycle field is added.
+
 ## Private Executable Ingress And Custody
 
-External exact decision and consumption verification are preconditions, not
-controller steps or claims. After that external preflight is complete, `main`
-obtains the target executable through the trusted owner-controlled attached
-console:
+External exact decision and consumption verification are preconditions only
+for execution mode, not controller steps or claims. Metadata-only mode instead
+requires its own fresh local-operation decision and no observation authority.
+In either mode, `main` obtains the target executable through the trusted
+owner-controlled attached console:
 
 1. require Windows `os.name == "nt"` and `sys.platform == "win32"`;
 2. require `GetStdHandle(STD_INPUT_HANDLE)` to identify an attached console
@@ -480,13 +677,15 @@ environment-expanded, wildcard, alternate-data-stream, trailing-dot,
 trailing-space, dot-segment, and reparse paths are rejected. The immediate
 file and every traversed component must be ordinary and non-reparse.
 
-The controller opens the target before launch with read and execute-attribute
-access while denying write and delete sharing. It binds stable volume/file
-identity, byte length, SHA-256, version metadata, and basename `python.exe` to
-the future owner decision. It rechecks stable identity immediately before the
-sole process-entry call and after terminal readback while retaining the open
-guard handle. Mismatch or uncertainty is `observation_binding_rejected` before
-entry, or `observation_launch_unknown` after entry.
+The controller opens the target with read and execute-attribute access while
+denying write and delete sharing. In metadata-only mode it derives the
+canonical binding, closes the guard exactly once, and emits only after cleanup.
+In execution mode it compares stable volume/file identity, byte length,
+SHA-256, exact version metadata, basename, and every constant field to the
+expected binding. It then rechecks identity immediately before the sole
+process-entry call and after terminal readback while retaining the open guard
+handle. Mismatch or uncertainty is `observation_binding_rejected` before entry,
+or `observation_launch_unknown` after entry.
 
 The private path may exist only in bounded controller memory and the necessary
 Win32 application-image buffer. It must never enter stdout, stderr, a Python
@@ -691,8 +890,8 @@ The first applicable row wins:
 | Precedence | Condition | Existing public result |
 | --- | --- | --- |
 | 1 | Non-Windows host | `observation_host_rejected` |
-| 2 | Invalid public identity | `observation_sequence_rejected` |
-| 3 | Stale artifact, unsafe or uncertain console queue, unsafe private target, or pre-entry baseline mismatch | `observation_binding_rejected` |
+| 2 | Invalid public mode, identity, binding transport, or canonical binding structure | `observation_sequence_rejected` |
+| 3 | Stale artifact, unsafe or uncertain console queue, unsafe private target, expected-binding mismatch, or pre-entry baseline mismatch | `observation_binding_rejected` |
 | 4 | Process entry may have occurred but ownership, job membership, or top-level identity is unknown | `observation_launch_unknown` |
 | 5 | Timeout, termination uncertainty, unknown terminal state, failed required close, mode-restoration failure, survivor ambiguity, or cleanup uncertainty | `observation_timeout_unknown` |
 | 6 | Any descendant, survivor, write, controller-observed network operation, external effect, or residue | `observation_safety_boundary_failed` |
@@ -715,63 +914,79 @@ real process and accesses no private executable.
 
 It must prove:
 
-1. exact zero-extra-argument public parsing and every identity rejection;
-2. non-Windows and redirected-console rejection before private input;
-3. exact line-mode admission, echo disable, exactly one bounded `ReadConsoleW`,
+1. exact admission of only the two public modes and rejection of every missing,
+   extra, reordered, duplicate, option-like, malformed, or oversized argument;
+2. strict base64url decoding, canonical re-encoding, duplicate-key rejection,
+   exact 18-field order and types, self-digest validation, complete-artifact
+   digest validation, and the `715`/`800`/`1067` known-answer vector;
+3. the `112`-byte stable-identity preimage and
+   `e860ac1f60d36d5d0e670c181d0bd563641f3f001d775db525a64a5beb9003a3`
+   known answer, with raw identity values absent from all public output;
+4. metadata-only success proves the current controller process image and
+   entered target are the same exact file, performs one private ingress, zero
+   observation-ID, owner-harness, sealer, child-construction, or process-entry
+   calls, closes every owned resource once, proves zero effects, and emits
+   exactly one canonical binding line only after cleanup;
+   the fake must prove one bounded `QueryFullProcessImageNameW` source and zero
+   `sys.executable`, PATH, registry, or caller-selected identity sources;
+5. every metadata-only host, queue, target, metadata, identity, close, cleanup,
+   effect, and output failure emits no partial binding and creates no authority;
+6. execution mode parses the expected binding before private ingress, rejects
+   a current controller process-image mismatch, and rejects each individual
+   target constant, version, length, file digest, stable identity,
+   ordinary-file, reparse, source, publication, and self-digest mismatch before
+   process entry;
+7. historical schema, issue, stable-identity schema, exact object, and digest
+   `2315511a22881182565b4e8f0dd3764c79982c0287e573c562b1bd1f6f902333`
+   are rejected and never normalized into the successor representation;
+8. non-Windows and redirected-console rejection before private input;
+9. exact line-mode admission, echo disable, exactly one bounded `ReadConsoleW`,
    exact mode restoration, cancellation, unterminated or truncated input,
-   malformed UTF-16, and best-effort buffer clearing;
-4. bounded queue audits proving that observed prebuffered character input,
-   multi-line paste with a queued second line, queue-inspection failure or
-   observed instability, and any observed prelaunch character input reject
-   before child entry, while one ordinary trusted complete terminated line with
-   empty character queues remains reachable; the fakes must also prove no audit
-   dequeues or flushes input and must preserve the explicit nonclaim for an
-   adversarial process concurrently mutating the same console queue;
-5. private path absence from every public value, call record, exception,
-   fixture representation, output, and serialized test artifact;
-6. ordinary/non-reparse component validation, stable identity, exact owner
-   binding, denied write/delete sharing for both the target and exact child
-   checker, checker replacement blocked while its guard is held, and every
-   pre/post identity or byte-drift route;
-7. exact four-token child construction, fixed cwd and environment, and
-   rejection of shell, PATH, `py.exe`, alias, shim, wrapper, alternate script,
-   caller argument, and fallback routes;
-8. exactly one process-entry call under success, failure, exception,
-   cancellation, timeout, and ambiguity;
-9. creation-time Job Object membership, active-process limit `1`, kill-on-close,
-   no breakaway, exact inherited handle list, and no post-create assignment;
-10. complete and conflicting completion-event and cumulative-accounting cases;
-11. zero descendants can pass and every descendant, survivor, unknown
+   malformed UTF-16, and best-effort buffer clearing in both modes;
+10. bounded queue audits proving that observed prebuffered character input,
+    multi-line paste with a queued second line, queue-inspection failure or
+    observed instability, and any observed prelaunch character input reject
+    before child entry, while one ordinary trusted complete terminated line
+    remains reachable; audits dequeue or flush nothing and preserve the
+    adversarial same-console nonclaim;
+11. private path absence from every public value, call record, exception,
+    fixture representation, output, transport, and serialized test artifact;
+12. ordinary/non-reparse validation, denied write/delete sharing for target and
+    checker, guard retention, checker replacement denial, and continued
+    immediate pre-entry and post-terminal identity or byte-drift detection;
+13. exact four-token child construction, fixed cwd and environment, and
+    rejection of shell, PATH, `py.exe`, alias, shim, wrapper, alternate script,
+    caller argument, and fallback routes;
+14. exactly one process-entry call under execution success, failure, exception,
+    cancellation, timeout, and ambiguity, and zero entry calls in metadata mode;
+15. creation-time Job Object membership, active-process limit `1`, kill-on-close,
+    no breakaway, exact inherited handle list, and no post-create assignment;
+16. complete and conflicting completion-event and cumulative-accounting cases;
+17. zero descendants can pass and every descendant, survivor, unknown
     relationship, or unknown terminal state fails;
-12. stdout and stderr boundaries at, below, and above their exact limits,
-    bounded concurrent servicing, EOF, nonzero exit, nonempty stderr, and
-    malformed payload; synthetic endless stdout, endless stderr, and endless
-    completion-port production must each yield to the monotonic deadline;
-13. timeout at the exact deadline despite continuous production, one
-    termination request, bounded five-second reconciliation, and no retry or
-    replacement;
-14. every owned-resource acquisition prefix and every close-failure
-    permutation receives exactly one reverse-order close attempt without
-    short-circuiting; checker-guard close failure remains fail-closed with
-    `cleanup_confirmed=false`;
-15. attribute-list deletion and console-mode restoration ownership rules;
-16. deterministic pre/post equality, repository-effect drift, write, network,
+18. stdout and stderr boundaries, bounded servicing, EOF, exit, stderr, and
+    malformed-payload cases; endless synthetic production yields to deadline;
+19. timeout at the exact deadline, one termination request, bounded five-second
+    reconciliation, and no retry or replacement;
+20. every acquisition prefix and close-failure permutation receives exactly
+    one reverse-order close attempt without short-circuiting;
+21. attribute-list deletion and console-mode restoration ownership rules;
+22. deterministic pre/post equality, repository-effect drift, write, network,
     external-effect, residue, unstable-read, and sampling-unknown cases without
     hard-coded effect counts;
-17. exact construction of all 15 immutable `PostExitFacts` fields from parent
-    evidence only;
-18. exactly one call to the accepted pure sealer after complete cleanup and
-    zero calls on every earlier failure;
-19. canonical receipt output and every existing fixed failure output are
-    public-safe and no-echo;
-20. the accepted #826 files and predecessor observer remain byte-identical and
-    no predecessor-observer function is imported or called; and
-21. current-main, clean-worktree, GitHub decision, and consumption verification
-    remain external preconditions rather than controller inputs or claims; the
-    controller performs no Git subprocess or network access; and
-22. one launch attempt, no retry, full cleanup, and no real process, task,
-    network, GitHub, repository write, installed-tree write, registry, release,
-    identity, consumption, or publication operation occurs.
+23. exact construction of all 15 immutable `PostExitFacts` fields from parent
+    evidence only and unchanged 32-, 36-, 37-, and 41-field schemas;
+24. exactly one accepted pure-sealer call after execution cleanup, zero sealer
+    calls on every earlier failure and throughout metadata-only mode;
+25. receipt output, binding output, and every fixed failure are public-safe and
+    no-echo; the expected binding is absent from receipts and child inputs;
+26. accepted #826 files and predecessor observer remain byte-identical and no
+    predecessor-observer function is imported or called; and
+27. current-main, worktree, GitHub decision, binding-transport equality, and
+    consumption verification remain external preconditions; no operation-free
+    test starts a real process or performs network, GitHub, repository,
+    installed-tree, registry, release, identity, consumption, or publication
+    effects.
 
 Required later implementation validation:
 
@@ -787,19 +1002,17 @@ git diff --check
 
 ## Acceptance And Stop Conditions
 
-Contract acceptance permits only the ordered split-integration route defined
-above. The exact two-file repair is complete and independently accepted; this
-amendment does not authorize further implementation. Exact ordered integration
-of this contract-only amendment and the separately reviewed two-file
-implementation package makes only a fresh current-main eligibility review from
-a new clean review worktree possible. It does not activate the controller or
-Observation 1.
+Contract acceptance establishes only that the target-binding loop is precise
+enough for a separate owner implementation decision. It does not authorize
+implementation, metadata inspection, private-path access, controller start,
+Observation 1, or publication. Later implementation remains exactly the two
+named paths and must receive fresh independent review before integration.
 
 Stop and return to Codex A or the owner if:
 
-- either integrated implementation path is missing, either ordered package
-  requires an extra path, the implementation candidate bytes drift, or the
-  implementation package would precede exact contract integration;
+- either implementation path is missing, another path is required, or
+  implementation would precede exact contract integration and separate owner
+  authority;
 - any accepted #826 file or predecessor observer must change;
 - a private value must enter a model-visible, durable, redirected, or
   non-console surface;
@@ -809,8 +1022,9 @@ Stop and return to Codex A or the owner if:
 - creation-time Job Object assignment, exact handle inheritance, complete
   accounting, stream drain, close evidence, effect derivation, or cleanup
   cannot be operation-free tested and later directly observed;
-- a new schema, selector input, status, receipt, digest family, lifecycle,
-  authority field, or publication mechanism is required;
+- another schema beyond the one private successor target binding, a selector
+  input, status, receipt, digest family, lifecycle, authority field, or
+  publication mechanism is required;
 - current bindings drift; or
 - external preflight would need the controller to authenticate GitHub, inspect
   `.git`, accept a new authority input, invoke Git, or access the network;
@@ -819,18 +1033,15 @@ Stop and return to Codex A or the owner if:
 - issue #769 would require any read beyond state/comment-count validation or
   any mutation.
 
-The eligibility clarification and exact two-file implementation are
-integrated. This current-binding correction authorizes no implementation,
-submission, merge, or execution. Fresh independent contract acceptance
-establishes only eligibility for a separate owner decision about contract-only
-submission. After exact integration, one fresh current-main E review must
-apply the same ten-row table and confirm `ME-RP-826-E-006`; only a fully
-nonblocking durable result establishes eligibility for a separate fresh owner
-Observation 1 decision. No current authority permits private-path access,
-controller start, child creation, identity generation or consumption,
-observation execution, candidate publication, Observation 2, task dispatch,
-R1-R8, Stage 4, deployment, assurance, privacy guarantees, security guarantees,
-or live readiness.
+The current controller remains integrated and accepted historical evidence;
+it is not sufficient for the newly contracted loop. Fresh contract acceptance
+permits only contract integration routing. After later exact implementation
+integration, fresh current-main review may establish eligibility for one
+metadata-only owner decision, not Observation 1. No current authority permits
+private-path access, controller start, child creation, identity generation or
+consumption, observation execution, binding or receipt publication,
+Observation 2, task dispatch, R1-R8, Stage 4, deployment, assurance, privacy or
+security guarantees, or live readiness.
 
 ## Next Workflow Action
 
@@ -842,145 +1053,136 @@ Pasteable prompt:
 Use the current Mythic Edge repository authority.
 Use $mythic-edge-workflow.
 
-Act as Codex E: Fresh Successor Parent-Controller Current-Binding Contract
-Reviewer.
+Act as Codex E: Independent Successor Observation 1 Target-Binding Loop
+Contract Reviewer.
 
 Repository: Tahjali11/Mythic-Edge
 Lifecycle issue: https://github.com/Tahjali11/Mythic-Edge/issues/826
 Completed capability issue: https://github.com/Tahjali11/Mythic-Edge/issues/828
 Tracker: https://github.com/Tahjali11/Mythic-Edge/issues/746
 Protected issue: https://github.com/Tahjali11/Mythic-Edge/issues/769
-Implementation PR: https://github.com/Tahjali11/Mythic-Edge/pull/829
-Contract PR: https://github.com/Tahjali11/Mythic-Edge/pull/830
-Correction contract PR: https://github.com/Tahjali11/Mythic-Edge/pull/831
-Sequencing clarification PR: https://github.com/Tahjali11/Mythic-Edge/pull/832
-Implementation correction PR: https://github.com/Tahjali11/Mythic-Edge/pull/833
-Eligibility clarification PR: https://github.com/Tahjali11/Mythic-Edge/pull/834
-Source finding:
-https://github.com/Tahjali11/Mythic-Edge/pull/834#discussion_r3746013446
+Reviewed base commit: 30e07d773b18c58136084212ba3d25ec88b21249
+Reviewed base tree: 271bb1ec46d839fe300ad9083d6a500812c84b9f
 
 Review exactly:
 docs/contracts/role_pool_codex_app_native_r0_successor_parent_controller.md
 
 Bind the exact byte count and SHA-256 reported by Codex B. Refresh origin/main
-and use the GitHub connector for current issue, PR, review-thread, and check
-evidence. Treat #828 and the PR integrations as historical. Confirm issue #826
-is open, issue #769 is open with zero comments, and accepted predecessor
-contract hashes and review references remain preserved as historical evidence.
+and live issue state. Confirm #826 is open, #828 is closed, and #769 is open
+with zero comments. Treat all PR #829-#835 work as historical current-main
+evidence, not authority for this amendment.
 
-Independently verify that the contract preserves closure of the six original
-technical findings within exactly
-the existing contract plus two implementation paths: deadline-aware
-work-bounded stdout/stderr/completion-port servicing; a write/delete-denying
-exact child-checker guard through terminal cleanup with exactly-once close;
-external owner-operated current-main, clean-worktree, GitHub-decision, and
-consumption preflight; controller-owned pre/post repository-effect comparison;
-trusted owner-controlled console ingress that rejects observed prebuffered and
-multiline input without claiming adversarial concurrent-queue protection; and
-truthful retrospective correction wording.
+Review `ME-RP-826-TARGET-BINDING-B-001`. Confirm the 18-field binding has exact
+field order, strict ASCII compact JSON plus one LF, duplicate and unknown-key
+rejection, self-digest rules, stable-identity representation, and exact
+synthetic known answers. Independently recompute the `715`-byte preimage,
+`800`-byte complete object, `1067`-character transport, binding SHA-256
+`06cfed1c779da954fac24d2126042421730601de8bbc4d8fd6a9abfb57d27a49`,
+artifact SHA-256
+`aa95693b259eaa888e7d1146fc1c67fcf981ab79ca559faed635c71117ebb700`,
+and stable-identity SHA-256
+`e860ac1f60d36d5d0e670c181d0bd563641f3f001d775db525a64a5beb9003a3`.
 
-Verify the fixed child command, creation-time Job Object membership, zero
-descendants and survivors, bounded output, cleanup inventory, all 15
-PostExitFacts, pure sealer, nonretry lifecycle, and false-authority boundaries
-remain unchanged. Confirm no Git subprocess, network access, authority input,
-fourth path, harness change, lifecycle-contract change, predecessor-observer
-change, schema, status, receipt, broker, launcher, helper, fallback, or new
-private ingress was introduced.
+Confirm metadata-only mode uses the existing no-echo console ingress, starts
+no child, consumes no observation identity or authority, emits no partial
+binding, proves zero effects and exact cleanup, and outputs only the canonical
+public-safe binding after cleanup. Confirm execution mode accepts only the
+bounded unpadded base64url transport, validates it before private ingress, and
+compares every opened-target field before `CreateProcessW`.
 
-Review `ME-RP-826-SPLIT-B-001` specifically. Confirm PR #831 integrated the
-immutable predecessor contract alone at merge commit
-`68e3eff41ef1c531ced5e1df0b0b136562ee7e30`, making its former single-PR
-three-path instruction impossible. Confirm the amendment changes only
-sequencing: first one contract-only package, then after integration and fresh
-current-main E confirmation one exact two-file implementation package. Verify
-the accepted controller and test remain exactly `82771`/`56400` bytes at
-SHA-256 `2f7daaca6b9643dd39182e208501e50062164c99cd177638d72e13743abd572e`
-and `32a2e01667613ec5aed404bf639f575995e32b2b8bb005674dd0194940a5daa3`.
-No Codex D repair is authorized unless review finds a new concrete technical
-defect.
+Confirm the five owner-decision binding lines have exact names and order, bind
+the complete decoded artifact, and are sufficient for external preflight to
+prove the execution argument equals the consumed decision without disclosing
+the private path or adding another decision schema.
 
-Review `ME-RP-826-ELIG-B-001` specifically. Enumerate the exact ten thread IDs
-from PRs #829 through #833 and assign each exactly one contract-defined durable
-disposition. Confirm the six expected `fixed_confirmed_current_bytes`, two
-expected `superseded_historical`, PR #832's expected
-`fixed_confirmed_current_bytes`, and PR #833's expected
-`not_reproduced_current_bytes` disposition against the exact current contract,
-controller, and test hashes. Reproduce the bounded PR #833 operation-free probe
-or return `open_blocking_current_bytes`; do not infer a fix or edit code.
+Confirm the historical direct-interpreter object and digest
+`2315511a22881182565b4e8f0dd3764c79982c0287e573c562b1bd1f6f902333`
+are rejected and nontransferable. Confirm the expected binding reaches no
+child input or receipt and the private path reaches no public surface. Verify
+the existing target guard, immediate pre-entry and post-terminal mutation
+checks, fixed command, Job Object, streams, timeout, cleanup, all 15
+`PostExitFacts`, pure sealer, schemas, statuses, no-retry behavior, external
+GitHub authority ownership, and false-authority boundaries remain unchanged.
 
-Review `ME-RP-826-E-006` specifically. Confirm the `Exact Frozen Bindings`
-table binds the current integrated controller at `82771` bytes and SHA-256
-`2f7daaca6b9643dd39182e208501e50062164c99cd177638d72e13743abd572e`
-and its test at `56400` bytes and SHA-256
-`32a2e01667613ec5aed404bf639f575995e32b2b8bb005674dd0194940a5daa3`.
-Confirm the two PR #829 hashes remain only as clearly labeled historical
-pre-correction evidence and participate in no current-main, eligibility,
-execution-preflight, or exact-current-artifact gate.
-
-Confirm GitHub `isResolved` is workflow metadata rather than an automatic
-technical blocker for merged PRs. A new or UI-unresolved thread blocks only if
-fresh exact-byte review gives it `open_blocking_current_bytes`. Preserve the
-review at one immutable GitHub URL and report its exact body SHA-256. Do not
-reopen implementation scope: the implementation is integrated and accepted.
-Confirm the ten-row table remains bounded to PRs #829 through #833 and that the
-PR #834 finding is not appended as an eleventh row. This finite-table rule must
-not waive a distinct defect reproduced against current bytes.
+Confirm the complete change envelope is exactly the contract plus the same two
+later implementation paths. Stop if a fourth path, private-path persistence,
+GitHub access in the controller, another receipt/status/lifecycle family, or a
+weaker identity rule is required. Do not implement or edit files.
 
 Run contract-only structural and operation-free existing regression checks. Do
 not implement, access a private path, start a controller or child, generate or
 consume an identity, publish a receipt, touch issue #769, authorize Observation
 1 or 2, advance R0-R8 or Stage 4, submit, merge, deploy, or claim readiness.
 
-Lead with findings. Return the reviewed SHA-256 and byte count, one disposition
-for each of the ten named threads, exact integrated two-file bindings,
-validation, authority flags, generated residue evidence, and workflow_handoff.
-If the ten rows are nonblocking and `ME-RP-826-E-006` is fixed, report contract
-acceptance and eligibility for a separate owner decision about contract-only
-submission. Do not create an Observation 1 decision, resolve threads, submit,
-merge, or execute. State that owner Observation 1 decision eligibility
-requires exact integration followed by one fresh current-main E confirmation
-using the same table and corrected bindings. If any current-byte defect is
-reproduced, stop with its first boundary and route according to whether it is
-contract or implementation scope.
+Lead with findings. Return the reviewed SHA-256 and byte count, vector results,
+two-phase constructibility verdict, exact later implementation scope,
+validation, authority flags, generated residue, and workflow_handoff. If exact,
+report contract acceptance and eligibility only for a separate owner decision
+about contract submission. Do not authorize implementation, metadata
+inspection, private access, Observation 1, submission, merge, or execution.
 ```
 
 ```yaml
 instruction_context:
   role: "B"
   risk_tier: "high"
+  global_router_read: true
+  repo_agents_read: true
+  repo_rules_read: true
+  repo_constitution_read: true
+  repo_workflow_read: true
+  role_doc_read: true
+  issue_or_tracker_read: true
+  contract_or_handoff_read: true
+  accepted_adrs_read:
+    - "ADR-0008"
+    - "ADR-0012"
   observed:
-    - "PR #829 integrated the controller and test; PR #830 integrated the accepted predecessor contract."
-    - "PR #831 integrated the correction contract separately before the exact two-file correction could be submitted."
-    - "PR #832 integrated the sequencing clarification and PR #833 integrated the exact accepted two-file implementation."
-    - "PR #834 integrated the eligibility clarification at the current correction base."
-    - "GitHub reports ten UI-unresolved threads across PRs #829 through #833."
-    - "Fresh exact-byte review reproduced only the PR #832 contract ambiguity; the PR #833 implementation claim was not reproduced."
-    - "PR #834 review reproduced stale current-artifact rows that name the pre-correction PR #829 hashes."
+    - "Current main is 30e07d773b18c58136084212ba3d25ec88b21249 at tree 271bb1ec46d839fe300ad9083d6a500812c84b9f."
+    - "The integrated controller accepts only an observation ID and derives target metadata after start."
+    - "No canonical successor target-binding object or approved predecision producer exists."
+    - "Issue #826 is open, #828 is closed, and no duplicate issue or open PR owns this boundary."
     - "Issue #769 is open with zero comments."
     - "The main checkout contains preserved pre-existing frontend/.wrangler/ residue and is not a clean-review-worktree proof."
   derived:
-    - "The implementation is integrated and technically accepted; no future repair-scope uncertainty remains."
-    - "Thread UI state alone cannot own technical eligibility without creating a circular post-merge review loop."
-    - "The contract digest is not embedded by either implementation file, so split integration requires no byte change."
-    - "External preflight ownership avoids a GitHub client, Git subprocess, or new controller authority input."
-    - "A trusted-console nonclaim closes the overstatement without weakening buffered or multiline rejection."
-    - "The corrected controller and test bytes are already integrated, so only two contract table rows require correction."
+    - "The existing pre-entry comparison proves mutation resistance but not agreement with a prior owner decision."
+    - "One public-safe canonical binding plus one strict execution transport closes the loop without a fourth path."
+    - "The historical direct-interpreter binding is structurally useful but nontransferable."
   proposed:
-    - "One contract-only two-row current-binding correction with no implementation change."
+    - "One metadata-only binding mode and one expected-binding execution mode in the existing controller."
   unknown:
-    - "The future exact controller-runtime and target-executable bindings, which belong to a later owner decision."
+    - "The future exact target metadata, which must be obtained only by a separately authorized local operation."
+  protected_surfaces:
+    - "private executable path"
+    - "Observation 1 authority and identity"
+    - "issue #769"
+    - "release, registry, installed tree, and receipt state"
   authority_conflicts_found: false
+  stop_conditions:
+    - "A fourth implementation path or another lifecycle family is required."
+    - "The private path must enter a public or durable transport."
+    - "Exact stable identity or pre-entry comparison would need weakening."
 
 workflow_handoff:
-  role_performed: "Codex B: Narrow Successor Parent-Controller Current-Binding Contract Corrector"
+  role_performed: "Codex B: Successor Observation 1 Target-Binding Loop Contract Writer"
+  completed_thread: "B"
+  next_thread: "E"
+  risk_tier: "high"
   repository: "Tahjali11/Mythic-Edge"
+  repository_url: "https://github.com/Tahjali11/Mythic-Edge"
   issue: "https://github.com/Tahjali11/Mythic-Edge/issues/826"
   historical_capability_issue: "https://github.com/Tahjali11/Mythic-Edge/issues/828"
   tracker: "https://github.com/Tahjali11/Mythic-Edge/issues/746"
   protected_issue: "https://github.com/Tahjali11/Mythic-Edge/issues/769"
-  base_commit: "2291fd538cd24c1525b5104565b3a29c7613d6b6"
-  base_tree: "9fe60f93e3ff7ba208da9c2a79f647089864088b"
+  base_branch: "origin/main"
+  target_branch: "main"
+  branch: "codex/app-native-r0-target-binding-loop-contract-826"
+  base_commit: "30e07d773b18c58136084212ba3d25ec88b21249"
+  base_tree: "271bb1ec46d839fe300ad9083d6a500812c84b9f"
+  source_artifact: "Codex A target-binding loop problem representation"
   target_artifact: "docs/contracts/role_pool_codex_app_native_r0_successor_parent_controller.md"
+  files_changed:
+    - "docs/contracts/role_pool_codex_app_native_r0_successor_parent_controller.md"
   implementation_paths:
     - "tools/run_role_pool_app_native_r0_observation_parent.py"
     - "tests/test_run_role_pool_app_native_r0_observation_parent.py"
@@ -992,14 +1194,20 @@ workflow_handoff:
     ME-RP-826-E-005: "fresh_clean_review_worktree_satisfied_for_source_review_revalidation_required"
     ME-RP-826-SPLIT-B-001: "fixed_confirmed_current_bytes"
     ME-RP-826-ELIG-B-001: "fixed_confirmed_current_bytes"
-    ME-RP-826-E-006: "current_bindings_corrected_pending_independent_confirmation"
+    ME-RP-826-E-006: "fixed_confirmed_current_bytes"
+    ME-RP-826-TARGET-BINDING-B-001: "target_binding_loop_defined_pending_independent_confirmation"
+  target_binding_schema: "trusted_owner_app_native_r0_successor_target_binding.v1"
+  predecision_mode: "metadata_only_no_child_no_observation_authority"
+  execution_transport: "bounded_unpadded_base64url_of_exact_canonical_binding_bytes"
   current_codex_shell_live_compatible: false
   implementation_authorized: false
   codex_d_authorized: false
+  metadata_operation_authorized: false
+  binding_created_or_published: false
   submission_authorized_now: false
   predecessor_contract_integrated: true
   eligibility_clarification_integrated: true
-  current_binding_correction_integrated: false
+  current_binding_correction_integrated: true
   implementation_integrated: true
   contract_submission_eligible: false
   owner_observation_1_decision_eligible: false
@@ -1021,5 +1229,14 @@ workflow_handoff:
   deployment_authorized: false
   issue_769_mutation_authorized: false
   live_ready: false
-  next_recommended_role: "Codex E: Fresh Successor Parent-Controller Current-Binding Contract Reviewer"
+  validation:
+    - "canonical binding and stable-identity known-answer vectors exact"
+    - "171 controller tests passed"
+    - "247 adjacent operation-free tests passed"
+    - "agent docs, protected-surface, private-marker, and diff checks passed"
+  stop_conditions:
+    - "a fourth implementation path or another lifecycle family is required"
+    - "private target data must enter public or durable transport"
+    - "exact identity, guard, mutation detection, or no-retry behavior must weaken"
+  next_recommended_role: "Codex E: Independent Successor Observation 1 Target-Binding Loop Contract Reviewer"
 ```
