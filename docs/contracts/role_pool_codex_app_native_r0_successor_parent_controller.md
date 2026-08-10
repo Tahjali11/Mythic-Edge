@@ -19,10 +19,10 @@
 - Accepted context discipline:
   [`ADR-0012`](../decisions/ADR-0012-long-horizon-context-and-delegation-discipline.md).
 - Risk tier: high.
-- Guarded-output and admission-precedence correction base commit:
-  `e5e225b28d9bd0f67b581eb9e7266a6b0c18bcdd`.
-- Guarded-output and admission-precedence correction base tree:
-  `9bb2af50263457a601f2c83da17992dbecd639e6`.
+- Buffered-flush clarification base commit:
+  `9168b3bfcf3ced53f9c23f9882896ef0e65e8921`.
+- Buffered-flush clarification base tree:
+  `1699b09f2ffe7103f46cfbabcda10c24b16a20cc`.
 
 The owner's current instruction is a task-scoped `explicit_user_override` for
 this one successor-parent-controller contract amendment under open lifecycle issue
@@ -200,6 +200,9 @@ Finding `ME-RP-826-E-009` is
 `contracted_pending_independent_confirmation`.
 
 Finding `ME-RP-826-E-010` is
+`contracted_confirmed_pending_implementation`.
+
+Finding `ME-RP-826-E-011` is
 `contracted_pending_independent_confirmation`.
 
 ### Guarded-output and public-admission-precedence correction
@@ -214,8 +217,10 @@ Every selected successful output uses exactly one bounded write attempt for
 the complete bytes, requires the exact complete reported count, then performs
 exactly one required flush before returning success. A short count prevents
 flush. A write exception, short count, flush exception, or uncertain completion
-selects existing `observation_result_unknown`. Flush performs no write, repair,
-suffix, replacement, or retry. Partial or merely buffered output remains
+selects existing `observation_result_unknown`. No second application-level
+`write()` is permitted. The required `flush()` may drain the complete buffered
+payload to the underlying output, but performs no repair, replacement, suffix,
+or retry. Partial or merely buffered output remains
 malformed and non-authoritative and cannot pass strict parsing, complete byte
 count, canonical SHA-256, self-digest, transport, or external readback. No
 private value may enter output, exceptions, logs, or durable evidence.
@@ -265,10 +270,12 @@ self-digest, and exact transport encoding, may support a later owner decision.
 Success requires one complete output-write attempt, an exact complete reported
 length, exactly one successful flush after that write, no stderr, and exact
 external readback. A short write performs no flush. Output failure retains the
-existing `observation_result_unknown` status and exit behavior. No flush-based
-write or second write to the selected output stream, retry, repair, suffix
-write, replacement artifact, new status, schema field, lifecycle state,
-cleanup route, or receipt family is permitted.
+existing `observation_result_unknown` status and exit behavior. No second
+application-level `write()` to the selected output stream, retry, repair,
+suffix write, or replacement artifact is permitted. The single required
+`flush()` may perform the underlying raw drain of the complete buffered
+payload; it is not a second application-level write. No new status, schema
+field, lifecycle state, cleanup route, or receipt family is permitted.
 
 ### Split-integration sequencing correction
 
@@ -371,6 +378,7 @@ threads do not restart the workflow or invalidate accepted dispositions.
 | Historical pre-short-write focused-test candidate | `tests/test_run_role_pool_app_native_r0_observation_parent.py`; `71072` bytes; `289ad0ff8bc920d23bd9068ed700abab5d7be44d450fe3fad78d06c302b09069` |
 | Historical target-binding-loop contract | `72153` bytes; `367a9e27e125dc3751a23944b5263bbb697fac82a23633da01f3c2e6dc6639f2` |
 | Guarded-output correction contract predecessor | `77570` bytes; `9986a9dfcf18d61ed3562497305a54a0f837cbd95f89bd211ba51d36c1a0df5d` |
+| Buffered-flush clarification contract predecessor | `82743` bytes; `fdf170af1bafb1f6dec4a9842e62f1fab2af9afcff084d1804f599b828b76c99` |
 | Accepted #826 lifecycle contract | `37249` bytes; `be7974ba998257981df5c876dfa441b03326ae776405bd269d1470957a785cde` |
 | Accepted #826 harness | `88401` bytes; `cfd3a0baaff6c4bbc5144403fd72f404722b8b96e8eca30fbf588f3180ec0b42` |
 | Accepted #826 harness test | `76211` bytes; `3fc6c35eada99f3a319e1ebe94bd5f33494821301cfdf1ec67f5f35bfc97dc4c` |
@@ -408,7 +416,7 @@ eligibility review and a fresh exact, expiring, single-use owner decision.
 
 ## Integrated History And Future Authority Sequence
 
-PRs #829 through #838 are immutable integrated history. They establish the
+PRs #829 through #839 are immutable integrated history. They establish the
 current contract, controller, focused test, review dispositions, and exact
 current-byte eligibility evidence. They do not establish a canonical target
 binding or authorize a controller execution. The prior owner decision at
@@ -1222,8 +1230,8 @@ Lifecycle issue: https://github.com/Tahjali11/Mythic-Edge/issues/826
 Completed capability issue: https://github.com/Tahjali11/Mythic-Edge/issues/828
 Tracker: https://github.com/Tahjali11/Mythic-Edge/issues/746
 Protected issue: https://github.com/Tahjali11/Mythic-Edge/issues/769
-Reviewed base commit: e5e225b28d9bd0f67b581eb9e7266a6b0c18bcdd
-Reviewed base tree: 9bb2af50263457a601f2c83da17992dbecd639e6
+Reviewed base commit: 9168b3bfcf3ced53f9c23f9882896ef0e65e8921
+Reviewed base tree: 1699b09f2ffe7103f46cfbabcda10c24b16a20cc
 
 Review exactly:
 docs/contracts/role_pool_codex_app_native_r0_successor_parent_controller.md
@@ -1232,7 +1240,9 @@ Bind the exact byte count and SHA-256 reported by Codex B. Refresh origin/main
 and live issue state. Confirm #826 is open, #828 is closed, and #769 is open
 with zero comments.
 
-Review `ME-RP-826-E-009` and `ME-RP-826-E-010`. Independently confirm the
+Review `ME-RP-826-E-009` and `ME-RP-826-E-011`, and confirm the clarification
+preserves the accepted `ME-RP-826-E-010` admission-precedence contract.
+Independently confirm the
 current controller is `100528` bytes at SHA-256
 `8af672c6341432b05574885c069ea0076975c51b0bc37be76559ebbb14138dc4`
 and the focused test is `72662` bytes at SHA-256
@@ -1240,9 +1250,11 @@ and the focused test is `72662` bytes at SHA-256
 
 Reproduce that a complete write currently returns without flush and that
 malformed public input can be masked by repository-root rejection. Confirm the
-contract now requires one complete write, exact count, exactly one successful
-flush before success, and terminal `observation_result_unknown` for write,
-count, flush, or completion uncertainty without retry or repair.
+contract now requires one complete application-level write, exact count, and
+exactly one successful flush before success. Confirm the flush may perform the
+underlying raw drain of the complete buffered payload without becoming a second
+application-level write. Write, count, flush, or completion uncertainty remains
+terminal `observation_result_unknown` without retry or repair.
 
 Confirm non-Windows rejection remains first and complete pure public admission
 precedes repository-root inspection. Malformed mode, identity, transport, or
@@ -1287,18 +1299,16 @@ instruction_context:
     - "ADR-0008"
     - "ADR-0012"
   observed:
-    - "Current main is e5e225b28d9bd0f67b581eb9e7266a6b0c18bcdd at tree 9bb2af50263457a601f2c83da17992dbecd639e6."
-    - "A complete synthetic write made one write call, zero flush calls, and returned success."
-    - "Malformed public mode plus repository-root rejection selected observation_binding_rejected."
-    - "PR #838 is merged and issue #826 remains open."
+    - "Current main is 9168b3bfcf3ced53f9c23f9882896ef0e65e8921 at tree 1699b09f2ffe7103f46cfbabcda10c24b16a20cc."
+    - "A buffered-stream reproduction performed zero raw writes during application write and one raw drain during flush."
+    - "PR #839 integrated the guarded-output and admission-precedence contract."
     - "Issue #769 is open with zero comments."
     - "The main checkout contains preserved pre-existing frontend/.wrangler/ residue and is not a clean-review-worktree proof."
   derived:
-    - "Successful write return is insufficient evidence of delivered buffered output without one required flush."
-    - "Repository-root inspection currently masks the higher-precedence public-admission result."
-    - "Both defects are correctable inside the existing controller and focused test."
+    - "The single required flush may perform the underlying raw drain without constituting a second application-level write."
+    - "This wording correction does not change the two-file implementation scope or any runtime requirement."
   proposed:
-    - "One contract correction followed later by one exact two-file Codex D repair."
+    - "One contract-only buffered-flush clarification followed by fresh Codex E review."
   unknown:
     - "The future metadata operation remains separately authorized and unexecuted."
   protected_surfaces:
@@ -1313,7 +1323,7 @@ instruction_context:
     - "Private custody, exact identity, containment, lifecycle, or authority would need weakening."
 
 workflow_handoff:
-  role_performed: "Codex B: Narrow Successor Parent-Controller Guarded-Output and Admission-Precedence Contract Corrector"
+  role_performed: "Codex B: Narrow Successor Parent-Controller Buffered-Flush Contract Clarifier"
   completed_thread: "B"
   next_thread: "E"
   risk_tier: "high"
@@ -1325,10 +1335,10 @@ workflow_handoff:
   protected_issue: "https://github.com/Tahjali11/Mythic-Edge/issues/769"
   base_branch: "origin/main"
   target_branch: "main"
-  branch: "codex/app-native-r0-stream-semantics-contract-826"
-  base_commit: "e5e225b28d9bd0f67b581eb9e7266a6b0c18bcdd"
-  base_tree: "9bb2af50263457a601f2c83da17992dbecd639e6"
-  source_artifact: "PRRT_kwDOSaCjf86X6B7O and PRRT_kwDOSaCjf86X6B7V"
+  branch: "codex/app-native-r0-buffered-flush-contract-826"
+  base_commit: "9168b3bfcf3ced53f9c23f9882896ef0e65e8921"
+  base_tree: "1699b09f2ffe7103f46cfbabcda10c24b16a20cc"
+  source_artifact: "ME-RP-826-E-011"
   target_artifact: "docs/contracts/role_pool_codex_app_native_r0_successor_parent_controller.md"
   files_changed:
     - "docs/contracts/role_pool_codex_app_native_r0_successor_parent_controller.md"
@@ -1350,7 +1360,8 @@ workflow_handoff:
     ME-RP-826-TARGET-BINDING-B-001: "target_binding_loop_defined_pending_independent_confirmation"
     ME-RP-826-E-007: "fixed_confirmed_contract_only"
     ME-RP-826-E-009: "contracted_pending_independent_confirmation"
-    ME-RP-826-E-010: "contracted_pending_independent_confirmation"
+    ME-RP-826-E-010: "contracted_confirmed_pending_implementation"
+    ME-RP-826-E-011: "contracted_pending_independent_confirmation"
   target_binding_schema: "trusted_owner_app_native_r0_successor_target_binding.v1"
   predecision_mode: "metadata_only_no_child_no_observation_authority"
   execution_transport: "bounded_unpadded_base64url_of_exact_canonical_binding_bytes"
@@ -1386,8 +1397,8 @@ workflow_handoff:
   issue_769_mutation_authorized: false
   live_ready: false
   validation:
-    - "complete write returned success after one write and zero flush calls"
-    - "malformed mode plus repository-root rejection selected observation_binding_rejected"
+    - "buffered write made zero raw writes before flush and one raw drain during flush"
+    - "contract distinguishes one application-level write from the required flush drain"
     - "227 controller tests passed"
     - "247 adjacent operation-free tests passed"
     - "agent docs, protected-surface, private-marker, and diff checks passed"
@@ -1395,5 +1406,5 @@ workflow_handoff:
     - "a third implementation path, helper, schema, status, or lifecycle change is required"
     - "output completion requires retry, repair, or private-value publication"
     - "private custody, containment, lifecycle, or authority must weaken"
-  next_recommended_role: "Codex E: Independent Successor Parent-Controller Guarded-Output and Admission-Precedence Contract Reviewer"
+  next_recommended_role: "Codex E: Independent Successor Parent-Controller Buffered-Flush Contract Clarification Reviewer"
 ```
