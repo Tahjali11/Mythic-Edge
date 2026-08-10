@@ -2615,11 +2615,14 @@ def _write_exact(stream: object, payload: bytes) -> None:
         text = payload.decode("utf-8")
         written = stream.write(text)
         expected = len(text)
+        selected = stream
     else:
         written = binary.write(payload)
         expected = len(payload)
+        selected = binary
     if written != expected:
         raise OSError
+    selected.flush()
 
 
 def _emit_failure(status: str) -> None:
@@ -2631,16 +2634,28 @@ def _emit_failure(status: str) -> None:
 def main(argv: Sequence[str] | None = None) -> int:
     arguments = tuple(sys.argv[1:] if argv is None else argv)
     try:
-        root = _repository_root()
-        if arguments == ("--emit-target-binding",):
-            result = _run_metadata(_WindowsParentAdapter(), repository_root=root)
+        if os.name != "nt" or sys.platform != "win32":
+            raise _ControllerError("observation_host_rejected")
+        metadata_mode = arguments == ("--emit-target-binding",)
+        if metadata_mode:
+            observation_id = None
+            expected_binding = None
         elif (
             len(arguments) == 3
             and arguments[1] == "--expected-target-binding-v1"
+            and type(arguments[0]) is str
             and not arguments[0].startswith("-")
         ):
             observation_id = _validate_observation_id(arguments[0])
             expected_binding = _decode_target_binding_transport(arguments[2])
+        else:
+            raise _ControllerError("observation_sequence_rejected")
+        root = _repository_root()
+        if metadata_mode:
+            result = _run_metadata(_WindowsParentAdapter(), repository_root=root)
+        else:
+            if observation_id is None or expected_binding is None:
+                raise _ControllerError("observation_sequence_rejected")
             owner = _load_owner(root)
             result = _run_controller(
                 observation_id,
@@ -2649,8 +2664,6 @@ def main(argv: Sequence[str] | None = None) -> int:
                 repository_root=root,
                 owner=owner,
             )
-        else:
-            raise _ControllerError("observation_sequence_rejected")
     except _ControllerError as exc:
         result = exc.status
     except BaseException:
