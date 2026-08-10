@@ -19,10 +19,10 @@
 - Accepted context discipline:
   [`ADR-0012`](../decisions/ADR-0012-long-horizon-context-and-delegation-discipline.md).
 - Risk tier: high.
-- Split-integration correction base commit:
-  `68e3eff41ef1c531ced5e1df0b0b136562ee7e30`.
-- Split-integration correction base tree:
-  `27c4874937a915894f63d9ef6204f3177e7828e9`.
+- Eligibility-clarification base commit:
+  `4b38f50013f18e02ab8ae130ae25933b0562eae0`.
+- Eligibility-clarification base tree:
+  `2d0c55f44cd95bf204c2a4b0cc7f49eef8c957ca`.
 
 The owner's current instruction is a task-scoped `explicit_user_override` for
 this one successor-parent-controller correction under open lifecycle issue
@@ -62,7 +62,8 @@ inspection or mutation and must not be represented as fresh-review cleanliness.
    Codex shell is not a conforming live caller. That nonclaim does not block
    inert implementation or operation-free review, but it does block live use
    until a fresh owner decision selects a conforming interactive Windows host.
-7. **Observed:** six post-merge review threads remain unresolved: PR #829 found
+7. **Observed:** six original post-merge review threads on PRs #829 and #830
+   supplied the historical correction source: PR #829 found
    that authority and checkout eligibility were assigned to the controller and
    that continuously productive drains could postpone the deadline; PR #830
    found an unguarded child-checker byte window, a prospective sequence that
@@ -99,22 +100,39 @@ inspection or mutation and must not be represented as fresh-review cleanliness.
     and integration, the exact accepted controller and test form a separate
     two-file implementation package. Neither package may contain another path,
     and no implementation behavior or reviewed byte is reopened.
+15. **Observed:** after PRs #832 and #833 integrated the clarification and exact
+    two-file implementation, GitHub reported ten UI-unresolved review threads
+    across PRs #829 through #833. Nine do not establish a current blocker:
+    eight findings are fixed or superseded by the exact accepted current bytes,
+    and the PR #833 guard-finalization claim was not reproduced by the fresh
+    operation-free probe. The PR #832 thread identifies one active ambiguity:
+    stale handoff wording simultaneously calls the implementation accepted and
+    its two-file constructibility unknown.
+16. **Decision:** review-thread UI state and technical eligibility disposition
+    are separate. An unresolved thread blocks eligibility only when fresh
+    independent review reproduces its alleged defect against exact current
+    bytes or confirms that its contract ambiguity remains active. A thread
+    with durable `fixed`, `superseded`, or `not_reproduced` disposition does not
+    block merely because the merged PR thread remains UI-unresolved.
 
 Finding `ME-RP-826-PARENT-A-001` is
-`contracted_successor_boundary_pending_independent_review`.
+`fixed_confirmed_current_bytes`.
 
 Finding `ME-RP-828-E-001` is
-`superseded_by_trusted_console_boundary_pending_independent_confirmation`.
+`superseded_historical`.
 
 Finding `ME-RP-826-E-004` is
-`six_post_merge_review_threads_contracted_pending_independent_confirmation`.
+`fixed_confirmed_current_bytes`.
 
 Finding `ME-RP-826-E-005` is
-`fresh_clean_review_worktree_required_after_integration`; the existing main
-checkout is not cleaned or mutated to satisfy that later gate.
+`fresh_clean_review_worktree_satisfied_for_source_review_revalidation_required`;
+the existing main checkout is not cleaned or mutated to satisfy any later gate.
 
 Finding `ME-RP-826-SPLIT-B-001` is
-`split_integration_sequence_contracted_pending_independent_confirmation`.
+`fixed_confirmed_current_bytes`.
+
+Finding `ME-RP-826-ELIG-B-001` is
+`eligibility_clarification_pending_independent_confirmation`.
 
 ### Split-integration sequencing correction
 
@@ -170,9 +188,30 @@ erase the accepted predecessor review record.
 | `PRRT_kwDOSaCjf86XrITJ` | Child-checker bytes unguarded across launch | Exact checker is opened with write/delete sharing denied and held through terminal cleanup with exactly-once close evidence. |
 | `PRRT_kwDOSaCjf86XrITM` | Prospective sequence contradicted integrated paths | Sequence is retrospective; only the exact bounded repair is prospective, and the stale absent-path stop condition is superseded. |
 | `PRRT_kwDOSaCjf86XrITN` | Queue audit overclaimed same-count stability | Console is explicitly trusted and owner-controlled; observed buffered/multiline input rejects, while adversarial concurrent mutation protection is a nonclaim. |
+| `PRRT_kwDOSaCjf86XsP5s` | Guard named the bootstrap checker digest instead of the launched #826 harness digest | Exact current controller binds the guarded child to the accepted #826 harness digest; current-byte E confirmation is required. |
+| `PRRT_kwDOSaCjf86XsP5u` | Contract-only acceptance improperly activated Codex D | Separate owner authority governed the completed repair; this contract now authorizes no further Codex D work. |
+| `PRRT_kwDOSaCjf86XspJU` | Accepted implementation conflicted with stale constructibility and repair-request wording | This clarification removes both stale statements; blocking until fresh E accepts these exact contract bytes. |
+| `PRRT_kwDOSaCjf86Xs0HP` | Checker-guard finalization allegedly replaced pre-entry rejection | Fresh exact-byte operation-free probe returned `observation_binding_rejected` with one launch call; not reproduced and nonblocking unless later exact-byte evidence reproduces it. |
 
-Every row is `contracted_pending_fresh_contract_only_E_confirmation`. Thread
-resolution is a later GitHub lifecycle effect and is not performed by Codex B.
+For eligibility, fresh Codex E must give every row exactly one durable
+disposition: `fixed_confirmed_current_bytes`, `superseded_historical`,
+`not_reproduced_current_bytes`, or `open_blocking_current_bytes`. The review
+must bind the exact contract, controller, and test SHA-256 values; name each
+thread ID; record the current-byte check or accepted superseding clause; and be
+preserved at an immutable GitHub review/comment URL with a SHA-256 of its exact
+body. Only `open_blocking_current_bytes` blocks eligibility. GitHub
+`isResolved` remains useful workflow hygiene but is neither necessary nor
+sufficient for technical eligibility on an already merged PR.
+
+The expected current dispositions are: `fixed_confirmed_current_bytes` for the
+three PR #829 rows, the checker-guard row from PR #830, and both PR #831 rows;
+`superseded_historical` for the PR #830 sequence and trusted-console rows;
+`fixed_confirmed_current_bytes` for the PR #832 ambiguity only after fresh E
+accepts this clarification; and `not_reproduced_current_bytes` for the PR #833
+row unless fresh exact-byte evidence reproduces it. A new or still-UI-open
+thread does not restart the contract cycle by existence alone. It becomes
+blocking only through a fresh exact-byte `open_blocking_current_bytes`
+disposition. Codex B performs no GitHub thread mutation.
 
 ## Exact Frozen Bindings
 
@@ -236,17 +275,29 @@ The conditional correction sequence is:
    submits exactly the two implementation paths in one draft PR targeting
    `main`;
 6. only if the implementation head remains exact, all required checks pass,
-   every applicable review thread is resolved, and fresh exact-head E review is
-   clean may Codex G squash-merge that exact two-file package; and
+   every applicable current-byte finding has a durable nonblocking disposition,
+   and fresh exact-head E review is clean may Codex G squash-merge that exact
+   two-file package; and
 7. after both integrations, a fresh current-main eligibility review runs from
    a newly created clean review worktree. The existing main checkout is not
    cleaned or mutated to satisfy this gate. One public-safe #826 comment is
    permitted only if every exact eligibility gate passes.
 
+At this clarification base, steps 1 through 6 are immutable history: PR #832
+integrated the contract clarification at
+`c4a0a2549a6a60c4997f3436161ab78a8e05f8ab`, and PR #833 integrated the exact
+two-file implementation at `4b38f50013f18e02ab8ae130ae25933b0562eae0`.
+Only step 7 remains. This eligibility clarification must first receive
+independent contract review and contract-only integration. One fresh
+current-main E review then applies the same finite ten-row table. Those merges
+and reviews create no execution authority.
+
 The conditional chain stops on head drift, scope expansion, unknown GitHub
-state, failed validation, unresolved review finding, private-value requirement,
-operational process, or generated residue in the fresh review worktree. Codex G
-must not close #826 or mutate #769, #746, or #813.
+state, failed validation, an `open_blocking_current_bytes` disposition,
+private-value requirement, operational process, or generated residue in the
+fresh review worktree. An unresolved UI thread without a reproduced current-byte
+finding is recorded but does not independently stop the chain. Codex G must not
+close #826 or mutate #769, #746, or #813.
 
 Any later controller execution is outside this correction authority. Before a
 controller process may start, an external owner-operated preflight must prove
@@ -746,16 +797,17 @@ Stop and return to Codex A or the owner if:
 - issue #769 would require any read beyond state/comment-count validation or
   any mutation.
 
-This contract does not authorize implementation. Fresh contract-only E
-acceptance creates eligibility only for a separate owner decision about Codex F
-submission of this exact contract-only amendment. The accepted two-file
-implementation package remains ineligible for submission until the amendment
-is integrated and fresh current-main E review accepts the combined binding. No
-current authority permits private-path access, controller start, child
-creation, identity generation or consumption, observation execution,
-candidate publication, Observation 2, task dispatch, R1-R8, Stage 4,
-deployment, assurance, privacy guarantees, security guarantees, or live
-readiness.
+The predecessor contract and exact two-file implementation are integrated.
+This clarification authorizes no implementation, submission, merge, or
+execution. Fresh independent contract acceptance establishes only eligibility
+for a separate owner decision about contract-only submission. After exact
+integration, one fresh current-main E review must apply the same ten-row table;
+only a fully nonblocking durable result establishes eligibility for a separate
+fresh owner Observation 1 decision. No current authority permits private-path
+access, controller start, child creation, identity generation or consumption,
+observation execution, candidate publication, Observation 2, task dispatch,
+R1-R8, Stage 4, deployment, assurance, privacy guarantees, security guarantees,
+or live readiness.
 
 ## Next Workflow Action
 
@@ -767,7 +819,7 @@ Pasteable prompt:
 Use the current Mythic Edge repository authority.
 Use $mythic-edge-workflow.
 
-Act as Codex E: Fresh Parent-Controller Split-Integration Sequencing Contract
+Act as Codex E: Fresh Successor Parent-Controller Eligibility Clarification
 Reviewer.
 
 Repository: Tahjali11/Mythic-Edge
@@ -778,6 +830,8 @@ Protected issue: https://github.com/Tahjali11/Mythic-Edge/issues/769
 Implementation PR: https://github.com/Tahjali11/Mythic-Edge/pull/829
 Contract PR: https://github.com/Tahjali11/Mythic-Edge/pull/830
 Correction contract PR: https://github.com/Tahjali11/Mythic-Edge/pull/831
+Sequencing clarification PR: https://github.com/Tahjali11/Mythic-Edge/pull/832
+Implementation correction PR: https://github.com/Tahjali11/Mythic-Edge/pull/833
 
 Review exactly:
 docs/contracts/role_pool_codex_app_native_r0_successor_parent_controller.md
@@ -785,11 +839,11 @@ docs/contracts/role_pool_codex_app_native_r0_successor_parent_controller.md
 Bind the exact byte count and SHA-256 reported by Codex B. Refresh origin/main
 and use the GitHub connector for current issue, PR, review-thread, and check
 evidence. Treat #828 and the PR integrations as historical. Confirm issue #826
-is open, issue #769 is open with zero comments, all six PR #829/#830 review
-threads remain the correction source, and the accepted predecessor contract
-hash and review references remain preserved as historical evidence.
+is open, issue #769 is open with zero comments, and accepted predecessor
+contract hashes and review references remain preserved as historical evidence.
 
-Independently verify that the contract closes all six findings within exactly
+Independently verify that the contract preserves closure of the six original
+technical findings within exactly
 the existing contract plus two implementation paths: deadline-aware
 work-bounded stdout/stderr/completion-port servicing; a write/delete-denying
 exact child-checker guard through terminal cleanup with exactly-once close;
@@ -819,18 +873,36 @@ and `32a2e01667613ec5aed404bf639f575995e32b2b8bb005674dd0194940a5daa3`.
 No Codex D repair is authorized unless review finds a new concrete technical
 defect.
 
+Review `ME-RP-826-ELIG-B-001` specifically. Enumerate the exact ten thread IDs
+from PRs #829 through #833 and assign each exactly one contract-defined durable
+disposition. Confirm the six expected `fixed_confirmed_current_bytes`, two
+expected `superseded_historical`, PR #832's expected
+`fixed_confirmed_current_bytes`, and PR #833's expected
+`not_reproduced_current_bytes` disposition against the exact current contract,
+controller, and test hashes. Reproduce the bounded PR #833 operation-free probe
+or return `open_blocking_current_bytes`; do not infer a fix or edit code.
+
+Confirm GitHub `isResolved` is workflow metadata rather than an automatic
+technical blocker for merged PRs. A new or UI-unresolved thread blocks only if
+fresh exact-byte review gives it `open_blocking_current_bytes`. Preserve the
+review at one immutable GitHub URL and report its exact body SHA-256. Do not
+reopen implementation scope: the implementation is integrated and accepted.
+
 Run contract-only structural and operation-free existing regression checks. Do
 not implement, access a private path, start a controller or child, generate or
 consume an identity, publish a receipt, touch issue #769, authorize Observation
 1 or 2, advance R0-R8 or Stage 4, submit, merge, deploy, or claim readiness.
 
 Lead with findings. Return the reviewed SHA-256 and byte count, one disposition
-for each of the six threads, the exact future two-file repair scope, validation,
-authority flags, generated residue evidence, and workflow_handoff. If accepted,
-route to a separate owner decision for Codex F submission of the exact
-contract-only package. Do not submit or merge during review. If any finding
-requires wider scope, changed implementation bytes, or weaker containment,
-stop and route to Codex A/owner.
+for each of the ten named threads, exact integrated two-file bindings,
+validation, authority flags, generated residue evidence, and workflow_handoff.
+If every row is nonblocking, report contract acceptance and eligibility for a
+separate owner decision about contract-only submission. Do not create an
+Observation 1 decision, resolve threads, submit, merge, or execute. State that
+owner Observation 1 decision eligibility requires exact integration followed
+by one fresh current-main E confirmation using the same table. If any row is
+`open_blocking_current_bytes`, stop with its first reproduced boundary and
+route according to whether it is contract or implementation scope.
 ```
 
 ```yaml
@@ -840,20 +912,21 @@ instruction_context:
   observed:
     - "PR #829 integrated the controller and test; PR #830 integrated the accepted predecessor contract."
     - "PR #831 integrated the correction contract separately before the exact two-file correction could be submitted."
-    - "Fresh E review accepted the exact two-file correction and found only the now-impossible single-PR sequencing clause."
-    - "Six post-merge PR #829/#830 review threads remain unresolved."
+    - "PR #832 integrated the sequencing clarification and PR #833 integrated the exact accepted two-file implementation."
+    - "GitHub reports ten UI-unresolved threads across PRs #829 through #833."
+    - "Fresh exact-byte review reproduced only the PR #832 contract ambiguity; the PR #833 implementation claim was not reproduced."
     - "Issue #769 is open with zero comments."
     - "The main checkout contains preserved pre-existing frontend/.wrangler/ residue and is not a clean-review-worktree proof."
   derived:
-    - "All six findings fit the existing contract plus exact two-file repair envelope."
+    - "The implementation is integrated and technically accepted; no future repair-scope uncertainty remains."
+    - "Thread UI state alone cannot own technical eligibility without creating a circular post-merge review loop."
     - "The contract digest is not embedded by either implementation file, so split integration requires no byte change."
     - "External preflight ownership avoids a GitHub client, Git subprocess, or new controller authority input."
     - "A trusted-console nonclaim closes the overstatement without weakening buffered or multiline rejection."
   proposed:
-    - "One contract-only sequencing amendment followed, after integration and E confirmation, by the exact accepted two-file package."
+    - "One eligibility clarification with a finite ten-thread disposition table and no implementation change."
   unknown:
     - "The future exact controller-runtime and target-executable bindings, which belong to a later owner decision."
-    - "Whether independent review will prove every Win32 ownership route constructible within two files."
   authority_conflicts_found: false
 
 workflow_handoff:
@@ -863,8 +936,8 @@ workflow_handoff:
   historical_capability_issue: "https://github.com/Tahjali11/Mythic-Edge/issues/828"
   tracker: "https://github.com/Tahjali11/Mythic-Edge/issues/746"
   protected_issue: "https://github.com/Tahjali11/Mythic-Edge/issues/769"
-  base_commit: "68e3eff41ef1c531ced5e1df0b0b136562ee7e30"
-  base_tree: "27c4874937a915894f63d9ef6204f3177e7828e9"
+  base_commit: "4b38f50013f18e02ab8ae130ae25933b0562eae0"
+  base_tree: "2d0c55f44cd95bf204c2a4b0cc7f49eef8c957ca"
   target_artifact: "docs/contracts/role_pool_codex_app_native_r0_successor_parent_controller.md"
   implementation_paths:
     - "tools/run_role_pool_app_native_r0_observation_parent.py"
@@ -872,18 +945,22 @@ workflow_handoff:
   implementation_path_count: 2
   private_ingress: "trusted_owner_controlled_attached_console_ReadConsoleW_no_echo_with_bounded_queue_audits"
   finding_status:
-    ME-RP-828-E-001: "superseded_by_trusted_console_boundary_pending_independent_confirmation"
-    ME-RP-826-E-004: "six_post_merge_review_threads_contracted_pending_independent_confirmation"
-    ME-RP-826-E-005: "fresh_clean_review_worktree_required_after_integration"
-    ME-RP-826-SPLIT-B-001: "split_integration_sequence_contracted_pending_independent_confirmation"
+    ME-RP-828-E-001: "superseded_historical"
+    ME-RP-826-E-004: "fixed_confirmed_current_bytes"
+    ME-RP-826-E-005: "fresh_clean_review_worktree_satisfied_for_source_review_revalidation_required"
+    ME-RP-826-SPLIT-B-001: "fixed_confirmed_current_bytes"
+    ME-RP-826-ELIG-B-001: "eligibility_clarification_pending_independent_confirmation"
   current_codex_shell_live_compatible: false
   implementation_authorized: false
   further_codex_d_repair_authorized: false
   submission_authorized_now: false
-  contract_submission_eligible_only_after_fresh_contract_e_acceptance_and_owner_decision: true
-  implementation_submission_eligible_only_after_contract_integration_fresh_e_acceptance_and_owner_decision: true
+  predecessor_contract_integrated: true
+  eligibility_clarification_integrated: false
+  implementation_integrated: true
+  contract_submission_eligible: false
+  owner_observation_1_decision_eligible: false
   merge_authorized_now: false
-  conditional_g_authorized_only_for_unchanged_clean_exact_head: true
+  further_merge_authorized: false
   private_path_accessed: false
   controller_started: false
   child_created: false
@@ -898,5 +975,5 @@ workflow_handoff:
   deployment_authorized: false
   issue_769_mutation_authorized: false
   live_ready: false
-  next_recommended_role: "Codex E: Fresh Parent-Controller Split-Integration Sequencing Contract Reviewer"
+  next_recommended_role: "Codex E: Fresh Successor Parent-Controller Eligibility Clarification Reviewer"
 ```
