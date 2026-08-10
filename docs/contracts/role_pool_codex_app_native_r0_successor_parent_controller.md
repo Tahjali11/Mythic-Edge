@@ -19,10 +19,10 @@
 - Accepted context discipline:
   [`ADR-0012`](../decisions/ADR-0012-long-horizon-context-and-delegation-discipline.md).
 - Risk tier: high.
-- Eligibility-clarification base commit:
-  `4b38f50013f18e02ab8ae130ae25933b0562eae0`.
-- Eligibility-clarification base tree:
-  `2d0c55f44cd95bf204c2a4b0cc7f49eef8c957ca`.
+- Current-binding correction base commit:
+  `2291fd538cd24c1525b5104565b3a29c7613d6b6`.
+- Current-binding correction base tree:
+  `9fe60f93e3ff7ba208da9c2a79f647089864088b`.
 
 The owner's current instruction is a task-scoped `explicit_user_override` for
 this one successor-parent-controller correction under open lifecycle issue
@@ -114,6 +114,14 @@ inspection or mutation and must not be represented as fresh-review cleanliness.
     bytes or confirms that its contract ambiguity remains active. A thread
     with durable `fixed`, `superseded`, or `not_reproduced` disposition does not
     block merely because the merged PR thread remains UI-unresolved.
+17. **Observed:** PR #834 review thread
+    `PRRT_kwDOSaCjf86XtxKx` reproduced one current-byte contradiction: the
+    current binding table still named PR #829's pre-correction controller and
+    test hashes after PR #833 integrated the accepted corrected bytes.
+18. **Decision:** correct only those two current binding rows. Preserve the old
+    hashes solely as historical PR #829 evidence. This reproduced PR #834
+    finding is not appended to the bounded ten-thread historical table and
+    creates no implementation or lifecycle change.
 
 Finding `ME-RP-826-PARENT-A-001` is
 `fixed_confirmed_current_bytes`.
@@ -132,7 +140,10 @@ Finding `ME-RP-826-SPLIT-B-001` is
 `fixed_confirmed_current_bytes`.
 
 Finding `ME-RP-826-ELIG-B-001` is
-`eligibility_clarification_pending_independent_confirmation`.
+`fixed_confirmed_current_bytes`.
+
+Finding `ME-RP-826-E-006` is
+`current_bindings_corrected_pending_independent_confirmation`.
 
 ### Split-integration sequencing correction
 
@@ -164,9 +175,9 @@ technical defect.
 
 - Accepted predecessor contract: `35296` bytes; SHA-256
   `a54caf3f16abb3f01becb0e8addcb8923c65714b4ed889ef67e38a4f013154d0`.
-- Integrated controller: SHA-256
+- Historical pre-correction controller integrated by PR #829: SHA-256
   `b0fd13c96b264230562113abfc90d880c7fbbc51a50ef6abec9ddfeeab923e64`.
-- Integrated controller test: SHA-256
+- Historical pre-correction controller test integrated by PR #829: SHA-256
   `e4f2dce0341be0ad0d710de3142a2fa4bde7dc1895ea536aa135074788307410`.
 - PR #829 reviewed head: `a7eab2e41615da49d8212535fddfe06d084c0aee`;
   unresolved threads `PRRT_kwDOSaCjf86Xq998`,
@@ -213,6 +224,14 @@ thread does not restart the contract cycle by existence alone. It becomes
 blocking only through a fresh exact-byte `open_blocking_current_bytes`
 disposition. Codex B performs no GitHub thread mutation.
 
+The ten rows above are the bounded historical disposition table for PRs #829
+through #833, not an append-only registry of review threads. The reproduced PR
+#834 finding is closed only by this exact two-row correction and fresh E
+confirmation; it is not an eleventh table row. Future threads likewise require
+no table amendment unless fresh exact-byte evidence proves a distinct active
+contract or implementation defect. Historical, superseded, or unreproduced
+threads do not restart the workflow or invalidate accepted dispositions.
+
 ## Exact Frozen Bindings
 
 | Artifact or fact | Exact binding |
@@ -220,8 +239,8 @@ disposition. Codex B performs no GitHub thread mutation.
 | Repository ID | `1235264383` |
 | Repository name | `tahjali11/mythic-edge` |
 | Accepted predecessor parent-controller contract | `35296` bytes; `a54caf3f16abb3f01becb0e8addcb8923c65714b4ed889ef67e38a4f013154d0` |
-| Integrated parent controller | `b0fd13c96b264230562113abfc90d880c7fbbc51a50ef6abec9ddfeeab923e64` |
-| Integrated parent-controller test | `e4f2dce0341be0ad0d710de3142a2fa4bde7dc1895ea536aa135074788307410` |
+| Current integrated parent controller | `tools/run_role_pool_app_native_r0_observation_parent.py`; `82771` bytes; `2f7daaca6b9643dd39182e208501e50062164c99cd177638d72e13743abd572e` |
+| Current integrated parent-controller test | `tests/test_run_role_pool_app_native_r0_observation_parent.py`; `56400` bytes; `32a2e01667613ec5aed404bf639f575995e32b2b8bb005674dd0194940a5daa3` |
 | Accepted #826 lifecycle contract | `37249` bytes; `be7974ba998257981df5c876dfa441b03326ae776405bd269d1470957a785cde` |
 | Accepted #826 harness | `88401` bytes; `cfd3a0baaff6c4bbc5144403fd72f404722b8b96e8eca30fbf588f3180ec0b42` |
 | Accepted #826 harness test | `76211` bytes; `3fc6c35eada99f3a319e1ebe94bd5f33494821301cfdf1ec67f5f35bfc97dc4c` |
@@ -283,14 +302,17 @@ The conditional correction sequence is:
    cleaned or mutated to satisfy this gate. One public-safe #826 comment is
    permitted only if every exact eligibility gate passes.
 
-At this clarification base, steps 1 through 6 are immutable history: PR #832
-integrated the contract clarification at
-`c4a0a2549a6a60c4997f3436161ab78a8e05f8ab`, and PR #833 integrated the exact
-two-file implementation at `4b38f50013f18e02ab8ae130ae25933b0562eae0`.
-Only step 7 remains. This eligibility clarification must first receive
-independent contract review and contract-only integration. One fresh
-current-main E review then applies the same finite ten-row table. Those merges
-and reviews create no execution authority.
+At this correction base, steps 1 through 6 are immutable history: PR #832
+integrated the sequencing clarification at
+`c4a0a2549a6a60c4997f3436161ab78a8e05f8ab`, PR #833 integrated the exact
+two-file implementation at `4b38f50013f18e02ab8ae130ae25933b0562eae0`,
+and PR #834 integrated the eligibility clarification at
+`2291fd538cd24c1525b5104565b3a29c7613d6b6`. The only prospective contract
+work is independent review and contract-only integration of this exact
+two-row current-binding correction. One fresh current-main E eligibility
+review then applies the same finite ten-row table and confirms
+`ME-RP-826-E-006` against the corrected table. That integration and review
+create no execution authority.
 
 The conditional chain stops on head drift, scope expansion, unknown GitHub
 state, failed validation, an `open_blocking_current_bytes` disposition,
@@ -797,14 +819,15 @@ Stop and return to Codex A or the owner if:
 - issue #769 would require any read beyond state/comment-count validation or
   any mutation.
 
-The predecessor contract and exact two-file implementation are integrated.
-This clarification authorizes no implementation, submission, merge, or
-execution. Fresh independent contract acceptance establishes only eligibility
-for a separate owner decision about contract-only submission. After exact
-integration, one fresh current-main E review must apply the same ten-row table;
-only a fully nonblocking durable result establishes eligibility for a separate
-fresh owner Observation 1 decision. No current authority permits private-path
-access, controller start, child creation, identity generation or consumption,
+The eligibility clarification and exact two-file implementation are
+integrated. This current-binding correction authorizes no implementation,
+submission, merge, or execution. Fresh independent contract acceptance
+establishes only eligibility for a separate owner decision about contract-only
+submission. After exact integration, one fresh current-main E review must
+apply the same ten-row table and confirm `ME-RP-826-E-006`; only a fully
+nonblocking durable result establishes eligibility for a separate fresh owner
+Observation 1 decision. No current authority permits private-path access,
+controller start, child creation, identity generation or consumption,
 observation execution, candidate publication, Observation 2, task dispatch,
 R1-R8, Stage 4, deployment, assurance, privacy guarantees, security guarantees,
 or live readiness.
@@ -819,7 +842,7 @@ Pasteable prompt:
 Use the current Mythic Edge repository authority.
 Use $mythic-edge-workflow.
 
-Act as Codex E: Fresh Successor Parent-Controller Eligibility Clarification
+Act as Codex E: Fresh Successor Parent-Controller Current-Binding Contract
 Reviewer.
 
 Repository: Tahjali11/Mythic-Edge
@@ -832,6 +855,9 @@ Contract PR: https://github.com/Tahjali11/Mythic-Edge/pull/830
 Correction contract PR: https://github.com/Tahjali11/Mythic-Edge/pull/831
 Sequencing clarification PR: https://github.com/Tahjali11/Mythic-Edge/pull/832
 Implementation correction PR: https://github.com/Tahjali11/Mythic-Edge/pull/833
+Eligibility clarification PR: https://github.com/Tahjali11/Mythic-Edge/pull/834
+Source finding:
+https://github.com/Tahjali11/Mythic-Edge/pull/834#discussion_r3746013446
 
 Review exactly:
 docs/contracts/role_pool_codex_app_native_r0_successor_parent_controller.md
@@ -882,11 +908,23 @@ expected `superseded_historical`, PR #832's expected
 controller, and test hashes. Reproduce the bounded PR #833 operation-free probe
 or return `open_blocking_current_bytes`; do not infer a fix or edit code.
 
+Review `ME-RP-826-E-006` specifically. Confirm the `Exact Frozen Bindings`
+table binds the current integrated controller at `82771` bytes and SHA-256
+`2f7daaca6b9643dd39182e208501e50062164c99cd177638d72e13743abd572e`
+and its test at `56400` bytes and SHA-256
+`32a2e01667613ec5aed404bf639f575995e32b2b8bb005674dd0194940a5daa3`.
+Confirm the two PR #829 hashes remain only as clearly labeled historical
+pre-correction evidence and participate in no current-main, eligibility,
+execution-preflight, or exact-current-artifact gate.
+
 Confirm GitHub `isResolved` is workflow metadata rather than an automatic
 technical blocker for merged PRs. A new or UI-unresolved thread blocks only if
 fresh exact-byte review gives it `open_blocking_current_bytes`. Preserve the
 review at one immutable GitHub URL and report its exact body SHA-256. Do not
 reopen implementation scope: the implementation is integrated and accepted.
+Confirm the ten-row table remains bounded to PRs #829 through #833 and that the
+PR #834 finding is not appended as an eleventh row. This finite-table rule must
+not waive a distinct defect reproduced against current bytes.
 
 Run contract-only structural and operation-free existing regression checks. Do
 not implement, access a private path, start a controller or child, generate or
@@ -896,13 +934,14 @@ consume an identity, publish a receipt, touch issue #769, authorize Observation
 Lead with findings. Return the reviewed SHA-256 and byte count, one disposition
 for each of the ten named threads, exact integrated two-file bindings,
 validation, authority flags, generated residue evidence, and workflow_handoff.
-If every row is nonblocking, report contract acceptance and eligibility for a
-separate owner decision about contract-only submission. Do not create an
-Observation 1 decision, resolve threads, submit, merge, or execute. State that
-owner Observation 1 decision eligibility requires exact integration followed
-by one fresh current-main E confirmation using the same table. If any row is
-`open_blocking_current_bytes`, stop with its first reproduced boundary and
-route according to whether it is contract or implementation scope.
+If the ten rows are nonblocking and `ME-RP-826-E-006` is fixed, report contract
+acceptance and eligibility for a separate owner decision about contract-only
+submission. Do not create an Observation 1 decision, resolve threads, submit,
+merge, or execute. State that owner Observation 1 decision eligibility
+requires exact integration followed by one fresh current-main E confirmation
+using the same table and corrected bindings. If any current-byte defect is
+reproduced, stop with its first boundary and route according to whether it is
+contract or implementation scope.
 ```
 
 ```yaml
@@ -913,8 +952,10 @@ instruction_context:
     - "PR #829 integrated the controller and test; PR #830 integrated the accepted predecessor contract."
     - "PR #831 integrated the correction contract separately before the exact two-file correction could be submitted."
     - "PR #832 integrated the sequencing clarification and PR #833 integrated the exact accepted two-file implementation."
+    - "PR #834 integrated the eligibility clarification at the current correction base."
     - "GitHub reports ten UI-unresolved threads across PRs #829 through #833."
     - "Fresh exact-byte review reproduced only the PR #832 contract ambiguity; the PR #833 implementation claim was not reproduced."
+    - "PR #834 review reproduced stale current-artifact rows that name the pre-correction PR #829 hashes."
     - "Issue #769 is open with zero comments."
     - "The main checkout contains preserved pre-existing frontend/.wrangler/ residue and is not a clean-review-worktree proof."
   derived:
@@ -923,21 +964,22 @@ instruction_context:
     - "The contract digest is not embedded by either implementation file, so split integration requires no byte change."
     - "External preflight ownership avoids a GitHub client, Git subprocess, or new controller authority input."
     - "A trusted-console nonclaim closes the overstatement without weakening buffered or multiline rejection."
+    - "The corrected controller and test bytes are already integrated, so only two contract table rows require correction."
   proposed:
-    - "One eligibility clarification with a finite ten-thread disposition table and no implementation change."
+    - "One contract-only two-row current-binding correction with no implementation change."
   unknown:
     - "The future exact controller-runtime and target-executable bindings, which belong to a later owner decision."
   authority_conflicts_found: false
 
 workflow_handoff:
-  role_performed: "Codex B: App-Native R0 Successor Parent Controller Contract Writer"
+  role_performed: "Codex B: Narrow Successor Parent-Controller Current-Binding Contract Corrector"
   repository: "Tahjali11/Mythic-Edge"
   issue: "https://github.com/Tahjali11/Mythic-Edge/issues/826"
   historical_capability_issue: "https://github.com/Tahjali11/Mythic-Edge/issues/828"
   tracker: "https://github.com/Tahjali11/Mythic-Edge/issues/746"
   protected_issue: "https://github.com/Tahjali11/Mythic-Edge/issues/769"
-  base_commit: "4b38f50013f18e02ab8ae130ae25933b0562eae0"
-  base_tree: "2d0c55f44cd95bf204c2a4b0cc7f49eef8c957ca"
+  base_commit: "2291fd538cd24c1525b5104565b3a29c7613d6b6"
+  base_tree: "9fe60f93e3ff7ba208da9c2a79f647089864088b"
   target_artifact: "docs/contracts/role_pool_codex_app_native_r0_successor_parent_controller.md"
   implementation_paths:
     - "tools/run_role_pool_app_native_r0_observation_parent.py"
@@ -949,13 +991,15 @@ workflow_handoff:
     ME-RP-826-E-004: "fixed_confirmed_current_bytes"
     ME-RP-826-E-005: "fresh_clean_review_worktree_satisfied_for_source_review_revalidation_required"
     ME-RP-826-SPLIT-B-001: "fixed_confirmed_current_bytes"
-    ME-RP-826-ELIG-B-001: "eligibility_clarification_pending_independent_confirmation"
+    ME-RP-826-ELIG-B-001: "fixed_confirmed_current_bytes"
+    ME-RP-826-E-006: "current_bindings_corrected_pending_independent_confirmation"
   current_codex_shell_live_compatible: false
   implementation_authorized: false
-  further_codex_d_repair_authorized: false
+  codex_d_authorized: false
   submission_authorized_now: false
   predecessor_contract_integrated: true
-  eligibility_clarification_integrated: false
+  eligibility_clarification_integrated: true
+  current_binding_correction_integrated: false
   implementation_integrated: true
   contract_submission_eligible: false
   owner_observation_1_decision_eligible: false
@@ -965,15 +1009,17 @@ workflow_handoff:
   controller_started: false
   child_created: false
   identity_created_or_consumed: false
+  owner_decision_created_or_consumed: false
   observation_authorized: false
+  observation_1_authorized: false
   observation_1_decision_authorized: false
   receipt_publication_authorized: false
   observation_2_authorized: false
-  r0_r8_advancement_authorized: false
+  r0_r8_authorized: false
   r1_r8_authorized: false
   stage4_authorized: false
   deployment_authorized: false
   issue_769_mutation_authorized: false
   live_ready: false
-  next_recommended_role: "Codex E: Fresh Successor Parent-Controller Eligibility Clarification Reviewer"
+  next_recommended_role: "Codex E: Fresh Successor Parent-Controller Current-Binding Contract Reviewer"
 ```
