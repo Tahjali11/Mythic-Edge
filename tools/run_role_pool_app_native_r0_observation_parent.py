@@ -93,17 +93,12 @@ FIXED_CHILD_SCRIPT = "tools/check_role_pool_r0_offline_observation.py"
 TIMEOUT_SECONDS = 120.0
 TERMINATION_GRACE_SECONDS = 5.0
 MAX_PRIVATE_PATH_UNITS = 32767
-MAX_QUEUE_EVENTS = 4096
 MAX_STDOUT_BYTES = 4096
 MAX_STDERR_BYTES = 128
 MAX_COMPLETION_EVENTS_PER_CYCLE = 32
 _AUDIT_REGISTRATION_EVENT = "mythic_edge.r0_parent.audit_registration"
 _REPOSITORY_METADATA_NAMES = frozenset({".git"})
 
-ENABLE_LINE_INPUT = 0x0002
-ENABLE_ECHO_INPUT = 0x0004
-STD_INPUT_HANDLE = -10
-KEY_EVENT = 0x0001
 GENERIC_READ = 0x80000000
 FILE_READ_ATTRIBUTES = 0x00000080
 FILE_EXECUTE = 0x00000020
@@ -156,7 +151,6 @@ _STATUS_EXIT_CODES = {
 _REQUIRED_CLOSE_RESOURCES = frozenset(
     {
         "controller_image_guard",
-        "target_guard",
         "stdin_read",
         "stdin_write",
         "stdout_read",
@@ -218,22 +212,6 @@ class _CanonicalTargetBinding:
     @property
     def transport(self) -> str:
         return base64.urlsafe_b64encode(self.canonical_bytes).rstrip(b"=").decode("ascii")
-
-
-@dataclass(frozen=True)
-class _QueueRecord:
-    event_type: int
-    key_down: bool
-    unicode_character: str
-
-
-@dataclass(frozen=True)
-class _QueueAudit:
-    first_count: int | None
-    records: tuple[_QueueRecord, ...]
-    returned_count: int | None
-    second_count: int | None
-    api_exact: bool = True
 
 
 @dataclass(frozen=True)
@@ -313,23 +291,9 @@ class ParentAdapter(Protocol):
 
     def windows_directory(self) -> str: ...
 
-    def open_console(self) -> tuple[object, int]: ...
-
-    def set_console_mode(self, console: object, mode: int) -> bool: ...
-
-    def audit_console_queue(self, console: object) -> _QueueAudit: ...
-
-    def read_console_line(self, console: object, capacity: int) -> object: ...
-
     def validate_controller_image(self) -> _TargetBinding: ...
 
-    def validate_target(self, private_line: object) -> _TargetBinding: ...
-
-    def image_bindings_exact(
-        self,
-        controller: _TargetBinding,
-        target: _TargetBinding,
-    ) -> bool | None: ...
+    def image_binding_exact(self, target: _TargetBinding) -> bool | None: ...
 
     def clear_private(self, *values: object) -> bool: ...
 
@@ -564,107 +528,6 @@ def _binding_matches(target: _TargetBinding, expected: _CanonicalTargetBinding) 
         return False
 
 
-def _queue_is_empty(audit: _QueueAudit) -> bool:
-    count = audit.first_count
-    if (
-        not audit.api_exact
-        or type(count) is not int
-        or count < 0
-        or count > MAX_QUEUE_EVENTS
-        or type(audit.second_count) is not int
-        or audit.second_count != count
-    ):
-        return False
-    if count == 0:
-        return audit.returned_count in (None, 0) and not audit.records
-    if audit.returned_count != count or len(audit.records) != count:
-        return False
-    for record in audit.records:
-        if (
-            type(record.event_type) is not int
-            or type(record.key_down) is not bool
-            or type(record.unicode_character) is not str
-            or len(record.unicode_character) > 1
-        ):
-            return False
-        if record.event_type == KEY_EVENT and record.key_down and record.unicode_character != "\0":
-            return False
-    return True
-
-
-def _private_line_text(value: object) -> str:
-    if type(value) is not str or not value or "\0" in value:
-        raise _ControllerError("observation_binding_rejected")
-    if len(value) > MAX_PRIVATE_PATH_UNITS + 2:
-        raise _ControllerError("observation_binding_rejected")
-    if value.endswith("\r\n"):
-        body = value[:-2]
-    elif value.endswith("\r"):
-        body = value[:-1]
-    else:
-        raise _ControllerError("observation_binding_rejected")
-    if not body or "\r" in body or "\n" in body:
-        raise _ControllerError("observation_binding_rejected")
-    try:
-        body.encode("utf-16-le", "strict")
-    except UnicodeEncodeError as exc:
-        raise _ControllerError("observation_binding_rejected") from exc
-    if len(body) > MAX_PRIVATE_PATH_UNITS:
-        raise _ControllerError("observation_binding_rejected")
-    return body
-
-
-def _acquire_target(adapter: ParentAdapter) -> _TargetBinding:
-    console: object | None = None
-    private_line: object | None = None
-    normalized: object | None = None
-    original_mode: int | None = None
-    mode_changed = False
-    restored = False
-    restore_attempted = False
-    clear_exact = True
-    try:
-        console, original_mode = adapter.open_console()
-        if type(original_mode) is not int or not (original_mode & ENABLE_LINE_INPUT):
-            raise _ControllerError("observation_binding_rejected")
-        if not adapter.set_console_mode(console, original_mode & ~ENABLE_ECHO_INPUT):
-            raise _ControllerError("observation_binding_rejected")
-        mode_changed = True
-        if not _queue_is_empty(adapter.audit_console_queue(console)):
-            raise _ControllerError("observation_binding_rejected")
-        private_line = adapter.read_console_line(console, MAX_PRIVATE_PATH_UNITS + 2)
-        normalized = _private_line_text(private_line)
-        if not _queue_is_empty(adapter.audit_console_queue(console)):
-            raise _ControllerError("observation_binding_rejected")
-        restore_attempted = True
-        if not adapter.set_console_mode(console, original_mode):
-            raise _ControllerError("observation_timeout_unknown")
-        restored = True
-        if not _queue_is_empty(adapter.audit_console_queue(console)):
-            raise _ControllerError("observation_binding_rejected")
-        return adapter.validate_target(normalized)
-    finally:
-        if (
-            mode_changed
-            and not restore_attempted
-            and console is not None
-            and original_mode is not None
-        ):
-            restore_attempted = True
-            try:
-                restored = adapter.set_console_mode(console, original_mode)
-            except BaseException:
-                restored = False
-        try:
-            clear_exact = adapter.clear_private(private_line, normalized)
-        except BaseException:
-            clear_exact = False
-        if mode_changed and not restored:
-            raise _ControllerError("observation_timeout_unknown")
-        if not clear_exact:
-            raise _ControllerError("observation_timeout_unknown")
-
-
 def _fixed_environment(windows_directory: str) -> tuple[tuple[str, str], ...]:
     if not windows_directory or "\0" in windows_directory:
         raise _ControllerError("observation_binding_rejected")
@@ -736,30 +599,23 @@ def _closes_exact(evidence: _LaunchEvidence) -> bool:
 def _finish_image_state(
     adapter: ParentAdapter,
     controller: _TargetBinding | None,
-    target: _TargetBinding | None,
-) -> bool:
+) -> tuple[bool, _CloseObservation | None]:
     if controller is None:
-        return target is None
+        return True, None
     try:
         closes = adapter.finish_image_guards()
     except BaseException:
         closes = ()
-    expected = (
-        ("target_guard", "controller_image_guard")
-        if target is not None
-        else ("controller_image_guard",)
-    )
     try:
-        cleared = adapter.clear_private(
-            controller.opaque_path,
-            target.opaque_path if target is not None else None,
-        )
+        cleared = adapter.clear_private(controller.opaque_path)
     except BaseException:
         cleared = False
+    observation = closes[0] if len(closes) == 1 else None
     return (
-        tuple(item.resource for item in closes) == expected
+        tuple(item.resource for item in closes) == ("controller_image_guard",)
         and all(item.attempt_count == 1 and item.succeeded for item in closes)
-        and cleared
+        and cleared,
+        observation,
     )
 
 
@@ -772,7 +628,6 @@ def _run_metadata(
     if runtime_os != "nt" or runtime_platform != "win32":
         return "observation_host_rejected"
     controller: _TargetBinding | None = None
-    target: _TargetBinding | None = None
     status: str | None = None
     binding: _CanonicalTargetBinding | None = None
     try:
@@ -781,13 +636,12 @@ def _run_metadata(
         before = adapter.snapshot_effects(repository_root)
         if not before.exact:
             raise _ControllerError("observation_binding_rejected")
-        target = _acquire_target(adapter)
-        if (
-            controller.identity != target.identity
-            or adapter.image_bindings_exact(controller, target) is not True
-        ):
+        if adapter.image_binding_exact(controller) is not True:
             raise _ControllerError("observation_binding_rejected")
-        binding = _canonical_target_binding(target.identity)
+        try:
+            binding = _canonical_target_binding(controller.identity)
+        except _ControllerError as exc:
+            raise _ControllerError("observation_binding_rejected") from exc
     except _SafetyEffect:
         status = "observation_safety_boundary_failed"
     except _ControllerError as exc:
@@ -795,7 +649,8 @@ def _run_metadata(
     except BaseException:
         status = "observation_result_unknown"
     finally:
-        if not _finish_image_state(adapter, controller, target):
+        image_cleanup_complete, _image_close = _finish_image_state(adapter, controller)
+        if not image_cleanup_complete:
             status = "observation_timeout_unknown"
     if status is not None:
         return status
@@ -830,9 +685,10 @@ def _run_controller(
     if runtime_os != "nt" or runtime_platform != "win32":
         return "observation_host_rejected"
     controller: _TargetBinding | None = None
-    target: _TargetBinding | None = None
     evidence: _LaunchEvidence | None = None
     image_cleanup_complete = False
+    image_cleanup_attempted = False
+    image_close: _CloseObservation | None = None
     try:
         observation_id = _validate_observation_id(observation_id)
         owner.observation_identity_pair(observation_id)
@@ -841,20 +697,16 @@ def _run_controller(
         if not before.exact:
             return "observation_binding_rejected"
         controller = adapter.validate_controller_image()
-        if not _binding_matches(controller, expected_binding):
-            raise _ControllerError("observation_binding_rejected")
-        target = _acquire_target(adapter)
         if (
-            not _binding_matches(target, expected_binding)
-            or controller.identity != target.identity
-            or adapter.image_bindings_exact(controller, target) is not True
+            not _binding_matches(controller, expected_binding)
+            or adapter.image_binding_exact(controller) is not True
         ):
             raise _ControllerError("observation_binding_rejected")
         checker_exact: bool | None = None
         checker_close: _CloseObservation | None = None
         try:
             request = _LaunchRequest(
-                target=target,
+                target=controller,
                 tokens=("python.exe", "-B", FIXED_CHILD_SCRIPT, observation_id),
                 repository_root=repository_root,
                 environment=_fixed_environment(adapter.windows_directory()),
@@ -863,7 +715,7 @@ def _run_controller(
                 max_stderr_bytes=MAX_STDERR_BYTES,
             )
             evidence = adapter.launch_once(request)
-            target_exact = adapter.target_identity_exact(target)
+            target_exact = adapter.target_identity_exact(controller)
             after = adapter.snapshot_effects(repository_root)
             counts = adapter.audit_counts()
         finally:
@@ -872,20 +724,21 @@ def _run_controller(
             except BaseException:
                 checker_exact = None
                 checker_close = None
-            image_cleanup_complete = _finish_image_state(adapter, controller, target)
+            image_cleanup_attempted = True
+            image_cleanup_complete, image_close = _finish_image_state(adapter, controller)
             if not image_cleanup_complete:
                 raise _ControllerError("observation_timeout_unknown")
             if checker_close is not None and (
                 checker_close.attempt_count != 1 or checker_close.succeeded is not True
             ):
                 raise _ControllerError("observation_timeout_unknown")
-        if checker_close is None:
+        if checker_close is None or image_close is None:
             raise _ControllerError("observation_timeout_unknown")
         if evidence is None:
             raise _ControllerError("observation_launch_unknown")
         evidence = replace(
             evidence,
-            close_observations=evidence.close_observations + (checker_close,),
+            close_observations=evidence.close_observations + (checker_close, image_close),
         )
         if checker_exact is not True:
             raise _ControllerError("observation_launch_unknown")
@@ -899,7 +752,10 @@ def _run_controller(
         status = None
 
     if status is not None:
-        if not image_cleanup_complete and not _finish_image_state(adapter, controller, target):
+        if not image_cleanup_attempted:
+            image_cleanup_attempted = True
+            image_cleanup_complete, image_close = _finish_image_state(adapter, controller)
+        if not image_cleanup_complete:
             return "observation_timeout_unknown"
         return status
 
@@ -991,25 +847,6 @@ def _run_controller(
     if type(result) is bytes:
         return result
     return result if result in _CLOSED_FAILURE_STATUSES else "observation_result_unknown"
-
-
-class _KeyEventRecord(ctypes.Structure):
-    _fields_ = (
-        ("bKeyDown", wintypes.BOOL),
-        ("wRepeatCount", wintypes.WORD),
-        ("wVirtualKeyCode", wintypes.WORD),
-        ("wVirtualScanCode", wintypes.WORD),
-        ("UnicodeChar", wintypes.WCHAR),
-        ("dwControlKeyState", wintypes.DWORD),
-    )
-
-
-class _InputEventUnion(ctypes.Union):
-    _fields_ = (("KeyEvent", _KeyEventRecord), ("padding", ctypes.c_byte * 16))
-
-
-class _InputRecord(ctypes.Structure):
-    _fields_ = (("EventType", wintypes.WORD), ("Event", _InputEventUnion))
 
 
 class _SecurityAttributes(ctypes.Structure):
@@ -1294,29 +1131,6 @@ def _checker_identity_exact(
 
 def _kernel32() -> object:
     kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-    kernel32.GetStdHandle.argtypes = (wintypes.DWORD,)
-    kernel32.GetStdHandle.restype = wintypes.HANDLE
-    kernel32.GetConsoleMode.argtypes = (wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD))
-    kernel32.GetConsoleMode.restype = wintypes.BOOL
-    kernel32.SetConsoleMode.argtypes = (wintypes.HANDLE, wintypes.DWORD)
-    kernel32.SetConsoleMode.restype = wintypes.BOOL
-    kernel32.GetNumberOfConsoleInputEvents.argtypes = (wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD))
-    kernel32.GetNumberOfConsoleInputEvents.restype = wintypes.BOOL
-    kernel32.PeekConsoleInputW.argtypes = (
-        wintypes.HANDLE,
-        ctypes.POINTER(_InputRecord),
-        wintypes.DWORD,
-        ctypes.POINTER(wintypes.DWORD),
-    )
-    kernel32.PeekConsoleInputW.restype = wintypes.BOOL
-    kernel32.ReadConsoleW.argtypes = (
-        wintypes.HANDLE,
-        wintypes.LPVOID,
-        wintypes.DWORD,
-        ctypes.POINTER(wintypes.DWORD),
-        wintypes.LPVOID,
-    )
-    kernel32.ReadConsoleW.restype = wintypes.BOOL
     kernel32.GetWindowsDirectoryW.argtypes = (wintypes.LPWSTR, wintypes.UINT)
     kernel32.GetWindowsDirectoryW.restype = wintypes.UINT
     kernel32.CreateFileW.argtypes = (
@@ -1683,7 +1497,6 @@ class _WindowsParentAdapter:
         self.kernel32 = _kernel32()
         self.audit: _AuditCounter | None = None
         self.launch_calls = 0
-        self.guard: _OwnedHandle | None = None
         self.controller_guard: _OwnedHandle | None = None
         self.checker_guard: _OwnedHandle | None = None
         self.checker_identity: tuple[int, int, int, int, str] | None = None
@@ -1762,59 +1575,6 @@ class _WindowsParentAdapter:
         if length <= 0 or length >= capacity or not buffer.value:
             raise _ControllerError("observation_binding_rejected")
         return buffer.value
-
-    def open_console(self) -> tuple[object, int]:
-        handle = self.kernel32.GetStdHandle(ctypes.c_uint32(STD_INPUT_HANDLE).value)
-        mode = wintypes.DWORD()
-        if not handle or not self.kernel32.GetConsoleMode(handle, ctypes.byref(mode)):
-            raise _ControllerError("observation_binding_rejected")
-        return int(handle), int(mode.value)
-
-    def set_console_mode(self, console: object, mode: int) -> bool:
-        return bool(self.kernel32.SetConsoleMode(wintypes.HANDLE(int(console)), mode))
-
-    def audit_console_queue(self, console: object) -> _QueueAudit:
-        first = wintypes.DWORD()
-        if not self.kernel32.GetNumberOfConsoleInputEvents(wintypes.HANDLE(int(console)), ctypes.byref(first)):
-            return _QueueAudit(None, (), None, None, False)
-        count = int(first.value)
-        if count > MAX_QUEUE_EVENTS:
-            return _QueueAudit(count, (), None, None, False)
-        records: tuple[_QueueRecord, ...] = ()
-        returned_count: int | None = 0
-        if count:
-            buffer = (_InputRecord * count)()
-            returned = wintypes.DWORD()
-            if not self.kernel32.PeekConsoleInputW(
-                wintypes.HANDLE(int(console)), buffer, count, ctypes.byref(returned)
-            ):
-                return _QueueAudit(count, (), None, None, False)
-            returned_count = int(returned.value)
-            records = tuple(
-                _QueueRecord(
-                    int(item.EventType),
-                    bool(item.Event.KeyEvent.bKeyDown) if item.EventType == KEY_EVENT else False,
-                    item.Event.KeyEvent.UnicodeChar if item.EventType == KEY_EVENT else "\0",
-                )
-                for item in buffer[: returned.value]
-            )
-            ctypes.memset(ctypes.addressof(buffer), 0, ctypes.sizeof(buffer))
-        second = wintypes.DWORD()
-        if not self.kernel32.GetNumberOfConsoleInputEvents(wintypes.HANDLE(int(console)), ctypes.byref(second)):
-            return _QueueAudit(count, records, returned_count, None, False)
-        return _QueueAudit(count, records, returned_count, int(second.value), True)
-
-    def read_console_line(self, console: object, capacity: int) -> object:
-        buffer = ctypes.create_unicode_buffer(capacity + 1)
-        read = wintypes.DWORD()
-        if not self.kernel32.ReadConsoleW(
-            wintypes.HANDLE(int(console)), buffer, capacity, ctypes.byref(read), None
-        ):
-            ctypes.memset(ctypes.addressof(buffer), 0, ctypes.sizeof(buffer))
-            raise _ControllerError("observation_binding_rejected")
-        value = buffer[: read.value]
-        ctypes.memset(ctypes.addressof(buffer), 0, ctypes.sizeof(buffer))
-        return value
 
     def _open_executable_binding(
         self,
@@ -1905,13 +1665,6 @@ class _WindowsParentAdapter:
         self.controller_guard = guard
         return binding
 
-    def validate_target(self, private_line: object) -> _TargetBinding:
-        if self.guard is not None:
-            raise _ControllerError("observation_binding_rejected")
-        binding, guard = self._open_executable_binding(private_line, "target_guard")
-        self.guard = guard
-        return binding
-
     def clear_private(self, *values: object) -> bool:
         exact = True
         for value in values:
@@ -1921,27 +1674,14 @@ class _WindowsParentAdapter:
                 exact = False
         return exact
 
-    def image_bindings_exact(
-        self,
-        controller: _TargetBinding,
-        target: _TargetBinding,
-    ) -> bool | None:
-        if (
-            self.controller_guard is None
-            or self.guard is None
-            or not self.controller_guard.open
-            or not self.guard.open
-        ):
+    def image_binding_exact(self, target: _TargetBinding) -> bool | None:
+        if self.controller_guard is None or not self.controller_guard.open:
             return None
         try:
-            controller_path = bytes(cast(bytearray, controller.opaque_path)).decode("utf-16-le")
             target_path = bytes(cast(bytearray, target.opaque_path)).decode("utf-16-le")
             return (
                 _handle_stable_identity(self.kernel32, self.controller_guard)
-                == controller.identity.stable_identity_sha256
                 == target.identity.stable_identity_sha256
-                == _handle_stable_identity(self.kernel32, self.guard)
-                and _path_identity_exact(controller_path, controller.identity) is True
                 and _path_identity_exact(target_path, target.identity) is True
             )
         except BaseException:
@@ -1951,16 +1691,12 @@ class _WindowsParentAdapter:
         self.launch_calls += 1
         if (
             self.launch_calls != 1
-            or self.guard is None
-            or not self.guard.open
             or self.controller_guard is None
             or not self.controller_guard.open
         ):
             raise _SafetyEffect
         if (
             _handle_stable_identity(self.kernel32, self.controller_guard)
-            != request.target.identity.stable_identity_sha256
-            or _handle_stable_identity(self.kernel32, self.guard)
             != request.target.identity.stable_identity_sha256
         ):
             raise _ControllerError("observation_binding_rejected")
@@ -1989,8 +1725,6 @@ class _WindowsParentAdapter:
                 raise _ControllerError("observation_binding_rejected")
         except BaseException:
             _checker_exact, checker_close = self.finish_checker_guard()
-            self.guard.close()
-            target_close = self.guard.observation()
             self.controller_guard.close()
             controller_close = self.controller_guard.observation()
             if any(
@@ -1999,7 +1733,7 @@ class _WindowsParentAdapter:
                     observation.attempt_count != 1
                     or observation.succeeded is not True
                 )
-                for observation in (checker_close, target_close, controller_close)
+                for observation in (checker_close, controller_close)
             ):
                 raise _ControllerError("observation_timeout_unknown") from None
             raise
@@ -2009,19 +1743,16 @@ class _WindowsParentAdapter:
             path,
             self.kernel32,
             self.controller_guard,
-            self.guard,
         )
         self.last_target_exact = evidence.target_identity_exact
         return evidence
 
     def finish_image_guards(self) -> tuple[_CloseObservation, ...]:
-        observations: list[_CloseObservation] = []
-        for attribute in ("guard", "controller_guard"):
-            guard = cast(_OwnedHandle | None, getattr(self, attribute))
-            if guard is not None:
-                guard.close()
-                observations.append(guard.observation())
-        return tuple(observations)
+        guard = self.controller_guard
+        if guard is None:
+            return ()
+        guard.close()
+        return (guard.observation(),)
 
     def finish_checker_guard(self) -> tuple[bool | None, _CloseObservation | None]:
         guard = self.checker_guard
@@ -2058,12 +1789,8 @@ def _execute_windows_once(
     private_path: str,
     kernel32: object,
     controller_guard: _OwnedHandle,
-    target_guard: _OwnedHandle,
 ) -> _LaunchEvidence:
-    handles: dict[str, _OwnedHandle] = {
-        "controller_image_guard": controller_guard,
-        "target_guard": target_guard,
-    }
+    handles: dict[str, _OwnedHandle] = {}
     attributes = _OwnedAttributeList(kernel32)
     information = _ProcessInformation()
     attempts = 0
@@ -2148,6 +1875,13 @@ def _execute_windows_once(
         handles["stdin_write"].close()
         command_line = ctypes.create_unicode_buffer(_command_line(request.tokens))
         environment = _environment_block(request.environment)
+        target_exact = (
+            controller_guard.open
+            and _handle_stable_identity(kernel32, controller_guard)
+            == request.target.identity.stable_identity_sha256
+        )
+        if not target_exact:
+            raise _ControllerError("observation_binding_rejected")
         target_exact = _require_precreate_target_identity(private_path, request.target.identity)
         deadline = time.monotonic() + request.timeout_seconds
         created = None
@@ -2253,7 +1987,12 @@ def _execute_windows_once(
         identity_exact = _query_process_identity(
             kernel32, handles["process"], request.target.identity
         )
-        target_exact = _path_identity_exact(private_path, request.target.identity)
+        target_exact = (
+            controller_guard.open
+            and _handle_stable_identity(kernel32, controller_guard)
+            == request.target.identity.stable_identity_sha256
+            and _path_identity_exact(private_path, request.target.identity) is True
+        )
     except BaseException as exc:
         event_exact = False
         if created is False and isinstance(exc, _ControllerError):

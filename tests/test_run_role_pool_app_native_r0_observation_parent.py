@@ -26,8 +26,6 @@ OBSERVATION_ID = "r0.app_native.offline.observation.1." + "1" * 32
 RECEIPT = b'{"receipt":"synthetic"}\n'
 PRIVATE_MARKER = "private-synthetic-marker"
 LAUNCH_CLOSE_NAMES = (
-    "controller_image_guard",
-    "target_guard",
     "stdin_read",
     "stdin_write",
     "stdout_read",
@@ -40,7 +38,7 @@ LAUNCH_CLOSE_NAMES = (
     "thread",
     "attribute_list",
 )
-CLOSE_NAMES = LAUNCH_CLOSE_NAMES + ("checker_guard",)
+CLOSE_NAMES = LAUNCH_CLOSE_NAMES + ("checker_guard", "controller_image_guard")
 
 
 @dataclass(frozen=True)
@@ -94,10 +92,6 @@ class FakeOwner:
         return RECEIPT
 
 
-def empty_audit() -> object:
-    return parent._QueueAudit(0, (), 0, 0, True)
-
-
 def close_observations(**changes: bool) -> tuple[object, ...]:
     return tuple(
         parent._CloseObservation(name, 1, changes.get(name, True))
@@ -143,9 +137,6 @@ class FakeAdapter:
         self.os_name = "nt"
         self.platform = "win32"
         self.calls: list[str] = []
-        self.audits = [empty_audit(), empty_audit(), empty_audit()]
-        separator = chr(92)
-        self.private_line = "C:" + separator + "synthetic" + separator + "python.exe\r\n"
         self.before = parent._EffectSnapshot(True, "repo", "installed", frozenset())
         self.after = self.before
         self.counts = parent._AuditCounts(0, 0, 0, 0)
@@ -153,17 +144,14 @@ class FakeAdapter:
         self.target_exact: bool | None = True
         self.launch_error: BaseException | None = None
         self.request: object | None = None
-        self.set_mode_results: list[bool] = [True, True]
-        self.read_count = 0
+        self.launch_path: bytes | None = None
         self.clear_count = 0
         self.checker_exact: bool | None = True
         self.checker_close_succeeded = True
         self.checker_guard_owned = False
         self.controller_guard_owned = False
-        self.target_guard_owned = False
         self.image_close_results = {
             "controller_image_guard": True,
-            "target_guard": True,
         }
         self.image_exact: bool | None = True
         self.identity = parent._FileIdentity(
@@ -195,42 +183,12 @@ class FakeAdapter:
         self.calls.append("windows_directory")
         return "C:" + chr(92) + "Windows"
 
-    def open_console(self) -> tuple[object, int]:
-        self.calls.append("open_console")
-        return object(), parent.ENABLE_LINE_INPUT | parent.ENABLE_ECHO_INPUT
-
-    def set_console_mode(self, console: object, mode: int) -> bool:
-        del console
-        self.calls.append("set_console_mode")
-        return self.set_mode_results.pop(0)
-
-    def audit_console_queue(self, console: object) -> object:
-        del console
-        self.calls.append("queue_audit")
-        return self.audits.pop(0)
-
-    def read_console_line(self, console: object, capacity: int) -> object:
-        del console
-        assert capacity == parent.MAX_PRIVATE_PATH_UNITS + 2
-        self.calls.append("read_console")
-        self.read_count += 1
-        return self.private_line
-
     def validate_controller_image(self) -> object:
         self.calls.append("validate_controller_image")
         self.controller_guard_owned = True
         return parent._TargetBinding(
-            bytearray((PRIVATE_MARKER + "-controller").encode("ascii")),
-            self.controller_identity,
-        )
-
-    def validate_target(self, private_line: object) -> object:
-        assert type(private_line) is str
-        self.calls.append("validate_target")
-        self.target_guard_owned = True
-        return parent._TargetBinding(
             bytearray(PRIVATE_MARKER.encode("ascii")),
-            self.identity,
+            self.controller_identity,
         )
 
     def clear_private(self, *values: object) -> bool:
@@ -241,14 +199,15 @@ class FakeAdapter:
                 value[:] = b"\0" * len(value)
         return True
 
-    def image_bindings_exact(self, controller: object, target: object) -> bool | None:
-        del controller, target
-        self.calls.append("image_bindings_exact")
+    def image_binding_exact(self, target: object) -> bool | None:
+        del target
+        self.calls.append("image_binding_exact")
         return self.image_exact
 
     def launch_once(self, request: object) -> object:
         self.calls.append("launch")
         self.request = request
+        self.launch_path = bytes(request.target.opaque_path)
         self.checker_guard_owned = True
         if self.launch_error is not None:
             raise self.launch_error
@@ -257,15 +216,6 @@ class FakeAdapter:
     def finish_image_guards(self) -> tuple[object, ...]:
         self.calls.append("finish_image_guards")
         observations: list[object] = []
-        if self.target_guard_owned:
-            self.target_guard_owned = False
-            observations.append(
-                parent._CloseObservation(
-                    "target_guard",
-                    1,
-                    self.image_close_results["target_guard"],
-                )
-            )
         if self.controller_guard_owned:
             self.controller_guard_owned = False
             observations.append(
@@ -424,69 +374,6 @@ def test_non_windows_fails_before_private_input(runtime: tuple[str, str]) -> Non
 
 
 @pytest.mark.parametrize(
-    "audit",
-    [
-        parent._QueueAudit(None, (), None, None, False),
-        parent._QueueAudit(-1, (), 0, -1, True),
-        parent._QueueAudit(4097, (), None, 4097, True),
-        parent._QueueAudit(1, (), 0, 1, True),
-        parent._QueueAudit(1, (parent._QueueRecord(parent.KEY_EVENT, True, "x"),), 1, 1, True),
-        parent._QueueAudit(1, (parent._QueueRecord(parent.KEY_EVENT, True, "\0"),), 0, 1, True),
-        parent._QueueAudit(1, (parent._QueueRecord(parent.KEY_EVENT, True, "\0"),), 1, 2, True),
-        parent._QueueAudit(1, (parent._QueueRecord(parent.KEY_EVENT, "yes", "\0"),), 1, 1, True),
-        parent._QueueAudit(1, (parent._QueueRecord(parent.KEY_EVENT, True, "xx"),), 1, 1, True),
-    ],
-)
-def test_queue_audit_uncertainty_and_character_input_fail_closed(audit: object) -> None:
-    assert not parent._queue_is_empty(audit)
-
-
-@pytest.mark.parametrize(
-    "audit",
-    [
-        empty_audit(),
-        parent._QueueAudit(1, (parent._QueueRecord(2, False, "\0"),), 1, 1, True),
-        parent._QueueAudit(1, (parent._QueueRecord(parent.KEY_EVENT, False, "x"),), 1, 1, True),
-        parent._QueueAudit(1, (parent._QueueRecord(parent.KEY_EVENT, True, "\0"),), 1, 1, True),
-    ],
-)
-def test_queue_audit_non_character_records_are_non_consumingly_admitted(audit: object) -> None:
-    assert parent._queue_is_empty(audit)
-
-
-@pytest.mark.parametrize(
-    "value",
-    [
-        None,
-        "",
-        "unterminated",
-        "\r",
-        "\r\n",
-        "first\nsecond\r\n",
-        "first\rsecond\r\n",
-        "value\0\r\n",
-        "value\n",
-        "value\r\nextra",
-        "x" * (parent.MAX_PRIVATE_PATH_UNITS + 1) + "\r",
-        "\ud800\r",
-    ],
-    ids=lambda value: (
-        f"{type(value).__name__}-{len(value)}"
-        if isinstance(value, str)
-        else type(value).__name__
-    ),
-)
-def test_private_line_requires_one_complete_crlf_terminated_line(value: object) -> None:
-    with pytest.raises(parent._ControllerError, match="observation_binding_rejected"):
-        parent._private_line_text(value)
-
-
-@pytest.mark.parametrize("ending", ["\r", "\r\n"])
-def test_private_line_positive(ending: str) -> None:
-    assert parent._private_line_text("synthetic" + ending) == "synthetic"
-
-
-@pytest.mark.parametrize(
     ("value", "expected"),
     [
         ("C:" + chr(92) + "Python313" + chr(92) + "python.exe", True),
@@ -504,69 +391,47 @@ def test_private_target_lexical_policy(value: object, expected: bool) -> None:
     assert parent._valid_private_target_text(value) is expected
 
 
-def test_success_uses_three_audits_one_read_and_restores_before_validation() -> None:
+def test_success_uses_guarded_controller_image_as_the_sole_target() -> None:
     adapter = FakeAdapter()
     result, _owner = run(adapter)
     assert result == RECEIPT
-    assert adapter.read_count == 1
-    assert adapter.calls.index("validate_target") > adapter.calls.index("set_console_mode", 8)
-    assert adapter.calls[:15] == [
+    assert adapter.calls[:8] == [
         "runtime",
         "install_audit",
         "snapshot",
         "validate_controller_image",
-        "open_console",
-        "set_console_mode",
-        "queue_audit",
-        "read_console",
-        "queue_audit",
-        "set_console_mode",
-        "queue_audit",
-        "validate_target",
-        "clear_private",
-        "image_bindings_exact",
+        "image_binding_exact",
         "windows_directory",
+        "launch",
+        "target_recheck",
     ]
-    assert adapter.calls.count("queue_audit") == 3
-    assert adapter.calls.count("read_console") == 1
+    assert cast_request(adapter).target.identity == adapter.controller_identity
+    assert adapter.launch_path == PRIVATE_MARKER.encode("ascii")
+    assert adapter.calls.count("validate_controller_image") == 1
+    assert adapter.calls.count("image_binding_exact") == 1
+    assert adapter.clear_count == 1
 
 
-@pytest.mark.parametrize("audit_index", [0, 1, 2])
-def test_each_character_queue_boundary_rejects_before_launch(audit_index: int) -> None:
+@pytest.mark.parametrize("image_exact", [False, None])
+def test_controller_image_revalidation_rejects_before_launch(
+    image_exact: bool | None,
+) -> None:
     adapter = FakeAdapter()
-    adapter.audits[audit_index] = parent._QueueAudit(
-        1,
-        (parent._QueueRecord(parent.KEY_EVENT, True, "x"),),
-        1,
-        1,
-        True,
-    )
+    adapter.image_exact = image_exact
     result, _owner = run(adapter)
     assert result == "observation_binding_rejected"
-    assert "launch" not in adapter.calls
-    assert adapter.calls.count("read_console") == (0 if audit_index == 0 else 1)
-    assert adapter.calls.count("set_console_mode") == 2
-
-
-def test_mode_restore_failure_is_terminal_and_no_launch() -> None:
-    adapter = FakeAdapter()
-    adapter.set_mode_results = [True, False]
-    result, _owner = run(adapter)
-    assert result == "observation_timeout_unknown"
-    assert adapter.calls.count("set_console_mode") == 2
     assert "launch" not in adapter.calls
 
 
 @pytest.mark.parametrize(
     ("method", "status"),
     [
-        ("open_console", "observation_binding_rejected"),
-        ("read_console_line", "observation_binding_rejected"),
-        ("validate_target", "observation_binding_rejected"),
+        ("validate_controller_image", "observation_binding_rejected"),
+        ("image_binding_exact", "observation_binding_rejected"),
         ("windows_directory", "observation_binding_rejected"),
     ],
 )
-def test_native_ingress_acquisition_failures_stop_without_process_entry(
+def test_sole_image_acquisition_failures_stop_without_process_entry(
     method: str,
     status: str,
 ) -> None:
@@ -579,11 +444,9 @@ def test_native_ingress_acquisition_failures_stop_without_process_entry(
     result, _owner = run(adapter)
     assert result == status
     assert "launch" not in adapter.calls
-    if method in {"read_console_line", "validate_target"}:
-        assert adapter.calls.count("set_console_mode") == 2
 
 
-def test_private_buffer_clear_failure_is_cleanup_unknown() -> None:
+def test_controller_path_clear_failure_after_launch_is_cleanup_unknown() -> None:
     adapter = FakeAdapter()
 
     def fail_clear(*_values: object) -> bool:
@@ -593,7 +456,7 @@ def test_private_buffer_clear_failure_is_cleanup_unknown() -> None:
     adapter.clear_private = fail_clear
     result, _owner = run(adapter)
     assert result == "observation_timeout_unknown"
-    assert "launch" not in adapter.calls
+    assert adapter.calls.count("launch") == 1
 
 
 def test_private_value_never_enters_request_result_or_exception() -> None:
@@ -603,6 +466,14 @@ def test_private_value_never_enters_request_result_or_exception() -> None:
     assert PRIVATE_MARKER not in repr(adapter.request)
     assert PRIVATE_MARKER not in " ".join(cast_request(adapter).tokens)
     assert all(PRIVATE_MARKER not in item for item in adapter.calls)
+
+
+def test_launch_helper_borrows_the_exact_sole_controller_path() -> None:
+    launch_source = inspect.getsource(parent._WindowsParentAdapter.launch_once)
+    execute_source = inspect.getsource(parent._execute_windows_once)
+    assert "path = bytes(cast(bytearray, request.target.opaque_path)).decode(\"utf-16-le\")" in launch_source
+    assert "path,\n            self.kernel32,\n            self.controller_guard" in launch_source
+    assert "kernel32.CreateProcessW(\n                private_path," in execute_source
 
 
 @pytest.mark.parametrize("identity", [True, False, None])
@@ -623,7 +494,7 @@ def test_post_launch_target_file_drift_is_launch_unknown(target_exact: bool | No
     result, owner = run(adapter)
     assert result == "observation_launch_unknown"
     assert owner.seal_calls == 0
-    assert adapter.clear_count == 2
+    assert adapter.clear_count == 1
 
 
 @pytest.mark.parametrize("observed", [False, None])
@@ -648,7 +519,7 @@ def test_precreate_target_identity_check_is_immediately_before_create_process() 
     assert binding < deadline < uncertain < attempt < create
 
 
-def test_target_guard_is_closed_when_identity_capture_fails(
+def test_controller_guard_is_closed_when_identity_capture_fails(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -668,7 +539,6 @@ def test_target_guard_is_closed_when_identity_capture_fails(
     target.write_bytes(b"synthetic")
     adapter = object.__new__(parent._WindowsParentAdapter)
     adapter.kernel32 = Kernel()
-    adapter.guard = None
     monkeypatch.setattr(
         parent,
         "_stable_file_bytes",
@@ -676,9 +546,8 @@ def test_target_guard_is_closed_when_identity_capture_fails(
     )
 
     with pytest.raises(parent._ControllerError, match="observation_binding_rejected"):
-        adapter.validate_target(str(target))
+        adapter._open_executable_binding(str(target), "controller_image_guard")
 
-    assert adapter.guard is None
     assert adapter.kernel32.close_calls == 1
 
 
@@ -723,15 +592,15 @@ def test_checker_guard_binds_exact_bytes_and_denies_write_delete_sharing(
 
 
 @pytest.mark.parametrize(
-    ("target_close_succeeds", "expected_status"),
+    ("controller_close_succeeds", "expected_status"),
     [
         (True, "observation_binding_rejected"),
         (False, "observation_timeout_unknown"),
     ],
 )
-def test_checker_preentry_failure_closes_checker_then_target_guard(
+def test_checker_preentry_failure_closes_checker_then_controller_guard(
     monkeypatch: pytest.MonkeyPatch,
-    target_close_succeeds: bool,
+    controller_close_succeeds: bool,
     expected_status: str,
 ) -> None:
     class Kernel:
@@ -741,14 +610,13 @@ def test_checker_preentry_failure_closes_checker_then_target_guard(
         def CloseHandle(self, handle: object) -> bool:
             value = int(getattr(handle, "value", 0) or 0)
             self.closed.append(value)
-            return value != 11 or target_close_succeeds
+            return value != 11 or controller_close_succeeds
 
     kernel = Kernel()
     adapter = object.__new__(parent._WindowsParentAdapter)
     adapter.kernel32 = kernel
     adapter.launch_calls = 0
-    adapter.guard = parent._OwnedHandle(kernel, "target_guard", 11)
-    adapter.controller_guard = parent._OwnedHandle(kernel, "controller_image_guard", 33)
+    adapter.controller_guard = parent._OwnedHandle(kernel, "controller_image_guard", 11)
     adapter.checker_guard = None
     adapter.checker_identity = None
     adapter.checker_repository_root = None
@@ -784,9 +652,9 @@ def test_checker_preentry_failure_closes_checker_then_target_guard(
     with pytest.raises(parent._ControllerError, match=expected_status):
         adapter.launch_once(request)
 
-    assert kernel.closed == [22, 11, 33]
+    assert kernel.closed == [22, 11]
     assert adapter.checker_guard is None
-    assert not adapter.guard.open
+    assert not adapter.controller_guard.open
 
 
 def test_attribute_list_is_owned_only_after_successful_initialization() -> None:
@@ -986,6 +854,8 @@ def test_every_owned_resource_requires_one_successful_close(resource: str) -> No
     adapter = FakeAdapter()
     if resource == "checker_guard":
         adapter.checker_close_succeeded = False
+    elif resource == "controller_image_guard":
+        adapter.image_close_results["controller_image_guard"] = False
     else:
         adapter.evidence = launch_evidence(
             close_observations=close_observations(**{resource: False})
@@ -1629,13 +1499,7 @@ def test_fixed_failure_output_is_symbolic_and_no_echo(monkeypatch: pytest.Monkey
     monkeypatch.setattr(parent, "_repository_root", lambda: ROOT)
     monkeypatch.setattr(parent, "_load_owner", lambda _root: FakeOwner())
     adapter = FakeAdapter()
-    adapter.audits[0] = parent._QueueAudit(
-        1,
-        (parent._QueueRecord(parent.KEY_EVENT, True, "x"),),
-        1,
-        1,
-        True,
-    )
+    adapter.image_exact = False
     monkeypatch.setattr(parent, "_WindowsParentAdapter", lambda: adapter)
     expected = parent._canonical_target_binding(adapter.identity).transport
     assert parent.main([OBSERVATION_ID, "--expected-target-binding-v1", expected]) == 2
@@ -1661,7 +1525,7 @@ def test_operation_free_fake_never_touches_process_network_github_or_durable_sta
     assert adapter.calls.count("launch") == 1
     assert adapter.counts == parent._AuditCounts(0, 0, 0, 0)
     assert not any(word in " ".join(adapter.calls) for word in ("github", "publish", "task", "network"))
-    assert adapter.clear_count == 2
+    assert adapter.clear_count == 1
 
 
 def known_binding() -> object:
@@ -1846,10 +1710,22 @@ def test_metadata_mode_emits_only_binding_after_cleanup_and_never_loads_owner(
     assert stdout.flush_calls == 1
     assert stderr.getvalue() == ""
     assert "launch" not in adapter.calls
-    assert adapter.calls.count("read_console") == 1
+    assert adapter.calls.count("validate_controller_image") == 1
+    assert adapter.calls.count("image_binding_exact") == 1
     snapshot_indices = [index for index, value in enumerate(adapter.calls) if value == "snapshot"]
     assert adapter.calls.index("finish_image_guards") < snapshot_indices[1]
     assert adapter.calls[-1] == "audit_counts"
+
+
+def test_metadata_binding_is_derived_from_the_controller_image_only() -> None:
+    adapter = FakeAdapter()
+    adapter.controller_identity = replace(adapter.identity, file_version="3.13.15")
+    result = run_metadata(adapter)
+    assert type(result) is bytes
+    parsed = parent._validate_canonical_binding_bytes(result)
+    assert dict(parsed.fields)["file_version"] == "3.13.15"
+    assert adapter.calls.count("validate_controller_image") == 1
+    assert "launch" not in adapter.calls
 
 
 def test_write_exact_flushes_the_selected_binary_buffer() -> None:
@@ -1987,15 +1863,15 @@ def test_metadata_short_write_prefix_is_terminal_nonretryable_and_non_authoritat
     assert PRIVATE_MARKER not in stderr.getvalue()
 
 
-@pytest.mark.parametrize("failure", ["controller", "target", "close", "effect"])
+@pytest.mark.parametrize("failure", ["binding", "recheck", "close", "effect"])
 def test_metadata_failures_emit_no_partial_binding_and_never_launch(failure: str) -> None:
     adapter = FakeAdapter()
-    if failure == "controller":
-        adapter.controller_identity = replace(adapter.identity, sha256="3" * 64)
-    elif failure == "target":
-        adapter.identity = replace(adapter.identity, product_version="3.13.15")
+    if failure == "binding":
+        adapter.controller_identity = replace(adapter.identity, product_version="3.14")
+    elif failure == "recheck":
+        adapter.image_exact = False
     elif failure == "close":
-        adapter.image_close_results["target_guard"] = False
+        adapter.image_close_results["controller_image_guard"] = False
     else:
         adapter.counts = parent._AuditCounts(1, 0, 0, 0)
     result = run_metadata(adapter)
@@ -2009,13 +1885,12 @@ def test_metadata_failures_emit_no_partial_binding_and_never_launch(failure: str
     assert PRIVATE_MARKER not in result
 
 
-def test_execution_rejects_controller_image_mismatch_before_private_ingress() -> None:
+def test_execution_rejects_controller_image_mismatch_before_process_entry() -> None:
     adapter = FakeAdapter()
     expected = parent._canonical_target_binding(adapter.identity)
     adapter.controller_identity = replace(adapter.identity, stable_identity_sha256="3" * 64)
     result, owner = run_with_expected(adapter, expected)
     assert result == "observation_binding_rejected"
-    assert adapter.read_count == 0
     assert "launch" not in adapter.calls
     assert owner.parse_calls == owner.seal_calls == 0
 
@@ -2039,15 +1914,14 @@ def test_unknown_guard_revalidation_fails_before_process_entry() -> None:
         {"stable_identity_sha256": "4" * 64},
     ],
 )
-def test_execution_rejects_each_target_metadata_mismatch_before_process_entry(
+def test_execution_rejects_each_controller_metadata_mismatch_before_process_entry(
     change: dict[str, object],
 ) -> None:
     adapter = FakeAdapter()
     expected = parent._canonical_target_binding(adapter.identity)
-    adapter.identity = replace(adapter.identity, **change)
+    adapter.controller_identity = replace(adapter.identity, **change)
     result, owner = run_with_expected(adapter, expected)
     assert result == "observation_binding_rejected"
-    assert adapter.read_count == 1
     assert "launch" not in adapter.calls
     assert owner.parse_calls == owner.seal_calls == 0
 
@@ -2123,6 +1997,22 @@ def test_current_controller_identity_has_one_bounded_native_source() -> None:
     assert "sys.executable" not in source
     assert "PATH" not in source
     assert "registry" not in source.lower()
+
+
+def test_second_target_ingress_and_duplicate_guard_are_absent() -> None:
+    source = MODULE_PATH.read_text(encoding="ascii")
+    for forbidden in (
+        "GetStdHandle",
+        "GetConsoleMode",
+        "SetConsoleMode",
+        "ReadConsoleW",
+        "PeekConsoleInputW",
+        "ReadConsoleInputW",
+        "GetNumberOfConsoleInputEvents",
+        "target_guard",
+        "validate_target",
+    ):
+        assert forbidden not in source
 
 
 def _real_validation_payload(owner: ModuleType) -> bytes:
