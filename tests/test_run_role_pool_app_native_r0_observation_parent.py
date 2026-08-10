@@ -1818,7 +1818,20 @@ def test_historical_direct_interpreter_binding_is_rejected() -> None:
 def test_metadata_mode_emits_only_binding_after_cleanup_and_never_loads_owner(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    stdout = io.StringIO()
+    class FlushTrackingOutput(io.StringIO):
+        def __init__(self) -> None:
+            super().__init__()
+            self.write_calls = 0
+            self.flush_calls = 0
+
+        def write(self, value: str) -> int:
+            self.write_calls += 1
+            return super().write(value)
+
+        def flush(self) -> None:
+            self.flush_calls += 1
+
+    stdout = FlushTrackingOutput()
     stderr = io.StringIO()
     adapter = FakeAdapter()
     monkeypatch.setattr(sys, "stdout", stdout)
@@ -1829,12 +1842,47 @@ def test_metadata_mode_emits_only_binding_after_cleanup_and_never_loads_owner(
 
     assert parent.main(["--emit-target-binding"]) == 0
     assert stdout.getvalue().encode("ascii") == known_binding().canonical_bytes
+    assert stdout.write_calls == 1
+    assert stdout.flush_calls == 1
     assert stderr.getvalue() == ""
     assert "launch" not in adapter.calls
     assert adapter.calls.count("read_console") == 1
     snapshot_indices = [index for index, value in enumerate(adapter.calls) if value == "snapshot"]
     assert adapter.calls.index("finish_image_guards") < snapshot_indices[1]
     assert adapter.calls[-1] == "audit_counts"
+
+
+def test_write_exact_flushes_the_selected_binary_buffer() -> None:
+    class BufferedSink:
+        def __init__(self) -> None:
+            self.pending = bytearray()
+            self.drained = bytearray()
+            self.write_calls = 0
+            self.flush_calls = 0
+
+        def write(self, value: bytes) -> int:
+            self.write_calls += 1
+            self.pending.extend(value)
+            return len(value)
+
+        def flush(self) -> None:
+            self.flush_calls += 1
+            self.drained.extend(self.pending)
+            self.pending.clear()
+
+    class BinaryOutput:
+        def __init__(self) -> None:
+            self.buffer = BufferedSink()
+
+    output = BinaryOutput()
+    payload = known_binding().canonical_bytes
+
+    parent._write_exact(output, payload)
+
+    assert output.buffer.write_calls == 1
+    assert output.buffer.flush_calls == 1
+    assert output.buffer.pending == b""
+    assert output.buffer.drained == payload
 
 
 def test_metadata_output_refusal_fails_symbolically_without_reported_success(
@@ -1858,6 +1906,43 @@ def test_metadata_output_refusal_fails_symbolically_without_reported_success(
     assert "launch" not in adapter.calls
 
 
+def test_metadata_flush_failure_is_terminal_nonretryable_and_non_authoritative(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FlushFailingOutput(io.StringIO):
+        def __init__(self) -> None:
+            super().__init__()
+            self.write_calls = 0
+            self.flush_calls = 0
+
+        def write(self, value: str) -> int:
+            self.write_calls += 1
+            return super().write(value)
+
+        def flush(self) -> None:
+            self.flush_calls += 1
+            raise OSError
+
+    stdout = FlushFailingOutput()
+    stderr = io.StringIO()
+    adapter = FakeAdapter()
+    monkeypatch.setattr(sys, "stdout", stdout)
+    monkeypatch.setattr(sys, "stderr", stderr)
+    monkeypatch.setattr(parent, "_repository_root", lambda: ROOT)
+    monkeypatch.setattr(parent, "_WindowsParentAdapter", lambda: adapter)
+    monkeypatch.setattr(parent, "_load_owner", lambda _root: pytest.fail("owner loaded"))
+
+    assert parent.main(["--emit-target-binding"]) == 3
+    assert stdout.getvalue().encode("ascii") == known_binding().canonical_bytes
+    assert stdout.write_calls == 1
+    assert stdout.flush_calls == 1
+    assert stderr.getvalue() == "observation_result_unknown\n"
+    assert "launch" not in adapter.calls
+    assert adapter.counts == parent._AuditCounts(0, 0, 0, 0)
+    assert PRIVATE_MARKER not in stdout.getvalue()
+    assert PRIVATE_MARKER not in stderr.getvalue()
+
+
 def test_metadata_short_write_prefix_is_terminal_nonretryable_and_non_authoritative(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1865,11 +1950,15 @@ def test_metadata_short_write_prefix_is_terminal_nonretryable_and_non_authoritat
         def __init__(self) -> None:
             super().__init__()
             self.write_calls = 0
+            self.flush_calls = 0
 
         def write(self, value: str) -> int:
             self.write_calls += 1
             super().write(value[:17])
             return 17
+
+        def flush(self) -> None:
+            self.flush_calls += 1
 
     stdout = ShortWritingOutput()
     stderr = io.StringIO()
@@ -1886,6 +1975,7 @@ def test_metadata_short_write_prefix_is_terminal_nonretryable_and_non_authoritat
     prefix = stdout.getvalue().encode("ascii")
     assert prefix == binding.canonical_bytes[:17]
     assert stdout.write_calls == 1
+    assert stdout.flush_calls == 0
     assert len(prefix) != len(binding.canonical_bytes)
     assert hashlib.sha256(prefix).hexdigest() != binding.artifact_sha256
     with pytest.raises(parent._ControllerError, match="observation_sequence_rejected"):
@@ -1994,6 +2084,36 @@ def test_main_admits_only_the_two_exact_public_modes(
     monkeypatch.setattr(parent, "_repository_root", lambda: ROOT)
     assert parent.main(arguments) == 2
     assert stderr.getvalue() == "observation_sequence_rejected\n"
+
+
+def test_malformed_public_input_precedes_repository_root_rejection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    stderr = io.StringIO()
+    monkeypatch.setattr(sys, "stderr", stderr)
+    monkeypatch.setattr(
+        parent,
+        "_repository_root",
+        lambda: (_ for _ in ()).throw(parent._ControllerError("observation_binding_rejected")),
+    )
+    monkeypatch.setattr(parent, "_WindowsParentAdapter", lambda: pytest.fail("adapter constructed"))
+
+    assert parent.main(["--emit-target-binding", "extra"]) == 2
+    assert stderr.getvalue() == "observation_sequence_rejected\n"
+
+
+def test_non_windows_rejection_precedes_public_input_and_repository_validation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    stderr = io.StringIO()
+    monkeypatch.setattr(sys, "stderr", stderr)
+    monkeypatch.setattr(parent.os, "name", "posix")
+    monkeypatch.setattr(parent.sys, "platform", "linux")
+    monkeypatch.setattr(parent, "_repository_root", lambda: pytest.fail("repository inspected"))
+    monkeypatch.setattr(parent, "_WindowsParentAdapter", lambda: pytest.fail("adapter constructed"))
+
+    assert parent.main(["--emit-target-binding", "extra"]) == 2
+    assert stderr.getvalue() == "observation_host_rejected\n"
 
 
 def test_current_controller_identity_has_one_bounded_native_source() -> None:
