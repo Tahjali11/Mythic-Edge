@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import base64
 import hashlib
 import importlib.util
 import inspect
@@ -25,6 +26,7 @@ OBSERVATION_ID = "r0.app_native.offline.observation.1." + "1" * 32
 RECEIPT = b'{"receipt":"synthetic"}\n'
 PRIVATE_MARKER = "private-synthetic-marker"
 LAUNCH_CLOSE_NAMES = (
+    "controller_image_guard",
     "target_guard",
     "stdin_read",
     "stdin_write",
@@ -157,6 +159,24 @@ class FakeAdapter:
         self.checker_exact: bool | None = True
         self.checker_close_succeeded = True
         self.checker_guard_owned = False
+        self.controller_guard_owned = False
+        self.target_guard_owned = False
+        self.image_close_results = {
+            "controller_image_guard": True,
+            "target_guard": True,
+        }
+        self.image_exact: bool | None = True
+        self.identity = parent._FileIdentity(
+            1,
+            2,
+            105696,
+            4,
+            "1" * 64,
+            "3.13.14",
+            "3.13.14",
+            "2" * 64,
+        )
+        self.controller_identity = self.identity
 
     def runtime_identity(self) -> tuple[str, str]:
         self.calls.append("runtime")
@@ -196,11 +216,22 @@ class FakeAdapter:
         self.read_count += 1
         return self.private_line
 
+    def validate_controller_image(self) -> object:
+        self.calls.append("validate_controller_image")
+        self.controller_guard_owned = True
+        return parent._TargetBinding(
+            bytearray((PRIVATE_MARKER + "-controller").encode("ascii")),
+            self.controller_identity,
+        )
+
     def validate_target(self, private_line: object) -> object:
         assert type(private_line) is str
         self.calls.append("validate_target")
-        identity = parent._FileIdentity(1, 2, 3, 4, "a" * 64, "3.13", "3.13")
-        return parent._TargetBinding(bytearray(PRIVATE_MARKER.encode("ascii")), identity)
+        self.target_guard_owned = True
+        return parent._TargetBinding(
+            bytearray(PRIVATE_MARKER.encode("ascii")),
+            self.identity,
+        )
 
     def clear_private(self, *values: object) -> bool:
         self.calls.append("clear_private")
@@ -210,6 +241,11 @@ class FakeAdapter:
                 value[:] = b"\0" * len(value)
         return True
 
+    def image_bindings_exact(self, controller: object, target: object) -> bool | None:
+        del controller, target
+        self.calls.append("image_bindings_exact")
+        return self.image_exact
+
     def launch_once(self, request: object) -> object:
         self.calls.append("launch")
         self.request = request
@@ -217,6 +253,29 @@ class FakeAdapter:
         if self.launch_error is not None:
             raise self.launch_error
         return self.evidence
+
+    def finish_image_guards(self) -> tuple[object, ...]:
+        self.calls.append("finish_image_guards")
+        observations: list[object] = []
+        if self.target_guard_owned:
+            self.target_guard_owned = False
+            observations.append(
+                parent._CloseObservation(
+                    "target_guard",
+                    1,
+                    self.image_close_results["target_guard"],
+                )
+            )
+        if self.controller_guard_owned:
+            self.controller_guard_owned = False
+            observations.append(
+                parent._CloseObservation(
+                    "controller_image_guard",
+                    1,
+                    self.image_close_results["controller_image_guard"],
+                )
+            )
+        return tuple(observations)
 
     def finish_checker_guard(self) -> tuple[bool | None, object | None]:
         self.calls.append("finish_checker_guard")
@@ -243,14 +302,28 @@ class FakeAdapter:
 
 
 def run(adapter: FakeAdapter, owner: object | None = None) -> tuple[bytes | str, object]:
+    expected = parent._canonical_target_binding(adapter.identity)
+    return run_with_expected(adapter, expected, owner)
+
+
+def run_with_expected(
+    adapter: FakeAdapter,
+    expected: object,
+    owner: object | None = None,
+) -> tuple[bytes | str, object]:
     selected_owner = owner or FakeOwner()
     result = parent._run_controller(
         OBSERVATION_ID,
+        expected,
         adapter,
         repository_root=ROOT,
         owner=selected_owner,
     )
     return result, selected_owner
+
+
+def run_metadata(adapter: FakeAdapter) -> bytes | str:
+    return parent._run_metadata(adapter, repository_root=ROOT)
 
 
 def sha(path: Path) -> str:
@@ -437,10 +510,11 @@ def test_success_uses_three_audits_one_read_and_restores_before_validation() -> 
     assert result == RECEIPT
     assert adapter.read_count == 1
     assert adapter.calls.index("validate_target") > adapter.calls.index("set_console_mode", 8)
-    assert adapter.calls[:13] == [
+    assert adapter.calls[:15] == [
         "runtime",
         "install_audit",
         "snapshot",
+        "validate_controller_image",
         "open_console",
         "set_console_mode",
         "queue_audit",
@@ -450,6 +524,7 @@ def test_success_uses_three_audits_one_read_and_restores_before_validation() -> 
         "queue_audit",
         "validate_target",
         "clear_private",
+        "image_bindings_exact",
         "windows_directory",
     ]
     assert adapter.calls.count("queue_audit") == 3
@@ -673,6 +748,7 @@ def test_checker_preentry_failure_closes_checker_then_target_guard(
     adapter.kernel32 = kernel
     adapter.launch_calls = 0
     adapter.guard = parent._OwnedHandle(kernel, "target_guard", 11)
+    adapter.controller_guard = parent._OwnedHandle(kernel, "controller_image_guard", 33)
     adapter.checker_guard = None
     adapter.checker_identity = None
     adapter.checker_repository_root = None
@@ -690,6 +766,7 @@ def test_checker_preentry_failure_closes_checker_then_target_guard(
             parent._ControllerError("observation_binding_rejected")
         ),
     )
+    monkeypatch.setattr(parent, "_handle_stable_identity", lambda *_args: "0" * 64)
     target = parent._TargetBinding(
         bytearray(),
         parent._FileIdentity(1, 2, 3, 4, "a" * 64, "3.13", "3.13"),
@@ -707,7 +784,7 @@ def test_checker_preentry_failure_closes_checker_then_target_guard(
     with pytest.raises(parent._ControllerError, match=expected_status):
         adapter.launch_once(request)
 
-    assert kernel.closed == [22, 11]
+    assert kernel.closed == [22, 11, 33]
     assert adapter.checker_guard is None
     assert not adapter.guard.open
 
@@ -1560,7 +1637,8 @@ def test_fixed_failure_output_is_symbolic_and_no_echo(monkeypatch: pytest.Monkey
         True,
     )
     monkeypatch.setattr(parent, "_WindowsParentAdapter", lambda: adapter)
-    assert parent.main([OBSERVATION_ID]) == 2
+    expected = parent._canonical_target_binding(adapter.identity).transport
+    assert parent.main([OBSERVATION_ID, "--expected-target-binding-v1", expected]) == 2
     assert stdout.getvalue() == ""
     assert stderr.getvalue() == "observation_binding_rejected\n"
     assert PRIVATE_MARKER not in stderr.getvalue()
@@ -1584,6 +1662,347 @@ def test_operation_free_fake_never_touches_process_network_github_or_durable_sta
     assert adapter.counts == parent._AuditCounts(0, 0, 0, 0)
     assert not any(word in " ".join(adapter.calls) for word in ("github", "publish", "task", "network"))
     assert adapter.clear_count == 2
+
+
+def known_binding() -> object:
+    identity = parent._FileIdentity(
+        1,
+        2,
+        105696,
+        4,
+        "1" * 64,
+        "3.13.14",
+        "3.13.14",
+        "2" * 64,
+    )
+    return parent._canonical_target_binding(identity)
+
+
+def transport_bytes(payload: bytes) -> str:
+    return base64.urlsafe_b64encode(payload).rstrip(b"=").decode("ascii")
+
+
+def test_successor_target_binding_known_answer_vectors_are_exact() -> None:
+    binding = known_binding()
+    assert len(parent._compact_object(binding.fields[:-1])) == 715
+    assert binding.binding_sha256 == "06cfed1c779da954fac24d2126042421730601de8bbc4d8fd6a9abfb57d27a49"
+    assert len(binding.canonical_bytes) == 800
+    assert binding.artifact_sha256 == "aa95693b259eaa888e7d1146fc1c67fcf981ab79ca559faed635c71117ebb700"
+    assert len(binding.transport) == 1067
+    assert parent._decode_target_binding_transport(binding.transport) == binding
+
+
+def test_stable_identity_known_answer_is_exact_and_raw_values_are_not_public() -> None:
+    preimage = parent._stable_identity_preimage(0x1234ABCD, 0x0123456789ABCDEF)
+    assert len(preimage) == 112
+    assert hashlib.sha256(preimage).hexdigest() == (
+        "e860ac1f60d36d5d0e670c181d0bd563641f3f001d775db525a64a5beb9003a3"
+    )
+    public = known_binding().canonical_bytes
+    assert b"1234abcd" not in public
+    assert b"0123456789abcdef" not in public
+
+
+@pytest.mark.parametrize(
+    "payload_mutation",
+    [
+        lambda payload: payload[:-1],
+        lambda payload: payload + b"\n",
+        lambda payload: payload.replace(b'"repository_id":1235264383', b'"repository_id":1235264383 '),
+        lambda payload: payload.replace(b'"issue_number":826', b'"issue_number":"826"'),
+        lambda payload: payload.replace(b'"ordinary_file":true', b'"ordinary_file":1'),
+        lambda payload: payload.replace(b'"file_version":"3.13.14"', b'"file_version":"3.13"'),
+        lambda payload: payload.replace(b'"binding_sha256":"0', b'"binding_sha256":"f'),
+        lambda payload: payload.replace(b'"schema_version"', b'"unexpected"', 1),
+        lambda payload: payload.replace(b'"schema_version":', b'"schema_version":"x","schema_version":', 1),
+    ],
+)
+def test_binding_parser_rejects_noncanonical_duplicate_mistyped_and_drifted_bytes(
+    payload_mutation: object,
+) -> None:
+    payload = payload_mutation(known_binding().canonical_bytes)
+    with pytest.raises(parent._ControllerError, match="observation_sequence_rejected"):
+        parent._validate_canonical_binding_bytes(payload)
+
+
+@pytest.mark.parametrize(
+    ("field_name", "wrong_value"),
+    [
+        ("repository_id", 1),
+        ("issue_number", 780),
+        ("host_os_name", "posix"),
+        ("host_sys_platform", "linux"),
+        ("runtime_implementation", "PyPy"),
+        ("executable_basename", "py.exe"),
+        ("stable_identity_schema", "trusted_owner_r0_direct_interpreter_file_identity.v1"),
+        ("ordinary_file", False),
+        ("reparse_point", True),
+        ("private_path_source", "caller_selected"),
+        ("private_path_publication_authorized", True),
+    ],
+)
+def test_binding_parser_rejects_each_closed_constant_even_with_recomputed_digest(
+    field_name: str,
+    wrong_value: object,
+) -> None:
+    fields = list(known_binding().fields)
+    index = parent.TARGET_BINDING_FIELDS.index(field_name)
+    fields[index] = (field_name, wrong_value)
+    fields[-1] = (
+        "binding_sha256",
+        hashlib.sha256(parent._compact_object(tuple(fields[:-1]))).hexdigest(),
+    )
+    payload = parent._compact_object(tuple(fields)) + b"\n"
+    with pytest.raises(parent._ControllerError, match="observation_sequence_rejected"):
+        parent._validate_canonical_binding_bytes(payload)
+
+
+@pytest.mark.parametrize("mutation", ["missing", "reordered"])
+def test_binding_parser_rejects_missing_and_reordered_fields(mutation: str) -> None:
+    fields = list(known_binding().fields)
+    if mutation == "missing":
+        del fields[7]
+    else:
+        fields[7], fields[8] = fields[8], fields[7]
+    fields[-1] = (
+        "binding_sha256",
+        hashlib.sha256(parent._compact_object(tuple(fields[:-1]))).hexdigest(),
+    )
+    payload = parent._compact_object(tuple(fields)) + b"\n"
+    with pytest.raises(parent._ControllerError, match="observation_sequence_rejected"):
+        parent._validate_canonical_binding_bytes(payload)
+
+
+@pytest.mark.parametrize(
+    "transport",
+    [
+        "",
+        "=",
+        "abcd=",
+        "abcd+",
+        "a" * 2049,
+        "\N{LATIN SMALL LETTER E WITH ACUTE}",
+        transport_bytes(b"{}\n"),
+    ],
+)
+def test_binding_transport_rejects_invalid_ambiguous_and_oversized_values(transport: str) -> None:
+    with pytest.raises(parent._ControllerError, match="observation_sequence_rejected"):
+        parent._decode_target_binding_transport(transport)
+
+
+def test_malformed_expected_binding_is_rejected_before_adapter_or_private_ingress(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    stderr = io.StringIO()
+    monkeypatch.setattr(sys, "stderr", stderr)
+    monkeypatch.setattr(parent, "_repository_root", lambda: ROOT)
+    monkeypatch.setattr(parent, "_WindowsParentAdapter", lambda: pytest.fail("adapter constructed"))
+    monkeypatch.setattr(parent, "_load_owner", lambda _root: pytest.fail("owner loaded"))
+    assert parent.main([OBSERVATION_ID, "--expected-target-binding-v1", "invalid="]) == 2
+    assert stderr.getvalue() == "observation_sequence_rejected\n"
+
+
+def test_historical_direct_interpreter_binding_is_rejected() -> None:
+    fields = list(known_binding().fields)
+    fields[0] = ("schema_version", "trusted_owner_r0_direct_interpreter_binding.v1")
+    fields[2] = ("issue_number", 780)
+    fields[-1] = (
+        "binding_sha256",
+        hashlib.sha256(parent._compact_object(tuple(fields[:-1]))).hexdigest(),
+    )
+    payload = parent._compact_object(tuple(fields)) + b"\n"
+    with pytest.raises(parent._ControllerError, match="observation_sequence_rejected"):
+        parent._validate_canonical_binding_bytes(payload)
+
+
+def test_metadata_mode_emits_only_binding_after_cleanup_and_never_loads_owner(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    stdout = io.StringIO()
+    stderr = io.StringIO()
+    adapter = FakeAdapter()
+    monkeypatch.setattr(sys, "stdout", stdout)
+    monkeypatch.setattr(sys, "stderr", stderr)
+    monkeypatch.setattr(parent, "_repository_root", lambda: ROOT)
+    monkeypatch.setattr(parent, "_WindowsParentAdapter", lambda: adapter)
+    monkeypatch.setattr(parent, "_load_owner", lambda _root: pytest.fail("owner loaded"))
+
+    assert parent.main(["--emit-target-binding"]) == 0
+    assert stdout.getvalue().encode("ascii") == known_binding().canonical_bytes
+    assert stderr.getvalue() == ""
+    assert "launch" not in adapter.calls
+    assert adapter.calls.count("read_console") == 1
+    snapshot_indices = [index for index, value in enumerate(adapter.calls) if value == "snapshot"]
+    assert adapter.calls.index("finish_image_guards") < snapshot_indices[1]
+    assert adapter.calls[-1] == "audit_counts"
+
+
+def test_metadata_output_refusal_fails_symbolically_without_reported_success(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class RefusingOutput(io.StringIO):
+        def write(self, value: str) -> int:
+            del value
+            return 0
+
+    stdout = RefusingOutput()
+    stderr = io.StringIO()
+    adapter = FakeAdapter()
+    monkeypatch.setattr(sys, "stdout", stdout)
+    monkeypatch.setattr(sys, "stderr", stderr)
+    monkeypatch.setattr(parent, "_repository_root", lambda: ROOT)
+    monkeypatch.setattr(parent, "_WindowsParentAdapter", lambda: adapter)
+    assert parent.main(["--emit-target-binding"]) == 3
+    assert stdout.getvalue() == ""
+    assert stderr.getvalue() == "observation_result_unknown\n"
+    assert "launch" not in adapter.calls
+
+
+def test_metadata_short_write_prefix_is_terminal_nonretryable_and_non_authoritative(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class ShortWritingOutput(io.StringIO):
+        def __init__(self) -> None:
+            super().__init__()
+            self.write_calls = 0
+
+        def write(self, value: str) -> int:
+            self.write_calls += 1
+            super().write(value[:17])
+            return 17
+
+    stdout = ShortWritingOutput()
+    stderr = io.StringIO()
+    adapter = FakeAdapter()
+    binding = known_binding()
+    monkeypatch.setattr(sys, "stdout", stdout)
+    monkeypatch.setattr(sys, "stderr", stderr)
+    monkeypatch.setattr(parent, "_repository_root", lambda: ROOT)
+    monkeypatch.setattr(parent, "_WindowsParentAdapter", lambda: adapter)
+    monkeypatch.setattr(parent, "_load_owner", lambda _root: pytest.fail("owner loaded"))
+
+    assert parent.main(["--emit-target-binding"]) == 3
+
+    prefix = stdout.getvalue().encode("ascii")
+    assert prefix == binding.canonical_bytes[:17]
+    assert stdout.write_calls == 1
+    assert len(prefix) != len(binding.canonical_bytes)
+    assert hashlib.sha256(prefix).hexdigest() != binding.artifact_sha256
+    with pytest.raises(parent._ControllerError, match="observation_sequence_rejected"):
+        parent._validate_canonical_binding_bytes(prefix)
+    assert stderr.getvalue() == "observation_result_unknown\n"
+    assert "launch" not in adapter.calls
+    assert adapter.counts == parent._AuditCounts(0, 0, 0, 0)
+    assert PRIVATE_MARKER not in stdout.getvalue()
+    assert PRIVATE_MARKER not in stderr.getvalue()
+
+
+@pytest.mark.parametrize("failure", ["controller", "target", "close", "effect"])
+def test_metadata_failures_emit_no_partial_binding_and_never_launch(failure: str) -> None:
+    adapter = FakeAdapter()
+    if failure == "controller":
+        adapter.controller_identity = replace(adapter.identity, sha256="3" * 64)
+    elif failure == "target":
+        adapter.identity = replace(adapter.identity, product_version="3.13.15")
+    elif failure == "close":
+        adapter.image_close_results["target_guard"] = False
+    else:
+        adapter.counts = parent._AuditCounts(1, 0, 0, 0)
+    result = run_metadata(adapter)
+    assert type(result) is str
+    assert result in {
+        "observation_binding_rejected",
+        "observation_timeout_unknown",
+        "observation_safety_boundary_failed",
+    }
+    assert "launch" not in adapter.calls
+    assert PRIVATE_MARKER not in result
+
+
+def test_execution_rejects_controller_image_mismatch_before_private_ingress() -> None:
+    adapter = FakeAdapter()
+    expected = parent._canonical_target_binding(adapter.identity)
+    adapter.controller_identity = replace(adapter.identity, stable_identity_sha256="3" * 64)
+    result, owner = run_with_expected(adapter, expected)
+    assert result == "observation_binding_rejected"
+    assert adapter.read_count == 0
+    assert "launch" not in adapter.calls
+    assert owner.parse_calls == owner.seal_calls == 0
+
+
+def test_unknown_guard_revalidation_fails_before_process_entry() -> None:
+    adapter = FakeAdapter()
+    adapter.image_exact = None
+    result, owner = run(adapter)
+    assert result == "observation_binding_rejected"
+    assert "launch" not in adapter.calls
+    assert owner.parse_calls == owner.seal_calls == 0
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"file_version": "3.13.15"},
+        {"product_version": "3.13.15"},
+        {"size": 105697},
+        {"sha256": "3" * 64},
+        {"stable_identity_sha256": "4" * 64},
+    ],
+)
+def test_execution_rejects_each_target_metadata_mismatch_before_process_entry(
+    change: dict[str, object],
+) -> None:
+    adapter = FakeAdapter()
+    expected = parent._canonical_target_binding(adapter.identity)
+    adapter.identity = replace(adapter.identity, **change)
+    result, owner = run_with_expected(adapter, expected)
+    assert result == "observation_binding_rejected"
+    assert adapter.read_count == 1
+    assert "launch" not in adapter.calls
+    assert owner.parse_calls == owner.seal_calls == 0
+
+
+def test_expected_binding_is_not_forwarded_to_child_or_receipt() -> None:
+    adapter = FakeAdapter()
+    expected = parent._canonical_target_binding(adapter.identity)
+    result, _owner = run_with_expected(adapter, expected)
+    assert result == RECEIPT
+    request = adapter.request
+    assert request is not None
+    projected = repr((request.tokens, request.environment, request.repository_root, result))
+    assert expected.transport not in projected
+    assert expected.binding_sha256 not in projected
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        [OBSERVATION_ID],
+        ["--expected-target-binding-v1", OBSERVATION_ID, known_binding().transport],
+        [OBSERVATION_ID, known_binding().transport, "--expected-target-binding-v1"],
+        [OBSERVATION_ID, "--expected-target-binding-v1"],
+        [OBSERVATION_ID, "--expected-target-binding-v1", known_binding().transport, "extra"],
+        ["--emit-target-binding", "--emit-target-binding"],
+    ],
+)
+def test_main_admits_only_the_two_exact_public_modes(
+    arguments: list[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    stderr = io.StringIO()
+    monkeypatch.setattr(sys, "stderr", stderr)
+    monkeypatch.setattr(parent, "_repository_root", lambda: ROOT)
+    assert parent.main(arguments) == 2
+    assert stderr.getvalue() == "observation_sequence_rejected\n"
+
+
+def test_current_controller_identity_has_one_bounded_native_source() -> None:
+    source = inspect.getsource(parent._WindowsParentAdapter.validate_controller_image)
+    assert source.count("QueryFullProcessImageNameW") == 1
+    assert source.count("GetCurrentProcess") == 1
+    assert "sys.executable" not in source
+    assert "PATH" not in source
+    assert "registry" not in source.lower()
 
 
 def _real_validation_payload(owner: ModuleType) -> bytes:
