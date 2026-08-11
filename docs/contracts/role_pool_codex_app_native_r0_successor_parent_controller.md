@@ -19,10 +19,10 @@
 - Accepted context discipline:
   [`ADR-0012`](../decisions/ADR-0012-long-horizon-context-and-delegation-discipline.md).
 - Risk tier: high.
-- Controller-image sole-target amendment base commit:
-  `eadcc35d9e7629a3d2d479678aba7d6d6305adb9`.
-- Controller-image sole-target amendment base tree:
-  `80761a6ffdf0697f215009cfb71a36123e06ac92`.
+- Metadata audit-boundary amendment base commit:
+  `d96707c1ef8655d961686a4b08369e49dca40e3c`.
+- Metadata audit-boundary amendment base tree:
+  `57161f80433fe5035351090ca98b7a3f69634258`.
 
 The owner's current instruction is a task-scoped `explicit_user_override` for
 this one successor-parent-controller contract amendment under open lifecycle issue
@@ -184,6 +184,16 @@ inspection or mutation and must not be represented as fresh-review cleanliness.
 32. **Decision:** the prior metadata-only decision and associated attempt are
     spent, nonreusable historical evidence. This amendment neither accepts nor
     rejects its output and creates no retry, replacement, or execution route.
+33. **Observed:** current metadata mode calls `validate_controller_image()`
+    before `install_audit()` and the first effect snapshot. The private path,
+    image guard, and target metadata are therefore inspected before the
+    controller-owned audit boundary is active. Execution mode already installs
+    the audit observer and captures its first snapshot before image inspection.
+34. **Decision:** metadata mode must install the existing audit observer and
+    complete the exact first effect snapshot before any
+    `QueryFullProcessImageNameW`, private-path handling, image-guard opening, or
+    target metadata inspection. No new audit, effect, status, or lifecycle
+    family is introduced.
 
 Finding `ME-RP-826-PARENT-A-001` is
 `fixed_confirmed_current_bytes`.
@@ -223,7 +233,26 @@ Finding `ME-RP-826-E-011` is
 `contracted_pending_independent_confirmation`.
 
 Finding `ME-RP-826-SOLE-TARGET-B-001` is
+`implemented_integrated_preserved`.
+
+Finding `ME-RP-826-E-012` is
 `contracted_pending_independent_confirmation`.
+
+### Metadata audit-boundary ordering amendment
+
+This amendment changes one ordering rule only. After pure public admission,
+repository-root validation, and adapter construction, metadata mode must call
+`install_audit(repository_root)` exactly once and obtain an exact first
+`snapshot_effects(repository_root)` before it calls
+`validate_controller_image()` or any equivalent private-image operation. An
+audit-installation or first-snapshot failure reaches its existing fail-closed
+status with zero private-image inspection and zero process entry.
+
+The audit observer remains active through controller-image discovery, guard
+acquisition, metadata derivation and revalidation, guard closure, the final
+effect snapshot, audit-count readback, and cleanup. This is an ordering repair,
+not a claim that Python audit events completely observe native Win32 activity.
+Execution mode already satisfies this ordering and remains unchanged.
 
 ### Controller-image sole-target amendment
 
@@ -420,8 +449,10 @@ threads do not restart the workflow or invalidate accepted dispositions.
 | Historical pre-target-binding parent-controller test | `tests/test_run_role_pool_app_native_r0_observation_parent.py`; `56400` bytes; `32a2e01667613ec5aed404bf639f575995e32b2b8bb005674dd0194940a5daa3` |
 | Historical pre-flush parent controller | `tools/run_role_pool_app_native_r0_observation_parent.py`; `100528` bytes; `8af672c6341432b05574885c069ea0076975c51b0bc37be76559ebbb14138dc4` |
 | Historical pre-flush focused test | `tests/test_run_role_pool_app_native_r0_observation_parent.py`; `72662` bytes; `805819519274e2fbc2f846996b141e16bb7ee6b3766a3d1e8aab12d2fb9b4ff4` |
-| Current integrated parent controller | `tools/run_role_pool_app_native_r0_observation_parent.py`; `101049` bytes; `27def2ba3b099bf530b54349bcdbc0ad3875193cf63d9d5d9014c5a8f8a67acf` |
-| Current integrated focused test | `tests/test_run_role_pool_app_native_r0_observation_parent.py`; `76838` bytes; `97671e0710f6677b3597f2920676ef7bdbf5894fa15389d069edf48b15e571cd` |
+| Historical pre-sole-target parent controller | `tools/run_role_pool_app_native_r0_observation_parent.py`; `101049` bytes; `27def2ba3b099bf530b54349bcdbc0ad3875193cf63d9d5d9014c5a8f8a67acf` |
+| Historical pre-sole-target focused test | `tests/test_run_role_pool_app_native_r0_observation_parent.py`; `76838` bytes; `97671e0710f6677b3597f2920676ef7bdbf5894fa15389d069edf48b15e571cd` |
+| Current integrated sole-target parent controller | `tools/run_role_pool_app_native_r0_observation_parent.py`; `90799` bytes; `4593dc5e6639fb051b33652df5ed33ea0393fc260f9cb6179babb53a1639d9bd` |
+| Current integrated sole-target focused test | `tests/test_run_role_pool_app_native_r0_observation_parent.py`; `73313` bytes; `11670df2ba196b655b70e0da630d19342fbb71e76c0b94908790d57f15fbaf33` |
 | Historical pre-short-write focused-test candidate | `tests/test_run_role_pool_app_native_r0_observation_parent.py`; `71072` bytes; `289ad0ff8bc920d23bd9068ed700abab5d7be44d450fe3fad78d06c302b09069` |
 | Historical target-binding-loop contract | `72153` bytes; `367a9e27e125dc3751a23944b5263bbb697fac82a23633da01f3c2e6dc6639f2` |
 | Guarded-output correction contract predecessor | `77570` bytes; `9986a9dfcf18d61ed3562497305a54a0f837cbd95f89bd211ba51d36c1a0df5d` |
@@ -471,21 +502,20 @@ that attempt transfers to the sole-target design.
 
 ## Integrated History And Future Authority Sequence
 
-PRs #829 through #841 are immutable integrated history. They establish the
+PRs #829 through #843 are immutable integrated history. They establish the
 current contract, controller, focused test, review dispositions, and exact
-current-byte eligibility evidence. They do not establish a canonical target
+current-byte review evidence. They do not establish a canonical target
 binding or authorize a controller execution. The prior owner decision at
 comment `5232244853` remains historical and nontransferable.
 
 The only prospective sequence under this amendment is:
 
-1. fresh Codex E reviews this exact contract amendment and the unchanged
-   current controller and focused test;
+1. fresh Codex E reviews this exact audit-ordering amendment and the unchanged
+   current sole-target controller and focused test;
 2. after acceptance and separate owner submission authority, Codex F/G may
    integrate exactly this one contract path;
-3. after exact contract integration and a separate owner implementation
-   decision, Codex C may implement the sole-target design in exactly the
-   controller and focused test;
+3. after exact contract integration and a separate owner corrective decision,
+   Codex D may correct E-012 in exactly the controller and focused test;
 4. fresh Codex E reviews those exact two implementation paths and required
    operation-free tests before any submission or integration decision;
 5. after separately authorized implementation submission and exact integration,
@@ -762,15 +792,18 @@ parsing, consumption, child construction, `CreateProcessW` entry, owner-harness
 parsing, sealing, receipt creation, or GitHub/network operation. It:
 
 1. verifies Windows and exact repository/controller state;
-2. obtains the running image path once and opens the sole guard while denying
+2. installs the existing audit observer exactly once and completes the exact
+   first effect snapshot; failure or uncertainty stops with zero
+   controller-image inspection;
+3. obtains the running image path once and opens the sole guard while denying
    write and delete sharing;
-3. derives all 18 canonical fields from that guarded image and repeats the
+4. derives all 18 canonical fields from that guarded image and repeats the
    complete version, product-version, length, SHA-256, stable-identity,
    ordinary-file, and non-reparse checks before accepting the binding;
-4. installs the existing audit boundary and captures exact before/after effects;
-5. closes the sole guard exactly once and requires confirmed cleanup, zero
-   child-entry calls, zero observed writes, zero executor-owned network
-   operations, zero external effects, and zero residue; and
+5. closes the sole guard exactly once, obtains the exact final effect snapshot
+   and audit counts, and requires confirmed cleanup, zero child-entry calls,
+   zero observed writes, zero executor-owned network operations, zero external
+   effects, and zero residue; and
 6. only after complete cleanup makes exactly one bounded write attempt for the
    complete canonical object, requires the exact count and one successful
    flush, and writes nothing to stderr on success.
@@ -957,9 +990,12 @@ non-authoritative evidence. Raw errors and exception chains are suppressed.
 ## Before And After Effect Evidence
 
 The controller installs its Python audit observer before its first baseline and
-keeps it active through sealing and cleanup. Before controller-image inspection and again
-after child termination, bounded drain, and cleanup, it derives bounded stable
-inventories for:
+before any private controller-image inspection. It completes the first exact
+effect snapshot before `QueryFullProcessImageNameW`, private-path handling,
+image-guard acquisition, or metadata access, and keeps the observer active
+through sealing and cleanup. The first snapshot and the final snapshot after
+metadata cleanup or, in execution mode, after child termination, bounded drain,
+and cleanup derive bounded stable inventories for:
 
 - the exact repository tree;
 - the exact installed Role Pool tree;
@@ -1074,15 +1110,21 @@ It must prove:
 3. the `112`-byte stable-identity preimage and
    `e860ac1f60d36d5d0e670c181d0bd563641f3f001d775db525a64a5beb9003a3`
    known answer, with raw identity values absent from all public output;
-4. metadata-only success proves the guarded current controller process image is
-   the sole target, performs one bounded `QueryFullProcessImageNameW` operation,
-   zero stdin, console-input, target-path, observation-ID, owner-harness,
-   sealer, child-construction, or process-entry calls, closes every owned
-   resource once, proves zero effects, and emits exactly one canonical binding
-   line only after cleanup; the fake must prove zero `sys.executable`, PATH,
-   registry, caller-selected identity, or second-ingress identity sources;
-5. every metadata-only host, controller-image, metadata, identity, close,
-   cleanup, and effect failure before output emits no binding and creates no authority;
+4. metadata-only success proves the exact call order
+   `install_audit -> snapshot_effects(before) -> validate_controller_image`,
+   then proves the guarded current controller process image is the sole target,
+   performs one bounded `QueryFullProcessImageNameW` operation, zero stdin,
+   console-input, target-path, observation-ID, owner-harness, sealer,
+   child-construction, or process-entry calls, closes every owned resource once,
+   obtains the final effect snapshot and audit counts after guard closure,
+   proves zero effects, and emits exactly one canonical binding line only after
+   cleanup; the fake must prove zero `sys.executable`, PATH, registry,
+   caller-selected identity, or second-ingress identity sources;
+5. audit-installation failure and first-snapshot failure or uncertainty each
+   prove zero `validate_controller_image`, `QueryFullProcessImageNameW`, private
+   path, guard-open, metadata, child-entry, or output calls; every later
+   metadata-only controller-image, metadata, identity, close, cleanup, and
+   effect failure before output emits no binding and creates no authority;
    complete output makes one write followed by exactly one flush and succeeds
    only when both complete; a flush exception after a complete write selects
    `observation_result_unknown`; a synthetic stream that emits a `17`-byte
@@ -1138,7 +1180,8 @@ It must prove:
 21. attribute-list deletion and sole controller-image-guard ownership rules;
 22. deterministic pre/post equality, repository-effect drift, write, network,
     external-effect, residue, unstable-read, and sampling-unknown cases without
-    hard-coded effect counts;
+    hard-coded effect counts; execution mode preserves its existing
+    audit-installation, first-snapshot, then image-inspection ordering;
 23. exact construction of all 15 immutable `PostExitFacts` fields from parent
     evidence only and unchanged 32-, 36-, 37-, and 41-field schemas;
 24. exactly one accepted pure-sealer call after execution cleanup, zero sealer
@@ -1169,13 +1212,13 @@ git diff --check
 
 ## Acceptance And Stop Conditions
 
-Contract acceptance establishes only that the sole-controller-image target
-design is precise enough for contract integration routing. It does not
+Contract acceptance establishes only that metadata audit ordering is precise
+enough for contract integration routing. It does not
 authorize implementation, metadata inspection, private-path access, controller
 start, Observation 1, or publication. After contract integration and separate
-owner implementation authority, Codex C may change exactly the controller and
-focused test to implement this design. Fresh independent E review must verify
-those exact two files before implementation integration.
+owner corrective authority, Codex D may change exactly the controller and
+focused test to repair E-012. Fresh independent E review must verify those exact
+two files before implementation integration.
 
 Stop and return to Codex A or the owner if:
 
@@ -1191,6 +1234,9 @@ Stop and return to Codex A or the owner if:
   `lpApplicationName`;
 - a second executable-path ingress, console-input readiness handshake, second
   target guard, or controller-to-target equality bridge is required;
+- installing the existing audit observer and obtaining the exact first effect
+  snapshot before private controller-image inspection requires a new audit,
+  effect, status, schema, or lifecycle family;
 - a generic runner, shell child, PATH lookup, `py.exe`, alias, shim, wrapper,
   helper, broker, service, task API, fallback, retry, or replacement is needed;
 - creation-time Job Object assignment, exact handle inheritance, complete
@@ -1205,13 +1251,13 @@ Stop and return to Codex A or the owner if:
 - issue #769 would require any read beyond state/comment-count validation or
   any mutation.
 
-The current `101049`-byte controller and `76838`-byte focused test are the exact
-implementation starting inputs, not accepted sole-target results. Fresh
-contract acceptance permits only contract integration routing. After the
-separately authorized exact two-file implementation, fresh implementation
-review, and later exact implementation integration, fresh current-main review
-may establish eligibility for one metadata-only owner decision, not
-Observation 1. No current authority permits
+The current `90799`-byte controller and `73313`-byte focused test are accepted
+integrated sole-target inputs but do not satisfy E-012. Fresh contract
+acceptance permits only contract integration routing. After the separately
+authorized exact two-file correction, fresh implementation review, and later
+exact implementation integration, fresh current-main review may establish
+eligibility for one metadata-only owner decision, not Observation 1. No current
+authority permits
 private-path access, controller start, child creation, identity generation or
 consumption, observation execution, binding or receipt publication,
 Observation 2, task dispatch, R1-R8, Stage 4, deployment, assurance, privacy or
@@ -1227,15 +1273,15 @@ Pasteable prompt:
 Use the current Mythic Edge repository authority.
 Use $mythic-edge-workflow.
 
-Act as Codex E: Independent R0 Controller-Image Sole-Target Contract Reviewer.
+Act as Codex E: Independent R0 Metadata Audit-Boundary Ordering Contract Reviewer.
 
 Repository: Tahjali11/Mythic-Edge
 Lifecycle issue: https://github.com/Tahjali11/Mythic-Edge/issues/826
 Completed capability issue: https://github.com/Tahjali11/Mythic-Edge/issues/828
 Tracker: https://github.com/Tahjali11/Mythic-Edge/issues/746
 Protected issue: https://github.com/Tahjali11/Mythic-Edge/issues/769
-Reviewed base commit: eadcc35d9e7629a3d2d479678aba7d6d6305adb9
-Reviewed base tree: 80761a6ffdf0697f215009cfb71a36123e06ac92
+Reviewed base commit: d96707c1ef8655d961686a4b08369e49dca40e3c
+Reviewed base tree: 57161f80433fe5035351090ca98b7a3f69634258
 
 Review exactly:
 docs/contracts/role_pool_codex_app_native_r0_successor_parent_controller.md
@@ -1246,50 +1292,37 @@ with zero comments.
 
 Read without editing:
 - tools/run_role_pool_app_native_r0_observation_parent.py
-  SHA-256: 27def2ba3b099bf530b54349bcdbc0ad3875193cf63d9d5d9014c5a8f8a67acf
+  SHA-256: 4593dc5e6639fb051b33652df5ed33ea0393fc260f9cb6179babb53a1639d9bd
 - tests/test_run_role_pool_app_native_r0_observation_parent.py
-  SHA-256: 97671e0710f6677b3597f2920676ef7bdbf5894fa15389d069edf48b15e571cd
+  SHA-256: 11670df2ba196b655b70e0da630d19342fbb71e76c0b94908790d57f15fbaf33
 
-Review ME-RP-826-SOLE-TARGET-B-001. Confirm the amendment removes the second
-ReadConsoleW target-path ingress, target queue/mode handshake, target_guard,
-and controller-to-entered-target bridge without adding another ingress or
-executable selector. The executable manually selected by the owner to start
-the controller must be recovered only through one bounded
-QueryFullProcessImageNameW operation, guarded as one ordinary non-reparse file,
-and used as the sole metadata and Observation 1 target.
+Review ME-RP-826-E-012. Confirm metadata mode must call `install_audit()`
+exactly once and complete its first exact `snapshot_effects()` before
+`validate_controller_image()`, `QueryFullProcessImageNameW`, private-path
+handling, controller-image guard acquisition, or metadata inspection. Audit or
+first-snapshot failure must produce zero private-image and process-entry calls.
+Confirm the observer remains active through image validation, guard closure,
+the final effect snapshot, audit-count readback, and cleanup.
 
-Confirm metadata mode derives the unchanged 18-field canonical binding only
-from that guarded image. Confirm execution mode parses the exact public-safe
-expected binding before image inspection, compares every field against the
-guarded running image before process entry, and supplies the same private path
-unchanged as CreateProcessW lpApplicationName. Version, product version, byte
-length, SHA-256, stable file identity, ordinary-file, and non-reparse evidence
-must be exact immediately before entry and after terminal readback.
+Confirm execution mode already preserves the same ordering and requires no
+change beyond regression coverage. Confirm the sole-target design, two modes,
+18-field binding and vectors, private-path custody, one guard owner, fixed
+command, Job Object, streams, cleanup, effects, all 15 PostExitFacts, sealer,
+schemas, statuses, nonretry behavior, spent metadata attempt, and false
+authority boundaries remain unchanged. No complete-native-observation claim,
+new audit, schema, status, lifecycle, helper, or third path is permitted.
 
-Confirm the parent adapter is the sole controller-image-guard owner, launch and
-cleanup helpers only borrow it, and exactly one close attempt occurs after the
-last required recheck. Confirm fixed arguments, cwd, environment, Job Object,
-streams, deadlines, termination, cleanup, effects, all 15 PostExitFacts, pure
-sealing, statuses, schemas, permanent nonretry, and false-authority boundaries
-remain unchanged.
-
-Confirm the metadata decision and attempt at issue comment 5245321673 are
-spent, historical, and nontransferable, and that the amendment neither accepts
-nor reinterprets their output. Confirm no second-ingress readiness handshake
-remains and no helper, wrapper, launcher, broker, service, schema, status,
-lifecycle, or third implementation path is required.
-
-Run contract-only structural checks and the existing 231 focused and 247
-adjacent operation-free regressions. Do not implement, access a private path,
+Run contract-only structural checks and the existing focused and adjacent
+operation-free regressions. Do not implement, access a private path,
 start a controller or child, generate or consume an identity or decision,
 publish a binding or receipt, touch issue #769, authorize Observation 1 or 2,
 advance R0-R8 or Stage 4, submit, merge, deploy, or claim readiness.
 
 Lead with findings. Return the reviewed contract SHA-256 and byte count,
-sole-target constructibility verdict, exact future two-file scope, invariant
-and schema-preservation verdicts, validation, authority flags, generated
-residue, and workflow_handoff. If exact, report eligibility only for a separate
-owner contract-submission decision.
+audit-ordering constructibility verdict, exact later two-file scope, invariant
+and schema-preservation verdicts, validation, authority flags, generated residue,
+and workflow_handoff. If exact, report eligibility only for a separate owner
+contract-submission decision.
 ```
 
 ```yaml
@@ -1300,17 +1333,17 @@ instruction_context:
     - "ADR-0008"
     - "ADR-0012"
   observed:
-    - "Current main is eadcc35d9e7629a3d2d479678aba7d6d6305adb9 at tree 80761a6ffdf0697f215009cfb71a36123e06ac92."
-    - "The current controller has separate controller-image and ReadConsoleW target-path acquisition with separate guards."
-    - "The owner selected the sole-target design and prohibited a replacement ingress, helper, or execution lane."
+    - "Current main is d96707c1ef8655d961686a4b08369e49dca40e3c at tree 57161f80433fe5035351090ca98b7a3f69634258."
+    - "Metadata mode currently validates the controller image before installing its audit observer and first effect snapshot."
+    - "Execution mode already installs the observer and captures its first snapshot before controller-image validation."
     - "Issue #769 is open with zero comments."
   derived:
-    - "The manually selected controller image can own metadata and child application identity through one retained guard."
-    - "Removing the second ingress does not require a schema, status, lifecycle, receipt, or third-path change."
+    - "E-012 is an ordering defect within the existing controller and focused test."
+    - "The correction requires no schema, status, lifecycle, receipt, helper, or third-path change."
   proposed:
-    - "One contract amendment followed by fresh independent Codex E review."
+    - "One contract-only ordering amendment followed by fresh independent Codex E review."
   unknown:
-    - "The sole-target implementation remains unimplemented and unexecuted."
+    - "The exact later two-file correction remains unimplemented and unexecuted."
   protected_surfaces:
     - "private executable path"
     - "Observation 1 authority and identity"
@@ -1318,12 +1351,12 @@ instruction_context:
     - "release, registry, installed tree, and receipt state"
   authority_conflicts_found: false
   stop_conditions:
-    - "A second executable ingress, third implementation path, helper, schema, status, or lifecycle is required."
-    - "The controller image cannot remain guarded through exact pre-entry and post-terminal verification."
-    - "Private custody, identity equality, containment, lifecycle, or authority must weaken."
+    - "A third implementation path, new audit, helper, schema, status, or lifecycle is required."
+    - "The first exact effect snapshot cannot complete before private controller-image inspection."
+    - "Private custody, containment, lifecycle, or authority must weaken."
 
 workflow_handoff:
-  role_performed: "Codex B: R0 Controller-Image Sole-Target Contract Writer"
+  role_performed: "Codex B: R0 Metadata Audit-Boundary Ordering Contract Corrector"
   completed_thread: "B"
   next_thread: "E"
   risk_tier: "high"
@@ -1335,27 +1368,28 @@ workflow_handoff:
   protected_issue: "https://github.com/Tahjali11/Mythic-Edge/issues/769"
   base_branch: "origin/main"
   target_branch: "main"
-  branch: "codex/app-native-r0-controller-image-sole-target-826"
-  base_commit: "eadcc35d9e7629a3d2d479678aba7d6d6305adb9"
-  base_tree: "80761a6ffdf0697f215009cfb71a36123e06ac92"
-  source_artifact: "owner sole-target instruction plus spent metadata attempt"
+  branch: "codex/app-native-r0-metadata-audit-boundary-826"
+  base_commit: "d96707c1ef8655d961686a4b08369e49dca40e3c"
+  base_tree: "57161f80433fe5035351090ca98b7a3f69634258"
+  source_artifact: "ME-RP-826-E-012"
   target_artifact: "docs/contracts/role_pool_codex_app_native_r0_successor_parent_controller.md"
   files_changed:
     - "docs/contracts/role_pool_codex_app_native_r0_successor_parent_controller.md"
-  future_implementation_paths:
+  later_correction_paths:
     - "tools/run_role_pool_app_native_r0_observation_parent.py"
     - "tests/test_run_role_pool_app_native_r0_observation_parent.py"
-  future_implementation_path_count: 2
-  starting_controller_sha256: "27def2ba3b099bf530b54349bcdbc0ad3875193cf63d9d5d9014c5a8f8a67acf"
-  starting_test_sha256: "97671e0710f6677b3597f2920676ef7bdbf5894fa15389d069edf48b15e571cd"
+  later_correction_path_count: 2
+  starting_controller_sha256: "4593dc5e6639fb051b33652df5ed33ea0393fc260f9cb6179babb53a1639d9bd"
+  starting_test_sha256: "11670df2ba196b655b70e0da630d19342fbb71e76c0b94908790d57f15fbaf33"
   executable_selection: "manual_owner_launch_of_exact_controller_image"
   executable_path_source: "QueryFullProcessImageNameW_of_guarded_current_process"
   second_target_ingress: "removed"
   guard_owner: "parent_adapter_only"
   finding_status:
-    ME-RP-826-SOLE-TARGET-B-001: "contracted_pending_independent_confirmation"
+    ME-RP-826-SOLE-TARGET-B-001: "implemented_integrated_preserved"
+    ME-RP-826-E-012: "contracted_pending_independent_confirmation"
   target_binding_schema: "trusted_owner_app_native_r0_successor_target_binding.v1_unchanged"
-  metadata_mode: "sole_guarded_controller_image_no_child_no_observation_authority"
+  metadata_mode: "audit_and_first_snapshot_before_sole_guarded_controller_image"
   execution_transport: "bounded_unpadded_base64url_of_exact_canonical_binding_bytes_unchanged"
   spent_metadata_attempt_reused: false
   implementation_authorized: false
@@ -1381,5 +1415,5 @@ workflow_handoff:
   deployment_authorized: false
   issue_769_mutation_authorized: false
   live_ready: false
-  next_recommended_role: "Codex E: Independent R0 Controller-Image Sole-Target Contract Reviewer"
+  next_recommended_role: "Codex E: Independent R0 Metadata Audit-Boundary Ordering Contract Reviewer"
 ```
