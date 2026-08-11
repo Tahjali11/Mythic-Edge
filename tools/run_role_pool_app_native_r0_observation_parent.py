@@ -631,11 +631,11 @@ def _run_metadata(
     status: str | None = None
     binding: _CanonicalTargetBinding | None = None
     try:
-        controller = adapter.validate_controller_image()
         adapter.install_audit(repository_root)
         before = adapter.snapshot_effects(repository_root)
         if not before.exact:
             raise _ControllerError("observation_binding_rejected")
+        controller = adapter.validate_controller_image()
         if adapter.image_binding_exact(controller) is not True:
             raise _ControllerError("observation_binding_rejected")
         try:

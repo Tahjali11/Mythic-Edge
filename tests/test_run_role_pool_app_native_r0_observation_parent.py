@@ -1713,8 +1713,39 @@ def test_metadata_mode_emits_only_binding_after_cleanup_and_never_loads_owner(
     assert adapter.calls.count("validate_controller_image") == 1
     assert adapter.calls.count("image_binding_exact") == 1
     snapshot_indices = [index for index, value in enumerate(adapter.calls) if value == "snapshot"]
+    assert adapter.calls.index("install_audit") < snapshot_indices[0]
+    assert snapshot_indices[0] < adapter.calls.index("validate_controller_image")
     assert adapter.calls.index("finish_image_guards") < snapshot_indices[1]
     assert adapter.calls[-1] == "audit_counts"
+
+
+@pytest.mark.parametrize("failure", ["audit", "snapshot_exception", "snapshot_inexact"])
+def test_metadata_audit_boundary_failure_precedes_private_image_inspection(
+    failure: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    adapter = FakeAdapter()
+    if failure == "audit":
+        def fail_audit(repository_root: Path) -> None:
+            assert repository_root == ROOT
+            adapter.calls.append("install_audit")
+            raise parent._ControllerError("observation_binding_rejected")
+
+        monkeypatch.setattr(adapter, "install_audit", fail_audit)
+    elif failure == "snapshot_exception":
+        def fail_snapshot(repository_root: Path) -> object:
+            assert repository_root == ROOT
+            adapter.calls.append("snapshot")
+            raise parent._ControllerError("observation_binding_rejected")
+
+        monkeypatch.setattr(adapter, "snapshot_effects", fail_snapshot)
+    else:
+        adapter.before = parent._EffectSnapshot(False, "repo", "installed", frozenset())
+
+    assert run_metadata(adapter) == "observation_binding_rejected"
+    assert "validate_controller_image" not in adapter.calls
+    assert "image_binding_exact" not in adapter.calls
+    assert "launch" not in adapter.calls
 
 
 def test_metadata_binding_is_derived_from_the_controller_image_only() -> None:
