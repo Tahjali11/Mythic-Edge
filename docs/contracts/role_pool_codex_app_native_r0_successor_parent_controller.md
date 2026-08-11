@@ -1415,5 +1415,15 @@ workflow_handoff:
   deployment_authorized: false
   issue_769_mutation_authorized: false
   live_ready: false
+  validation:
+    - "203 focused controller tests passed as baseline evidence only; the E-012 correction remained unimplemented"
+    - "247 adjacent operation-free tests passed"
+    - "agent docs: 55 files, 0 errors, 0 warnings"
+    - "protected-surface and secret/private-marker scans: forbidden 0, warnings 0"
+    - "git diff and text-hygiene checks passed"
+  stop_conditions:
+    - "a third implementation path, new audit, helper, schema, status, or lifecycle is required"
+    - "the first exact effect snapshot cannot complete before private controller-image inspection"
+    - "private custody, containment, lifecycle, or authority must weaken"
   next_recommended_role: "Codex E: Independent R0 Metadata Audit-Boundary Ordering Contract Reviewer"
 ```
