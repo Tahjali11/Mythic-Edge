@@ -7,10 +7,11 @@ import importlib.util
 import inspect
 import io
 import json
+import stat
 import sys
 from dataclasses import dataclass, replace
 from pathlib import Path
-from types import ModuleType
+from types import ModuleType, SimpleNamespace
 
 import pytest
 
@@ -154,6 +155,8 @@ class FakeAdapter:
             "controller_image_guard": True,
         }
         self.image_exact: bool | None = True
+        self.development_failure: str | None = None
+        self._development_private_path: bytearray | None = None
         self.identity = parent._FileIdentity(
             1,
             2,
@@ -173,10 +176,21 @@ class FakeAdapter:
     def install_audit(self, repository_root: Path) -> None:
         assert repository_root == ROOT
         self.calls.append("install_audit")
+        if self.development_failure == "audit_installed":
+            raise RuntimeError("synthetic audit failure")
 
     def snapshot_effects(self, repository_root: Path) -> object:
         assert repository_root == ROOT
         self.calls.append("snapshot")
+        snapshot_number = self.calls.count("snapshot")
+        if (
+            self.development_failure == "before_effect_snapshot_available"
+            and snapshot_number == 1
+        ) or (
+            self.development_failure == "after_effect_snapshot_available"
+            and snapshot_number == 2
+        ):
+            raise RuntimeError("synthetic snapshot failure")
         return self.before if self.calls.count("snapshot") == 1 else self.after
 
     def windows_directory(self) -> str:
@@ -190,6 +204,46 @@ class FakeAdapter:
             bytearray(PRIVATE_MARKER.encode("ascii")),
             self.controller_identity,
         )
+
+    def _development_validate_controller_image(self, recorder: object) -> object:
+        self.calls.append("development_validate_controller_image")
+        for predicate in parent._DEVELOPMENT_IMAGE_PREDICATES:
+            if self.development_failure == predicate:
+                if parent._DEVELOPMENT_PREDICATES.index(predicate) >= parent._DEVELOPMENT_PREDICATES.index(
+                    "controller_image_guard_opened"
+                ):
+                    self.controller_guard_owned = True
+                    self._development_private_path = bytearray(PRIVATE_MARKER.encode("ascii"))
+                recorder.failed(
+                    predicate,
+                    OSError(f"synthetic {predicate}: {PRIVATE_MARKER}"),
+                    values={"controller_image_path": PRIVATE_MARKER},
+                    win32_last_error=5,
+                )
+                raise parent._DevelopmentAbort(predicate)
+            recorder.passed(predicate, {"controller_image_path": PRIVATE_MARKER})
+        return self.validate_controller_image()
+
+    def _development_revalidate_controller_image(
+        self,
+        target: object,
+        recorder: object,
+    ) -> None:
+        del target
+        self.calls.append("development_revalidate_controller_image")
+        for predicate in (
+            "controller_image_guard_identity_exact",
+            "controller_image_path_identity_exact",
+        ):
+            if self.development_failure == predicate:
+                recorder.failed(
+                    predicate,
+                    OSError(f"synthetic {predicate}: {PRIVATE_MARKER}"),
+                    values={"controller_image_path": PRIVATE_MARKER},
+                    win32_last_error=5,
+                )
+                raise parent._DevelopmentAbort(predicate)
+            recorder.passed(predicate, {"controller_image_path": PRIVATE_MARKER})
 
     def clear_private(self, *values: object) -> bool:
         self.calls.append("clear_private")
@@ -248,6 +302,8 @@ class FakeAdapter:
 
     def audit_counts(self) -> object:
         self.calls.append("audit_counts")
+        if self.development_failure == "audit_counts_available":
+            raise RuntimeError("synthetic audit-count failure")
         return self.counts
 
 
@@ -336,6 +392,56 @@ def test_audit_registration_is_stored_only_after_witness(
 
     assert isinstance(adapter.audit, parent._AuditCounter)
     assert adapter.audit.snapshot() == parent._AuditCounts(0, 0, 0, 0)
+
+
+def test_development_snapshot_exposes_exception_while_production_remains_blinded(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    adapter = object.__new__(parent._WindowsParentAdapter)
+
+    def fail_snapshot(_repository_root: Path, **_kwargs: object) -> object:
+        raise OSError(f"synthetic snapshot detail: {PRIVATE_MARKER}")
+
+    monkeypatch.setattr(adapter, "_snapshot_effects_exact", fail_snapshot)
+
+    assert adapter.snapshot_effects(ROOT) == parent._EffectSnapshot(False, "", "", frozenset())
+    with pytest.raises(OSError, match=PRIVATE_MARKER):
+        adapter._development_snapshot_effects(ROOT)
+
+
+def test_stable_file_failure_adds_path_only_for_development_context(
+    tmp_path: Path,
+) -> None:
+    missing = tmp_path / "missing-python.exe"
+
+    with pytest.raises(parent._ControllerError) as production:
+        parent._stable_file_bytes(missing)
+    assert getattr(production.value, "__notes__", []) == []
+
+    with pytest.raises(parent._ControllerError) as development:
+        parent._stable_file_bytes(missing, development_context=True)
+    assert getattr(development.value, "__notes__", []) == [
+        f"development_path={missing}"
+    ]
+
+
+def test_stable_open_file_identity_ignores_permissions_but_not_file_type() -> None:
+    common = {
+        "st_dev": 11,
+        "st_ino": 22,
+        "st_size": 33,
+        "st_mtime_ns": 44,
+    }
+    executable_path_stat = SimpleNamespace(st_mode=stat.S_IFREG | 0o777, **common)
+    opened_file_stat = SimpleNamespace(st_mode=stat.S_IFREG | 0o666, **common)
+    directory_stat = SimpleNamespace(st_mode=stat.S_IFDIR | 0o777, **common)
+
+    assert parent._stable_open_file_identity_tuple(
+        executable_path_stat
+    ) == parent._stable_open_file_identity_tuple(opened_file_stat)
+    assert parent._stable_open_file_identity_tuple(
+        executable_path_stat
+    ) != parent._stable_open_file_identity_tuple(directory_stat)
 
 
 @pytest.mark.parametrize(
@@ -2042,6 +2148,310 @@ def test_second_target_ingress_and_duplicate_guard_are_absent() -> None:
         "GetNumberOfConsoleInputEvents",
         "target_guard",
         "validate_target",
+    ):
+        assert forbidden not in source
+
+
+def parse_development_transcript(payload: bytes) -> dict[str, object]:
+    lines = payload.decode("utf-8").splitlines()
+    assert lines[0] == "MYTHIC_EDGE_DEVELOPMENT_DIAGNOSTIC_BEGIN"
+    assert lines[-1] == "MYTHIC_EDGE_DEVELOPMENT_DIAGNOSTIC_END"
+    assert payload.endswith(b"\n")
+    assert len(payload) <= parent.MAX_DEVELOPMENT_DIAGNOSTIC_BYTES
+    names = [line.partition("=")[0] for line in lines[1:-1]]
+    assert names == [
+        "profile",
+        "outcome",
+        "first_failed_predicate",
+        "exception_type",
+        "exception_message",
+        "exception_traceback",
+        "win32_last_error",
+        "call_order",
+        "relevant_values",
+        "controller_image_guard_close",
+        "child_creation_count",
+        "network_operation_count",
+        "repository_write_count",
+        "installed_write_count",
+        "external_effect_count",
+        "generated_residue_count",
+    ]
+    parsed: dict[str, object] = {}
+    for line in lines[1:-1]:
+        name, separator, value = line.partition("=")
+        assert separator == "="
+        parsed[name] = json.loads(value)
+    return parsed
+
+
+def configure_development_failure(adapter: FakeAdapter, predicate: str) -> None:
+    adapter.development_failure = predicate
+    if predicate == "before_effect_snapshot_exact":
+        adapter.before = replace(adapter.before, exact=False)
+    elif predicate == "controller_image_guard_close_exact":
+        adapter.image_close_results["controller_image_guard"] = False
+        adapter.development_failure = None
+    elif predicate == "after_effect_snapshot_exact":
+        adapter.after = replace(adapter.after, exact=False)
+    elif predicate == "effect_snapshots_equal":
+        adapter.after = replace(adapter.after, repository_digest="changed")
+    elif predicate == "audit_counts_zero":
+        adapter.counts = parent._AuditCounts(1, 0, 0, 0)
+
+
+def test_development_diagnostic_success_is_disjoint_and_non_authoritative(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    adapter = FakeAdapter()
+    monkeypatch.setattr(
+        parent,
+        "_canonical_target_binding",
+        lambda _identity: pytest.fail("canonical binding constructed"),
+    )
+    recorder = parent._run_development_diagnostic(adapter, repository_root=ROOT)
+
+    assert recorder.first_failed_predicate is None
+    assert recorder.call_order == list(parent._DEVELOPMENT_PREDICATES[:27])
+    assert recorder.controller_image_guard_close == "closed_exact"
+    assert adapter.clear_count == 1
+    assert "launch" not in adapter.calls
+    assert "finish_checker_guard" not in adapter.calls
+    payload = parent._development_transcript(recorder)
+    parsed = parse_development_transcript(payload)
+    assert parsed["outcome"] == "metadata_path_completed_without_binding"
+    assert parsed["first_failed_predicate"] is None
+    assert parsed["call_order"] == list(parent._DEVELOPMENT_PREDICATES)
+    assert parsed["child_creation_count"] == 0
+    assert parsed["network_operation_count"] == 0
+    assert parsed["repository_write_count"] == 0
+    assert parsed["installed_write_count"] == 0
+    assert parsed["external_effect_count"] == 0
+    assert parsed["generated_residue_count"] == 0
+
+
+@pytest.mark.parametrize(
+    "predicate",
+    [
+        "audit_installed",
+        "before_effect_snapshot_available",
+        "before_effect_snapshot_exact",
+        *parent._DEVELOPMENT_IMAGE_PREDICATES,
+        "controller_image_guard_identity_exact",
+        "controller_image_path_identity_exact",
+        "controller_image_guard_close_exact",
+        "after_effect_snapshot_available",
+        "after_effect_snapshot_exact",
+        "effect_snapshots_equal",
+        "audit_counts_available",
+        "audit_counts_zero",
+    ],
+)
+def test_each_development_predicate_fails_first_and_stops_later_work(predicate: str) -> None:
+    adapter = FakeAdapter()
+    configure_development_failure(adapter, predicate)
+
+    recorder = parent._run_development_diagnostic(adapter, repository_root=ROOT)
+
+    assert recorder.first_failed_predicate == predicate
+    assert recorder.call_order.count(predicate) == 1
+    first_index = parent._DEVELOPMENT_PREDICATES.index(predicate)
+    for observed in recorder.call_order[recorder.call_order.index(predicate) + 1 :]:
+        assert observed == "controller_image_guard_close_exact"
+    assert "launch" not in adapter.calls
+    assert all(
+        parent._DEVELOPMENT_PREDICATES.index(observed) <= first_index
+        or observed == "controller_image_guard_close_exact"
+        for observed in recorder.call_order
+    )
+
+
+def test_development_host_and_mode_fail_before_repository_or_adapter(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(parent.os, "name", "posix")
+    monkeypatch.setattr(parent.sys, "platform", "linux")
+    adapter = FakeAdapter()
+    host = parent._run_development_diagnostic(adapter, repository_root=ROOT)
+    assert host.first_failed_predicate == "host_windows_exact"
+    assert adapter.calls == []
+
+    monkeypatch.setattr(parent.os, "name", "nt")
+    monkeypatch.setattr(parent.sys, "platform", "win32")
+    mode = parent._run_development_diagnostic(adapter, repository_root=ROOT, mode_exact=False)
+    assert mode.first_failed_predicate == "development_mode_exact"
+    assert adapter.calls == []
+
+
+def test_development_repository_failure_is_unblinded_without_adapter_construction(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        parent,
+        "_repository_root",
+        lambda: (_ for _ in ()).throw(OSError(f"root failure: {PRIVATE_MARKER}")),
+    )
+    monkeypatch.setattr(parent, "_WindowsParentAdapter", lambda: pytest.fail("adapter constructed"))
+
+    recorder = parent._run_development_diagnostic()
+
+    assert recorder.first_failed_predicate == "repository_root_resolved"
+    assert PRIVATE_MARKER in (recorder.exception_message or "")
+
+
+def test_development_transcript_allows_only_bounded_owner_approved_private_detail() -> None:
+    recorder = parent._DevelopmentRecorder()
+    recorder.failed(
+        "repository_root_resolved",
+        OSError(f"private path: {PRIVATE_MARKER}"),
+        values={"repository_root": PRIVATE_MARKER, "win32_return": 0},
+        win32_last_error=5,
+    )
+    payload = parent._development_transcript(recorder)
+    assert PRIVATE_MARKER.encode("ascii") in payload
+    for forbidden in (
+        b"credential-sentinel",
+        b"token-sentinel",
+        b"private-key-sentinel",
+        b"browser-data-sentinel",
+        b"shell-history-sentinel",
+        b"environment-dump-sentinel",
+        b"unrelated-file-content-sentinel",
+    ):
+        assert forbidden not in payload
+
+
+def test_development_output_is_one_write_one_flush_and_never_stdout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class CountingOutput(io.StringIO):
+        def __init__(self) -> None:
+            super().__init__()
+            self.write_calls = 0
+            self.flush_calls = 0
+
+        def write(self, value: str) -> int:
+            self.write_calls += 1
+            return super().write(value)
+
+        def flush(self) -> None:
+            self.flush_calls += 1
+
+    stderr = CountingOutput()
+    stdout = io.StringIO()
+    recorder = parent._run_development_diagnostic(FakeAdapter(), repository_root=ROOT)
+    monkeypatch.setattr(sys, "stderr", stderr)
+    monkeypatch.setattr(sys, "stdout", stdout)
+
+    assert parent._emit_development_transcript(recorder) == "complete"
+    assert stderr.write_calls == 1
+    assert stderr.flush_calls == 1
+    assert stdout.getvalue() == ""
+    assert recorder.call_order[-2:] == [
+        "development_output_write_complete",
+        "development_output_flush_complete",
+    ]
+    parse_development_transcript(stderr.getvalue().encode("utf-8"))
+
+
+@pytest.mark.parametrize("failure", ["short_write", "flush"])
+def test_development_output_failure_is_terminal_without_repair(
+    monkeypatch: pytest.MonkeyPatch,
+    failure: str,
+) -> None:
+    class FailingOutput(io.StringIO):
+        def __init__(self) -> None:
+            super().__init__()
+            self.write_calls = 0
+            self.flush_calls = 0
+
+        def write(self, value: str) -> int:
+            self.write_calls += 1
+            if failure == "short_write":
+                super().write(value[:17])
+                return 17
+            return super().write(value)
+
+        def flush(self) -> None:
+            self.flush_calls += 1
+            if failure == "flush":
+                raise OSError("synthetic flush failure")
+
+    stderr = FailingOutput()
+    recorder = parent._run_development_diagnostic(FakeAdapter(), repository_root=ROOT)
+    monkeypatch.setattr(sys, "stderr", stderr)
+
+    assert parent._emit_development_transcript(recorder) == "diagnostic_incomplete"
+    assert stderr.write_calls == 1
+    assert stderr.flush_calls == (0 if failure == "short_write" else 1)
+    assert recorder.first_failed_predicate == (
+        "development_output_write_complete"
+        if failure == "short_write"
+        else "development_output_flush_complete"
+    )
+
+
+def test_main_dispatches_exact_development_mode_without_production_callthrough(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    stderr = io.StringIO()
+    stdout = io.StringIO()
+    recorder = parent._DevelopmentRecorder()
+    recorder.passed("host_windows_exact")
+    recorder.passed("development_mode_exact")
+    monkeypatch.setattr(parent, "_run_development_diagnostic", lambda: recorder)
+    monkeypatch.setattr(parent, "_run_metadata", lambda *_args, **_kwargs: pytest.fail("metadata called"))
+    monkeypatch.setattr(parent, "_run_controller", lambda *_args, **_kwargs: pytest.fail("controller called"))
+    monkeypatch.setattr(parent, "_load_owner", lambda _root: pytest.fail("owner loaded"))
+    monkeypatch.setattr(sys, "stderr", stderr)
+    monkeypatch.setattr(sys, "stdout", stdout)
+
+    assert parent.main([parent.DEVELOPMENT_MODE]) == 0
+    assert stdout.getvalue() == ""
+    assert "MYTHIC_EDGE_DEVELOPMENT_DIAGNOSTIC_BEGIN" in stderr.getvalue()
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        [parent.DEVELOPMENT_MODE, "extra"],
+        [parent.DEVELOPMENT_MODE, parent.DEVELOPMENT_MODE],
+        ["--emit-target-binding", parent.DEVELOPMENT_MODE],
+    ],
+)
+def test_malformed_development_mode_never_enters_diagnostic(
+    monkeypatch: pytest.MonkeyPatch,
+    arguments: list[str],
+) -> None:
+    stderr = io.StringIO()
+    monkeypatch.setattr(parent, "_run_development_diagnostic", lambda: pytest.fail("diagnostic called"))
+    monkeypatch.setattr(parent, "_repository_root", lambda: pytest.fail("repository inspected"))
+    monkeypatch.setattr(sys, "stderr", stderr)
+
+    assert parent.main(arguments) == 2
+    assert stderr.getvalue() == "observation_sequence_rejected\n"
+
+
+def test_two_manual_development_runs_are_independent() -> None:
+    first_adapter = FakeAdapter()
+    second_adapter = FakeAdapter()
+    first = parent._run_development_diagnostic(first_adapter, repository_root=ROOT)
+    second = parent._run_development_diagnostic(second_adapter, repository_root=ROOT)
+
+    assert first.call_order == second.call_order == list(parent._DEVELOPMENT_PREDICATES[:27])
+    assert first_adapter.clear_count == second_adapter.clear_count == 1
+    assert "launch" not in first_adapter.calls + second_adapter.calls
+
+
+def test_development_source_has_no_production_or_child_route() -> None:
+    source = inspect.getsource(parent._run_development_diagnostic)
+    for forbidden in (
+        "_run_metadata(",
+        "_run_controller(",
+        "_canonical_target_binding(",
+        "_load_owner(",
+        "launch_once(",
+        "CreateProcessW",
     ):
         assert forbidden not in source
 

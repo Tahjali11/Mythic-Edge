@@ -19,16 +19,20 @@
 - Accepted context discipline:
   [`ADR-0012`](../decisions/ADR-0012-long-horizon-context-and-delegation-discipline.md).
 - Risk tier: high.
-- Metadata audit-boundary amendment base commit:
-  `d96707c1ef8655d961686a4b08369e49dca40e3c`.
-- Metadata audit-boundary amendment base tree:
-  `57161f80433fe5035351090ca98b7a3f69634258`.
+- Owner-local development-diagnostic amendment base commit:
+  `36068577ae80f151161f14d14005dd276dfbc4fd`.
+- Owner-local development-diagnostic amendment base tree:
+  `5baf5ee1887b320fd0ba4a03fb8366098071a21d`.
 
 The owner's current instruction is a task-scoped `explicit_user_override` for
-this one successor-parent-controller contract amendment under open lifecycle issue
-#826. It expires with this handoff. It creates no private-input,
-controller-start, process-launch, observation, consumption, publication, or
-rung authority.
+this one successor-parent-controller contract amendment under open lifecycle
+issue #826. It expires with this handoff. It creates no implementation,
+diagnostic-run, metadata-run, process-launch, observation, consumption,
+publication, or rung authority. It does permit this contract to define a later
+owner-local development profile in which the owner may deliberately disclose
+the bounded diagnostic classes named below to Codex. That future disclosure is
+not authorized until this exact amendment is independently accepted and the
+owner's separate conditional Codex C authority becomes applicable.
 
 Issue #828 is closed and historical. PR #829 integrated the exact controller
 and controller test; PR #830 integrated the accepted predecessor version of
@@ -194,6 +198,33 @@ inspection or mutation and must not be represented as fresh-review cleanliness.
     `QueryFullProcessImageNameW`, private-path handling, image-guard opening, or
     target metadata inspection. No new audit, effect, status, or lifecycle
     family is introduced.
+35. **Observed:** PR #845 integrated the E-012 ordering repair and PR #846
+    integrated its exact workflow handoff. Current main is
+    `36068577ae80f151161f14d14005dd276dfbc4fd`; the current controller is
+    `90799` bytes at SHA-256
+    `48c8f46f80959c548fb590e0faf5a97d0d90f4f1d15f1dda39adadb4ad9e3c42`,
+    and the focused test is `74701` bytes at SHA-256
+    `e62dca6e5d0fdf7ce3f4d240b0b56a0213142fb816509d4a5519cb9f9a91291b`.
+36. **Owner-reported result:** the separately authorized metadata-only attempt
+    terminated as `observation_binding_rejected`. Its first internal failed
+    predicate, raw exception, Win32 result, and relevant private value were
+    intentionally hidden by the production boundary and remain unknown. The
+    attempt and its owner decision are spent and permanently nonreusable.
+37. **Decision:** add one explicitly named owner-local development mode inside
+    the existing controller. It may expose only the bounded diagnostic classes
+    authorized in this amendment, starts no child, creates no canonical target
+    binding or authority artifact, and is structurally disjoint from both
+    authority-bearing modes.
+38. **Decision:** the development mode may repeat because it consumes no
+    metadata or observation authority. Repetition is manual and diagnostic
+    only; it is never an automatic retry, replacement, continuation, or route
+    into metadata or Observation 1 execution.
+39. **Decision:** after the first complete development transcript identifies a
+    concrete defect, a later Codex C pass may make at most one directly proved
+    correction in the existing controller and focused test. The correction
+    must implement an already accepted production invariant. A new behavior,
+    schema, status, lifecycle, helper, authority rule, or third path stops back
+    at Codex B before code changes.
 
 Finding `ME-RP-826-PARENT-A-001` is
 `fixed_confirmed_current_bytes`.
@@ -236,6 +267,9 @@ Finding `ME-RP-826-SOLE-TARGET-B-001` is
 `implemented_integrated_preserved`.
 
 Finding `ME-RP-826-E-012` is
+`fixed_confirmed_current_bytes`.
+
+Finding `ME-RP-826-DEV-DIAG-B-001` is
 `contracted_pending_independent_confirmation`.
 
 ### Metadata audit-boundary ordering amendment
@@ -253,6 +287,163 @@ acquisition, metadata derivation and revalidation, guard closure, the final
 effect snapshot, audit-count readback, and cleanup. This is an ordering repair,
 not a claim that Python audit events completely observe native Win32 activity.
 Execution mode already satisfies this ordering and remains unchanged.
+
+### Owner-local unblinded development diagnostic amendment
+
+The controller gains exactly one development-only mode:
+
+```text
+--diagnose-metadata-binding-development
+```
+
+This mode exists only to locate the first concrete failure hidden behind the
+production metadata mode's `observation_binding_rejected`. It is not a third
+Role Pool operation, receipt, authority, lifecycle, or acceptance path. It
+must be selected directly and exactly at process start. The implementation
+must dispatch it through a dedicated top-level branch before either
+`_run_metadata` or `_run_controller`; neither production function may call,
+fall through to, resume, or be resumed from the development branch.
+
+The development branch follows the production metadata ordering through the
+first failed predicate:
+
+```text
+public admission
+-> repository-root resolution
+-> install_audit
+-> snapshot_effects(before)
+-> validate and guard the running controller image
+-> revalidate image identity
+-> derive metadata values without canonical target-binding construction
+-> close the image guard
+-> snapshot_effects(after)
+-> read audit counts
+-> emit one bounded development transcript
+```
+
+It stops at the first failed predicate except for the cleanup needed to close
+every proven-owned resource exactly once and collect cleanup evidence. It does
+not call `_canonical_target_binding`, `_run_metadata`, `_run_controller`, the
+owner harness, the pure sealer, `CreateProcessW`, or any task, GitHub, network,
+registry, release, installation, or publication operation. It creates no
+target-binding bytes, observation ID, claim, authority, consumption record,
+receipt, rung evidence, or durable artifact.
+
+The implementation may add one private in-module recorder and private helper
+functions only inside the existing controller file. The recorder is not a
+public interface. It records an ordered predicate trace and captures the first
+failure before production status normalization discards detail. It must not
+change the production exceptions, production status mapping, or outputs.
+
+The first-failure identifier must be the most specific instrumented predicate,
+not a broad phase label. The closed predicate vocabulary is:
+
+1. `host_windows_exact`;
+2. `development_mode_exact`;
+3. `repository_root_resolved`;
+4. `audit_installed`;
+5. `before_effect_snapshot_available`;
+6. `before_effect_snapshot_exact`;
+7. `cpython_runtime_exact`;
+8. `current_process_handle_available`;
+9. `controller_image_query_succeeded`;
+10. `controller_image_query_length_exact`;
+11. `controller_image_path_text_valid`;
+12. `controller_image_components_nonreparse`;
+13. `controller_image_file_ordinary_nonreparse`;
+14. `controller_image_guard_opened`;
+15. `controller_image_bytes_stable`;
+16. `controller_image_file_version_available`;
+17. `controller_image_product_version_available`;
+18. `controller_image_versions_well_formed`;
+19. `controller_image_stable_identity_available`;
+20. `controller_image_guard_identity_exact`;
+21. `controller_image_path_identity_exact`;
+22. `controller_image_guard_close_exact`;
+23. `after_effect_snapshot_available`;
+24. `after_effect_snapshot_exact`;
+25. `effect_snapshots_equal`;
+26. `audit_counts_available`;
+27. `audit_counts_zero`;
+28. `development_output_write_complete`; and
+29. `development_output_flush_complete`.
+
+The predicate that first returns false, raises, produces an unavailable value,
+or becomes uncertain owns `first_failed_predicate`. Later cleanup failures are
+recorded separately and do not replace that first failure. If no predicate
+fails, the outcome is `metadata_path_completed_without_binding`; this is still
+not metadata success and creates no target binding.
+
+The diagnostic output is one transient owner-local UTF-8 transcript, bounded
+to `262144` bytes including one final LF. It is a development grammar, not a
+canonical project schema, receipt, binding, or durable evidence format. It has
+one begin marker, one end marker, and exactly these ordered fields between
+them:
+
+```text
+MYTHIC_EDGE_DEVELOPMENT_DIAGNOSTIC_BEGIN
+profile="owner_local_unblinded_metadata_binding_v1"
+outcome=<JSON string>
+first_failed_predicate=<JSON string or null>
+exception_type=<JSON string or null>
+exception_message=<JSON string or null>
+exception_traceback=<JSON string or null>
+win32_last_error=<decimal integer or null>
+call_order=<compact JSON array of closed predicate names>
+relevant_values=<compact JSON object>
+controller_image_guard_close=<JSON string>
+child_creation_count=0
+network_operation_count=0
+repository_write_count=0
+installed_write_count=0
+external_effect_count=0
+generated_residue_count=0
+MYTHIC_EDGE_DEVELOPMENT_DIAGNOSTIC_END
+```
+
+All JSON values use UTF-8, standard JSON escaping, no nonfinite numbers, no
+duplicate object keys, and no implicit `repr` of arbitrary objects. The
+ordered `relevant_values` object may contain only values directly needed to
+explain the first failed predicate: the private controller-image path; the
+repository or installed-tree path involved in that predicate; Win32 return and
+error values; query capacity and reported length; path component and file
+attribute observations; file and product versions; byte length; SHA-256;
+stable identity values; ordinary-file or reparse facts; guard state and close
+counts; before/after effect facts; audit counts; and the predicate's expected
+and observed values. No unrelated environment value, directory inventory,
+file content, browser data, shell history, credential, token, authentication
+material, key, or unrelated private path is collected or emitted.
+
+The complete transcript is written to the owner-controlled local terminal on
+stderr with exactly one bounded application-level write and one flush. Stdout
+is empty. A short write, write exception, flush exception, overflow, encoding
+failure, or uncertain output completion is `diagnostic_incomplete`: no second
+write, repair, retry, target binding, production status, or authority route is
+permitted. A complete transcript may enter the active Codex conversation only
+under the owner's explicit development permission in this amendment. It must
+not be copied to GitHub, tracked or untracked files, logs, comments, handoffs,
+receipts, clipboard automation, registry, release state, or installed trees.
+
+Development output is intentionally unblinded and therefore is not suitable
+for privacy, security, assurance, acceptance, release, or rung evidence. The
+two production modes remain fully blinded: they must never instantiate the
+development recorder, emit the development markers, include a private value,
+or change their existing stdout, stderr, exit, status, cleanup, or nonretry
+behavior.
+
+The development mode may be invoked again only as a new manual development
+run. It consumes no authority and therefore has no single-use identity, but it
+must not loop, self-relaunch, automatically rerun, reuse a failed process, or
+invoke a production mode. Each run owns and closes its resources independently.
+The owner or Codex must stop immediately if any run creates a child, performs a
+mutation or network operation, collects a forbidden value, cannot bound its
+output, or leaves cleanup uncertain.
+
+Before final trusted-owner profile acceptance, a separately contracted and
+reviewed blinding gate must either remove this mode and all reachable unblinded
+output or prove it is absent from the accepted final controller artifact. Its
+temporary presence during R0-R8 functional development creates no acceptance,
+deployment, privacy, security, assurance, or live-readiness claim.
 
 ### Controller-image sole-target amendment
 
@@ -283,7 +474,8 @@ guard alias is permitted.
 
 This subsection supersedes only the stale no-controller-edit scope, the
 write-only success boundary, and any sequencing that permits repository-root
-inspection before complete public admission. It does not change either public
+inspection before complete public admission. It does not change either
+production
 mode, the 18-field binding, process containment, receipt
 sealing, lifecycle, status vocabulary, nonretry behavior, or authority.
 
@@ -297,7 +489,9 @@ payload to the underlying output, but performs no repair, replacement, suffix,
 or retry. Partial or merely buffered output remains
 malformed and non-authoritative and cannot pass strict parsing, complete byte
 count, canonical SHA-256, self-digest, transport, or external readback. No
-private value may enter output, exceptions, logs, or durable evidence.
+private value may enter production output, exceptions, logs, or durable
+evidence. The later development-diagnostic amendment is the only scoped
+terminal-output exception.
 
 Public admission has three ordered boundaries. First, the existing non-Windows
 host check may select `observation_host_rejected`. Second, pure operation-free
@@ -312,8 +506,9 @@ their failures remain `observation_binding_rejected`.
 Before public admission succeeds, the controller constructs no adapter, loads
 no owner module, reads no private console input, attempts no process entry,
 consumes no identity or authority, and performs no external effect. This
-ordering adds no public mode, helper, schema, lifecycle state, status, or
-authority field.
+ordering added no public mode, helper, schema, lifecycle state, status, or
+authority field at that historical correction step. The later development
+amendment adds only its explicitly non-authoritative mode.
 
 ### Metadata-output stream-semantics correction
 
@@ -451,13 +646,16 @@ threads do not restart the workflow or invalidate accepted dispositions.
 | Historical pre-flush focused test | `tests/test_run_role_pool_app_native_r0_observation_parent.py`; `72662` bytes; `805819519274e2fbc2f846996b141e16bb7ee6b3766a3d1e8aab12d2fb9b4ff4` |
 | Historical pre-sole-target parent controller | `tools/run_role_pool_app_native_r0_observation_parent.py`; `101049` bytes; `27def2ba3b099bf530b54349bcdbc0ad3875193cf63d9d5d9014c5a8f8a67acf` |
 | Historical pre-sole-target focused test | `tests/test_run_role_pool_app_native_r0_observation_parent.py`; `76838` bytes; `97671e0710f6677b3597f2920676ef7bdbf5894fa15389d069edf48b15e571cd` |
-| Current integrated sole-target parent controller | `tools/run_role_pool_app_native_r0_observation_parent.py`; `90799` bytes; `4593dc5e6639fb051b33652df5ed33ea0393fc260f9cb6179babb53a1639d9bd` |
-| Current integrated sole-target focused test | `tests/test_run_role_pool_app_native_r0_observation_parent.py`; `73313` bytes; `11670df2ba196b655b70e0da630d19342fbb71e76c0b94908790d57f15fbaf33` |
+| Historical pre-audit-ordering parent controller | `tools/run_role_pool_app_native_r0_observation_parent.py`; `90799` bytes; `4593dc5e6639fb051b33652df5ed33ea0393fc260f9cb6179babb53a1639d9bd` |
+| Historical pre-audit-ordering focused test | `tests/test_run_role_pool_app_native_r0_observation_parent.py`; `73313` bytes; `11670df2ba196b655b70e0da630d19342fbb71e76c0b94908790d57f15fbaf33` |
+| Current integrated parent controller | `tools/run_role_pool_app_native_r0_observation_parent.py`; `90799` bytes; `48c8f46f80959c548fb590e0faf5a97d0d90f4f1d15f1dda39adadb4ad9e3c42` |
+| Current integrated focused test | `tests/test_run_role_pool_app_native_r0_observation_parent.py`; `74701` bytes; `e62dca6e5d0fdf7ce3f4d240b0b56a0213142fb816509d4a5519cb9f9a91291b` |
 | Historical pre-short-write focused-test candidate | `tests/test_run_role_pool_app_native_r0_observation_parent.py`; `71072` bytes; `289ad0ff8bc920d23bd9068ed700abab5d7be44d450fe3fad78d06c302b09069` |
 | Historical target-binding-loop contract | `72153` bytes; `367a9e27e125dc3751a23944b5263bbb697fac82a23633da01f3c2e6dc6639f2` |
 | Guarded-output correction contract predecessor | `77570` bytes; `9986a9dfcf18d61ed3562497305a54a0f837cbd95f89bd211ba51d36c1a0df5d` |
 | Buffered-flush clarification contract predecessor | `82743` bytes; `fdf170af1bafb1f6dec4a9842e62f1fab2af9afcff084d1804f599b828b76c99` |
 | Controller-image sole-target contract predecessor | `83373` bytes; `636bfeda4718b55dc6db0e61611999b37ad72b8095be69bd019f8403438bc6da` |
+| Owner-local development-diagnostic amendment predecessor | `85565` bytes; `fbdacb0f1be6b396efdf9809945d2e98df82eeee5f6bea9b4cfde8ccdb42652e` |
 | Accepted #826 lifecycle contract | `37249` bytes; `be7974ba998257981df5c876dfa441b03326ae776405bd269d1470957a785cde` |
 | Accepted #826 harness | `88401` bytes; `cfd3a0baaff6c4bbc5144403fd72f404722b8b96e8eca30fbf588f3180ec0b42` |
 | Accepted #826 harness test | `76211` bytes; `3fc6c35eada99f3a319e1ebe94bd5f33494821301cfdf1ec67f5f35bfc97dc4c` |
@@ -483,7 +681,8 @@ Each row is bound in its named lifecycle context. Historical rows remain
 immutable evidence and are not required to coexist byte-for-byte with current
 rows at the same path. The current integrated controller and focused test must
 each remain an ordinary, non-reparse file at their exact current length and
-digest; those are the only implementation starting gates for this correction.
+digest; those are the only implementation starting gates for the later
+development-diagnostic implementation.
 The source and installed trees must remain exact and equal. Drift stops before
 controller-image inspection or child creation.
 
@@ -500,42 +699,51 @@ amendment neither accepts, rejects, repairs, nor reinterprets that attempt or
 any bytes it may have emitted. No decision, identity, binding, or evidence from
 that attempt transfers to the sole-target design.
 
+The later metadata-only decision at
+<https://github.com/Tahjali11/Mythic-Edge/issues/826#issuecomment-5259698220>
+and the owner-reported `observation_binding_rejected` attempt are also spent and
+permanently nonreusable. Development runs do not retry, resume, replace, or
+reinterpret that attempt. They investigate current code without consuming a
+metadata or observation identity.
+
 ## Integrated History And Future Authority Sequence
 
-PRs #829 through #843 are immutable integrated history. They establish the
+PRs #829 through #846 are immutable integrated history. They establish the
 current contract, controller, focused test, review dispositions, and exact
-current-byte review evidence. They do not establish a canonical target
-binding or authorize a controller execution. The prior owner decision at
-comment `5232244853` remains historical and nontransferable.
+current-byte review evidence. They do not establish a successful canonical
+target binding or authorize Observation 1. The prior owner decisions remain
+historical and nontransferable.
 
 The only prospective sequence under this amendment is:
 
-1. fresh Codex E reviews this exact audit-ordering amendment and the unchanged
-   current sole-target controller and focused test;
-2. after acceptance and separate owner submission authority, Codex F/G may
-   integrate exactly this one contract path;
-3. after exact contract integration and a separate owner corrective decision,
-   Codex D may correct E-012 in exactly the controller and focused test;
-4. fresh Codex E reviews those exact two implementation paths and required
-   operation-free tests before any submission or integration decision;
-5. after separately authorized implementation submission and exact integration,
-   fresh current-main Codex E review
-   determines eligibility for one separately authorized metadata-only binding
-   operation;
-6. one fresh, exact, expiring, nonreusable owner decision may authorize that
-   metadata-only operation once; failure or ambiguity permits no automatic
-   retry and creates no Observation 1 authority;
-7. the emitted public-safe binding receives independent exact-byte review; and
-8. only then may the human owner make a separate Observation 1 decision that
-   binds those exact canonical bytes and the current repository/controller
-   tuple. Consumption and execution remain separate later actions.
+1. fresh Codex E reviews this exact development-diagnostic amendment and the
+   unchanged current controller and focused test;
+2. if and only if E accepts the contract, the owner's conditional Codex C
+   authority in the initiating instruction activates for exactly the two
+   implementation paths named below;
+3. Codex C implements the development-only mode and its operation-free tests,
+   runs the owner-authorized diagnostic manually, records the first complete
+   transcript only in the active owner-controlled terminal and Codex task, and
+   makes at most one directly proved correction within the same two paths;
+4. Codex C reruns the development diagnostic only when needed to verify that
+   one correction, runs focused and adjacent operation-free validation, and
+   writes the standard implementation handoff without private diagnostic data;
+5. fresh Codex E reviews the exact contract, controller, focused test, and
+   sanitized handoff before any submission or integration decision;
+6. separately authorized Codex F/G may later submit and integrate only the
+   independently accepted package;
+7. fresh current-main Codex E then determines whether a new production
+   metadata-only owner decision is eligible; and
+8. a successful canonical binding still requires independent exact-byte review
+   before the human owner may consider a separate Observation 1 decision.
 
 The chain stops on base, contract, implementation, issue, worktree, source or
 installed tree, target-binding, GitHub, process, validation, or residue drift;
-scope expansion; private-value disclosure; or any unknown outcome. No step may
-be inferred from a prior decision, repeated automatically, or replaced by a
-new operation under spent authority. Codex G must not close #826 or mutate
-#769, #746, or #813.
+scope expansion; disclosure outside the exact development allowance; any child,
+network, or mutation from development mode; or an unknown outcome. No
+production step may be inferred from a development run, repeated
+automatically, or replaced under spent authority. Codex G must not close #826
+or mutate #769, #746, or #813.
 
 External owner-operated preflight continues to own current-main, clean
 worktree, GitHub decision, exact binding transport, consumption, and readback
@@ -559,9 +767,10 @@ replacement or retry.
 
 ## Owning Layer And Files
 
-The successor parent owns only guarded controller-image custody; critical-artifact
-guards; parent-observed process, stream, timeout, termination, cleanup, and
-effect evidence; and `PostExitFacts`. The accepted #826 harness remains sole
+The successor parent owns only guarded controller-image custody; the bounded
+development recorder; critical-artifact guards; parent-observed process,
+stream, timeout, termination, cleanup, and effect evidence; and
+`PostExitFacts`. The accepted #826 harness remains sole
 owner of child validation, schema parsing, status selection, canonical receipt
 construction, and sealing. GitHub remains the durable owner of later decision,
 consumption, and candidate-publication evidence. The external owner-operated
@@ -572,7 +781,8 @@ This Codex B amendment changes only:
 
 - `docs/contracts/role_pool_codex_app_native_r0_successor_parent_controller.md`
 
-The exact corrective implementation scope is limited to:
+The exact later Codex C implementation and directly proved correction scope is
+limited to:
 
 1. `tools/run_role_pool_app_native_r0_observation_parent.py`
 2. `tests/test_run_role_pool_app_native_r0_observation_parent.py`
@@ -589,13 +799,14 @@ path may change. This amendment authorizes no other implementation behavior.
 
 ## Public Interface
 
-The production module exposes only:
+The module exposes only:
 
 ```text
 main(argv: Sequence[str] | None = None) -> int
 ```
 
-It has exactly two closed modes.
+It has exactly two authority-bearing production modes and one structurally
+separate development-only mode.
 
 Metadata-only predecision mode:
 
@@ -613,8 +824,17 @@ Post-consumption execution mode:
  "<unpadded_base64url_of_exact_canonical_binding_bytes>"]
 ```
 
+Owner-local development diagnostic mode:
+
+```text
+["tools/run_role_pool_app_native_r0_observation_parent.py",
+ "--diagnose-metadata-binding-development"]
+```
+
 No other mode, order, option, argument count, empty value, or duplicate value
-is accepted. The observation ID in execution mode must match exactly
+is accepted. The development token is exact, accepts no additional argument,
+and cannot be combined with either production mode. The observation ID in
+execution mode must match exactly
 `r0.app_native.offline.observation.1.[0-9a-f]{32}`, must not be all zero, and
 must equal the separately reviewed and consumed owner decision. Missing,
 extra, reordered, duplicate, option-like, non-ASCII, or nonexact input is
@@ -629,10 +849,11 @@ controller-image inspection. The decoded bytes are public-safe expected metadata
 executable path, authority token, receipt, or process parameter.
 
 Before repository-root inspection, the controller first preserves the existing
-non-Windows host rejection, then completes pure public admission. Metadata mode
-must match its exact one-token form. Execution mode must validate exact argument
-count and order, observation identity, binding transport, decoded canonical
-structure, and every public cross-field rule. Malformed public input is
+non-Windows host rejection, then completes pure public admission. Metadata and
+development modes must each match their distinct exact one-token form.
+Execution mode must validate exact argument count and order, observation
+identity, binding transport, decoded canonical structure, and every public
+cross-field rule. Malformed public input is
 `observation_sequence_rejected` even when repository-root inspection would be
 absent, stale, nonordinary, reparse-backed, or otherwise invalid. Only a valid
 public form may request the repository root; repository-root or current-binding
@@ -663,10 +884,11 @@ No PATH lookup, `py.exe`, WindowsApps alias, file association, shim, wrapper,
 shell child launch, broker, service, scheduled task, task API, alternate
 runtime, or fallback is permitted.
 
-The current Codex `shell_command` surface is not authorized to start this
-controller. This is an authority statement, not a claim that the host cannot
-launch a process. The contract does not add a general launch capability or
-automate the owner-operated controller start.
+The current Codex `shell_command` surface remains unauthorized to start either
+authority-bearing mode. After fresh contract acceptance, the owner's
+conditional Codex C authority permits a bounded owner-local direct development
+invocation of only the exact diagnostic mode. That exception is not a general
+launch capability and does not authorize metadata or Observation 1 execution.
 
 ## Canonical Successor Target Binding
 
@@ -832,12 +1054,20 @@ memory. The controller emits no normalized, repaired, or inferred binding in
 execution mode. Exact equality alone authorizes nothing; every existing state,
 process, effect, cleanup, and lifecycle predicate must also pass.
 
+Development mode borrows the metadata path's inspection primitives only under
+the recorder defined above. It never calls either production mode and never
+constructs the canonical binding. Passing every inspected predicate means only
+that no failure was reproduced in that run. A failed predicate identifies a
+development repair target but does not prove that the repair is complete,
+safe, accepted, or eligible for production use.
+
 ## Controller-Image Custody
 
 External exact decision and consumption verification remain preconditions only
 for execution mode, not controller steps or claims. Metadata-only mode still
-requires its own fresh decision and grants no observation authority. Neither
-mode reads stdin, changes console mode, audits a console queue, or asks the
+requires its own fresh decision and grants no observation authority.
+Development mode consumes no decision and grants no authority. None of the
+three modes reads stdin, changes console mode, audits a console queue, or asks the
 owner to enter an executable path after controller start. No second-ingress
 readiness handshake remains necessary.
 
@@ -859,13 +1089,16 @@ revalidation, and then closes it exactly once. Process-launch and cleanup
 helpers borrow but never own or close the guard. No `target_guard`, alias,
 second executable handle owner, or ownership transfer is permitted.
 
-The private path may exist only in bounded controller memory and the necessary
+In both production modes, the private path may exist only in bounded controller
+memory and the necessary
 Win32 application-image buffers. The controller must clear its mutable path and
 command-line buffers when their use ends, without claiming impossible total
 zeroization. It must never emit the path through stdout, stderr, an exception,
 `repr`, logging, tracing, audit output, child argument vector, environment,
 cwd, title, file, registry, clipboard, cache, receipt, comment, prompt,
-handoff, or durable artifact. The external manual launch mechanism and trusted
+handoff, or durable artifact. Development mode may emit it only inside the
+bounded owner-approved transcript and nowhere else. The external manual launch
+mechanism and trusted
 Windows operating-system control plane may observe the selected image; this
 contract makes no shell-history, process-list, OS-isolation, or concealment
 claim about those external surfaces.
@@ -979,18 +1212,22 @@ not substitutes. Unknown parentage or terminal state fails closed.
   or survivor check that fails or is unknown makes
   `cleanup_confirmed=false`.
 
-No transcript, staging file, runtime-status file, log, cache, private evidence,
-or durable controller artifact is created. Metadata-only mode's only successful
+No staging file, runtime-status file, log, cache, private evidence file, or
+durable controller artifact is created. Metadata-only mode's only successful
 local output is the complete canonical target-binding artifact; execution
 mode's only successful local output is the unchanged canonical receipt bytes.
-A fixed existing status plus final LF is the only authoritative failure
-indicator; any bytes emitted or buffered before write or flush failure remain
-non-authoritative evidence. Raw errors and exception chains are suppressed.
+A fixed existing status plus final LF is the only authoritative production
+failure indicator; any bytes emitted or buffered before write or flush failure
+remain non-authoritative evidence. Raw errors and exception chains remain
+suppressed in both production modes. Only the exact development mode may emit
+the transient unblinded terminal transcript defined above, and that transcript
+is never authoritative evidence.
 
 ## Before And After Effect Evidence
 
-The controller installs its Python audit observer before its first baseline and
-before any private controller-image inspection. It completes the first exact
+Each mode that inspects the controller image installs its Python audit observer
+before its first baseline and before any private controller-image inspection.
+It completes the first exact
 effect snapshot before `QueryFullProcessImageNameW`, private-path handling,
 image-guard acquisition, or metadata access, and keeps the observer active
 through sealing and cleanup. The first snapshot and the final snapshot after
@@ -1034,7 +1271,10 @@ The 15 `PostExitFacts` fields are derived as follows:
 | `external_effect_count` | Controller-owned environment mutation, extra process-entry, or write outside the two observed trees; the one fixed child entry is excluded; acceptance requires `0`. |
 | `generated_residue_count` | Exact post-minus-pre generated-residue entries; acceptance requires `0`. |
 
-Counts are derived and never inserted as fixed zero literals. Child output
+Counts are derived and never inserted as fixed zero literals. Development mode
+has no child facts and must derive its six exact zero operation/effect counts
+from the recorder and adapter call evidence; it may not insert them without
+corresponding zero-call and equal-inventory proof. Child output
 never supplies a parent fact. The network field retains the accepted limited
 meaning: zero means only zero controller-owned observed Python network events.
 It does not prove child-network prevention, complete native observation,
@@ -1066,7 +1306,7 @@ retains any later publication and exact readback responsibility.
 
 ## Closed Failure Precedence And Nonretry
 
-The first applicable row wins:
+For the two authority-bearing production modes, the first applicable row wins:
 
 | Precedence | Condition | Existing public result |
 | --- | --- | --- |
@@ -1080,6 +1320,13 @@ The first applicable row wins:
 | 8 | Nonzero child exit, nonempty stderr, or malformed validation payload | `observation_validation_failed` |
 | 9 | Pure sealer rejects otherwise exact evidence | Exact existing sealer status |
 | 10 | Every predicate exact | Existing canonical receipt bytes |
+
+Development mode does not select, wrap, or emit a production status. Its
+complete transcript records the first failed predicate and raw allowed detail.
+An incomplete development transcript is only `diagnostic_incomplete` for local
+development routing; that token is not added to any status, receipt, selector,
+consumption, or lifecycle vocabulary. No development outcome falls through to
+metadata or execution mode.
 
 Known pre-entry rejection performs no child entry. Once the future owner
 decision is consumed, every cancellation, failure, timeout, ambiguity, or
@@ -1095,7 +1342,8 @@ real process and accesses no private executable.
 
 It must prove:
 
-1. exact admission of only the two public modes and rejection of every missing,
+1. exact admission of only the two production modes and the one development
+   mode, with structurally disjoint dispatch and rejection of every missing,
    extra, reordered, duplicate, option-like, malformed, or oversized argument;
    non-Windows rejection remains first; malformed mode, identity, transport, or
    canonical binding remains `observation_sequence_rejected` when a fake later
@@ -1143,7 +1391,7 @@ It must prove:
    `2315511a22881182565b4e8f0dd3764c79982c0287e573c562b1bd1f6f902333`
    are rejected and never normalized into the successor representation;
 8. non-Windows rejection before controller-image inspection;
-9. both public modes prove zero `GetStdHandle`, `GetConsoleMode`,
+9. all three modes prove zero `GetStdHandle`, `GetConsoleMode`,
    `SetConsoleMode`, `ReadConsoleW`, `PeekConsoleInputW`, `ReadConsoleInputW`,
    stdin-read, queue-audit, target-path normalization, and `validate_target`
    calls; no second-ingress readiness handshake or private-input cancellation
@@ -1185,18 +1433,48 @@ It must prove:
 23. exact construction of all 15 immutable `PostExitFacts` fields from parent
     evidence only and unchanged 32-, 36-, 37-, and 41-field schemas;
 24. exactly one accepted pure-sealer call after execution cleanup, zero sealer
-    calls on every earlier failure and throughout metadata-only mode;
-25. receipt output, complete binding output, any binding prefix, and every fixed
-    failure are public-safe and no-echo; the expected binding is absent from
-    receipts and child inputs; complete-refusal and complete-success output
-    witnesses remain exact;
+    calls on every earlier failure and throughout metadata-only and development
+    modes;
+25. production receipt output, complete binding output, any binding prefix, and
+    every fixed production failure are public-safe and no-echo; the expected
+    binding is absent from receipts and child inputs; complete-refusal and
+    complete-success output witnesses remain exact; development output is
+    tested separately and cannot appear in either production mode;
 26. accepted #826 files and predecessor observer remain byte-identical and no
     predecessor-observer function is imported or called; and
 27. current-main, worktree, GitHub decision, binding-transport equality, and
     consumption verification remain external preconditions; no operation-free
     test starts a real process or performs network, GitHub, repository,
     installed-tree, registry, release, identity, consumption, or publication
-    effects.
+    effects;
+28. exact development-mode admission, zero production-mode call-through, zero
+    canonical binding construction, zero owner loading, zero sealer calls, zero
+    child construction or entry, and zero authority, identity, consumption,
+    receipt, publication, network, or mutation calls;
+29. one operation-free fake failure for every closed development predicate,
+    proving the first failed predicate is retained, later predicates are not
+    evaluated, required cleanup still runs, and a later cleanup failure does
+    not overwrite the first failure;
+30. raw synthetic private paths, local paths, Win32 values, exceptions, and
+    tracebacks appear only in the development transcript, while credential,
+    token, key, authentication, browser, environment-dump, shell-history,
+    unrelated-path, and unrelated-file-content sentinels never appear;
+31. the development transcript has exact markers and ordered fields, valid
+    JSON escaping, one final LF, a `262144`-byte ceiling, one stderr write and
+    one flush, empty stdout, and no file or durable artifact; short write,
+    overflow, write failure, or flush failure is `diagnostic_incomplete` with
+    no repair or second emission;
+32. a no-failure synthetic run produces only
+    `metadata_path_completed_without_binding`, no canonical binding bytes, and
+    no production success; two manual fake runs are independent and prove no
+    automatic loop, relaunch, retry, replacement, or cross-run resource reuse;
+33. both production modes instantiate no development recorder, emit no
+    development marker or private value, and preserve exact existing status,
+    output, exit, cleanup, and nonretry behavior; and
+34. one directly proved correction is admissible only when a complete
+    transcript identifies a concrete current-code mismatch with an already
+    accepted production invariant; a semantic change, third path, second
+    correction target, or unexplained failure stops without code expansion.
 
 Required later implementation validation:
 
@@ -1212,22 +1490,35 @@ git diff --check
 
 ## Acceptance And Stop Conditions
 
-Contract acceptance establishes only that metadata audit ordering is precise
-enough for contract integration routing. It does not
-authorize implementation, metadata inspection, private-path access, controller
-start, Observation 1, or publication. After contract integration and separate
-owner corrective authority, Codex D may change exactly the controller and
-focused test to repair E-012. Fresh independent E review must verify those exact
-two files before implementation integration.
+Contract acceptance establishes only that the development profile is precise
+and constructible inside the existing two-file envelope. It authorizes no
+diagnostic run, metadata run, private-path access, controller start,
+Observation 1, publication, submission, or integration by itself.
+
+The owner's initiating instruction conditionally authorizes the next two
+steps. First, this exact contract must receive a fresh independent Codex E
+review. Only if E reports no blocking finding does the Codex C authority
+activate. That C authority is limited to implementing this development mode,
+running operation-free tests, running the owner-local diagnostic, applying at
+most one directly proved correction that implements an already accepted
+production invariant, rerunning the diagnostic and validation, and writing a
+sanitized handoff in exactly the two implementation paths. A private value may
+remain only in the active owner-controlled terminal and Codex task; it must not
+enter the handoff or repository.
 
 Stop and return to Codex A or the owner if:
 
 - either implementation path is missing, another path is required, or
-  implementation would precede exact contract integration and separate owner
-  authority;
-- any accepted #826 file or predecessor observer must change;
-- a private value must enter a model-visible, durable, redirected, or
-  public surface;
+  implementation would precede clean independent contract acceptance;
+- any accepted #826 file other than the current controller and focused test or
+  the predecessor observer must change;
+- a private value must enter a repository file, GitHub, log, cache, handoff,
+  receipt, binding, clipboard automation, installed tree, registry, release
+  state, or unrelated task; owner-approved terminal and current-task diagnostic
+  display is the only exception;
+- diagnostic collection would require credentials, authentication data,
+  tokens, private keys, unrelated environment values, browser data, shell
+  history, unrelated private files, or a directory-wide dump;
 - the owner-selected controller process image cannot be recovered exactly by
   one bounded `QueryFullProcessImageNameW` operation, guarded as one ordinary
   non-reparse file, and reused unchanged as `CreateProcessW`
@@ -1237,6 +1528,16 @@ Stop and return to Codex A or the owner if:
 - installing the existing audit observer and obtaining the exact first effect
   snapshot before private controller-image inspection requires a new audit,
   effect, status, schema, or lifecycle family;
+- development mode cannot remain structurally disjoint from `_run_metadata`,
+  `_run_controller`, target-binding construction, owner loading, sealing, and
+  process entry;
+- a development run creates a child, writes or mutates state, accesses the
+  network, emits forbidden data, exceeds its output ceiling, or cannot prove
+  exact cleanup;
+- the first complete transcript does not identify one concrete predicate and
+  correction boundary, or the proposed correction changes contract semantics
+  rather than implementing an accepted invariant;
+- more than one production correction target is needed;
 - a generic runner, shell child, PATH lookup, `py.exe`, alias, shim, wrapper,
   helper, broker, service, task API, fallback, retry, or replacement is needed;
 - creation-time Job Object assignment, exact handle inheritance, complete
@@ -1245,25 +1546,24 @@ Stop and return to Codex A or the owner if:
 - another schema beyond the one private successor target binding, a selector
   input, status, receipt, digest family, lifecycle, authority field, or
   publication mechanism is required;
+- the bounded transient development grammar would need to become a durable
+  schema or acceptance artifact;
 - current bindings drift; or
 - external preflight would need the controller to authenticate GitHub, inspect
   `.git`, accept a new authority input, invoke Git, or access the network;
 - issue #769 would require any read beyond state/comment-count validation or
   any mutation.
 
-The current `90799`-byte controller and `73313`-byte focused test are accepted
-integrated sole-target inputs but do not satisfy E-012. Fresh contract
-acceptance permits only contract integration routing. After the separately
-authorized exact two-file correction, fresh implementation review, and later
-exact implementation integration, fresh current-main review may establish
-eligibility for one metadata-only owner decision, not Observation 1. No current
-authority permits
-private-path access, controller start, child creation, identity generation or
-consumption, observation execution, binding or receipt publication,
-Observation 2, task dispatch, R1-R8, Stage 4, deployment, assurance, privacy or
-security guarantees, or live readiness.
+The current `90799`-byte controller and `74701`-byte focused test are the exact
+accepted implementation inputs. Before E acceptance, implementation and
+diagnostic execution remain unauthorized. After E acceptance, only the
+conditional Codex C development authority above becomes active. It creates no
+metadata or observation authority and no right to submit or integrate. Fresh
+implementation review remains mandatory. No development result may establish
+binding acceptance, Observation 1 eligibility, privacy, security, assurance,
+deployment, or live readiness.
 
-## Next Workflow Action
+## Current Next Workflow Action
 
 Next role: fresh independent Codex E contract reviewer.
 
@@ -1273,56 +1573,70 @@ Pasteable prompt:
 Use the current Mythic Edge repository authority.
 Use $mythic-edge-workflow.
 
-Act as Codex E: Independent R0 Metadata Audit-Boundary Ordering Contract Reviewer.
+Act as Codex E: Independent R0 Owner-Local Development Diagnostic Contract Reviewer.
 
 Repository: Tahjali11/Mythic-Edge
-Lifecycle issue: https://github.com/Tahjali11/Mythic-Edge/issues/826
-Completed capability issue: https://github.com/Tahjali11/Mythic-Edge/issues/828
+Issue: https://github.com/Tahjali11/Mythic-Edge/issues/826
 Tracker: https://github.com/Tahjali11/Mythic-Edge/issues/746
 Protected issue: https://github.com/Tahjali11/Mythic-Edge/issues/769
-Reviewed base commit: d96707c1ef8655d961686a4b08369e49dca40e3c
-Reviewed base tree: 57161f80433fe5035351090ca98b7a3f69634258
+Reviewed base: origin/main@36068577ae80f151161f14d14005dd276dfbc4fd
 
 Review exactly:
 docs/contracts/role_pool_codex_app_native_r0_successor_parent_controller.md
 
-Bind the exact byte count and SHA-256 reported by Codex B. Refresh origin/main
-and live issue state. Confirm #826 is open, #828 is closed, and #769 is open
-with zero comments.
+Bind the exact contract byte count and SHA-256 reported in the Codex B
+handoff. Refresh origin/main and issue state. Confirm #826 is open and #769 is
+open with zero comments.
 
 Read without editing:
 - tools/run_role_pool_app_native_r0_observation_parent.py
-  SHA-256: 4593dc5e6639fb051b33652df5ed33ea0393fc260f9cb6179babb53a1639d9bd
+  SHA-256: 48c8f46f80959c548fb590e0faf5a97d0d90f4f1d15f1dda39adadb4ad9e3c42
 - tests/test_run_role_pool_app_native_r0_observation_parent.py
-  SHA-256: 11670df2ba196b655b70e0da630d19342fbb71e76c0b94908790d57f15fbaf33
+  SHA-256: e62dca6e5d0fdf7ce3f4d240b0b56a0213142fb816509d4a5519cb9f9a91291b
 
-Review ME-RP-826-E-012. Confirm metadata mode must call `install_audit()`
-exactly once and complete its first exact `snapshot_effects()` before
-`validate_controller_image()`, `QueryFullProcessImageNameW`, private-path
-handling, controller-image guard acquisition, or metadata inspection. Audit or
-first-snapshot failure must produce zero private-image and process-entry calls.
-Confirm the observer remains active through image validation, guard closure,
-the final effect snapshot, audit-count readback, and cleanup.
+Review ME-RP-826-DEV-DIAG-B-001. Confirm the one exact development mode is
+structurally disjoint from metadata and execution modes; starts no child;
+creates no binding, identity, authority, consumption, receipt, or rung
+evidence; performs no network or mutation; records the most specific first
+failed predicate; cleans up exactly; and emits only the bounded owner-approved
+unblinded terminal transcript.
 
-Confirm execution mode already preserves the same ordering and requires no
-change beyond regression coverage. Confirm the sole-target design, two modes,
-18-field binding and vectors, private-path custody, one guard owner, fixed
-command, Job Object, streams, cleanup, effects, all 15 PostExitFacts, sealer,
-schemas, statuses, nonretry behavior, spent metadata attempt, and false
-authority boundaries remain unchanged. No complete-native-observation claim,
-new audit, schema, status, lifecycle, helper, or third path is permitted.
+Confirm private output is permitted only for the development transcript and
+only for the enumerated diagnostic classes. Confirm credentials, tokens,
+authentication material, private keys, unrelated environment values, browser
+data, shell history, unrelated files, directory-wide dumps, and durable or
+GitHub output remain forbidden. Confirm production metadata and Observation 1
+modes remain blinded and behaviorally unchanged.
 
-Run contract-only structural checks and the existing focused and adjacent
-operation-free regressions. Do not implement, access a private path,
-start a controller or child, generate or consume an identity or decision,
-publish a binding or receipt, touch issue #769, authorize Observation 1 or 2,
-advance R0-R8 or Stage 4, submit, merge, deploy, or claim readiness.
+Confirm repeated development runs are manual independent diagnostics, not
+metadata or observation retries. Confirm a later Codex C pass may make at most
+one directly proved correction in exactly the current controller and focused
+test, and must stop if the transcript does not identify one concrete current
+defect or if new semantics or a third path are required. Confirm the final
+profile requires a separate removal or blinding gate.
 
-Lead with findings. Return the reviewed contract SHA-256 and byte count,
-audit-ordering constructibility verdict, exact later two-file scope, invariant
-and schema-preservation verdicts, validation, authority flags, generated residue,
-and workflow_handoff. If exact, report eligibility only for a separate owner
-contract-submission decision.
+Run contract-only structural checks plus existing focused and adjacent
+operation-free regressions. Do not implement, run the development mode, access
+a private path, run metadata or Observation 1, create or consume authority,
+publish, touch #769, submit, merge, deploy, advance R0-R8 or Stage 4, or claim
+readiness.
+
+Lead with findings. Return the exact reviewed contract byte count and SHA-256,
+contract verdict, data-boundary verdict, production-separation verdict,
+two-file constructibility verdict, test and removal-gate verdicts, validation,
+authority flags, generated residue, conditional_routes, and workflow_handoff.
+
+conditional_routes:
+  success:
+    next_role: "Codex C: R0 Owner-Local Development Diagnostic Implementer"
+    next_two_steps:
+      - "Implement the exact development mode and operation-free tests in the two accepted files."
+      - "Run the authorized diagnostic, apply at most one directly proved correction, and validate."
+  failure:
+    next_role: "Codex B: narrow development-diagnostic contract corrector"
+    next_two_steps:
+      - "Report the first blocking contract clause and preserve all implementation bytes."
+      - "Provide one pasteable correction prompt limited to that finding."
 ```
 
 ```yaml
@@ -1333,97 +1647,87 @@ instruction_context:
     - "ADR-0008"
     - "ADR-0012"
   observed:
-    - "Current main is d96707c1ef8655d961686a4b08369e49dca40e3c at tree 57161f80433fe5035351090ca98b7a3f69634258."
-    - "Metadata mode currently validates the controller image before installing its audit observer and first effect snapshot."
-    - "Execution mode already installs the observer and captures its first snapshot before controller-image validation."
+    - "Current main is 36068577ae80f151161f14d14005dd276dfbc4fd at tree 5baf5ee1887b320fd0ba4a03fb8366098071a21d."
+    - "The current controller and test exactly match the refreshed starting bindings."
+    - "The owner reports that the latest metadata-only operation returned observation_binding_rejected without its internal predicate."
     - "Issue #769 is open with zero comments."
   derived:
-    - "E-012 is an ordering defect within the existing controller and focused test."
-    - "The correction requires no schema, status, lifecycle, receipt, helper, or third-path change."
+    - "The first concrete production defect cannot be selected from the blinded result alone."
+    - "One separate no-child development branch in the existing controller can expose the bounded evidence without adding an execution lane or authority family."
   proposed:
-    - "One contract-only ordering amendment followed by fresh independent Codex E review."
+    - "One contract-only amendment, fresh E review, then conditionally authorized two-file Codex C work."
   unknown:
-    - "The exact later two-file correction remains unimplemented and unexecuted."
+    - "The first failed metadata predicate remains unknown until an accepted development mode is implemented and run."
   protected_surfaces:
-    - "private executable path"
-    - "Observation 1 authority and identity"
+    - "private executable and local filesystem paths"
+    - "metadata and Observation 1 authority"
     - "issue #769"
-    - "release, registry, installed tree, and receipt state"
+    - "release, registry, installed tree, binding, receipt, and consumption state"
   authority_conflicts_found: false
   stop_conditions:
-    - "A third implementation path, new audit, helper, schema, status, or lifecycle is required."
-    - "The first exact effect snapshot cannot complete before private controller-image inspection."
-    - "Private custody, containment, lifecycle, or authority must weaken."
+    - "A third implementation path, child, helper, schema, status, lifecycle, durable diagnostic artifact, or new authority family is required."
+    - "Development output cannot be bounded to the owner-approved diagnostic classes."
+    - "Production blinding, containment, cleanup, nonretry, or authority would weaken."
 
 workflow_handoff:
-  role_performed: "Codex B: R0 Metadata Audit-Boundary Ordering Contract Corrector"
+  role_performed: "Codex B: R0 Owner-Local Unblinded Development Diagnostic Contract Writer"
   completed_thread: "B"
   next_thread: "E"
-  risk_tier: "high"
   repository: "Tahjali11/Mythic-Edge"
   repository_url: "https://github.com/Tahjali11/Mythic-Edge"
   issue: "https://github.com/Tahjali11/Mythic-Edge/issues/826"
-  historical_capability_issue: "https://github.com/Tahjali11/Mythic-Edge/issues/828"
   tracker: "https://github.com/Tahjali11/Mythic-Edge/issues/746"
   protected_issue: "https://github.com/Tahjali11/Mythic-Edge/issues/769"
+  source_artifact: "owner-reported metadata-mode observation_binding_rejected"
+  target_artifact: "docs/contracts/role_pool_codex_app_native_r0_successor_parent_controller.md"
+  risk_tier: "high"
   base_branch: "origin/main"
   target_branch: "main"
-  branch: "codex/app-native-r0-metadata-audit-boundary-826"
-  base_commit: "d96707c1ef8655d961686a4b08369e49dca40e3c"
-  base_tree: "57161f80433fe5035351090ca98b7a3f69634258"
-  source_artifact: "ME-RP-826-E-012"
-  target_artifact: "docs/contracts/role_pool_codex_app_native_r0_successor_parent_controller.md"
+  branch: "codex/r0-owner-local-unblinded-diagnostic-826"
+  base_commit: "36068577ae80f151161f14d14005dd276dfbc4fd"
+  base_tree: "5baf5ee1887b320fd0ba4a03fb8366098071a21d"
   files_changed:
     - "docs/contracts/role_pool_codex_app_native_r0_successor_parent_controller.md"
-  later_correction_paths:
+  later_implementation_paths:
     - "tools/run_role_pool_app_native_r0_observation_parent.py"
     - "tests/test_run_role_pool_app_native_r0_observation_parent.py"
-  later_correction_path_count: 2
-  starting_controller_sha256: "4593dc5e6639fb051b33652df5ed33ea0393fc260f9cb6179babb53a1639d9bd"
-  starting_test_sha256: "11670df2ba196b655b70e0da630d19342fbb71e76c0b94908790d57f15fbaf33"
-  executable_selection: "manual_owner_launch_of_exact_controller_image"
-  executable_path_source: "QueryFullProcessImageNameW_of_guarded_current_process"
-  second_target_ingress: "removed"
-  guard_owner: "parent_adapter_only"
   finding_status:
-    ME-RP-826-SOLE-TARGET-B-001: "implemented_integrated_preserved"
-    ME-RP-826-E-012: "contracted_pending_independent_confirmation"
-  target_binding_schema: "trusted_owner_app_native_r0_successor_target_binding.v1_unchanged"
-  metadata_mode: "audit_and_first_snapshot_before_sole_guarded_controller_image"
-  execution_transport: "bounded_unpadded_base64url_of_exact_canonical_binding_bytes_unchanged"
-  spent_metadata_attempt_reused: false
-  implementation_authorized: false
-  codex_d_authorized: false
+    ME-RP-826-E-012: "fixed_confirmed_current_bytes"
+    ME-RP-826-DEV-DIAG-B-001: "contracted_pending_independent_confirmation"
+  development_mode: "--diagnose-metadata-binding-development"
+  development_child_creation_authorized: false
+  implementation_authorized_now: false
+  development_diagnostic_authorized_now: false
   metadata_operation_authorized: false
-  binding_created_or_published: false
-  submission_authorized_now: false
-  contract_submission_eligible: false
-  owner_observation_1_decision_eligible: false
-  merge_authorized_now: false
-  private_path_accessed: false
-  controller_started: false
-  child_created: false
-  identity_created_or_consumed: false
-  owner_decision_created_or_consumed: false
-  observation_authorized: false
   observation_1_authorized: false
   receipt_publication_authorized: false
-  observation_2_authorized: false
   r0_r8_authorized: false
-  r1_r8_authorized: false
   stage4_authorized: false
   deployment_authorized: false
-  issue_769_mutation_authorized: false
   live_ready: false
   validation:
-    - "203 focused controller tests passed as baseline evidence only; the E-012 correction remained unimplemented"
-    - "247 adjacent operation-free tests passed"
+    - "206 focused controller tests passed with an isolated sibling basetemp"
+    - "247 adjacent operation-free tests passed with an isolated sibling basetemp"
+    - "the first focused run had 203 passes and 3 ACL-related temp-fixture setup errors; no test assertion failed"
+    - "the first adjacent run used an in-repository basetemp and produced 14 expected path-classification failures; corrected external-temp setup passed"
     - "agent docs: 55 files, 0 errors, 0 warnings"
-    - "protected-surface and secret/private-marker scans: forbidden 0, warnings 0"
+    - "path-fed protected-surface and secret/private-marker scans: forbidden 0, warnings 0"
+    - "validation selector: required 3, recommended 1, advisory 0, warnings 0"
     - "git diff and text-hygiene checks passed"
   stop_conditions:
-    - "a third implementation path, new audit, helper, schema, status, or lifecycle is required"
-    - "the first exact effect snapshot cannot complete before private controller-image inspection"
-    - "private custody, containment, lifecycle, or authority must weaken"
-  next_recommended_role: "Codex E: Independent R0 Metadata Audit-Boundary Ordering Contract Reviewer"
+    - "a third implementation path, child, helper, schema, status, lifecycle, or durable diagnostic artifact is required"
+    - "development output exceeds or escapes the bounded owner-approved data classes"
+    - "production blinding, containment, cleanup, nonretry, or authority must weaken"
+  conditional_routes:
+    success:
+      next_role: "Codex C: R0 Owner-Local Development Diagnostic Implementer"
+      next_two_steps:
+        - "implement the exact development mode and operation-free tests in the two accepted files"
+        - "run the authorized diagnostic, apply at most one directly proved correction, and validate"
+    failure:
+      next_role: "Codex B: narrow development-diagnostic contract corrector"
+      next_two_steps:
+        - "preserve implementation bytes and report the first blocking clause"
+        - "provide one pasteable prompt limited to that finding"
+  next_recommended_role: "Codex E: Independent R0 Owner-Local Development Diagnostic Contract Reviewer"
 ```
