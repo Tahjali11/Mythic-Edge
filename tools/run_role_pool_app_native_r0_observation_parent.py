@@ -18,7 +18,7 @@ import stat
 import sys
 import time
 import traceback
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from ctypes import wintypes
 from dataclasses import dataclass, replace
 from pathlib import Path, PureWindowsPath
@@ -227,6 +227,10 @@ class _DevelopmentRecorder:
         self.win32_last_error: int | None = None
         self.relevant_values: dict[str, object] = {}
         self.controller_image_guard_close = "not_owned"
+        self._before_effect_snapshot: _EffectSnapshot | None = None
+        self._after_effect_snapshot: _EffectSnapshot | None = None
+        self._audit_counts: _AuditCounts | None = None
+        self._child_creation_count: int | None = None
 
     def add_values(self, values: Mapping[str, object] | None) -> None:
         if values is None:
@@ -234,6 +238,41 @@ class _DevelopmentRecorder:
         for name, value in values.items():
             if name not in self.relevant_values:
                 self.relevant_values[name] = value
+
+    def observe_before_effect_snapshot(self, snapshot: _EffectSnapshot) -> None:
+        self._before_effect_snapshot = snapshot
+
+    def observe_after_effect_snapshot(self, snapshot: _EffectSnapshot) -> None:
+        self._after_effect_snapshot = snapshot
+
+    def observe_audit_counts(self, counts: _AuditCounts) -> None:
+        self._audit_counts = counts
+
+    def observe_child_creation_count(self, count: int) -> None:
+        self._child_creation_count = count
+
+    def operation_effect_counts(self) -> tuple[int, int, int, int, int, int]:
+        before = self._before_effect_snapshot
+        after = self._after_effect_snapshot
+        audit = self._audit_counts
+        child_creation_count = self._child_creation_count
+        if before is None or after is None or audit is None or child_creation_count is None:
+            raise ValueError("development effect evidence is incomplete")
+        repository_mismatch = int(
+            before.repository_digest != after.repository_digest
+        )
+        installed_mismatch = int(
+            before.installed_digest != after.installed_digest
+        )
+        generated_residue_count = len(after.generated_residue - before.generated_residue)
+        return (
+            child_creation_count,
+            audit.network_operations,
+            audit.repository_writes + repository_mismatch,
+            audit.installed_writes + installed_mismatch,
+            audit.external_effects,
+            generated_residue_count,
+        )
 
     def passed(self, predicate: str, values: Mapping[str, object] | None = None) -> None:
         self._append(predicate)
@@ -415,6 +454,8 @@ class ParentAdapter(Protocol):
     def target_identity_exact(self, target: _TargetBinding) -> bool | None: ...
 
     def audit_counts(self) -> _AuditCounts: ...
+
+    def development_child_creation_count(self) -> int: ...
 
 
 def _ordinary_nonreparse(info: os.stat_result, *, directory: bool = False) -> bool:
@@ -1653,6 +1694,9 @@ class _WindowsParentAdapter:
     def runtime_identity(self) -> tuple[str, str]:
         return os.name, sys.platform
 
+    def development_child_creation_count(self) -> int:
+        return self.launch_calls
+
     def install_audit(self, repository_root: Path) -> None:
         if self.audit is not None:
             raise _ControllerError("observation_binding_rejected")
@@ -2052,11 +2096,20 @@ class _WindowsParentAdapter:
                 "controller_image_guard_identity_observed": observed_identity,
             },
         )
+        path_text = ""
         try:
             path_text = bytes(cast(bytearray, target.opaque_path)).decode("utf-16-le")
-            path_exact = _path_identity_exact(path_text, target.identity)
+            path_exact = _path_identity_exact(
+                path_text,
+                target.identity,
+                development_context=True,
+            )
         except BaseException as exc:
-            recorder.failed("controller_image_path_identity_exact", exc)
+            recorder.failed(
+                "controller_image_path_identity_exact",
+                exc,
+                values={"controller_image_path": path_text},
+            )
             raise _DevelopmentAbort("controller_image_path_identity_exact") from exc
         recorder.require(
             "controller_image_path_identity_exact",
@@ -2613,13 +2666,20 @@ def _recover_postcreation_failure(
     return termination_requested, termination_succeeded, *reconciliation
 
 
-def _path_identity_exact(path_text: str, expected: _FileIdentity) -> bool | None:
+def _path_identity_exact(
+    path_text: str,
+    expected: _FileIdentity,
+    *,
+    development_context: bool = False,
+) -> bool | None:
     try:
         path = Path(path_text)
-        payload = _stable_file_bytes(path)
+        payload = _stable_file_bytes(path, development_context=development_context)
         info = path.lstat()
         file_version, product_version = _file_versions(path_text)
     except BaseException:
+        if development_context:
+            raise
         return None
     return (
         int(info.st_dev),
@@ -2756,6 +2816,53 @@ def _effect_snapshot_values(prefix: str, snapshot: _EffectSnapshot) -> dict[str,
     }
 
 
+def _collect_development_effect_evidence(
+    adapter: ParentAdapter,
+    repository_root: Path,
+    snapshot_effects: Callable[[Path], _EffectSnapshot],
+    recorder: _DevelopmentRecorder,
+    *,
+    before: _EffectSnapshot | None,
+    after: _EffectSnapshot | None = None,
+    collect_after: bool = True,
+    collect_audit: bool = True,
+) -> _EffectSnapshot | None:
+    try:
+        child_creation_count = adapter.development_child_creation_count()
+    except BaseException:
+        pass
+    else:
+        recorder.observe_child_creation_count(child_creation_count)
+        recorder.add_values({"adapter_child_creation_call_count": child_creation_count})
+    if before is not None:
+        recorder.observe_before_effect_snapshot(before)
+    observed_after = after
+    if observed_after is None and before is not None and collect_after:
+        try:
+            observed_after = snapshot_effects(repository_root)
+        except BaseException:
+            observed_after = None
+    if observed_after is not None:
+        recorder.observe_after_effect_snapshot(observed_after)
+        recorder.add_values(_effect_snapshot_values("after", observed_after))
+    if collect_audit:
+        try:
+            counts = adapter.audit_counts()
+        except BaseException:
+            pass
+        else:
+            recorder.observe_audit_counts(counts)
+            recorder.add_values(
+                {
+                    "audit_network_operation_count": counts.network_operations,
+                    "audit_repository_write_count": counts.repository_writes,
+                    "audit_installed_write_count": counts.installed_writes,
+                    "audit_external_effect_count": counts.external_effects,
+                }
+            )
+    return observed_after
+
+
 def _finish_development_image_state(
     adapter: ParentAdapter,
     controller: _TargetBinding | None,
@@ -2864,7 +2971,16 @@ def _run_development_diagnostic(
         before = snapshot_effects(repository_root)
     except BaseException as exc:
         recorder.failed("before_effect_snapshot_available", exc)
+        _collect_development_effect_evidence(
+            selected_adapter,
+            repository_root,
+            snapshot_effects,
+            recorder,
+            before=None,
+            collect_after=False,
+        )
         return recorder
+    recorder.observe_before_effect_snapshot(before)
     recorder.passed(
         "before_effect_snapshot_available",
         _effect_snapshot_values("before", before),
@@ -2876,6 +2992,13 @@ def _run_development_diagnostic(
             values=_effect_snapshot_values("before", before),
         )
     except _DevelopmentAbort:
+        _collect_development_effect_evidence(
+            selected_adapter,
+            repository_root,
+            snapshot_effects,
+            recorder,
+            before=before,
+        )
         return recorder
 
     controller: _TargetBinding | None = None
@@ -2915,13 +3038,29 @@ def _run_development_diagnostic(
     finally:
         _finish_development_image_state(selected_adapter, controller, recorder)
     if recorder.first_failed_predicate is not None:
+        _collect_development_effect_evidence(
+            selected_adapter,
+            repository_root,
+            snapshot_effects,
+            recorder,
+            before=before,
+        )
         return recorder
 
     try:
         after = snapshot_effects(repository_root)
     except BaseException as exc:
         recorder.failed("after_effect_snapshot_available", exc)
+        _collect_development_effect_evidence(
+            selected_adapter,
+            repository_root,
+            snapshot_effects,
+            recorder,
+            before=before,
+            collect_after=False,
+        )
         return recorder
+    recorder.observe_after_effect_snapshot(after)
     recorder.passed(
         "after_effect_snapshot_available",
         _effect_snapshot_values("after", after),
@@ -2943,6 +3082,15 @@ def _run_development_diagnostic(
             values={"effect_snapshots_equal": snapshots_equal},
         )
     except _DevelopmentAbort:
+        _collect_development_effect_evidence(
+            selected_adapter,
+            repository_root,
+            snapshot_effects,
+            recorder,
+            before=before,
+            after=after,
+            collect_after=False,
+        )
         return recorder
 
     try:
@@ -2958,6 +3106,10 @@ def _run_development_diagnostic(
             "audit_installed_write_count": counts.installed_writes,
             "audit_external_effect_count": counts.external_effects,
         },
+    )
+    recorder.observe_audit_counts(counts)
+    recorder.observe_child_creation_count(
+        selected_adapter.development_child_creation_count()
     )
     try:
         recorder.require(
@@ -2985,6 +3137,14 @@ def _development_transcript(recorder: _DevelopmentRecorder) -> bytes:
         "development_output_write_complete",
         "development_output_flush_complete",
     ]
+    (
+        child_creation_count,
+        network_operation_count,
+        repository_write_count,
+        installed_write_count,
+        external_effect_count,
+        generated_residue_count,
+    ) = recorder.operation_effect_counts()
 
     def encoded(value: object) -> str:
         return json.dumps(value, ensure_ascii=True, separators=(",", ":"), allow_nan=False)
@@ -3001,12 +3161,12 @@ def _development_transcript(recorder: _DevelopmentRecorder) -> bytes:
         f"call_order={encoded(complete_call_order)}",
         f"relevant_values={encoded(recorder.relevant_values)}",
         f"controller_image_guard_close={encoded(recorder.controller_image_guard_close)}",
-        "child_creation_count=0",
-        "network_operation_count=0",
-        "repository_write_count=0",
-        "installed_write_count=0",
-        "external_effect_count=0",
-        "generated_residue_count=0",
+        f"child_creation_count={child_creation_count}",
+        f"network_operation_count={network_operation_count}",
+        f"repository_write_count={repository_write_count}",
+        f"installed_write_count={installed_write_count}",
+        f"external_effect_count={external_effect_count}",
+        f"generated_residue_count={generated_residue_count}",
         "MYTHIC_EDGE_DEVELOPMENT_DIAGNOSTIC_END",
     )
     payload = ("\n".join(lines) + "\n").encode("utf-8")
