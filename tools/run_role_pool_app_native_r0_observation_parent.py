@@ -1653,6 +1653,21 @@ class _AuditCounter:
         self.counts = {"network": 0, "repository": 0, "installed": 0, "external": 0}
         self._registration_witness: object | None = None
         self._registration_observed = False
+        self._development_observer: Callable[[_AuditCounts], None] | None = None
+
+    def bind_development_observer(
+        self,
+        observer: Callable[[_AuditCounts], None],
+    ) -> None:
+        self._development_observer = observer
+        observer(self.snapshot())
+
+    def unbind_development_observer(self) -> None:
+        self._development_observer = None
+
+    def _publish_development_observation(self) -> None:
+        if self._development_observer is not None:
+            self._development_observer(self.snapshot())
 
     @staticmethod
     def _write_open(args: tuple[object, ...]) -> bool:
@@ -1674,6 +1689,7 @@ class _AuditCounter:
                 self.counts["external"] += 1
         except (OSError, TypeError, ValueError):
             self.counts["external"] += 1
+        self._publish_development_observation()
         raise _SafetyEffect
 
     def __call__(self, event: str, args: tuple[object, ...]) -> None:
@@ -1683,12 +1699,15 @@ class _AuditCounter:
             return
         if event in self._PROCESS_EVENTS or event.startswith("os.spawn"):
             self.counts["external"] += 1
+            self._publish_development_observation()
             raise _SafetyEffect
         if event.startswith("socket."):
             self.counts["network"] += 1
+            self._publish_development_observation()
             raise _SafetyEffect
         if event in self._ENVIRONMENT_EVENTS:
             self.counts["external"] += 1
+            self._publish_development_observation()
             raise _SafetyEffect
         if event == "open" and self._write_open(args):
             self._record_write(args[0] if args else None)
@@ -1722,6 +1741,18 @@ class _WindowsParentAdapter:
 
     def development_child_creation_count(self) -> int:
         return self.launch_calls
+
+    def _development_bind_audit_observer(
+        self,
+        observer: Callable[[_AuditCounts], None],
+    ) -> None:
+        if self.audit is None:
+            raise _ControllerError("observation_timeout_unknown")
+        self.audit.bind_development_observer(observer)
+
+    def _development_unbind_audit_observer(self) -> None:
+        if self.audit is not None:
+            self.audit.unbind_development_observer()
 
     def install_audit(self, repository_root: Path) -> None:
         if self.audit is not None:
@@ -2948,6 +2979,16 @@ def _finish_development_image_state(
         )
 
 
+def _close_development_effect_observation(
+    adapter: ParentAdapter,
+    recorder: _DevelopmentRecorder,
+) -> None:
+    unbind = getattr(adapter, "_development_unbind_audit_observer", None)
+    if callable(unbind):
+        unbind()
+    recorder.close_effect_observation()
+
+
 def _run_development_diagnostic(
     adapter: ParentAdapter | None = None,
     *,
@@ -2982,12 +3023,25 @@ def _run_development_diagnostic(
         {"repository_root": os.fspath(repository_root)},
     )
 
+    selected_adapter = adapter
     try:
-        selected_adapter = adapter or _WindowsParentAdapter()
+        if selected_adapter is None:
+            selected_adapter = _WindowsParentAdapter()
         selected_adapter.install_audit(repository_root)
+        bind_audit_observer = getattr(
+            selected_adapter,
+            "_development_bind_audit_observer",
+            None,
+        )
+        if not callable(bind_audit_observer):
+            raise RuntimeError("development audit observer unavailable")
+        bind_audit_observer(recorder.observe_audit_counts)
     except BaseException as exc:
         recorder.failed("audit_installed", exc)
-        recorder.close_effect_observation()
+        if selected_adapter is None:
+            recorder.close_effect_observation()
+        else:
+            _close_development_effect_observation(selected_adapter, recorder)
         return recorder
     recorder.passed("audit_installed")
 
@@ -3008,7 +3062,7 @@ def _run_development_diagnostic(
             before=None,
             collect_after=False,
         )
-        recorder.close_effect_observation()
+        _close_development_effect_observation(selected_adapter, recorder)
         return recorder
     recorder.observe_before_effect_snapshot(before)
     recorder.passed(
@@ -3029,7 +3083,7 @@ def _run_development_diagnostic(
             recorder,
             before=before,
         )
-        recorder.close_effect_observation()
+        _close_development_effect_observation(selected_adapter, recorder)
         return recorder
 
     controller: _TargetBinding | None = None
@@ -3076,7 +3130,7 @@ def _run_development_diagnostic(
             recorder,
             before=before,
         )
-        recorder.close_effect_observation()
+        _close_development_effect_observation(selected_adapter, recorder)
         return recorder
 
     try:
@@ -3091,7 +3145,7 @@ def _run_development_diagnostic(
             before=before,
             collect_after=False,
         )
-        recorder.close_effect_observation()
+        _close_development_effect_observation(selected_adapter, recorder)
         return recorder
     recorder.observe_after_effect_snapshot(after)
     recorder.passed(
@@ -3124,14 +3178,14 @@ def _run_development_diagnostic(
             after=after,
             collect_after=False,
         )
-        recorder.close_effect_observation()
+        _close_development_effect_observation(selected_adapter, recorder)
         return recorder
 
     try:
         counts = selected_adapter.audit_counts()
     except BaseException as exc:
         recorder.failed("audit_counts_available", exc)
-        recorder.close_effect_observation()
+        _close_development_effect_observation(selected_adapter, recorder)
         return recorder
     recorder.passed(
         "audit_counts_available",
@@ -3158,9 +3212,9 @@ def _run_development_diagnostic(
             },
         )
     except _DevelopmentAbort:
-        recorder.close_effect_observation()
+        _close_development_effect_observation(selected_adapter, recorder)
         return recorder
-    recorder.close_effect_observation()
+    _close_development_effect_observation(selected_adapter, recorder)
     return recorder
 
 

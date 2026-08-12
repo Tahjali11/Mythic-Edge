@@ -9,6 +9,7 @@ import io
 import json
 import stat
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass, replace
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
@@ -181,6 +182,15 @@ class FakeAdapter:
         self.calls.append("install_audit")
         if self.development_failure == "audit_installed":
             raise RuntimeError("synthetic audit failure")
+
+    def _development_bind_audit_observer(
+        self,
+        observer: Callable[[parent._AuditCounts], None],
+    ) -> None:
+        observer(self.counts)
+
+    def _development_unbind_audit_observer(self) -> None:
+        pass
 
     def snapshot_effects(self, repository_root: Path) -> object:
         assert repository_root == ROOT
@@ -395,6 +405,25 @@ def test_audit_registration_is_stored_only_after_witness(
 
     assert isinstance(adapter.audit, parent._AuditCounter)
     assert adapter.audit.snapshot() == parent._AuditCounts(0, 0, 0, 0)
+
+
+def test_development_audit_observer_receives_mutation_before_safety_failure() -> None:
+    counter = parent._AuditCounter(ROOT, ROOT / "installed")
+    observed: list[parent._AuditCounts] = []
+    counter.bind_development_observer(observed.append)
+
+    with pytest.raises(parent._SafetyEffect):
+        counter("socket.synthetic", ())
+
+    assert observed == [
+        parent._AuditCounts(0, 0, 0, 0),
+        parent._AuditCounts(1, 0, 0, 0),
+    ]
+
+    counter.unbind_development_observer()
+    with pytest.raises(parent._SafetyEffect):
+        counter("socket.synthetic", ())
+    assert len(observed) == 2
 
 
 def test_development_snapshot_exposes_exception_while_production_remains_blinded(
@@ -2249,6 +2278,23 @@ def test_development_transcript_derives_nonzero_audit_counts() -> None:
     assert parsed["generated_residue_count"] == 0
 
 
+def test_development_audit_readback_failure_uses_independently_observed_counts() -> None:
+    adapter = FakeAdapter()
+    adapter.counts = parent._AuditCounts(2, 3, 4, 5)
+    adapter.development_failure = "audit_counts_available"
+
+    recorder = parent._run_development_diagnostic(adapter, repository_root=ROOT)
+    parsed = parse_development_transcript(parent._development_transcript(recorder))
+
+    assert recorder.first_failed_predicate == "audit_counts_available"
+    assert recorder._audit_counts == adapter.counts
+    assert recorder._operation_calls == []
+    assert parsed["network_operation_count"] == 2
+    assert parsed["repository_write_count"] == 3
+    assert parsed["installed_write_count"] == 4
+    assert parsed["external_effect_count"] == 5
+
+
 def test_development_transcript_rejects_unclosed_effect_evidence() -> None:
     recorder = parent._DevelopmentRecorder()
     recorder.passed("host_windows_exact")
@@ -2434,6 +2480,31 @@ def test_development_repository_failure_is_unblinded_without_adapter_constructio
     assert parse_development_transcript(parent._development_transcript(recorder))[
         "first_failed_predicate"
     ] == "repository_root_resolved"
+
+
+def test_development_adapter_construction_failure_emits_bounded_transcript(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    failure = OSError("synthetic adapter construction failure")
+    monkeypatch.setattr(
+        parent,
+        "_WindowsParentAdapter",
+        lambda: (_ for _ in ()).throw(failure),
+    )
+
+    recorder = parent._run_development_diagnostic(repository_root=ROOT)
+    parsed = parse_development_transcript(parent._development_transcript(recorder))
+
+    assert recorder.first_failed_predicate == "audit_installed"
+    assert recorder.exception_type == "OSError"
+    assert recorder.exception_message == str(failure)
+    assert parsed["first_failed_predicate"] == "audit_installed"
+    assert parsed["child_creation_count"] == 0
+    assert parsed["network_operation_count"] == 0
+    assert parsed["repository_write_count"] == 0
+    assert parsed["installed_write_count"] == 0
+    assert parsed["external_effect_count"] == 0
+    assert parsed["generated_residue_count"] == 0
 
 
 def test_development_host_failure_emits_one_complete_bounded_transcript(
