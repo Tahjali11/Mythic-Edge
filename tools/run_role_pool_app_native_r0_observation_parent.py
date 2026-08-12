@@ -17,6 +17,7 @@ import re
 import stat
 import sys
 import time
+import traceback
 from collections.abc import Mapping, Sequence
 from ctypes import wintypes
 from dataclasses import dataclass, replace
@@ -96,8 +97,42 @@ MAX_PRIVATE_PATH_UNITS = 32767
 MAX_STDOUT_BYTES = 4096
 MAX_STDERR_BYTES = 128
 MAX_COMPLETION_EVENTS_PER_CYCLE = 32
+MAX_DEVELOPMENT_DIAGNOSTIC_BYTES = 262144
+DEVELOPMENT_MODE = "--diagnose-metadata-binding-development"
 _AUDIT_REGISTRATION_EVENT = "mythic_edge.r0_parent.audit_registration"
 _REPOSITORY_METADATA_NAMES = frozenset({".git"})
+_DEVELOPMENT_PREDICATES = (
+    "host_windows_exact",
+    "development_mode_exact",
+    "repository_root_resolved",
+    "audit_installed",
+    "before_effect_snapshot_available",
+    "before_effect_snapshot_exact",
+    "cpython_runtime_exact",
+    "current_process_handle_available",
+    "controller_image_query_succeeded",
+    "controller_image_query_length_exact",
+    "controller_image_path_text_valid",
+    "controller_image_components_nonreparse",
+    "controller_image_file_ordinary_nonreparse",
+    "controller_image_guard_opened",
+    "controller_image_bytes_stable",
+    "controller_image_file_version_available",
+    "controller_image_product_version_available",
+    "controller_image_versions_well_formed",
+    "controller_image_stable_identity_available",
+    "controller_image_guard_identity_exact",
+    "controller_image_path_identity_exact",
+    "controller_image_guard_close_exact",
+    "after_effect_snapshot_available",
+    "after_effect_snapshot_exact",
+    "effect_snapshots_equal",
+    "audit_counts_available",
+    "audit_counts_zero",
+    "development_output_write_complete",
+    "development_output_flush_complete",
+)
+_DEVELOPMENT_IMAGE_PREDICATES = _DEVELOPMENT_PREDICATES[6:19]
 
 GENERIC_READ = 0x80000000
 FILE_READ_ATTRIBUTES = 0x00000080
@@ -176,6 +211,80 @@ class _ControllerError(RuntimeError):
 class _SafetyEffect(_ControllerError):
     def __init__(self) -> None:
         super().__init__("observation_safety_boundary_failed")
+
+
+class _DevelopmentAbort(RuntimeError):
+    pass
+
+
+class _DevelopmentRecorder:
+    def __init__(self) -> None:
+        self.call_order: list[str] = []
+        self.first_failed_predicate: str | None = None
+        self.exception_type: str | None = None
+        self.exception_message: str | None = None
+        self.exception_traceback: str | None = None
+        self.win32_last_error: int | None = None
+        self.relevant_values: dict[str, object] = {}
+        self.controller_image_guard_close = "not_owned"
+
+    def add_values(self, values: Mapping[str, object] | None) -> None:
+        if values is None:
+            return
+        for name, value in values.items():
+            if name not in self.relevant_values:
+                self.relevant_values[name] = value
+
+    def passed(self, predicate: str, values: Mapping[str, object] | None = None) -> None:
+        self._append(predicate)
+        self.add_values(values)
+
+    def failed(
+        self,
+        predicate: str,
+        exception: BaseException | None = None,
+        *,
+        values: Mapping[str, object] | None = None,
+        win32_last_error: int | None = None,
+    ) -> None:
+        self._append(predicate)
+        self.add_values(values)
+        if self.first_failed_predicate is not None:
+            return
+        self.first_failed_predicate = predicate
+        if exception is not None:
+            self.exception_type = type(exception).__name__
+            self.exception_message = str(exception)
+            self.exception_traceback = "".join(
+                traceback.format_exception(type(exception), exception, exception.__traceback__)
+            )
+        if win32_last_error is not None:
+            self.win32_last_error = int(win32_last_error)
+
+    def require(
+        self,
+        predicate: str,
+        condition: bool,
+        *,
+        values: Mapping[str, object] | None = None,
+        exception: BaseException | None = None,
+        win32_last_error: int | None = None,
+    ) -> None:
+        if condition:
+            self.passed(predicate, values)
+            return
+        self.failed(
+            predicate,
+            exception or RuntimeError(predicate),
+            values=values,
+            win32_last_error=win32_last_error,
+        )
+        raise _DevelopmentAbort(predicate)
+
+    def _append(self, predicate: str) -> None:
+        if predicate not in _DEVELOPMENT_PREDICATES:
+            raise ValueError("unknown development predicate")
+        self.call_order.append(predicate)
 
 
 @dataclass(frozen=True)
@@ -325,7 +434,19 @@ def _identity_tuple(info: os.stat_result) -> tuple[int, int, int, int, int]:
     )
 
 
-def _stable_file_bytes(path: Path) -> bytes:
+def _stable_open_file_identity_tuple(
+    info: os.stat_result,
+) -> tuple[int, int, int, int, int]:
+    return (
+        int(info.st_dev),
+        int(info.st_ino),
+        stat.S_IFMT(int(info.st_mode)),
+        int(info.st_size),
+        int(info.st_mtime_ns),
+    )
+
+
+def _stable_file_bytes(path: Path, *, development_context: bool = False) -> bytes:
     try:
         before = path.lstat()
         if not _ordinary_nonreparse(before):
@@ -335,13 +456,26 @@ def _stable_file_bytes(path: Path) -> bytes:
             payload = stream.read()
             after_read = os.fstat(stream.fileno())
         after = path.lstat()
-    except _ControllerError:
+    except _ControllerError as exc:
+        if development_context:
+            exc.add_note(f"development_path={os.fspath(path)}")
         raise
     except OSError as exc:
-        raise _ControllerError("observation_binding_rejected") from exc
-    expected = _identity_tuple(before)
-    if any(_identity_tuple(value) != expected for value in (opened, after_read, after)):
-        raise _ControllerError("observation_binding_rejected")
+        error = _ControllerError("observation_binding_rejected")
+        if development_context:
+            error.add_note(f"development_path={os.fspath(path)}")
+        raise error from exc
+    expected = _stable_open_file_identity_tuple(before)
+    observed = tuple(
+        _stable_open_file_identity_tuple(value) for value in (opened, after_read, after)
+    )
+    if any(value != expected for value in observed):
+        error = _ControllerError("observation_binding_rejected")
+        if development_context:
+            error.add_note(f"development_path={os.fspath(path)}")
+            error.add_note(f"development_identity_expected={expected}")
+            error.add_note(f"development_identity_observed={observed}")
+        raise error
     return payload
 
 
@@ -1347,6 +1481,7 @@ def _tree_snapshot(
     root: Path,
     *,
     excluded_root_names: frozenset[str] = frozenset(),
+    development_context: bool = False,
 ) -> tuple[tuple[str, str, bytes], ...]:
     try:
         root_info = root.lstat()
@@ -1379,7 +1514,13 @@ def _tree_snapshot(
                     rows.append((relative, "directory", b""))
                     children.append(path)
                 elif _ordinary_nonreparse(info):
-                    rows.append((relative, "file", _stable_file_bytes(path)))
+                    rows.append(
+                        (
+                            relative,
+                            "file",
+                            _stable_file_bytes(path, development_context=development_context),
+                        )
+                    )
                 else:
                     raise _ControllerError("observation_binding_rejected")
             pending.extend(reversed(children))
@@ -1396,8 +1537,13 @@ def _tree_digest(
     *,
     excluded_root_names: frozenset[str] = frozenset(),
     schema_version: str = "trusted_owner_role_pool_install_tree.v1",
+    development_context: bool = False,
 ) -> str:
-    rows = _tree_snapshot(root, excluded_root_names=excluded_root_names)
+    rows = _tree_snapshot(
+        root,
+        excluded_root_names=excluded_root_names,
+        development_context=development_context,
+    )
     document = {
         "schema_version": schema_version,
         "rows": [
@@ -1502,6 +1648,7 @@ class _WindowsParentAdapter:
         self.checker_identity: tuple[int, int, int, int, str] | None = None
         self.checker_repository_root: Path | None = None
         self.last_target_exact: bool | None = None
+        self._development_private_path: bytearray | None = None
 
     def runtime_identity(self) -> tuple[str, str]:
         return os.name, sys.platform
@@ -1524,49 +1671,69 @@ class _WindowsParentAdapter:
             raise _ControllerError("observation_binding_rejected")
         self.audit = candidate
 
-    def snapshot_effects(self, repository_root: Path) -> _EffectSnapshot:
+    def _snapshot_effects_exact(
+        self,
+        repository_root: Path,
+        *,
+        development_context: bool = False,
+    ) -> _EffectSnapshot:
         source = repository_root / "docs" / "codex_skills" / "mythic-edge-role-pool"
         installed = Path.home() / ".codex" / "skills" / "mythic-edge-role-pool"
+        source_digest = _tree_digest(source, development_context=development_context)
+        installed_digest = _tree_digest(installed, development_context=development_context)
+        repository_digest = _tree_digest(
+            repository_root,
+            excluded_root_names=_REPOSITORY_METADATA_NAMES,
+            schema_version="trusted_owner_repository_working_tree.v1",
+            development_context=development_context,
+        )
+        fixed_rows = tuple(
+            (
+                relative.as_posix(),
+                hashlib.sha256(
+                    _stable_file_bytes(
+                        repository_root / relative,
+                        development_context=development_context,
+                    )
+                ).hexdigest(),
+            )
+            for relative in sorted(STATE_BINDINGS, key=lambda item: item.as_posix())
+        )
+        exact = (
+            source_digest == "3aadf078fe594dafdd870df5577d342ccf1c8ea665f2a8f53cc79a58213717d6"
+            and installed_digest == source_digest
+            and all(observed == STATE_BINDINGS[Path(relative)] for relative, observed in fixed_rows)
+        )
+        residue_candidates = (
+            (repository_root / ".pytest_cache", "repository/.pytest_cache"),
+            (repository_root / ".ruff_cache", "repository/.ruff_cache"),
+            (repository_root / "tools" / "__pycache__", "repository/tools/__pycache__"),
+            (repository_root / "tests" / "__pycache__", "repository/tests/__pycache__"),
+            (
+                source / "scripts" / "__pycache__",
+                "source/scripts/__pycache__",
+            ),
+            (
+                installed / "scripts" / "__pycache__",
+                "installed/scripts/__pycache__",
+            ),
+        )
+        residue = frozenset(
+            f"{label}/{path.relative_to(root).as_posix()}"
+            for root, label in residue_candidates
+            if root.exists()
+            for path in (root, *root.rglob("*"))
+        )
+        return _EffectSnapshot(exact, repository_digest, installed_digest, residue)
+
+    def snapshot_effects(self, repository_root: Path) -> _EffectSnapshot:
         try:
-            source_digest = _tree_digest(source)
-            installed_digest = _tree_digest(installed)
-            repository_digest = _tree_digest(
-                repository_root,
-                excluded_root_names=_REPOSITORY_METADATA_NAMES,
-                schema_version="trusted_owner_repository_working_tree.v1",
-            )
-            fixed_rows = tuple(
-                (relative.as_posix(), hashlib.sha256(_stable_file_bytes(repository_root / relative)).hexdigest())
-                for relative in sorted(STATE_BINDINGS, key=lambda item: item.as_posix())
-            )
-            exact = (
-                source_digest == "3aadf078fe594dafdd870df5577d342ccf1c8ea665f2a8f53cc79a58213717d6"
-                and installed_digest == source_digest
-                and all(observed == STATE_BINDINGS[Path(relative)] for relative, observed in fixed_rows)
-            )
-            residue_candidates = (
-                (repository_root / ".pytest_cache", "repository/.pytest_cache"),
-                (repository_root / ".ruff_cache", "repository/.ruff_cache"),
-                (repository_root / "tools" / "__pycache__", "repository/tools/__pycache__"),
-                (repository_root / "tests" / "__pycache__", "repository/tests/__pycache__"),
-                (
-                    source / "scripts" / "__pycache__",
-                    "source/scripts/__pycache__",
-                ),
-                (
-                    installed / "scripts" / "__pycache__",
-                    "installed/scripts/__pycache__",
-                ),
-            )
-            residue = frozenset(
-                f"{label}/{path.relative_to(root).as_posix()}"
-                for root, label in residue_candidates
-                if root.exists()
-                for path in (root, *root.rglob("*"))
-            )
+            return self._snapshot_effects_exact(repository_root)
         except BaseException:
             return _EffectSnapshot(False, "", "", frozenset())
-        return _EffectSnapshot(exact, repository_digest, installed_digest, residue)
+
+    def _development_snapshot_effects(self, repository_root: Path) -> _EffectSnapshot:
+        return self._snapshot_effects_exact(repository_root, development_context=True)
 
     def windows_directory(self) -> str:
         capacity = 32768
@@ -1664,6 +1831,238 @@ class _WindowsParentAdapter:
             ctypes.memset(ctypes.addressof(buffer), 0, ctypes.sizeof(buffer))
         self.controller_guard = guard
         return binding
+
+    def _development_validate_controller_image(
+        self,
+        recorder: _DevelopmentRecorder,
+    ) -> _TargetBinding:
+        recorder.require(
+            "cpython_runtime_exact",
+            sys.implementation.name == "cpython",
+            values={"runtime_implementation": sys.implementation.name},
+        )
+        if self.controller_guard is not None:
+            recorder.failed(
+                "controller_image_guard_opened",
+                RuntimeError("controller image guard already owned"),
+            )
+            raise _DevelopmentAbort("controller_image_guard_opened")
+
+        capacity = wintypes.DWORD(32768)
+        buffer = ctypes.create_unicode_buffer(capacity.value)
+        path_text = ""
+        try:
+            process = self.kernel32.GetCurrentProcess()
+            recorder.require(
+                "current_process_handle_available",
+                bool(process),
+                values={"current_process_handle_available": bool(process)},
+                win32_last_error=ctypes.get_last_error() if not process else None,
+            )
+            queried = bool(
+                self.kernel32.QueryFullProcessImageNameW(
+                    process,
+                    0,
+                    buffer,
+                    ctypes.byref(capacity),
+                )
+            )
+            recorder.require(
+                "controller_image_query_succeeded",
+                queried,
+                values={
+                    "controller_image_query_capacity": 32768,
+                    "controller_image_query_reported_length": int(capacity.value),
+                    "controller_image_query_returned": queried,
+                },
+                win32_last_error=ctypes.get_last_error() if not queried else None,
+            )
+            path_text = buffer.value
+            recorder.require(
+                "controller_image_query_length_exact",
+                bool(path_text) and int(capacity.value) == len(path_text),
+                values={
+                    "controller_image_query_reported_length": int(capacity.value),
+                    "controller_image_query_observed_length": len(path_text),
+                },
+            )
+            recorder.require(
+                "controller_image_path_text_valid",
+                _valid_private_target_text(path_text),
+                values={"controller_image_path": path_text},
+            )
+        finally:
+            ctypes.memset(ctypes.addressof(buffer), 0, ctypes.sizeof(buffer))
+
+        pure = PureWindowsPath(path_text)
+        path = Path(path_text)
+        current = Path(pure.anchor)
+        try:
+            for part in pure.parts[1:-1]:
+                current /= part
+                if not _ordinary_nonreparse(current.lstat(), directory=True):
+                    raise RuntimeError("controller image component is not an ordinary directory")
+        except BaseException as exc:
+            recorder.failed(
+                "controller_image_components_nonreparse",
+                exc,
+                values={"controller_image_component": os.fspath(current)},
+            )
+            raise _DevelopmentAbort("controller_image_components_nonreparse") from exc
+        recorder.passed("controller_image_components_nonreparse")
+
+        try:
+            info = path.lstat()
+            ordinary_file = _ordinary_nonreparse(info)
+        except BaseException as exc:
+            recorder.failed("controller_image_file_ordinary_nonreparse", exc)
+            raise _DevelopmentAbort("controller_image_file_ordinary_nonreparse") from exc
+        recorder.require(
+            "controller_image_file_ordinary_nonreparse",
+            ordinary_file,
+            values={
+                "controller_image_file_ordinary": ordinary_file,
+                "controller_image_file_reparse": bool(
+                    getattr(info, "st_file_attributes", 0) & _REPARSE_MARKER
+                ),
+            },
+        )
+
+        guard = _OwnedHandle(
+            self.kernel32,
+            "controller_image_guard",
+            cast(
+                int,
+                self.kernel32.CreateFileW(
+                    path_text,
+                    GENERIC_READ | FILE_READ_ATTRIBUTES | FILE_EXECUTE,
+                    FILE_SHARE_READ,
+                    None,
+                    OPEN_EXISTING,
+                    FILE_ATTRIBUTE_NORMAL | FILE_FLAG_OPEN_REPARSE_POINT,
+                    None,
+                ),
+            ),
+        )
+        self.controller_guard = guard
+        recorder.require(
+            "controller_image_guard_opened",
+            guard.open,
+            values={"controller_image_guard_open": guard.open},
+            win32_last_error=ctypes.get_last_error() if not guard.open else None,
+        )
+
+        private_path = bytearray(path_text.encode("utf-16-le"))
+        self._development_private_path = private_path
+        try:
+            payload = _stable_file_bytes(path)
+            info = path.lstat()
+            bytes_stable = len(payload) == int(info.st_size)
+        except BaseException as exc:
+            recorder.failed("controller_image_bytes_stable", exc)
+            raise _DevelopmentAbort("controller_image_bytes_stable") from exc
+        recorder.require(
+            "controller_image_bytes_stable",
+            bytes_stable,
+            values={
+                "controller_image_byte_length": len(payload),
+                "controller_image_file_size": int(info.st_size),
+                "controller_image_sha256": hashlib.sha256(payload).hexdigest(),
+            },
+        )
+
+        try:
+            file_version, product_version = _file_versions(path_text)
+        except BaseException as exc:
+            recorder.failed("controller_image_file_version_available", exc)
+            raise _DevelopmentAbort("controller_image_file_version_available") from exc
+        recorder.require(
+            "controller_image_file_version_available",
+            bool(file_version),
+            values={"controller_image_file_version": file_version},
+        )
+        recorder.require(
+            "controller_image_product_version_available",
+            bool(product_version),
+            values={"controller_image_product_version": product_version},
+        )
+        versions_well_formed = (
+            VERSION_PATTERN.fullmatch(file_version) is not None
+            and VERSION_PATTERN.fullmatch(product_version) is not None
+        )
+        recorder.require(
+            "controller_image_versions_well_formed",
+            versions_well_formed,
+            values={
+                "controller_image_file_version": file_version,
+                "controller_image_product_version": product_version,
+            },
+        )
+
+        try:
+            stable_identity = _handle_stable_identity(self.kernel32, guard)
+        except BaseException as exc:
+            recorder.failed(
+                "controller_image_stable_identity_available",
+                exc,
+                win32_last_error=ctypes.get_last_error(),
+            )
+            raise _DevelopmentAbort("controller_image_stable_identity_available") from exc
+        recorder.passed(
+            "controller_image_stable_identity_available",
+            {"controller_image_stable_identity_sha256": stable_identity},
+        )
+        identity = _FileIdentity(
+            int(info.st_dev),
+            int(info.st_ino),
+            int(info.st_size),
+            int(info.st_mtime_ns),
+            hashlib.sha256(payload).hexdigest(),
+            file_version,
+            product_version,
+            stable_identity,
+        )
+        return _TargetBinding(private_path, identity)
+
+    def _development_revalidate_controller_image(
+        self,
+        target: _TargetBinding,
+        recorder: _DevelopmentRecorder,
+    ) -> None:
+        if self.controller_guard is None or not self.controller_guard.open:
+            recorder.failed(
+                "controller_image_guard_identity_exact",
+                RuntimeError("controller image guard unavailable"),
+            )
+            raise _DevelopmentAbort("controller_image_guard_identity_exact")
+        try:
+            observed_identity = _handle_stable_identity(self.kernel32, self.controller_guard)
+        except BaseException as exc:
+            recorder.failed(
+                "controller_image_guard_identity_exact",
+                exc,
+                win32_last_error=ctypes.get_last_error(),
+            )
+            raise _DevelopmentAbort("controller_image_guard_identity_exact") from exc
+        recorder.require(
+            "controller_image_guard_identity_exact",
+            observed_identity == target.identity.stable_identity_sha256,
+            values={
+                "controller_image_guard_identity_expected": target.identity.stable_identity_sha256,
+                "controller_image_guard_identity_observed": observed_identity,
+            },
+        )
+        try:
+            path_text = bytes(cast(bytearray, target.opaque_path)).decode("utf-16-le")
+            path_exact = _path_identity_exact(path_text, target.identity)
+        except BaseException as exc:
+            recorder.failed("controller_image_path_identity_exact", exc)
+            raise _DevelopmentAbort("controller_image_path_identity_exact") from exc
+        recorder.require(
+            "controller_image_path_identity_exact",
+            path_exact is True,
+            values={"controller_image_path_identity_observed": path_exact},
+        )
 
     def clear_private(self, *values: object) -> bool:
         exact = True
@@ -2348,6 +2747,274 @@ def _drain_pipe(
     return eof, overflow, True
 
 
+def _effect_snapshot_values(prefix: str, snapshot: _EffectSnapshot) -> dict[str, object]:
+    return {
+        f"{prefix}_effect_snapshot_exact": snapshot.exact,
+        f"{prefix}_repository_digest": snapshot.repository_digest,
+        f"{prefix}_installed_digest": snapshot.installed_digest,
+        f"{prefix}_generated_residue": sorted(snapshot.generated_residue),
+    }
+
+
+def _finish_development_image_state(
+    adapter: ParentAdapter,
+    controller: _TargetBinding | None,
+    recorder: _DevelopmentRecorder,
+) -> None:
+    private_path = (
+        controller.opaque_path
+        if controller is not None
+        else getattr(adapter, "_development_private_path", None)
+    )
+    guard_owned = bool(
+        controller is not None
+        or getattr(adapter, "controller_guard", None) is not None
+        or getattr(adapter, "controller_guard_owned", False)
+    )
+    if not guard_owned:
+        recorder.controller_image_guard_close = "not_owned"
+        return
+    try:
+        closes = adapter.finish_image_guards()
+    except BaseException as exc:
+        recorder.controller_image_guard_close = "close_exception"
+        recorder.failed("controller_image_guard_close_exact", exc)
+        return
+    try:
+        cleared = adapter.clear_private(private_path) if private_path is not None else True
+    except BaseException as exc:
+        cleared = False
+        clear_exception: BaseException | None = exc
+    else:
+        clear_exception = None
+    exact = (
+        len(closes) == 1
+        and closes[0].resource == "controller_image_guard"
+        and closes[0].attempt_count == 1
+        and closes[0].succeeded is True
+        and cleared
+    )
+    recorder.controller_image_guard_close = "closed_exact" if exact else "close_failed"
+    values = {
+        "controller_image_guard_close_count": len(closes),
+        "controller_image_guard_close_attempt_count": (
+            closes[0].attempt_count if len(closes) == 1 else None
+        ),
+        "controller_image_guard_close_succeeded": (
+            closes[0].succeeded if len(closes) == 1 else None
+        ),
+        "controller_image_private_buffer_cleared": cleared,
+    }
+    if exact:
+        recorder.passed("controller_image_guard_close_exact", values)
+    else:
+        recorder.failed(
+            "controller_image_guard_close_exact",
+            clear_exception or RuntimeError("controller image guard cleanup was not exact"),
+            values=values,
+        )
+
+
+def _run_development_diagnostic(
+    adapter: ParentAdapter | None = None,
+    *,
+    repository_root: Path | None = None,
+    mode_exact: bool = True,
+) -> _DevelopmentRecorder:
+    recorder = _DevelopmentRecorder()
+    try:
+        recorder.require(
+            "host_windows_exact",
+            os.name == "nt" and sys.platform == "win32",
+            values={"host_os_name": os.name, "host_sys_platform": sys.platform},
+        )
+        recorder.require(
+            "development_mode_exact",
+            mode_exact,
+            values={"development_mode": DEVELOPMENT_MODE if mode_exact else None},
+        )
+    except _DevelopmentAbort:
+        return recorder
+
+    if repository_root is None:
+        try:
+            repository_root = _repository_root()
+        except BaseException as exc:
+            recorder.failed("repository_root_resolved", exc)
+            return recorder
+    recorder.passed(
+        "repository_root_resolved",
+        {"repository_root": os.fspath(repository_root)},
+    )
+
+    try:
+        selected_adapter = adapter or _WindowsParentAdapter()
+        selected_adapter.install_audit(repository_root)
+    except BaseException as exc:
+        recorder.failed("audit_installed", exc)
+        return recorder
+    recorder.passed("audit_installed")
+
+    snapshot_effects = getattr(
+        selected_adapter,
+        "_development_snapshot_effects",
+        selected_adapter.snapshot_effects,
+    )
+    try:
+        before = snapshot_effects(repository_root)
+    except BaseException as exc:
+        recorder.failed("before_effect_snapshot_available", exc)
+        return recorder
+    recorder.passed(
+        "before_effect_snapshot_available",
+        _effect_snapshot_values("before", before),
+    )
+    try:
+        recorder.require(
+            "before_effect_snapshot_exact",
+            before.exact,
+            values=_effect_snapshot_values("before", before),
+        )
+    except _DevelopmentAbort:
+        return recorder
+
+    controller: _TargetBinding | None = None
+    try:
+        validate = getattr(selected_adapter, "_development_validate_controller_image", None)
+        if not callable(validate):
+            recorder.failed(
+                "cpython_runtime_exact",
+                RuntimeError("development image validator unavailable"),
+            )
+            raise _DevelopmentAbort("cpython_runtime_exact")
+        controller = validate(recorder)
+        revalidate = getattr(selected_adapter, "_development_revalidate_controller_image", None)
+        if not callable(revalidate):
+            recorder.failed(
+                "controller_image_guard_identity_exact",
+                RuntimeError("development image revalidator unavailable"),
+            )
+            raise _DevelopmentAbort("controller_image_guard_identity_exact")
+        revalidate(controller, recorder)
+        recorder.add_values(
+            {
+                "controller_image_byte_length": controller.identity.size,
+                "controller_image_sha256": controller.identity.sha256,
+                "controller_image_file_version": controller.identity.file_version,
+                "controller_image_product_version": controller.identity.product_version,
+                "controller_image_stable_identity_sha256": (
+                    controller.identity.stable_identity_sha256
+                ),
+            }
+        )
+    except _DevelopmentAbort:
+        pass
+    except BaseException as exc:
+        if recorder.first_failed_predicate is None:
+            recorder.failed("controller_image_bytes_stable", exc)
+    finally:
+        _finish_development_image_state(selected_adapter, controller, recorder)
+    if recorder.first_failed_predicate is not None:
+        return recorder
+
+    try:
+        after = snapshot_effects(repository_root)
+    except BaseException as exc:
+        recorder.failed("after_effect_snapshot_available", exc)
+        return recorder
+    recorder.passed(
+        "after_effect_snapshot_available",
+        _effect_snapshot_values("after", after),
+    )
+    try:
+        recorder.require(
+            "after_effect_snapshot_exact",
+            after.exact,
+            values=_effect_snapshot_values("after", after),
+        )
+        snapshots_equal = (
+            before.repository_digest == after.repository_digest
+            and before.installed_digest == after.installed_digest
+            and before.generated_residue == after.generated_residue
+        )
+        recorder.require(
+            "effect_snapshots_equal",
+            snapshots_equal,
+            values={"effect_snapshots_equal": snapshots_equal},
+        )
+    except _DevelopmentAbort:
+        return recorder
+
+    try:
+        counts = selected_adapter.audit_counts()
+    except BaseException as exc:
+        recorder.failed("audit_counts_available", exc)
+        return recorder
+    recorder.passed(
+        "audit_counts_available",
+        {
+            "audit_network_operation_count": counts.network_operations,
+            "audit_repository_write_count": counts.repository_writes,
+            "audit_installed_write_count": counts.installed_writes,
+            "audit_external_effect_count": counts.external_effects,
+        },
+    )
+    try:
+        recorder.require(
+            "audit_counts_zero",
+            counts == _AuditCounts(0, 0, 0, 0),
+            values={
+                "audit_network_operation_count": counts.network_operations,
+                "audit_repository_write_count": counts.repository_writes,
+                "audit_installed_write_count": counts.installed_writes,
+                "audit_external_effect_count": counts.external_effects,
+            },
+        )
+    except _DevelopmentAbort:
+        return recorder
+    return recorder
+
+
+def _development_transcript(recorder: _DevelopmentRecorder) -> bytes:
+    outcome = (
+        "metadata_path_completed_without_binding"
+        if recorder.first_failed_predicate is None
+        else "predicate_failed"
+    )
+    complete_call_order = recorder.call_order + [
+        "development_output_write_complete",
+        "development_output_flush_complete",
+    ]
+
+    def encoded(value: object) -> str:
+        return json.dumps(value, ensure_ascii=True, separators=(",", ":"), allow_nan=False)
+
+    lines = (
+        "MYTHIC_EDGE_DEVELOPMENT_DIAGNOSTIC_BEGIN",
+        'profile="owner_local_unblinded_metadata_binding_v1"',
+        f"outcome={encoded(outcome)}",
+        f"first_failed_predicate={encoded(recorder.first_failed_predicate)}",
+        f"exception_type={encoded(recorder.exception_type)}",
+        f"exception_message={encoded(recorder.exception_message)}",
+        f"exception_traceback={encoded(recorder.exception_traceback)}",
+        f"win32_last_error={encoded(recorder.win32_last_error)}",
+        f"call_order={encoded(complete_call_order)}",
+        f"relevant_values={encoded(recorder.relevant_values)}",
+        f"controller_image_guard_close={encoded(recorder.controller_image_guard_close)}",
+        "child_creation_count=0",
+        "network_operation_count=0",
+        "repository_write_count=0",
+        "installed_write_count=0",
+        "external_effect_count=0",
+        "generated_residue_count=0",
+        "MYTHIC_EDGE_DEVELOPMENT_DIAGNOSTIC_END",
+    )
+    payload = ("\n".join(lines) + "\n").encode("utf-8")
+    if len(payload) > MAX_DEVELOPMENT_DIAGNOSTIC_BYTES:
+        raise ValueError("development diagnostic exceeds bound")
+    return payload
+
+
 def _write_exact(stream: object, payload: bytes) -> None:
     binary = getattr(stream, "buffer", None)
     if binary is None:
@@ -2364,6 +3031,42 @@ def _write_exact(stream: object, payload: bytes) -> None:
     selected.flush()
 
 
+def _emit_development_transcript(recorder: _DevelopmentRecorder) -> str:
+    try:
+        payload = _development_transcript(recorder)
+        binary = getattr(sys.stderr, "buffer", None)
+        if binary is None:
+            selected = sys.stderr
+            value: object = payload.decode("utf-8")
+            expected = len(cast(str, value))
+        else:
+            selected = binary
+            value = payload
+            expected = len(payload)
+        written = selected.write(value)
+    except BaseException as exc:
+        recorder.failed("development_output_write_complete", exc)
+        return "diagnostic_incomplete"
+    if written != expected:
+        recorder.failed(
+            "development_output_write_complete",
+            OSError("short development diagnostic write"),
+            values={"development_output_expected": expected, "development_output_written": written},
+        )
+        return "diagnostic_incomplete"
+    recorder.passed(
+        "development_output_write_complete",
+        {"development_output_expected": expected, "development_output_written": written},
+    )
+    try:
+        selected.flush()
+    except BaseException as exc:
+        recorder.failed("development_output_flush_complete", exc)
+        return "diagnostic_incomplete"
+    recorder.passed("development_output_flush_complete")
+    return "complete"
+
+
 def _emit_failure(status: str) -> None:
     if status not in _CLOSED_FAILURE_STATUSES:
         status = "observation_result_unknown"
@@ -2372,6 +3075,9 @@ def _emit_failure(status: str) -> None:
 
 def main(argv: Sequence[str] | None = None) -> int:
     arguments = tuple(sys.argv[1:] if argv is None else argv)
+    if arguments == (DEVELOPMENT_MODE,):
+        recorder = _run_development_diagnostic()
+        return 0 if _emit_development_transcript(recorder) == "complete" else 3
     try:
         if os.name != "nt" or sys.platform != "win32":
             raise _ControllerError("observation_host_rejected")
