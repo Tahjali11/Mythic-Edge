@@ -2249,12 +2249,15 @@ def test_development_transcript_derives_nonzero_audit_counts() -> None:
     assert parsed["generated_residue_count"] == 0
 
 
-def test_development_transcript_rejects_missing_effect_evidence() -> None:
+def test_development_transcript_rejects_unclosed_effect_evidence() -> None:
     recorder = parent._DevelopmentRecorder()
+    recorder.passed("host_windows_exact")
+    recorder.passed("development_mode_exact")
+    recorder.passed("repository_root_resolved")
+    recorder.passed("audit_installed")
     snapshot = parent._EffectSnapshot(True, "repo", "installed", frozenset())
     recorder.observe_before_effect_snapshot(snapshot)
-    recorder.observe_after_effect_snapshot(snapshot)
-    recorder.observe_audit_counts(parent._AuditCounts(0, 0, 0, 0))
+    recorder.passed("before_effect_snapshot_available")
 
     with pytest.raises(ValueError, match="development effect evidence is incomplete"):
         parent._development_transcript(recorder)
@@ -2267,6 +2270,7 @@ def test_development_transcript_derives_child_creation_calls() -> None:
     recorder.observe_after_effect_snapshot(snapshot)
     recorder.observe_audit_counts(parent._AuditCounts(0, 0, 0, 0))
     recorder.observe_child_creation_count(1)
+    recorder.close_effect_observation()
 
     parsed = parse_development_transcript(parent._development_transcript(recorder))
 
@@ -2386,6 +2390,8 @@ def test_each_development_predicate_fails_first_and_stops_later_work(predicate: 
         or observed == "controller_image_guard_close_exact"
         for observed in recorder.call_order
     )
+    parsed = parse_development_transcript(parent._development_transcript(recorder))
+    assert parsed["first_failed_predicate"] == predicate
 
 
 def test_development_host_and_mode_fail_before_repository_or_adapter(
@@ -2397,12 +2403,18 @@ def test_development_host_and_mode_fail_before_repository_or_adapter(
     host = parent._run_development_diagnostic(adapter, repository_root=ROOT)
     assert host.first_failed_predicate == "host_windows_exact"
     assert adapter.calls == []
+    assert parse_development_transcript(parent._development_transcript(host))[
+        "first_failed_predicate"
+    ] == "host_windows_exact"
 
     monkeypatch.setattr(parent.os, "name", "nt")
     monkeypatch.setattr(parent.sys, "platform", "win32")
     mode = parent._run_development_diagnostic(adapter, repository_root=ROOT, mode_exact=False)
     assert mode.first_failed_predicate == "development_mode_exact"
     assert adapter.calls == []
+    assert parse_development_transcript(parent._development_transcript(mode))[
+        "first_failed_predicate"
+    ] == "development_mode_exact"
 
 
 def test_development_repository_failure_is_unblinded_without_adapter_construction(
@@ -2419,6 +2431,33 @@ def test_development_repository_failure_is_unblinded_without_adapter_constructio
 
     assert recorder.first_failed_predicate == "repository_root_resolved"
     assert PRIVATE_MARKER in (recorder.exception_message or "")
+    assert parse_development_transcript(parent._development_transcript(recorder))[
+        "first_failed_predicate"
+    ] == "repository_root_resolved"
+
+
+def test_development_host_failure_emits_one_complete_bounded_transcript(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    stderr = io.StringIO()
+    stdout = io.StringIO()
+    monkeypatch.setattr(parent.os, "name", "posix")
+    monkeypatch.setattr(parent.sys, "platform", "linux")
+    monkeypatch.setattr(parent.sys, "stderr", stderr)
+    monkeypatch.setattr(parent.sys, "stdout", stdout)
+
+    assert parent.main([parent.DEVELOPMENT_MODE]) == 0
+
+    payload = stderr.getvalue().encode("utf-8")
+    parsed = parse_development_transcript(payload)
+    assert parsed["first_failed_predicate"] == "host_windows_exact"
+    assert parsed["child_creation_count"] == 0
+    assert parsed["network_operation_count"] == 0
+    assert parsed["repository_write_count"] == 0
+    assert parsed["installed_write_count"] == 0
+    assert parsed["external_effect_count"] == 0
+    assert parsed["generated_residue_count"] == 0
+    assert stdout.getvalue() == ""
 
 
 def test_development_transcript_allows_only_bounded_owner_approved_private_detail() -> None:
@@ -2428,6 +2467,7 @@ def test_development_transcript_allows_only_bounded_owner_approved_private_detai
     recorder.observe_after_effect_snapshot(snapshot)
     recorder.observe_audit_counts(parent._AuditCounts(0, 0, 0, 0))
     recorder.observe_child_creation_count(0)
+    recorder.close_effect_observation()
     recorder.failed(
         "repository_root_resolved",
         OSError(f"private path: {PRIVATE_MARKER}"),

@@ -231,6 +231,8 @@ class _DevelopmentRecorder:
         self._after_effect_snapshot: _EffectSnapshot | None = None
         self._audit_counts: _AuditCounts | None = None
         self._child_creation_count: int | None = None
+        self._operation_calls: list[str] = []
+        self._effect_observation_closed = False
 
     def add_values(self, values: Mapping[str, object] | None) -> None:
         if values is None:
@@ -251,26 +253,50 @@ class _DevelopmentRecorder:
     def observe_child_creation_count(self, count: int) -> None:
         self._child_creation_count = count
 
+    def record_operation_call(self, operation: str) -> None:
+        if self._effect_observation_closed:
+            raise ValueError("development effect observation is already closed")
+        self._operation_calls.append(operation)
+
+    def close_effect_observation(self) -> None:
+        self._effect_observation_closed = True
+
     def operation_effect_counts(self) -> tuple[int, int, int, int, int, int]:
         before = self._before_effect_snapshot
         after = self._after_effect_snapshot
         audit = self._audit_counts
         child_creation_count = self._child_creation_count
-        if before is None or after is None or audit is None or child_creation_count is None:
+        if not self._effect_observation_closed:
             raise ValueError("development effect evidence is incomplete")
-        repository_mismatch = int(
-            before.repository_digest != after.repository_digest
+        repository_mismatch = (
+            int(before.repository_digest != after.repository_digest)
+            if before is not None and after is not None
+            else self._operation_calls.count("repository_write")
         )
-        installed_mismatch = int(
-            before.installed_digest != after.installed_digest
+        installed_mismatch = (
+            int(before.installed_digest != after.installed_digest)
+            if before is not None and after is not None
+            else self._operation_calls.count("installed_write")
         )
-        generated_residue_count = len(after.generated_residue - before.generated_residue)
+        generated_residue_count = (
+            len(after.generated_residue - before.generated_residue)
+            if before is not None and after is not None
+            else self._operation_calls.count("generated_residue")
+        )
         return (
-            child_creation_count,
-            audit.network_operations,
-            audit.repository_writes + repository_mismatch,
-            audit.installed_writes + installed_mismatch,
-            audit.external_effects,
+            child_creation_count
+            if child_creation_count is not None
+            else self._operation_calls.count("launch_once"),
+            audit.network_operations
+            if audit is not None
+            else self._operation_calls.count("network_operation"),
+            (audit.repository_writes if audit is not None else 0)
+            + repository_mismatch,
+            (audit.installed_writes if audit is not None else 0)
+            + installed_mismatch,
+            audit.external_effects
+            if audit is not None
+            else self._operation_calls.count("external_effect"),
             generated_residue_count,
         )
 
@@ -2941,6 +2967,7 @@ def _run_development_diagnostic(
             values={"development_mode": DEVELOPMENT_MODE if mode_exact else None},
         )
     except _DevelopmentAbort:
+        recorder.close_effect_observation()
         return recorder
 
     if repository_root is None:
@@ -2948,6 +2975,7 @@ def _run_development_diagnostic(
             repository_root = _repository_root()
         except BaseException as exc:
             recorder.failed("repository_root_resolved", exc)
+            recorder.close_effect_observation()
             return recorder
     recorder.passed(
         "repository_root_resolved",
@@ -2959,6 +2987,7 @@ def _run_development_diagnostic(
         selected_adapter.install_audit(repository_root)
     except BaseException as exc:
         recorder.failed("audit_installed", exc)
+        recorder.close_effect_observation()
         return recorder
     recorder.passed("audit_installed")
 
@@ -2979,6 +3008,7 @@ def _run_development_diagnostic(
             before=None,
             collect_after=False,
         )
+        recorder.close_effect_observation()
         return recorder
     recorder.observe_before_effect_snapshot(before)
     recorder.passed(
@@ -2999,6 +3029,7 @@ def _run_development_diagnostic(
             recorder,
             before=before,
         )
+        recorder.close_effect_observation()
         return recorder
 
     controller: _TargetBinding | None = None
@@ -3045,6 +3076,7 @@ def _run_development_diagnostic(
             recorder,
             before=before,
         )
+        recorder.close_effect_observation()
         return recorder
 
     try:
@@ -3059,6 +3091,7 @@ def _run_development_diagnostic(
             before=before,
             collect_after=False,
         )
+        recorder.close_effect_observation()
         return recorder
     recorder.observe_after_effect_snapshot(after)
     recorder.passed(
@@ -3091,12 +3124,14 @@ def _run_development_diagnostic(
             after=after,
             collect_after=False,
         )
+        recorder.close_effect_observation()
         return recorder
 
     try:
         counts = selected_adapter.audit_counts()
     except BaseException as exc:
         recorder.failed("audit_counts_available", exc)
+        recorder.close_effect_observation()
         return recorder
     recorder.passed(
         "audit_counts_available",
@@ -3123,7 +3158,9 @@ def _run_development_diagnostic(
             },
         )
     except _DevelopmentAbort:
+        recorder.close_effect_observation()
         return recorder
+    recorder.close_effect_observation()
     return recorder
 
 
