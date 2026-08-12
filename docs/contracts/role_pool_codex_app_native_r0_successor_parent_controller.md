@@ -19,20 +19,18 @@
 - Accepted context discipline:
   [`ADR-0012`](../decisions/ADR-0012-long-horizon-context-and-delegation-discipline.md).
 - Risk tier: high.
-- Owner-local development-diagnostic amendment base commit:
-  `36068577ae80f151161f14d14005dd276dfbc4fd`.
-- Owner-local development-diagnostic amendment base tree:
-  `5baf5ee1887b320fd0ba4a03fb8366098071a21d`.
+- Current-binding correction base commit:
+  `f9ea6b34a1fd3f1adbed430575739312fa213f10`.
+- Current-binding correction base tree:
+  `f233374bcda334b42f3480d6eb1aeebadd2adcef`.
 
 The owner's current instruction is a task-scoped `explicit_user_override` for
 this one successor-parent-controller contract amendment under open lifecycle
 issue #826. It expires with this handoff. It creates no implementation,
 diagnostic-run, metadata-run, process-launch, observation, consumption,
-publication, or rung authority. It does permit this contract to define a later
-owner-local development profile in which the owner may deliberately disclose
-the bounded diagnostic classes named below to Codex. That future disclosure is
-not authorized until this exact amendment is independently accepted and the
-owner's separate conditional Codex C authority becomes applicable.
+publication, or rung authority. It corrects only current artifact bindings and
+their mechanically dependent active prose. It does not reactivate the spent
+development authority or authorize Codex C or D.
 
 Issue #828 is closed and historical. PR #829 integrated the exact controller
 and controller test; PR #830 integrated the accepted predecessor version of
@@ -198,13 +196,15 @@ inspection or mutation and must not be represented as fresh-review cleanliness.
     `QueryFullProcessImageNameW`, private-path handling, image-guard opening, or
     target metadata inspection. No new audit, effect, status, or lifecycle
     family is introduced.
-35. **Observed:** PR #845 integrated the E-012 ordering repair and PR #846
-    integrated its exact workflow handoff. Current main is
-    `36068577ae80f151161f14d14005dd276dfbc4fd`; the current controller is
+35. **Historical observation:** PR #845 integrated the E-012 ordering repair
+    and PR #846 integrated its exact workflow handoff. Main was then
+    `36068577ae80f151161f14d14005dd276dfbc4fd`; the then-current controller was
     `90799` bytes at SHA-256
     `48c8f46f80959c548fb590e0faf5a97d0d90f4f1d15f1dda39adadb4ad9e3c42`,
-    and the focused test is `74701` bytes at SHA-256
+    and the then-current focused test was `74701` bytes at SHA-256
     `e62dca6e5d0fdf7ce3f4d240b0b56a0213142fb816509d4a5519cb9f9a91291b`.
+    Those bytes are historical pre-development-diagnostic inputs, not active
+    current-main or eligibility gates.
 36. **Owner-reported result:** the separately authorized metadata-only attempt
     terminated as `observation_binding_rejected`. Its first internal failed
     predicate, raw exception, Win32 result, and relevant private value were
@@ -219,12 +219,30 @@ inspection or mutation and must not be represented as fresh-review cleanliness.
     metadata or observation authority. Repetition is manual and diagnostic
     only; it is never an automatic retry, replacement, continuation, or route
     into metadata or Observation 1 execution.
-39. **Decision:** after the first complete development transcript identifies a
+39. **Historical decision:** after the first complete development transcript identifies a
     concrete defect, a later Codex C pass may make at most one directly proved
     correction in the existing controller and focused test. The correction
     must implement an already accepted production invariant. A new behavior,
     schema, status, lifecycle, helper, authority rule, or third path stops back
-    at Codex B before code changes.
+    at Codex B before code changes. That bounded pass is complete and creates
+    no current Codex C authority.
+40. **Observed:** PR #847 integrated the exact development-diagnostic contract,
+    controller, and focused test at
+    `1a96079e414ec2aa63dc79e2daa2bd0f059f9301`. PRs #848, #849, and #850 then
+    integrated exact two-file corrections at
+    `30888b5a97f762e1555c813bbfcfb4dba362c5ef`,
+    `75a02f5be545bacd18ccd1ca164dec9ac358a752`, and
+    `f9ea6b34a1fd3f1adbed430575739312fa213f10`. Current main is the last of
+    those commits at tree `f233374bcda334b42f3480d6eb1aeebadd2adcef`.
+41. **Observed:** fresh exact-current-main review confirmed
+    `ME-RP-826-E-014`, `ME-RP-826-E-015`, and `ME-RP-826-E-016` fixed and found
+    no implementation defect. It reproduced only `ME-RP-826-E-017`: the two
+    active binding rows and dependent active prose still named the historical
+    PR #846 implementation bytes.
+42. **Decision:** correct only those current-byte bindings, their dependent
+    active prose, and integrated history through PR #850. Preserve every
+    historical row and every implementation byte. This correction creates no
+    Codex C or D route and no operational authority.
 
 Finding `ME-RP-826-PARENT-A-001` is
 `fixed_confirmed_current_bytes`.
@@ -270,6 +288,12 @@ Finding `ME-RP-826-E-012` is
 `fixed_confirmed_current_bytes`.
 
 Finding `ME-RP-826-DEV-DIAG-B-001` is
+`implemented_integrated_preserved`.
+
+Findings `ME-RP-826-E-014`, `ME-RP-826-E-015`, and `ME-RP-826-E-016` are
+`fixed_confirmed_current_main`.
+
+Finding `ME-RP-826-E-017` is
 `contracted_pending_independent_confirmation`.
 
 ### Metadata audit-boundary ordering amendment
@@ -648,8 +672,10 @@ threads do not restart the workflow or invalidate accepted dispositions.
 | Historical pre-sole-target focused test | `tests/test_run_role_pool_app_native_r0_observation_parent.py`; `76838` bytes; `97671e0710f6677b3597f2920676ef7bdbf5894fa15389d069edf48b15e571cd` |
 | Historical pre-audit-ordering parent controller | `tools/run_role_pool_app_native_r0_observation_parent.py`; `90799` bytes; `4593dc5e6639fb051b33652df5ed33ea0393fc260f9cb6179babb53a1639d9bd` |
 | Historical pre-audit-ordering focused test | `tests/test_run_role_pool_app_native_r0_observation_parent.py`; `73313` bytes; `11670df2ba196b655b70e0da630d19342fbb71e76c0b94908790d57f15fbaf33` |
-| Current integrated parent controller | `tools/run_role_pool_app_native_r0_observation_parent.py`; `90799` bytes; `48c8f46f80959c548fb590e0faf5a97d0d90f4f1d15f1dda39adadb4ad9e3c42` |
-| Current integrated focused test | `tests/test_run_role_pool_app_native_r0_observation_parent.py`; `74701` bytes; `e62dca6e5d0fdf7ce3f4d240b0b56a0213142fb816509d4a5519cb9f9a91291b` |
+| Historical pre-development-diagnostic parent controller | `tools/run_role_pool_app_native_r0_observation_parent.py`; `90799` bytes; `48c8f46f80959c548fb590e0faf5a97d0d90f4f1d15f1dda39adadb4ad9e3c42` |
+| Historical pre-development-diagnostic focused test | `tests/test_run_role_pool_app_native_r0_observation_parent.py`; `74701` bytes; `e62dca6e5d0fdf7ce3f4d240b0b56a0213142fb816509d4a5519cb9f9a91291b` |
+| Current integrated parent controller | `tools/run_role_pool_app_native_r0_observation_parent.py`; `126954` bytes; `c17bdb79ce5d37b20cbe64503c8a77c0898d8734718f0b9bebbc4461826f70d0` |
+| Current integrated focused test | `tests/test_run_role_pool_app_native_r0_observation_parent.py`; `100379` bytes; `90710f9c026b65566f1cf8e99c0b0357afbf6903700e1eb2acdef0135389454b` |
 | Historical pre-short-write focused-test candidate | `tests/test_run_role_pool_app_native_r0_observation_parent.py`; `71072` bytes; `289ad0ff8bc920d23bd9068ed700abab5d7be44d450fe3fad78d06c302b09069` |
 | Historical target-binding-loop contract | `72153` bytes; `367a9e27e125dc3751a23944b5263bbb697fac82a23633da01f3c2e6dc6639f2` |
 | Guarded-output correction contract predecessor | `77570` bytes; `9986a9dfcf18d61ed3562497305a54a0f837cbd95f89bd211ba51d36c1a0df5d` |
@@ -681,8 +707,9 @@ Each row is bound in its named lifecycle context. Historical rows remain
 immutable evidence and are not required to coexist byte-for-byte with current
 rows at the same path. The current integrated controller and focused test must
 each remain an ordinary, non-reparse file at their exact current length and
-digest; those are the only implementation starting gates for the later
-development-diagnostic implementation.
+digest. Those are the only active implementation-byte gates for a later
+eligibility review; they authorize no implementation change and do not
+reactivate any historical gate.
 The source and installed trees must remain exact and equal. Drift stops before
 controller-image inspection or child creation.
 
@@ -708,34 +735,32 @@ metadata or observation identity.
 
 ## Integrated History And Future Authority Sequence
 
-PRs #829 through #846 are immutable integrated history. They establish the
-current contract, controller, focused test, review dispositions, and exact
-current-byte review evidence. They do not establish a successful canonical
-target binding or authorize Observation 1. The prior owner decisions remain
-historical and nontransferable.
+PRs #829 through #850 are immutable integrated history. PR #847 integrated the
+exact development-diagnostic three-path package. PRs #848, #849, and #850 each
+integrated an exact two-file controller/test correction, ending at current
+main `f9ea6b34a1fd3f1adbed430575739312fa213f10`. They establish the current
+contract, controller, focused test, review dispositions, and exact current-byte
+review evidence. They do not establish a successful canonical target binding
+or authorize another development diagnostic, metadata operation, or
+Observation 1. The prior owner decisions remain historical and
+nontransferable.
 
 The only prospective sequence under this amendment is:
 
-1. fresh Codex E reviews this exact development-diagnostic amendment and the
-   unchanged current controller and focused test;
-2. if and only if E accepts the contract, the owner's conditional Codex C
-   authority in the initiating instruction activates for exactly the two
-   implementation paths named below;
-3. Codex C implements the development-only mode and its operation-free tests,
-   runs the owner-authorized diagnostic manually, records the first complete
-   transcript only in the active owner-controlled terminal and Codex task, and
-   makes at most one directly proved correction within the same two paths;
-4. Codex C reruns the development diagnostic only when needed to verify that
-   one correction, runs focused and adjacent operation-free validation, and
-   writes the standard implementation handoff without private diagnostic data;
-5. fresh Codex E reviews the exact contract, controller, focused test, and
-   sanitized handoff before any submission or integration decision;
-6. separately authorized Codex F/G may later submit and integrate only the
-   independently accepted package;
-7. fresh current-main Codex E then determines whether a new production
-   metadata-only owner decision is eligible; and
-8. a successful canonical binding still requires independent exact-byte review
-   before the human owner may consider a separate Observation 1 decision.
+1. fresh Codex E reviews this exact contract-only current-binding correction
+   against the unchanged current controller and focused test;
+2. if and only if E accepts, separately authorized contract-only Codex F/G may
+   submit and integrate exactly this contract path;
+3. fresh clean-worktree current-main Codex E then re-evaluates eligibility
+   against the exact integrated contract, controller, focused test, and
+   source/install binding; and
+4. only after a clean eligibility verdict may the human owner consider a
+   separate fresh, expiring, single-use decision for any permitted next
+   operation.
+
+No Codex C or D implementation step is part of this correction. A successful
+canonical binding still requires independent exact-byte review before the
+human owner may consider a separate Observation 1 decision.
 
 The chain stops on base, contract, implementation, issue, worktree, source or
 installed tree, target-binding, GitHub, process, validation, or residue drift;
@@ -885,10 +910,10 @@ shell child launch, broker, service, scheduled task, task API, alternate
 runtime, or fallback is permitted.
 
 The current Codex `shell_command` surface remains unauthorized to start either
-authority-bearing mode. After fresh contract acceptance, the owner's
-conditional Codex C authority permits a bounded owner-local direct development
-invocation of only the exact diagnostic mode. That exception is not a general
-launch capability and does not authorize metadata or Observation 1 execution.
+authority-bearing mode. The prior bounded Codex C development authority and
+its implementation sequence are historical and do not transfer to this
+current-binding correction. No current diagnostic, metadata, or Observation 1
+invocation is authorized.
 
 ## Canonical Successor Target Binding
 
@@ -1495,16 +1520,14 @@ and constructible inside the existing two-file envelope. It authorizes no
 diagnostic run, metadata run, private-path access, controller start,
 Observation 1, publication, submission, or integration by itself.
 
-The owner's initiating instruction conditionally authorizes the next two
-steps. First, this exact contract must receive a fresh independent Codex E
-review. Only if E reports no blocking finding does the Codex C authority
-activate. That C authority is limited to implementing this development mode,
-running operation-free tests, running the owner-local diagnostic, applying at
-most one directly proved correction that implements an already accepted
-production invariant, rerunning the diagnostic and validation, and writing a
-sanitized handoff in exactly the two implementation paths. A private value may
-remain only in the active owner-controlled terminal and Codex task; it must not
-enter the handoff or repository.
+The owner's initiating conditional Codex C authority has completed and is
+historical and nontransferable. Fresh independent Codex E acceptance of this
+contract correction activates no Codex C or D authority. It permits only a
+later, separately authorized contract-only Codex F/G integration, followed by
+a fresh clean-worktree current-main Codex E eligibility review. Any later
+diagnostic, metadata, private-path, controller, child, identity, observation,
+publication, or implementation action requires its own applicable fresh owner
+decision and remains unauthorized here.
 
 Stop and return to Codex A or the owner if:
 
@@ -1554,13 +1577,12 @@ Stop and return to Codex A or the owner if:
 - issue #769 would require any read beyond state/comment-count validation or
   any mutation.
 
-The current `90799`-byte controller and `74701`-byte focused test are the exact
-accepted implementation inputs. Before E acceptance, implementation and
-diagnostic execution remain unauthorized. After E acceptance, only the
-conditional Codex C development authority above becomes active. It creates no
-metadata or observation authority and no right to submit or integrate. Fresh
-implementation review remains mandatory. No development result may establish
-binding acceptance, Observation 1 eligibility, privacy, security, assurance,
+The current `126954`-byte controller and `100379`-byte focused test are the
+exact accepted current-main implementation inputs. This amendment changes
+neither file and authorizes no Codex C or D work. Contract acceptance permits
+only separately authorized contract integration followed by a fresh
+current-main eligibility review. No development result may establish binding
+acceptance, Observation 1 eligibility, privacy, security, assurance,
 deployment, or live readiness.
 
 ## Current Next Workflow Action
@@ -1573,13 +1595,13 @@ Pasteable prompt:
 Use the current Mythic Edge repository authority.
 Use $mythic-edge-workflow.
 
-Act as Codex E: Independent R0 Owner-Local Development Diagnostic Contract Reviewer.
+Act as Codex E: Independent R0 Current-Binding and Active-Authority Contract Reviewer.
 
 Repository: Tahjali11/Mythic-Edge
 Issue: https://github.com/Tahjali11/Mythic-Edge/issues/826
 Tracker: https://github.com/Tahjali11/Mythic-Edge/issues/746
 Protected issue: https://github.com/Tahjali11/Mythic-Edge/issues/769
-Reviewed base: origin/main@36068577ae80f151161f14d14005dd276dfbc4fd
+Reviewed base: origin/main@f9ea6b34a1fd3f1adbed430575739312fa213f10
 
 Review exactly:
 docs/contracts/role_pool_codex_app_native_r0_successor_parent_controller.md
@@ -1590,52 +1612,48 @@ open with zero comments.
 
 Read without editing:
 - tools/run_role_pool_app_native_r0_observation_parent.py
-  SHA-256: 48c8f46f80959c548fb590e0faf5a97d0d90f4f1d15f1dda39adadb4ad9e3c42
+  byte count: 126954
+  SHA-256: c17bdb79ce5d37b20cbe64503c8a77c0898d8734718f0b9bebbc4461826f70d0
 - tests/test_run_role_pool_app_native_r0_observation_parent.py
-  SHA-256: e62dca6e5d0fdf7ce3f4d240b0b56a0213142fb816509d4a5519cb9f9a91291b
+  byte count: 100379
+  SHA-256: 90710f9c026b65566f1cf8e99c0b0357afbf6903700e1eb2acdef0135389454b
 
-Review ME-RP-826-DEV-DIAG-B-001. Confirm the one exact development mode is
-structurally disjoint from metadata and execution modes; starts no child;
-creates no binding, identity, authority, consumption, receipt, or rung
-evidence; performs no network or mutation; records the most specific first
-failed predicate; cleans up exactly; and emits only the bounded owner-approved
-unblinded terminal transcript.
+Review ME-RP-826-E-017 and its mechanically dependent active-authority
+paragraph only. Confirm the two active current-binding rows match the exact
+current controller and focused test, while the displaced PR #846 hashes remain
+labeled historical and participate in no current-main or eligibility gate.
+Confirm the dependent active prose and integrated history accurately cover PRs
+#847 through #850. Confirm fresh contract acceptance activates no Codex C or D
+authority and permits only separately authorized contract-only integration,
+followed by fresh current-main eligibility review.
 
-Confirm private output is permitted only for the development transcript and
-only for the enumerated diagnostic classes. Confirm credentials, tokens,
-authentication material, private keys, unrelated environment values, browser
-data, shell history, unrelated files, directory-wide dumps, and durable or
-GitHub output remain forbidden. Confirm production metadata and Observation 1
-modes remain blinded and behaviorally unchanged.
+Confirm ME-RP-826-E-014, E-015, and E-016 remain
+fixed_confirmed_current_main. Confirm no controller or test edit, Codex C or D
+route, schema, lifecycle, status, containment, diagnostic, metadata,
+Observation 1, or authority change was introduced.
 
-Confirm repeated development runs are manual independent diagnostics, not
-metadata or observation retries. Confirm a later Codex C pass may make at most
-one directly proved correction in exactly the current controller and focused
-test, and must stop if the transcript does not identify one concrete current
-defect or if new semantics or a third path are required. Confirm the final
-profile requires a separate removal or blinding gate.
-
-Run contract-only structural checks plus existing focused and adjacent
-operation-free regressions. Do not implement, run the development mode, access
-a private path, run metadata or Observation 1, create or consume authority,
-publish, touch #769, submit, merge, deploy, advance R0-R8 or Stage 4, or claim
-readiness.
+Run contract-only structural and text checks. The prior exact-current-main
+review recorded 256 focused and 247 adjacent operation-free tests passing;
+rerun them only if independent review policy requires it or semantic drift is
+found. Do not implement, run the development mode, access a private path, run
+metadata or Observation 1, create or consume authority, publish, touch #769,
+submit, merge, deploy, advance R0-R8 or Stage 4, or claim readiness.
 
 Lead with findings. Return the exact reviewed contract byte count and SHA-256,
-contract verdict, data-boundary verdict, production-separation verdict,
-two-file constructibility verdict, test and removal-gate verdicts, validation,
-authority flags, generated residue, conditional_routes, and workflow_handoff.
+contract verdict, binding verdict, historical-preservation verdict, changed
+paths, validation, authority flags, generated residue, conditional_routes, and
+workflow_handoff.
 
 conditional_routes:
   success:
-    next_role: "Codex C: R0 Owner-Local Development Diagnostic Implementer"
+    next_role: "Codex F/G under separate contract-only integration authority"
     next_two_steps:
-      - "Implement the exact development mode and operation-free tests in the two accepted files."
-      - "Run the authorized diagnostic, apply at most one directly proved correction, and validate."
+      - "Integrate exactly the independently accepted contract path."
+      - "Run a fresh clean-worktree current-main Codex E eligibility review."
   failure:
-    next_role: "Codex B: narrow development-diagnostic contract corrector"
+    next_role: "Codex B: narrow current-binding or active-authority contract corrector"
     next_two_steps:
-      - "Report the first blocking contract clause and preserve all implementation bytes."
+      - "Report the first exact binding or historical-label defect and preserve all implementation bytes."
       - "Provide one pasteable correction prompt limited to that finding."
 ```
 
@@ -1647,17 +1665,19 @@ instruction_context:
     - "ADR-0008"
     - "ADR-0012"
   observed:
-    - "Current main is 36068577ae80f151161f14d14005dd276dfbc4fd at tree 5baf5ee1887b320fd0ba4a03fb8366098071a21d."
-    - "The current controller and test exactly match the refreshed starting bindings."
-    - "The owner reports that the latest metadata-only operation returned observation_binding_rejected without its internal predicate."
+    - "Current main is f9ea6b34a1fd3f1adbed430575739312fa213f10 at tree f233374bcda334b42f3480d6eb1aeebadd2adcef."
+    - "PRs #847 through #850 are merged exact history; PR #850 contains only the controller and focused test."
+    - "The current controller is 126954 bytes at c17bdb79ce5d37b20cbe64503c8a77c0898d8734718f0b9bebbc4461826f70d0."
+    - "The current focused test is 100379 bytes at 90710f9c026b65566f1cf8e99c0b0357afbf6903700e1eb2acdef0135389454b."
+    - "Fresh E found no implementation defect and reproduced only stale active contract bindings."
     - "Issue #769 is open with zero comments."
   derived:
-    - "The first concrete production defect cannot be selected from the blinded result alone."
-    - "One separate no-child development branch in the existing controller can expose the bounded evidence without adding an execution lane or authority family."
+    - "The historical PR #846 bytes must remain evidence but cannot remain active current-main gates."
+    - "Exactly one contract path is sufficient; no controller, test, schema, lifecycle, or authority change is required."
   proposed:
-    - "One contract-only amendment, fresh E review, then conditionally authorized two-file Codex C work."
+    - "One contract-only current-binding correction, fresh E review, then separately authorized contract-only integration."
   unknown:
-    - "The first failed metadata predicate remains unknown until an accepted development mode is implemented and run."
+    - "Fresh independent E acceptance of these exact corrected contract bytes remains pending."
   protected_surfaces:
     - "private executable and local filesystem paths"
     - "metadata and Observation 1 authority"
@@ -1665,12 +1685,12 @@ instruction_context:
     - "release, registry, installed tree, binding, receipt, and consumption state"
   authority_conflicts_found: false
   stop_conditions:
-    - "A third implementation path, child, helper, schema, status, lifecycle, durable diagnostic artifact, or new authority family is required."
-    - "Development output cannot be bounded to the owner-approved diagnostic classes."
-    - "Production blinding, containment, cleanup, nonretry, or authority would weaken."
+    - "The current controller or test byte count or SHA-256 drifts."
+    - "Any implementation, schema, lifecycle, status, authority, or operational change is required."
+    - "A second contract or repository path is required."
 
 workflow_handoff:
-  role_performed: "Codex B: R0 Owner-Local Unblinded Development Diagnostic Contract Writer"
+  role_performed: "Codex B: Narrow R0 Active-Authority Paragraph Corrector"
   completed_thread: "B"
   next_thread: "E"
   repository: "Tahjali11/Mythic-Edge"
@@ -1678,25 +1698,33 @@ workflow_handoff:
   issue: "https://github.com/Tahjali11/Mythic-Edge/issues/826"
   tracker: "https://github.com/Tahjali11/Mythic-Edge/issues/746"
   protected_issue: "https://github.com/Tahjali11/Mythic-Edge/issues/769"
-  source_artifact: "owner-reported metadata-mode observation_binding_rejected"
+  source_artifact: "fresh Codex E handoff requiring a narrow active-authority paragraph correction"
   target_artifact: "docs/contracts/role_pool_codex_app_native_r0_successor_parent_controller.md"
   risk_tier: "high"
   base_branch: "origin/main"
   target_branch: "main"
-  branch: "codex/r0-owner-local-unblinded-diagnostic-826"
-  base_commit: "36068577ae80f151161f14d14005dd276dfbc4fd"
-  base_tree: "5baf5ee1887b320fd0ba4a03fb8366098071a21d"
+  branch: "codex/r0-development-diagnostic-current-binding-826"
+  base_commit: "f9ea6b34a1fd3f1adbed430575739312fa213f10"
+  base_tree: "f233374bcda334b42f3480d6eb1aeebadd2adcef"
   files_changed:
     - "docs/contracts/role_pool_codex_app_native_r0_successor_parent_controller.md"
-  later_implementation_paths:
+  read_only_current_implementation_paths:
     - "tools/run_role_pool_app_native_r0_observation_parent.py"
     - "tests/test_run_role_pool_app_native_r0_observation_parent.py"
+  current_controller_byte_count: 126954
+  current_controller_sha256: "c17bdb79ce5d37b20cbe64503c8a77c0898d8734718f0b9bebbc4461826f70d0"
+  current_focused_test_byte_count: 100379
+  current_focused_test_sha256: "90710f9c026b65566f1cf8e99c0b0357afbf6903700e1eb2acdef0135389454b"
   finding_status:
-    ME-RP-826-E-012: "fixed_confirmed_current_bytes"
-    ME-RP-826-DEV-DIAG-B-001: "contracted_pending_independent_confirmation"
+    ME-RP-826-E-014: "fixed_confirmed_current_main"
+    ME-RP-826-E-015: "fixed_confirmed_current_main"
+    ME-RP-826-E-016: "fixed_confirmed_current_main"
+    ME-RP-826-E-017: "contracted_pending_independent_confirmation"
   development_mode: "--diagnose-metadata-binding-development"
   development_child_creation_authorized: false
   implementation_authorized_now: false
+  codex_c_authorized: false
+  codex_d_authorized: false
   development_diagnostic_authorized_now: false
   metadata_operation_authorized: false
   observation_1_authorized: false
@@ -1706,28 +1734,26 @@ workflow_handoff:
   deployment_authorized: false
   live_ready: false
   validation:
-    - "206 focused controller tests passed with an isolated sibling basetemp"
-    - "247 adjacent operation-free tests passed with an isolated sibling basetemp"
-    - "the first focused run had 203 passes and 3 ACL-related temp-fixture setup errors; no test assertion failed"
-    - "the first adjacent run used an in-repository basetemp and produced 14 expected path-classification failures; corrected external-temp setup passed"
+    - "fresh source review evidence: 256 focused and 247 adjacent operation-free tests passed"
+    - "controller and focused test current byte counts and SHA-256 values independently recomputed"
+    - "historical PR #846 hashes occur only in historical contexts"
     - "agent docs: 55 files, 0 errors, 0 warnings"
     - "path-fed protected-surface and secret/private-marker scans: forbidden 0, warnings 0"
-    - "validation selector: required 3, recommended 1, advisory 0, warnings 0"
     - "git diff and text-hygiene checks passed"
   stop_conditions:
-    - "a third implementation path, child, helper, schema, status, lifecycle, or durable diagnostic artifact is required"
-    - "development output exceeds or escapes the bounded owner-approved data classes"
-    - "production blinding, containment, cleanup, nonretry, or authority must weaken"
+    - "the current controller or focused test binding drifts"
+    - "implementation, schema, lifecycle, status, authority, or operational behavior must change"
+    - "a second changed path is required"
   conditional_routes:
     success:
-      next_role: "Codex C: R0 Owner-Local Development Diagnostic Implementer"
+      next_role: "Codex F/G under separate contract-only integration authority"
       next_two_steps:
-        - "implement the exact development mode and operation-free tests in the two accepted files"
-        - "run the authorized diagnostic, apply at most one directly proved correction, and validate"
+        - "integrate exactly the independently accepted contract path"
+        - "run a fresh clean-worktree current-main Codex E eligibility review"
     failure:
-      next_role: "Codex B: narrow development-diagnostic contract corrector"
+      next_role: "Codex B: narrow current-binding or active-authority contract corrector"
       next_two_steps:
-        - "preserve implementation bytes and report the first blocking clause"
+        - "preserve implementation bytes and report the first exact binding defect"
         - "provide one pasteable prompt limited to that finding"
-  next_recommended_role: "Codex E: Independent R0 Owner-Local Development Diagnostic Contract Reviewer"
+  next_recommended_role: "Codex E: Independent R0 Current-Binding and Active-Authority Contract Reviewer"
 ```
