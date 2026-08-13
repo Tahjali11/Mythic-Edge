@@ -378,6 +378,220 @@ The synthetic known-answer rows are exactly:
 ("scripts", "directory", b"")
 ```
 
+## Authoritative Current-Package Record Amendment
+
+This amendment is the current controlling text for mutable package-byte
+bindings. It closes `ME-RP-826-E-020`, which reproduced that the rows labelled
+`Current integrated parent controller` and `Current integrated focused test`
+still named the pre-PR #853 bytes after PR #853 integrated a separately
+reviewed exact two-file implementation. The mismatch is governance-record
+drift, not a controller or focused-test defect.
+
+This amendment supersedes only:
+
+- the two `Current integrated` rows in `Exact Frozen Bindings`;
+- the paragraph immediately following that table which makes those embedded
+  rows the active implementation-byte gates;
+- the pre-PR #853 `Integrated History And Future Authority Sequence`;
+- the prohibition on a third evidence path in `Owning Layer And Files`;
+- active acceptance, stop-condition, prompt, instruction-context, and handoff
+  text that treats the old embedded controller or focused-test hashes as
+  current; and
+- any requirement to amend this behavioral contract solely because an
+  independently accepted controller or focused-test byte binding changes.
+
+It does not supersede or weaken any process-containment, private-custody,
+stable-read, output, flush, audit, effect, cleanup, `PostExitFacts`, schema,
+status, nonretry, single-use, observation, publication, R0 ceiling, or false-
+authority requirement.
+
+### Sole mutable package authority
+
+The sole repository artifact that owns the current mutable package bindings is:
+
+```text
+docs/role_pool/trusted_owner_app_native_r0_parent_controller_package.v1.json
+```
+
+Its exact schema version is:
+
+```text
+trusted_owner_app_native_r0_parent_controller_package.v1
+```
+
+The contract binds that path, schema, field order, parsing rules, and authority
+effect. It intentionally does not embed the package record's byte count or
+SHA-256. The package record binds this contract's exact path, byte count, and
+SHA-256. This one-way relationship avoids a circular digest dependency.
+
+The record is ASCII JSON serialized with two-space indentation, LF-only line
+endings, and exactly one final LF. Parsing must reject duplicate keys. Its
+top-level fields occur exactly once in this order:
+
+1. `schema_version`;
+2. `repository_id`;
+3. `repository_name`;
+4. `issue_url`;
+5. `tracker_url`;
+6. `protected_issue_url`;
+7. `governing_contract`;
+8. `controller`;
+9. `focused_test`;
+10. `established_from`;
+11. `source_install_binding`;
+12. `lifecycle_state`;
+13. `authority_effect`; and
+14. `authority_flags`.
+
+`governing_contract`, `controller`, and `focused_test` each contain exactly
+`path`, `byte_count`, and `sha256`, in that order. `established_from` contains
+exactly `pull_request_url`, `reviewed_head`, `reviewed_tree`, `review_url`,
+`merge_commit`, and `merged_tree`, in that order. `source_install_binding`
+contains exactly `node_count`, `file_count`, `canonical_byte_count`, and
+`sha256`, in that order.
+
+`authority_flags` contains exactly these Boolean fields, all `false`, in this
+order:
+
+1. `implementation_authorized`;
+2. `metadata_operation_authorized`;
+3. `private_path_access_authorized`;
+4. `controller_start_authorized`;
+5. `target_binding_emission_authorized`;
+6. `identity_creation_or_consumption_authorized`;
+7. `observation_1_authorized`;
+8. `receipt_publication_authorized`;
+9. `r0_r8_authorized`;
+10. `stage4_authorized`;
+11. `deployment_authorized`; and
+12. `live_ready`.
+
+No extra field, optional block, private path, private value, credential,
+authority token, observation identity, target binding, receipt, environment
+value, or machine-local identifier is permitted. The only accepted lifecycle
+and authority strings are:
+
+```text
+current_integrated_package_evidence
+evidence_only_no_operational_authority
+```
+
+The initial record's `established_from` block binds the exact PR #853 head,
+reviewed tree, durable exact-head review, merge commit, and merged tree. Those
+fields preserve the establishment provenance of this record family. They are
+not an append-only registry and do not make future PR or merge identifiers
+part of the mutable package preimage. Fresh review must inspect current GitHub
+state externally and must not infer current integration from establishment
+provenance alone.
+
+### Package verification and future updates
+
+Fresh Codex E eligibility review and the external owner-operated preflight must
+independently require all of the following before a metadata-only owner
+decision may be considered:
+
+- the record is an ordinary, non-reparse tracked file at the exact path above;
+- its JSON is duplicate-free and exactly conforms to the closed schema;
+- its governing-contract path, byte count, and SHA-256 equal the current
+  integrated contract bytes;
+- its controller and focused-test paths, byte counts, and SHA-256 values equal
+  the current integrated files;
+- current main and its tree are freshly verified in a clean exact worktree;
+- the current implementation PR scope, exact-head review, checks, merge, and
+  merged tree are freshly verified through GitHub evidence;
+- the current source and installed Role Pool trees remain exact and equal;
+- every existing fixed state, registry, release, authority-index, validator,
+  process, residue, host, and external-preflight eligibility requirement
+  remains satisfied; and
+- every authority flag in the record and the review remains false.
+
+Record equality is evidence only. It creates no implementation, metadata,
+private-path, controller, child, identity, observation, publication, rung,
+Stage 4, deployment, assurance, or readiness authority.
+
+If later controller or focused-test bytes change under this otherwise unchanged
+behavioral contract, the exact same implementation PR must update this package
+record atomically with those bytes. That package may contain exactly:
+
+1. `tools/run_role_pool_app_native_r0_observation_parent.py`;
+2. `tests/test_run_role_pool_app_native_r0_observation_parent.py`; and
+3. `docs/role_pool/trusted_owner_app_native_r0_parent_controller_package.v1.json`.
+
+The third path is governance evidence, not a third implementation, runtime,
+consumer, helper, schema owner, launcher, broker, or lifecycle path. A future
+package-record update must bind the already-integrated governing contract and
+the candidate controller and focused-test bytes. Its PR head, review, merge,
+and current-main acceptance remain external evidence, so no commit, review, or
+merge self-binding is introduced.
+
+No behavioral contract amendment is required solely for such an atomic
+package-byte update. A contract amendment remains mandatory before any change
+to behavior, containment, private custody, schema, status, lifecycle,
+authority, execution surface, output semantics, or implementation-path
+ownership.
+
+### Current disposition and route
+
+PR #853 is current integrated history at merge commit
+`d8b347354973f9c0a3be296b206c6a2b9bdbd0b7` and tree
+`fd0d8bab33c5f99034a563d7e7046021090419d5`. Its exact-head review is
+<https://github.com/Tahjali11/Mythic-Edge/pull/853#pullrequestreview-4923190881>.
+The package record created with this amendment binds the exact accepted PR #853
+controller and focused-test bytes. The former embedded `Current integrated`
+rows are historical pre-PR #853 evidence and are not active eligibility gates.
+
+`ME-RP-826-E-020` is
+`contracted_pending_independent_confirmation`.
+
+This amendment changes exactly the governing contract and the new package
+record. It changes no controller, test, runtime, installed, registry, release,
+authority-index, validator, or operational bytes.
+
+The only current workflow sequence is:
+
+1. fresh independent Codex E review of the exact two-governance-file
+   candidate;
+2. if accepted, Codex F submission of exactly those two files;
+3. fresh exact-head Codex E review of the submitted PR;
+4. Codex G integration only under the owner's explicit conditional authority
+   and only if the head, scope, review, checks, and mergeability remain exact;
+5. fresh clean-worktree current-main Codex E metadata-only eligibility review.
+
+Any finding stops the sequence at its first proven boundary. No Codex C or D
+work is authorized unless a fresh review reproduces a concrete implementation
+defect. No diagnostic, private-path access, controller start, metadata mode,
+target-binding emission, identity creation or consumption, Observation 1,
+receipt publication, R0-R8 advancement, Stage 4 action, deployment, assurance,
+or live-readiness action is authorized.
+
+```yaml
+workflow_handoff:
+  role_performed: "Codex B: R0 Authoritative Current-Package Record Contract Writer"
+  issue: "https://github.com/Tahjali11/Mythic-Edge/issues/826"
+  tracker: "https://github.com/Tahjali11/Mythic-Edge/issues/746"
+  protected_issue: "https://github.com/Tahjali11/Mythic-Edge/issues/769"
+  base_commit: "d8b347354973f9c0a3be296b206c6a2b9bdbd0b7"
+  base_tree: "fd0d8bab33c5f99034a563d7e7046021090419d5"
+  changed_path_count: 2
+  package_record_path: "docs/role_pool/trusted_owner_app_native_r0_parent_controller_package.v1.json"
+  finding_status:
+    ME-RP-826-E-020: "contracted_pending_independent_confirmation"
+  implementation_changed: false
+  implementation_authorized: false
+  metadata_operation_authorized: false
+  private_path_access_authorized: false
+  controller_start_authorized: false
+  target_binding_emission_authorized: false
+  identity_creation_or_consumption_authorized: false
+  observation_1_authorized: false
+  receipt_publication_authorized: false
+  r0_r8_authorized: false
+  stage4_authorized: false
+  deployment_authorized: false
+  live_ready: false
+  next_recommended_role: "Codex E: Independent R0 Authoritative Current-Package Record Reviewer"
+```
+
 Their exact canonical bytes are:
 
 ```json
