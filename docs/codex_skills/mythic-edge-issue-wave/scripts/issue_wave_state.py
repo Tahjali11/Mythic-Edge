@@ -7,22 +7,29 @@ import os
 import re
 import secrets
 import sys
+import time
 import uuid
 from contextlib import contextmanager
 from copy import deepcopy
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Iterator, Mapping, Sequence
 
-INVOCATION_SCHEMA = "mythic_edge_issue_wave_invocation.v1"
+INVOCATION_SCHEMA = "mythic_edge_issue_wave_invocation.v2"
 MANIFEST_SCHEMA = "mythic_edge_issue_wave_manifest.v1"
-STATE_SCHEMA = "mythic_edge_issue_wave_state.v1"
-EVENT_SCHEMA = "mythic_edge_issue_wave_event.v1"
-EVENT_REQUEST_SCHEMA = "mythic_edge_issue_wave_event_request.v1"
+STATE_SCHEMA = "mythic_edge_issue_wave_state.v2"
+EVENT_SCHEMA = "mythic_edge_issue_wave_event.v2"
+EVENT_REQUEST_SCHEMA = "mythic_edge_issue_wave_event_request.v2"
 GOVERNANCE_PACKET_SCHEMA = "mythic_edge_issue_wave_governance_packet.v1"
 GOVERNANCE_ROUTE_SCHEMA = "mythic_edge_issue_wave_governance_route.v1"
-INSPECT_SCHEMA = "mythic_edge_issue_wave_inspect.v1"
+INSPECT_SCHEMA = "mythic_edge_issue_wave_inspect.v2"
 REVIEWED_PACKAGE_SCHEMA = "mythic_edge_issue_wave_reviewed_package.v1"
+
+ROLE_ORDER = ("A", "B", "C", "E", "F")
+ROLE_INDEX = {role: index for index, role in enumerate(ROLE_ORDER)}
+LEASE_SECONDS = 300
+LEASE_RENEWAL_MAX_SECONDS = 60
+ADMISSION_WAIT_SECONDS = 5.0
 
 RUN_ID_RE = re.compile(r"^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{8}$")
 TIMESTAMP_RE = re.compile(r"^[0-9]{8}T[0-9]{6}Z$")
@@ -120,8 +127,17 @@ ROLE_BY_RUNNING_STATE = {
 }
 
 INVOCATION_KEYS = frozenset(
-    {"schema_version", "mode", "entry_role", "selectors", "permissions", "explicit_permissions"}
+    {
+        "schema_version",
+        "mode",
+        "entry_role",
+        "segment",
+        "selectors",
+        "permissions",
+        "explicit_permissions",
+    }
 )
+SEGMENT_KEYS = frozenset({"start_role", "end_role", "explicit"})
 SELECTOR_KEYS = frozenset({"repositories", "anchor", "run_id"})
 PERMISSION_KEYS = frozenset({"allow_main_draft", "allow_wip_exception"})
 MANIFEST_KEYS = frozenset({"schema_version", "candidates"})
@@ -158,6 +174,11 @@ STATE_KEYS = frozenset(
         "invocation",
         "candidates",
         "lanes",
+        "execution_status",
+        "current_segment",
+        "next_resumable_role",
+        "segment_history",
+        "reservation",
         "run_complete",
     }
 )
@@ -192,6 +213,8 @@ EVENT_KEYS = frozenset(
         "schema_version",
         "sequence",
         "timestamp_utc",
+        "event_type",
+        "segment",
         "lane_id",
         "from_state",
         "to_state",
@@ -241,6 +264,35 @@ GOVERNANCE_PACKET_KEYS = frozenset(
         "unresolved_question",
         "suggested_review_route",
     }
+)
+RESERVATION_KEYS = frozenset({"owner", "repositories", "lease", "recovery"})
+LEASE_KEYS = frozenset({"issued_at_utc", "last_renewed_at_utc", "expires_at_utc", "released_at_utc"})
+RECOVERY_KEYS = frozenset({"termination_proof", "preserved_state_stable", "no_active_operations"})
+SEGMENT_HISTORY_KEYS = frozenset(
+    {
+        "start_role",
+        "end_role",
+        "authorized_revision",
+        "authorized_at_utc",
+        "completed_at_utc",
+        "revalidation_proof_sha256",
+    }
+)
+REVALIDATION_PROOF_KEYS = frozenset(
+    {
+        "repository_heads_stable",
+        "artifacts_stable",
+        "worktrees_safe",
+        "no_active_operations",
+        "lanes",
+    }
+)
+REVALIDATION_LANE_KEYS = frozenset(
+    {"lane_id", "repository", "issue", "repository_head", "artifacts"}
+)
+REVALIDATION_HEAD_KEYS = frozenset({"expected", "observed"})
+REVALIDATION_ARTIFACT_KEYS = frozenset(
+    {"reference", "expected_sha256", "observed_sha256"}
 )
 
 
@@ -297,6 +349,15 @@ def _now_timestamp(now: datetime | None = None) -> str:
     if current.tzinfo is None:
         raise IssueWaveError("invalid_time", "time source must be timezone aware")
     return current.astimezone(UTC).strftime("%Y%m%dT%H%M%SZ")
+
+
+def _timestamp_datetime(value: str) -> datetime:
+    _timestamp(value, code="state_integrity_error", label="timestamp")
+    return datetime.strptime(value, "%Y%m%dT%H%M%SZ").replace(tzinfo=UTC)
+
+
+def _plus_seconds(value: str, seconds: int) -> str:
+    return _now_timestamp(_timestamp_datetime(value) + timedelta(seconds=seconds))
 
 
 def _canonical_json(value: object) -> bytes:
@@ -451,13 +512,12 @@ def _canonical_repository(value: object, *, code: str) -> str:
 def _contains_local_absolute_path(value: str) -> bool:
     if re.search(r"(?<![A-Za-z0-9])[A-Za-z]:[\\/]", value):
         return True
-    if re.search(
-        r"(?<![A-Za-z0-9:/])/(?:Users|home|var|tmp)/",
-        value,
-        flags=re.IGNORECASE,
-    ):
+    if re.search(r"(?<![A-Za-z0-9:/\\])/(?!/)(?:[^\s/]|$)", value):
         return True
-    return re.search(r"\\\\[^\\/\s]+[\\/][^\\/\s]+", value) is not None
+    return re.search(
+        r"\\\\[^\\/\s]+[\\/][^\\/\s]+|(?<![A-Za-z0-9:])//[^\\/\s]+[\\/][^\\/\s]+",
+        value,
+    ) is not None
 
 
 def _public_text(value: object, *, code: str, label: str, maximum: int = 500) -> str:
@@ -501,6 +561,31 @@ def generate_run_id(*, now: datetime | None = None, entropy: bytes | None = None
     return f"{_now_timestamp(now)}-{suffix_bytes.hex()}"
 
 
+def _segment(start_role: str, end_role: str, *, explicit: bool) -> dict[str, object]:
+    if start_role not in ROLE_INDEX or end_role not in ROLE_INDEX:
+        raise IssueWaveError("invalid_invocation", "segment role is unsupported")
+    if ROLE_INDEX[start_role] > ROLE_INDEX[end_role]:
+        raise IssueWaveError("invalid_invocation", "segment cannot move backward")
+    return {"start_role": start_role, "end_role": end_role, "explicit": explicit}
+
+
+def _parse_segment(value: str, *, mode: str, has_run: bool) -> dict[str, object]:
+    if mode == "Inspect":
+        if value != "A":
+            raise IssueWaveError("invalid_invocation", "Inspect role must be exactly A")
+        return _segment("A", "A", explicit=False)
+    if value == "A":
+        return _segment("A", "F", explicit=False)
+    match = re.fullmatch(r"([A-Z])-([A-Z])", value)
+    if match is None:
+        raise IssueWaveError("invalid_invocation", "Dispatch segment is malformed")
+    start_role, end_role = match.groups()
+    parsed = _segment(start_role, end_role, explicit=True)
+    if not has_run and start_role != "A":
+        raise IssueWaveError("invalid_invocation", "new Dispatch segments must start at A")
+    return parsed
+
+
 def parse_invocation(command: str) -> dict[str, Any]:
     if not isinstance(command, str):
         raise IssueWaveError("invalid_invocation", "invocation must be text")
@@ -515,8 +600,8 @@ def parse_invocation(command: str) -> dict[str, Any]:
         )
     mode, body = match.groups()
     parts = [part.strip() for part in body.split(";")]
-    if not parts or parts[0] != "A" or any(not part for part in parts):
-        raise IssueWaveError("invalid_invocation", "entry role must be exactly A")
+    if not parts or any(not part for part in parts):
+        raise IssueWaveError("invalid_invocation", "role or segment is required")
 
     values: dict[str, object] = {}
     flags: set[str] = set()
@@ -564,11 +649,18 @@ def parse_invocation(command: str) -> dict[str, Any]:
     if mode == "Inspect" and flags:
         raise IssueWaveError("invalid_invocation", "Inspect accepts no Dispatch permissions")
 
+    segment = _parse_segment(parts[0], mode=mode, has_run=run_id is not None)
+    if "allow-wip-exception" in flags and run_id is not None:
+        raise IssueWaveError("invalid_invocation", "allow-wip-exception is new-run-only")
+    if "allow-main-draft" in flags and segment["end_role"] != "F":
+        raise IssueWaveError("invalid_invocation", "allow-main-draft requires a segment containing F")
+
     explicit_permissions = sorted(flag.replace("-", "_") for flag in flags)
     return {
         "schema_version": INVOCATION_SCHEMA,
         "mode": mode,
-        "entry_role": "A",
+        "entry_role": segment["start_role"],
+        "segment": segment,
         "selectors": {
             "repositories": repositories,
             "anchor": anchor,
@@ -586,8 +678,15 @@ def _validate_invocation_object(value: object) -> dict[str, Any]:
     invocation = _exact_keys(value, INVOCATION_KEYS, code="invalid_invocation", label="invocation")
     if invocation["schema_version"] != INVOCATION_SCHEMA:
         raise IssueWaveError("invalid_invocation", "invocation schema is unsupported")
-    if invocation["mode"] not in {"Inspect", "Dispatch"} or invocation["entry_role"] != "A":
+    if invocation["mode"] not in {"Inspect", "Dispatch"}:
         raise IssueWaveError("invalid_invocation", "invocation mode or entry role is invalid")
+    segment_value = _exact_keys(
+        invocation["segment"], SEGMENT_KEYS, code="invalid_invocation", label="segment"
+    )
+    explicit = _bool(segment_value["explicit"], code="invalid_invocation", label="segment explicitness")
+    segment = _segment(segment_value["start_role"], segment_value["end_role"], explicit=explicit)
+    if invocation["entry_role"] != segment["start_role"]:
+        raise IssueWaveError("invalid_invocation", "invocation entry role does not match segment")
     selectors = _exact_keys(
         invocation["selectors"], SELECTOR_KEYS, code="invalid_invocation", label="selectors"
     )
@@ -623,6 +722,14 @@ def _validate_invocation_object(value: object) -> dict[str, Any]:
         raise IssueWaveError("invalid_invocation", "run selector combination is invalid")
     if invocation["mode"] == "Inspect" and any(permissions.values()):
         raise IssueWaveError("invalid_invocation", "Inspect permissions are invalid")
+    if invocation["mode"] == "Inspect" and segment != _segment("A", "A", explicit=False):
+        raise IssueWaveError("invalid_invocation", "Inspect segment is invalid")
+    if run_id is None and invocation["mode"] == "Dispatch" and segment["start_role"] != "A":
+        raise IssueWaveError("invalid_invocation", "new Dispatch segment must start at A")
+    if permissions["allow_wip_exception"] and run_id is not None:
+        raise IssueWaveError("invalid_invocation", "WIP exception cannot be added on resume")
+    if permissions["allow_main_draft"] and segment["end_role"] != "F":
+        raise IssueWaveError("invalid_invocation", "main draft permission requires F")
     return invocation
 
 
@@ -632,9 +739,17 @@ def validate_resume_invocation(invocation: Mapping[str, Any], state: Mapping[str
         raise IssueWaveError("permission_drift", "resume run identifier does not match")
     if current["mode"] == "Dispatch":
         saved_permissions = state["invocation"]["permissions"]
-        for permission in current["explicit_permissions"]:
-            if current["permissions"][permission] != saved_permissions[permission]:
-                raise IssueWaveError("permission_drift", "resume permissions do not match saved permissions")
+        if (
+            "allow_main_draft" in current["explicit_permissions"]
+            and current["permissions"]["allow_main_draft"]
+            != saved_permissions["allow_main_draft"]
+        ):
+            raise IssueWaveError("permission_drift", "resume permissions do not match saved permissions")
+        next_role = state.get("next_resumable_role")
+        if next_role is None or current["segment"]["start_role"] not in {"A", next_role}:
+            raise IssueWaveError("misaligned_segment", "resume segment does not start at the exact next role")
+        if current["segment"]["start_role"] == "A" and current["segment"]["explicit"]:
+            raise IssueWaveError("misaligned_segment", "explicit resume segment is misaligned")
 
 
 def _validate_scope(value: object, *, code: str) -> dict[str, list[str]]:
@@ -910,6 +1025,10 @@ def _initial_state(
     invocation: Mapping[str, Any],
     manifest: Mapping[str, Any],
 ) -> dict[str, Any]:
+    segment = deepcopy(invocation["segment"])
+    repositories = sorted(
+        (candidate["repository"] for candidate in manifest["candidates"]), key=str.casefold
+    )
     return {
         "schema_version": STATE_SCHEMA,
         "run_id": run_id,
@@ -920,6 +1039,34 @@ def _initial_state(
         "invocation": deepcopy(dict(invocation)),
         "candidates": deepcopy(manifest["candidates"]),
         "lanes": [_initial_lane(candidate) for candidate in manifest["candidates"]],
+        "execution_status": "active",
+        "current_segment": segment,
+        "next_resumable_role": "A",
+        "segment_history": [
+            {
+                "start_role": segment["start_role"],
+                "end_role": segment["end_role"],
+                "authorized_revision": 0,
+                "authorized_at_utc": timestamp,
+                "completed_at_utc": None,
+                "revalidation_proof_sha256": None,
+            }
+        ],
+        "reservation": {
+            "owner": run_id,
+            "repositories": repositories,
+            "lease": {
+                "issued_at_utc": timestamp,
+                "last_renewed_at_utc": timestamp,
+                "expires_at_utc": _plus_seconds(timestamp, LEASE_SECONDS),
+                "released_at_utc": None,
+            },
+            "recovery": {
+                "termination_proof": None,
+                "preserved_state_stable": None,
+                "no_active_operations": None,
+            },
+        },
         "run_complete": False,
     }
 
@@ -982,33 +1129,113 @@ def _run_directory(workspace_root: Path | str, run_id: str) -> Path:
     return resolved
 
 
-def _existing_run_conflict(root: Path, candidates: Sequence[Mapping[str, Any]]) -> bool:
+def _unreleased(state: Mapping[str, Any]) -> bool:
+    return state["reservation"]["lease"]["released_at_utc"] is None
+
+
+def _admission_check(
+    root: Path,
+    candidates: Sequence[Mapping[str, Any]],
+    *,
+    now: datetime,
+    excluding_run_id: str | None = None,
+) -> None:
     if not root.exists():
-        return False
-    requested = {(candidate["repository"], candidate["issue"]) for candidate in candidates}
+        return
+    requested_repositories = {candidate["repository"] for candidate in candidates}
+    requested_paths = [Path(candidate["target_root"]).resolve(strict=False) for candidate in candidates]
+    unreleased: list[dict[str, Any]] = []
     for child in root.iterdir():
-        if not child.is_dir() or RUN_ID_RE.fullmatch(child.name) is None:
+        if (
+            not child.is_dir()
+            or RUN_ID_RE.fullmatch(child.name) is None
+            or child.name == excluding_run_id
+        ):
             continue
         state, _ = load_run_directory(child)
-        existing = {(lane["repository"], lane["issue"]) for lane in state["lanes"]}
-        if requested.intersection(existing):
-            return True
-    return False
+        if not _unreleased(state):
+            continue
+        if _timestamp_datetime(state["reservation"]["lease"]["expires_at_utc"]) <= now:
+            raise IssueWaveError(
+                "recovery_proof_required", "an expired unreleased wave requires recovery inspection"
+            )
+        unreleased.append(state)
+    if len(unreleased) >= 2:
+        raise IssueWaveError("active_wave_limit", "two active waves already retain capacity")
+    for state in unreleased:
+        repositories = set(state["reservation"]["repositories"])
+        if requested_repositories.intersection(repositories):
+            raise IssueWaveError("repository_reserved", "a requested repository is reserved")
+        existing_candidates = state["candidates"]
+        if scope_conflicts([*existing_candidates, *candidates]):
+            raise IssueWaveError("unsafe_or_conflicting_scope", "cross-run scope overlap exists")
+        existing_paths = [
+            Path(lane["checkout_location"]).resolve(strict=False) for lane in state["lanes"]
+        ] + [
+            Path(lane["worktree_location"]).resolve(strict=False)
+            for lane in state["lanes"]
+            if lane["worktree_location"] is not None
+        ]
+        for requested in requested_paths:
+            if any(_paths_overlap(requested, existing) for existing in existing_paths):
+                raise IssueWaveError(
+                    "unsafe_or_conflicting_scope", "cross-run target or worktree overlap exists"
+                )
+
+
+def _validate_cross_run_worktree_isolation(
+    root: Path,
+    *,
+    run_id: str,
+    worktree: Path,
+    now: datetime,
+) -> None:
+    if not root.exists():
+        return
+    for child in root.iterdir():
+        if not child.is_dir() or RUN_ID_RE.fullmatch(child.name) is None or child.name == run_id:
+            continue
+        state, _ = load_run_directory(child)
+        if not _unreleased(state):
+            continue
+        lease = state["reservation"]["lease"]
+        if _timestamp_datetime(lease["expires_at_utc"]) < now:
+            raise IssueWaveError(
+                "recovery_proof_required", "an expired unreleased wave requires recovery inspection"
+            )
+        existing_paths = [
+            Path(lane["checkout_location"]).resolve(strict=False) for lane in state["lanes"]
+        ] + [
+            Path(lane["worktree_location"]).resolve(strict=False)
+            for lane in state["lanes"]
+            if lane["worktree_location"] is not None
+        ]
+        if any(_paths_overlap(worktree, existing) for existing in existing_paths):
+            raise IssueWaveError(
+                "unsafe_or_conflicting_scope", "cross-run target or worktree overlap exists"
+            )
 
 
 @contextmanager
-def _exclusive_admission_lock(root: Path) -> Iterator[None]:
+def _exclusive_admission_lock(
+    root: Path, *, wait_seconds: float = ADMISSION_WAIT_SECONDS
+) -> Iterator[None]:
     try:
         root.mkdir(parents=True, exist_ok=True)
     except OSError as error:
         raise IssueWaveError("state_integrity_error", "state root could not be created") from error
     lock_directory = root / ".admission.lock"
-    try:
-        lock_directory.mkdir()
-    except FileExistsError as error:
-        raise IssueWaveError("state_locked", "run admission is locked") from error
-    except OSError as error:
-        raise IssueWaveError("state_integrity_error", "run admission lock could not be created") from error
+    deadline = time.monotonic() + max(0.0, wait_seconds)
+    while True:
+        try:
+            lock_directory.mkdir()
+            break
+        except FileExistsError as error:
+            if time.monotonic() >= deadline:
+                raise IssueWaveError("state_locked", "run admission is locked") from error
+            time.sleep(min(0.025, max(0.0, deadline - time.monotonic())))
+        except OSError as error:
+            raise IssueWaveError("state_integrity_error", "run admission lock could not be created") from error
 
     owner_path = lock_directory / "owner"
     owner = secrets.token_hex(16).encode("ascii") + b"\n"
@@ -1076,6 +1303,7 @@ def init_run(
     run_id: str | None = None,
     now: datetime | None = None,
     entropy: bytes | None = None,
+    admission_wait_seconds: float = ADMISSION_WAIT_SECONDS,
 ) -> tuple[Path, dict[str, Any]]:
     invocation = _validate_invocation_object(invocation_value)
     root = _state_root(workspace_root)
@@ -1091,9 +1319,12 @@ def init_run(
     timestamp = _now_timestamp(now)
     state = _initial_state(selected_run_id, timestamp, invocation, manifest)
     run_directory = root / selected_run_id
-    with _exclusive_admission_lock(root):
-        if _existing_run_conflict(root, manifest["candidates"]):
-            raise IssueWaveError("duplicate_active_lane", "a candidate already has a local run")
+    with _exclusive_admission_lock(root, wait_seconds=admission_wait_seconds):
+        _admission_check(
+            root,
+            manifest["candidates"],
+            now=_timestamp_datetime(timestamp),
+        )
         if run_directory.exists():
             raise IssueWaveError("state_exists", "run already exists")
         staging = root / f".{selected_run_id}.init-{uuid.uuid4().hex}"
@@ -1351,6 +1582,8 @@ def _validate_event_request(
     run_directory: Path,
     require_existing_paths: bool = True,
 ) -> dict[str, Any]:
+    if state["execution_status"] != "active" or not _unreleased(state):
+        raise IssueWaveError("invalid_transition", "run does not hold an active reservation")
     request = _exact_keys(
         value,
         EVENT_REQUEST_KEYS,
@@ -1369,6 +1602,14 @@ def _validate_event_request(
         raise IssueWaveError("invalid_transition", "transition state binding is invalid")
     if not _allowed_transition(from_state, to_state):
         raise IssueWaveError("invalid_transition", "transition is not allowed")
+    transition_role = _expected_event_role(from_state, to_state)
+    if transition_role == "root":
+        transition_role = "F" if from_state in {"f_complete", "checks_running"} else "A"
+    segment = state["current_segment"]
+    if ROLE_INDEX[transition_role] > ROLE_INDEX[segment["end_role"]]:
+        raise IssueWaveError("invalid_transition", "transition exceeds the authorized segment")
+    if segment["explicit"] and segment["end_role"] == "F" and from_state == "f_complete":
+        raise IssueWaveError("invalid_transition", "explicit F checkpoint must release before checks")
     if request["role"] != _expected_event_role(from_state, to_state):
         raise IssueWaveError("invalid_transition", "transition role is invalid")
     return {
@@ -1394,6 +1635,8 @@ def _validate_event_request(
 
 def _apply_event(state_value: Mapping[str, Any], event: Mapping[str, Any], run_directory: Path) -> dict[str, Any]:
     state = deepcopy(dict(state_value))
+    if event["event_type"] != "transition" or event["segment"] != state["current_segment"]:
+        raise IssueWaveError("invalid_transition", "transition event is not bound to the active segment")
     request = {
         "schema_version": EVENT_REQUEST_SCHEMA,
         "lane_id": event["lane_id"],
@@ -1556,7 +1799,129 @@ def _apply_event(state_value: Mapping[str, Any], event: Mapping[str, Any], run_d
     state["updated_at_utc"] = event["timestamp_utc"]
     state["last_event_digest"] = event["event_digest"]
     state["run_complete"] = all(item["state"] in FINAL_STATES for item in state["lanes"])
+    state["next_resumable_role"] = _derive_next_resumable_role(state)
     return state
+
+
+def _derive_next_resumable_role(state: Mapping[str, Any]) -> str | None:
+    boundary_role = {
+        "selected": "A",
+        "a_scope_verified": "B",
+        "b_complete": "C",
+        "c_complete": "E",
+        "e_approved": "F",
+    }
+    roles = {
+        boundary_role[lane["state"]]
+        for lane in state["lanes"]
+        if lane["state"] not in FINAL_STATES and lane["state"] in boundary_role
+    }
+    unfinished = [lane for lane in state["lanes"] if lane["state"] not in FINAL_STATES]
+    if not unfinished:
+        return None
+    if len(roles) == 1 and len(roles) == len({boundary_role.get(lane["state"]) for lane in unfinished}):
+        return next(iter(roles))
+    return None
+
+
+def _segment_endpoint_reached(state: Mapping[str, Any]) -> bool:
+    segment = state["current_segment"]
+    if segment is None:
+        return False
+    endpoint_state = {
+        "A": "a_scope_verified",
+        "B": "b_complete",
+        "C": "c_complete",
+        "E": "e_approved",
+        "F": "f_complete",
+    }[segment["end_role"]]
+    return all(lane["state"] == endpoint_state or lane["state"] in FINAL_STATES for lane in state["lanes"])
+
+
+def _apply_coordination_event(
+    state_value: Mapping[str, Any], event: Mapping[str, Any], run_directory: Path
+) -> dict[str, Any]:
+    del run_directory
+    state = deepcopy(dict(state_value))
+    event_type = event["event_type"]
+    updates = event["updates"]
+    if event["lane_id"] is not None or event["from_state"] is not None or event["to_state"] is not None:
+        raise IssueWaveError("invalid_transition", "coordination event has lane transition fields")
+    if event_type == "lease_renewal":
+        if set(updates) != {"last_renewed_at_utc", "expires_at_utc"}:
+            raise IssueWaveError("invalid_transition", "lease renewal payload is invalid")
+        if state["execution_status"] != "active" or not _unreleased(state):
+            raise IssueWaveError("invalid_transition", "only an active reservation can renew")
+        renewed = _timestamp(updates["last_renewed_at_utc"], code="invalid_transition", label="renewal")
+        expires = _timestamp(updates["expires_at_utc"], code="invalid_transition", label="lease expiry")
+        if expires != _plus_seconds(renewed, LEASE_SECONDS):
+            raise IssueWaveError("invalid_transition", "lease duration is invalid")
+        state["reservation"]["lease"]["last_renewed_at_utc"] = renewed
+        state["reservation"]["lease"]["expires_at_utc"] = expires
+    elif event_type in {"checkpoint_release", "terminal_release", "interruption_stop"}:
+        if set(updates) != {"execution_status", "released_at_utc", "next_resumable_role", "recovery"}:
+            raise IssueWaveError("invalid_transition", "release payload is invalid")
+        status = updates["execution_status"]
+        expected = {
+            "checkpoint_release": "checkpointed",
+            "terminal_release": "terminal",
+            "interruption_stop": "stopped",
+        }[event_type]
+        if status != expected or not _unreleased(state):
+            raise IssueWaveError("invalid_transition", "release status is invalid")
+        released = _timestamp(updates["released_at_utc"], code="invalid_transition", label="release")
+        state["execution_status"] = status
+        state["reservation"]["lease"]["released_at_utc"] = released
+        state["reservation"]["repositories"] = []
+        state["next_resumable_role"] = updates["next_resumable_role"]
+        state["reservation"]["recovery"] = deepcopy(updates["recovery"])
+        if state["segment_history"]:
+            state["segment_history"][-1]["completed_at_utc"] = released
+        if event_type == "interruption_stop":
+            for lane in state["lanes"]:
+                if lane["state"] in RUNNING_STATES:
+                    lane["state"] = "unknown_agent_outcome"
+                    lane["active_role"] = None
+                    lane["stop_reason"] = "unknown_agent_outcome"
+            state["next_resumable_role"] = None
+    elif event_type in {"segment_authorization", "recovery_admission"}:
+        if set(updates) != {
+            "reservation",
+            "segment_history_entry",
+            "revalidation_proof",
+            "revalidation_proof_sha256",
+        }:
+            raise IssueWaveError("invalid_transition", "segment authorization payload is invalid")
+        if state["execution_status"] != "checkpointed" or _unreleased(state):
+            raise IssueWaveError("invalid_transition", "run is not at a released checkpoint")
+        entry = updates["segment_history_entry"]
+        _exact_keys(entry, SEGMENT_HISTORY_KEYS, code="invalid_transition", label="segment history")
+        proof = _validate_revalidation_proof(updates["revalidation_proof"], state=state)
+        proof_digest = hashlib.sha256(_canonical_json(proof)).hexdigest()
+        if (
+            updates["revalidation_proof_sha256"] != proof_digest
+            or entry["revalidation_proof_sha256"] != proof_digest
+        ):
+            raise IssueWaveError("invalid_transition", "revalidation proof binding is invalid")
+        state["current_segment"] = deepcopy(event["segment"])
+        state["segment_history"].append(deepcopy(entry))
+        state["reservation"] = deepcopy(updates["reservation"])
+        state["execution_status"] = "active"
+    else:
+        raise IssueWaveError("invalid_transition", "coordination event type is unsupported")
+    state["revision"] = event["sequence"]
+    state["updated_at_utc"] = event["timestamp_utc"]
+    state["last_event_digest"] = event["event_digest"]
+    state["run_complete"] = state["execution_status"] == "terminal"
+    return state
+
+
+def _apply_any_event(
+    state: Mapping[str, Any], event: Mapping[str, Any], run_directory: Path
+) -> dict[str, Any]:
+    if event["event_type"] == "transition":
+        return _apply_event(state, event, run_directory)
+    return _apply_coordination_event(state, event, run_directory)
 
 
 def _validate_event(value: object, *, expected_sequence: int, previous_digest: str) -> dict[str, Any]:
@@ -1564,6 +1929,22 @@ def _validate_event(value: object, *, expected_sequence: int, previous_digest: s
     if event["schema_version"] != EVENT_SCHEMA or event["sequence"] != expected_sequence:
         raise IssueWaveError("state_integrity_error", "event sequence or schema is invalid")
     _timestamp(event["timestamp_utc"], code="state_integrity_error", label="event timestamp")
+    if event["event_type"] not in {
+        "transition",
+        "lease_renewal",
+        "checkpoint_release",
+        "terminal_release",
+        "interruption_stop",
+        "segment_authorization",
+        "recovery_admission",
+    }:
+        raise IssueWaveError("state_integrity_error", "event type is invalid")
+    segment = _exact_keys(
+        event["segment"], SEGMENT_KEYS, code="state_integrity_error", label="event segment"
+    )
+    _segment(segment["start_role"], segment["end_role"], explicit=_bool(
+        segment["explicit"], code="state_integrity_error", label="segment explicitness"
+    ))
     if event["previous_event_digest"] != previous_digest:
         raise IssueWaveError("state_integrity_error", "event hash chain is broken")
     digest = event["event_digest"]
@@ -1621,6 +2002,8 @@ def _validate_loaded_state(value: object, run_directory: Path) -> dict[str, Any]
     ) is None:
         raise IssueWaveError("state_integrity_error", "run event digest is invalid")
     _bool(state["run_complete"], code="state_integrity_error", label="run completion")
+    if state["execution_status"] not in {"active", "checkpointed", "stopped", "terminal"}:
+        raise IssueWaveError("state_integrity_error", "execution status is invalid")
     invocation = _validate_invocation_object(state["invocation"])
     if invocation["mode"] != "Dispatch" or invocation["selectors"]["run_id"] is not None:
         raise IssueWaveError("state_integrity_error", "saved invocation is invalid")
@@ -1647,6 +2030,28 @@ def _validate_loaded_state(value: object, run_directory: Path) -> dict[str, Any]
         raise IssueWaveError("state_integrity_error", "lane projection is invalid")
     for lane in state["lanes"]:
         _exact_keys(lane, LANE_KEYS, code="state_integrity_error", label="lane projection")
+    if not isinstance(state["segment_history"], list) or not state["segment_history"]:
+        raise IssueWaveError("state_integrity_error", "segment history is invalid")
+    for entry in state["segment_history"]:
+        _exact_keys(entry, SEGMENT_HISTORY_KEYS, code="state_integrity_error", label="segment history")
+        proof_digest = entry["revalidation_proof_sha256"]
+        if proof_digest is not None and (
+            not isinstance(proof_digest, str) or DIGEST_RE.fullmatch(proof_digest) is None
+        ):
+            raise IssueWaveError("state_integrity_error", "segment proof digest is invalid")
+    reservation = _exact_keys(
+        state["reservation"], RESERVATION_KEYS, code="state_integrity_error", label="reservation"
+    )
+    lease = _exact_keys(
+        reservation["lease"], LEASE_KEYS, code="state_integrity_error", label="lease"
+    )
+    for key in ("issued_at_utc", "last_renewed_at_utc", "expires_at_utc"):
+        _timestamp(lease[key], code="state_integrity_error", label="lease timestamp")
+    if lease["released_at_utc"] is not None:
+        _timestamp(lease["released_at_utc"], code="state_integrity_error", label="lease release")
+    _exact_keys(
+        reservation["recovery"], RECOVERY_KEYS, code="state_integrity_error", label="recovery"
+    )
     return initial
 
 
@@ -1663,7 +2068,7 @@ def load_run_directory(run_directory: Path) -> tuple[dict[str, Any], bool]:
     expected_at_loaded_revision = deepcopy(initial)
     for event in events:
         try:
-            projection = _apply_event(projection, event, run_directory)
+            projection = _apply_any_event(projection, event, run_directory)
         except IssueWaveError as error:
             raise IssueWaveError(
                 "state_integrity_error", "event replay violates run-state integrity"
@@ -1709,52 +2114,502 @@ def transition_run(
     now: datetime | None = None,
 ) -> dict[str, Any]:
     run_directory = _run_directory(workspace_root, run_id)
+    root = run_directory.parent
+    with _exclusive_admission_lock(root):
+        with _exclusive_run_lock(run_directory):
+            state, _ = load_run_directory(run_directory)
+            if type(expected_revision) is not int or expected_revision != state["revision"]:
+                raise IssueWaveError("stale_revision", "expected revision does not match current state")
+            timestamp = _now_timestamp(now)
+            _validate_monotonic_event_time(state, timestamp)
+            current = _timestamp_datetime(timestamp)
+            lease = state["reservation"]["lease"]
+            if current > _timestamp_datetime(lease["expires_at_utc"]):
+                raise IssueWaveError(
+                    "recovery_proof_required", "expired lease requires recovery inspection"
+                )
+            if current - _timestamp_datetime(lease["last_renewed_at_utc"]) > timedelta(
+                seconds=LEASE_RENEWAL_MAX_SECONDS
+            ):
+                raise IssueWaveError("lease_renewal_overdue", "lease renewal interval exceeded")
+            request = _validate_event_request(
+                request_value, state=state, run_directory=run_directory
+            )
+            proposed_worktree = request["updates"].get("worktree_location")
+            if (
+                request["from_state"] == "selected"
+                and request["to_state"] == "a_running"
+                and proposed_worktree is not None
+            ):
+                _validate_cross_run_worktree_isolation(
+                    root,
+                    run_id=run_id,
+                    worktree=Path(proposed_worktree).resolve(strict=False),
+                    now=current,
+                )
+            event_without_digest = {
+                "schema_version": EVENT_SCHEMA,
+                "sequence": state["revision"] + 1,
+                "timestamp_utc": timestamp,
+                "event_type": "transition",
+                "segment": deepcopy(state["current_segment"]),
+                "lane_id": request["lane_id"],
+                "from_state": request["from_state"],
+                "to_state": request["to_state"],
+                "role": request["role"],
+                "reason": request["reason"],
+                "evidence_summary": request["evidence_summary"],
+                "updates": request["updates"],
+                "previous_event_digest": state["last_event_digest"],
+            }
+            event = {
+                **event_without_digest,
+                "event_digest": hashlib.sha256(_canonical_json(event_without_digest)).hexdigest(),
+            }
+            next_state = _apply_event(state, event, run_directory)
+            try:
+                _append_event(run_directory / "events.jsonl", event)
+            except OSError as error:
+                raise IssueWaveError(
+                    "state_integrity_error",
+                    "transition event could not be recorded",
+                ) from error
+            try:
+                _atomic_write_json(run_directory / "run.json", next_state)
+            except OSError as error:
+                raise IssueWaveError(
+                    "state_integrity_error",
+                    "projection update failed after the event was recorded",
+                ) from error
+            return next_state
+
+
+def _coordination_event(
+    state: Mapping[str, Any],
+    *,
+    timestamp: str,
+    event_type: str,
+    segment: Mapping[str, Any],
+    reason: str,
+    evidence_summary: str,
+    updates: Mapping[str, Any],
+) -> dict[str, Any]:
+    event_without_digest = {
+        "schema_version": EVENT_SCHEMA,
+        "sequence": state["revision"] + 1,
+        "timestamp_utc": timestamp,
+        "event_type": event_type,
+        "segment": deepcopy(dict(segment)),
+        "lane_id": None,
+        "from_state": None,
+        "to_state": None,
+        "role": "root",
+        "reason": _public_text(reason, code="invalid_transition", label="event reason"),
+        "evidence_summary": _public_text(
+            evidence_summary, code="invalid_transition", label="event evidence"
+        ),
+        "updates": deepcopy(dict(updates)),
+        "previous_event_digest": state["last_event_digest"],
+    }
+    return {
+        **event_without_digest,
+        "event_digest": hashlib.sha256(_canonical_json(event_without_digest)).hexdigest(),
+    }
+
+
+def _validate_monotonic_event_time(state: Mapping[str, Any], timestamp: str) -> None:
+    if timestamp < state["updated_at_utc"]:
+        raise IssueWaveError("invalid_time", "event time precedes current state")
+
+
+def _persist_event(
+    run_directory: Path, state: Mapping[str, Any], event: Mapping[str, Any]
+) -> dict[str, Any]:
+    next_state = _apply_any_event(state, event, run_directory)
+    try:
+        _append_event(run_directory / "events.jsonl", event)
+    except OSError as error:
+        raise IssueWaveError("state_integrity_error", "event could not be recorded") from error
+    try:
+        _atomic_write_json(run_directory / "run.json", next_state)
+    except OSError as error:
+        raise IssueWaveError(
+            "state_integrity_error", "projection update failed after the event was recorded"
+        ) from error
+    return next_state
+
+
+def renew_lease(
+    workspace_root: Path | str,
+    run_id: str,
+    *,
+    expected_revision: int,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    run_directory = _run_directory(workspace_root, run_id)
     with _exclusive_run_lock(run_directory):
         state, _ = load_run_directory(run_directory)
-        if type(expected_revision) is not int or expected_revision != state["revision"]:
+        if expected_revision != state["revision"]:
             raise IssueWaveError("stale_revision", "expected revision does not match current state")
-        request = _validate_event_request(request_value, state=state, run_directory=run_directory)
         timestamp = _now_timestamp(now)
-        if timestamp < state["updated_at_utc"]:
-            raise IssueWaveError("invalid_time", "transition time precedes current state")
-        event_without_digest = {
-            "schema_version": EVENT_SCHEMA,
-            "sequence": state["revision"] + 1,
-            "timestamp_utc": timestamp,
-            "lane_id": request["lane_id"],
-            "from_state": request["from_state"],
-            "to_state": request["to_state"],
-            "role": request["role"],
-            "reason": request["reason"],
-            "evidence_summary": request["evidence_summary"],
-            "updates": request["updates"],
-            "previous_event_digest": state["last_event_digest"],
+        _validate_monotonic_event_time(state, timestamp)
+        lease = state["reservation"]["lease"]
+        current = _timestamp_datetime(timestamp)
+        if current > _timestamp_datetime(lease["expires_at_utc"]):
+            raise IssueWaveError("recovery_proof_required", "expired lease cannot be renewed")
+        if current - _timestamp_datetime(lease["last_renewed_at_utc"]) > timedelta(
+            seconds=LEASE_RENEWAL_MAX_SECONDS
+        ):
+            raise IssueWaveError("lease_renewal_overdue", "lease renewal interval exceeded")
+        event = _coordination_event(
+            state,
+            timestamp=timestamp,
+            event_type="lease_renewal",
+            segment=state["current_segment"],
+            reason="Coordinator renewed the active reservation lease.",
+            evidence_summary="Renewal preserves capacity only and authorizes no role outcome.",
+            updates={
+                "last_renewed_at_utc": timestamp,
+                "expires_at_utc": _plus_seconds(timestamp, LEASE_SECONDS),
+            },
+        )
+        return _persist_event(run_directory, state, event)
+
+
+def release_run(
+    workspace_root: Path | str,
+    run_id: str,
+    *,
+    expected_revision: int,
+    terminal: bool = False,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    run_directory = _run_directory(workspace_root, run_id)
+    with _exclusive_admission_lock(run_directory.parent):
+        with _exclusive_run_lock(run_directory):
+            state, _ = load_run_directory(run_directory)
+            if expected_revision != state["revision"]:
+                raise IssueWaveError("stale_revision", "expected revision does not match current state")
+            if terminal:
+                if not all(lane["state"] in FINAL_STATES for lane in state["lanes"]):
+                    raise IssueWaveError("invalid_transition", "terminal release requires terminal lanes")
+                event_type = "terminal_release"
+                status = "terminal"
+                next_role = None
+            else:
+                if not state["current_segment"]["explicit"] or not _segment_endpoint_reached(state):
+                    raise IssueWaveError("invalid_transition", "checkpoint endpoint is not complete")
+                event_type = "checkpoint_release"
+                status = "checkpointed"
+                next_role = _derive_next_resumable_role(state)
+            timestamp = _now_timestamp(now)
+            _validate_monotonic_event_time(state, timestamp)
+            if _unreleased(state) and _timestamp_datetime(timestamp) > _timestamp_datetime(
+                state["reservation"]["lease"]["expires_at_utc"]
+            ):
+                raise IssueWaveError(
+                    "recovery_proof_required",
+                    "expired lease requires recovery inspection",
+                )
+            event = _coordination_event(
+                state,
+                timestamp=timestamp,
+                event_type=event_type,
+                segment=state["current_segment"],
+                reason="Wave released its active reservation.",
+                evidence_summary="Preserved work and event history remain available for inspection.",
+                updates={
+                    "execution_status": status,
+                    "released_at_utc": timestamp,
+                    "next_resumable_role": next_role,
+                    "recovery": deepcopy(state["reservation"]["recovery"]),
+                },
+            )
+            return _persist_event(run_directory, state, event)
+
+
+def _validate_revalidation_proof(
+    value: object, *, state: Mapping[str, Any]
+) -> dict[str, Any]:
+    proof = _exact_keys(
+        value,
+        REVALIDATION_PROOF_KEYS,
+        code="recovery_proof_required",
+        label="revalidation proof",
+    )
+    result: dict[str, Any] = {
+        key: _bool(proof[key], code="recovery_proof_required", label="revalidation proof")
+        for key in sorted(REVALIDATION_PROOF_KEYS - {"lanes"})
+    }
+    if not all(result.values()):
+        raise IssueWaveError(
+            "manual_drift_detected", "saved run drift prevents segment authorization"
+        )
+    lanes_value = proof["lanes"]
+    if not isinstance(lanes_value, list) or len(lanes_value) != len(state["lanes"]):
+        raise IssueWaveError("recovery_proof_required", "revalidation proof lane set is invalid")
+    lanes: list[dict[str, Any]] = []
+    for lane_value in lanes_value:
+        lane_proof = _exact_keys(
+            lane_value,
+            REVALIDATION_LANE_KEYS,
+            code="recovery_proof_required",
+            label="lane revalidation proof",
+        )
+        lane = next(
+            (item for item in state["lanes"] if item["lane_id"] == lane_proof["lane_id"]),
+            None,
+        )
+        if (
+            lane is None
+            or lane_proof["repository"] != lane["repository"]
+            or lane_proof["issue"] != lane["issue"]
+        ):
+            raise IssueWaveError("recovery_proof_required", "revalidation proof lane binding is invalid")
+        head = _exact_keys(
+            lane_proof["repository_head"],
+            REVALIDATION_HEAD_KEYS,
+            code="recovery_proof_required",
+            label="repository head proof",
+        )
+        if any(not isinstance(head[key], str) or COMMIT_RE.fullmatch(head[key]) is None for key in head):
+            raise IssueWaveError("recovery_proof_required", "repository head identity is invalid")
+        if head["expected"] != head["observed"]:
+            raise IssueWaveError("manual_drift_detected", "repository head changed during revalidation")
+        artifact_values = lane_proof["artifacts"]
+        if not isinstance(artifact_values, list):
+            raise IssueWaveError("recovery_proof_required", "artifact proof list is invalid")
+        artifacts: list[dict[str, str]] = []
+        for artifact_value in artifact_values:
+            artifact = _exact_keys(
+                artifact_value,
+                REVALIDATION_ARTIFACT_KEYS,
+                code="recovery_proof_required",
+                label="artifact revalidation proof",
+            )
+            reference = _public_text(
+                artifact["reference"],
+                code="recovery_proof_required",
+                label="artifact reference",
+                maximum=300,
+            )
+            for key in ("expected_sha256", "observed_sha256"):
+                if not isinstance(artifact[key], str) or DIGEST_RE.fullmatch(artifact[key]) is None:
+                    raise IssueWaveError("recovery_proof_required", "artifact identity is invalid")
+            if artifact["expected_sha256"] != artifact["observed_sha256"]:
+                raise IssueWaveError("manual_drift_detected", "durable artifact changed during revalidation")
+            artifacts.append(
+                {
+                    "reference": reference,
+                    "expected_sha256": artifact["expected_sha256"],
+                    "observed_sha256": artifact["observed_sha256"],
+                }
+            )
+        if [item["reference"] for item in artifacts] != lane["artifacts"]:
+            raise IssueWaveError("recovery_proof_required", "artifact proof set is incomplete or misordered")
+        lanes.append(
+            {
+                "lane_id": lane["lane_id"],
+                "repository": lane["repository"],
+                "issue": lane["issue"],
+                "repository_head": {"expected": head["expected"], "observed": head["observed"]},
+                "artifacts": artifacts,
+            }
+        )
+    if [lane["lane_id"] for lane in lanes] != [lane["lane_id"] for lane in state["lanes"]]:
+        raise IssueWaveError("recovery_proof_required", "revalidation proof lane order is invalid")
+    result["lanes"] = lanes
+    return result
+
+
+def authorize_segment(
+    workspace_root: Path | str,
+    run_id: str,
+    *,
+    expected_revision: int,
+    invocation_value: object,
+    revalidation_proof: object,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    invocation = _validate_invocation_object(invocation_value)
+    if invocation["mode"] != "Dispatch":
+        raise IssueWaveError("invalid_invocation", "segment authorization requires Dispatch")
+    run_directory = _run_directory(workspace_root, run_id)
+    timestamp = _now_timestamp(now)
+    with _exclusive_admission_lock(run_directory.parent):
+        with _exclusive_run_lock(run_directory):
+            state, _ = load_run_directory(run_directory)
+            if expected_revision != state["revision"]:
+                raise IssueWaveError("stale_revision", "expected revision does not match current state")
+            _validate_monotonic_event_time(state, timestamp)
+            validate_resume_invocation(invocation, state)
+            if state["execution_status"] != "checkpointed" or _unreleased(state):
+                raise IssueWaveError("invalid_transition", "run is not at a released checkpoint")
+            proof = _validate_revalidation_proof(revalidation_proof, state=state)
+            proof_digest = hashlib.sha256(_canonical_json(proof)).hexdigest()
+            _admission_check(
+                run_directory.parent,
+                state["candidates"],
+                now=_timestamp_datetime(timestamp),
+                excluding_run_id=run_id,
+            )
+            next_role = state["next_resumable_role"]
+            requested = invocation["segment"]
+            effective = (
+                _segment(next_role, "F", explicit=False)
+                if requested["start_role"] == "A" and not requested["explicit"]
+                else deepcopy(requested)
+            )
+            reservation = {
+                "owner": run_id,
+                "repositories": sorted(
+                    (candidate["repository"] for candidate in state["candidates"]), key=str.casefold
+                ),
+                "lease": {
+                    "issued_at_utc": timestamp,
+                    "last_renewed_at_utc": timestamp,
+                    "expires_at_utc": _plus_seconds(timestamp, LEASE_SECONDS),
+                    "released_at_utc": None,
+                },
+                "recovery": deepcopy(state["reservation"]["recovery"]),
+            }
+            entry = {
+                "start_role": effective["start_role"],
+                "end_role": effective["end_role"],
+                "authorized_revision": state["revision"] + 1,
+                "authorized_at_utc": timestamp,
+                "completed_at_utc": None,
+                "revalidation_proof_sha256": proof_digest,
+            }
+            event = _coordination_event(
+                state,
+                timestamp=timestamp,
+                event_type=(
+                    "recovery_admission"
+                    if state["reservation"]["recovery"]["termination_proof"] is not None
+                    else "segment_authorization"
+                ),
+                segment=effective,
+                reason="Root authorized the exact next saved-run segment.",
+                evidence_summary="Heads, artifacts, worktrees, operations, and reservations were revalidated.",
+                updates={
+                    "reservation": reservation,
+                    "segment_history_entry": entry,
+                    "revalidation_proof": proof,
+                    "revalidation_proof_sha256": proof_digest,
+                },
+            )
+            return _persist_event(run_directory, state, event)
+
+
+def recover_expired_run(
+    workspace_root: Path | str,
+    run_id: str,
+    *,
+    expected_revision: int,
+    proof_value: object,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    keys = frozenset(
+        {
+            "termination_method",
+            "former_task_stopped",
+            "all_agents_stopped",
+            "preserved_state_stable",
+            "no_active_operations",
         }
-        event = {
-            **event_without_digest,
-            "event_digest": hashlib.sha256(_canonical_json(event_without_digest)).hexdigest(),
-        }
-        next_state = _apply_event(state, event, run_directory)
-        try:
-            _append_event(run_directory / "events.jsonl", event)
-        except OSError as error:
-            raise IssueWaveError(
-                "state_integrity_error",
-                "transition event could not be recorded",
-            ) from error
-        try:
-            _atomic_write_json(run_directory / "run.json", next_state)
-        except OSError as error:
-            raise IssueWaveError(
-                "state_integrity_error",
-                "projection update failed after the event was recorded",
-            ) from error
-        return next_state
+    )
+    proof = _exact_keys(proof_value, keys, code="recovery_proof_required", label="recovery proof")
+    if proof["termination_method"] not in {"mechanically_verified", "explicit_user_confirmation"}:
+        raise IssueWaveError("recovery_proof_required", "termination proof method is invalid")
+    for key in keys - {"termination_method"}:
+        if not _bool(proof[key], code="recovery_proof_required", label="recovery proof"):
+            raise IssueWaveError("recovery_proof_required", "recovery proof is incomplete")
+    run_directory = _run_directory(workspace_root, run_id)
+    timestamp = _now_timestamp(now)
+    with _exclusive_admission_lock(run_directory.parent):
+        with _exclusive_run_lock(run_directory):
+            state, _ = load_run_directory(run_directory)
+            if expected_revision != state["revision"]:
+                raise IssueWaveError("stale_revision", "expected revision does not match current state")
+            _validate_monotonic_event_time(state, timestamp)
+            if not _unreleased(state) or _timestamp_datetime(timestamp) <= _timestamp_datetime(
+                state["reservation"]["lease"]["expires_at_utc"]
+            ):
+                raise IssueWaveError("recovery_proof_required", "run lease is not expired and unreleased")
+            recovery = {
+                "termination_proof": proof["termination_method"],
+                "preserved_state_stable": True,
+                "no_active_operations": True,
+            }
+            if any(lane["state"] in RUNNING_STATES for lane in state["lanes"]):
+                event_type = "interruption_stop"
+                status = "stopped"
+                next_role = None
+            elif _segment_endpoint_reached(state) and state["current_segment"]["explicit"]:
+                event_type = "checkpoint_release"
+                status = "checkpointed"
+                next_role = _derive_next_resumable_role(state)
+            else:
+                event_type = "interruption_stop"
+                status = "stopped"
+                next_role = None
+            event = _coordination_event(
+                state,
+                timestamp=timestamp,
+                event_type=event_type,
+                segment=state["current_segment"],
+                reason="Expired reservation passed fail-closed recovery inspection.",
+                evidence_summary="Former task and agents stopped; preserved state is stable and inactive.",
+                updates={
+                    "execution_status": status,
+                    "released_at_utc": timestamp,
+                    "next_resumable_role": next_role,
+                    "recovery": recovery,
+                },
+            )
+            return _persist_event(run_directory, state, event)
 
 
 def inspect_projection(state: Mapping[str, Any], *, recovered_projection: bool) -> dict[str, Any]:
     lanes = []
     for lane in state["lanes"]:
+        completed_by_state = {
+            "selected": [],
+            "a_running": [],
+            "a_complete": ["A"],
+            "a_scope_verified": ["A"],
+            "b_running": ["A"],
+            "b_complete": ["A", "B"],
+            "c_running": ["A", "B"],
+            "c_complete": ["A", "B", "C"],
+            "e_running": ["A", "B", "C"],
+            "e_approved": ["A", "B", "C", "E"],
+            "f_running": ["A", "B", "C", "E"],
+            "f_complete": ["A", "B", "C", "E", "F"],
+            "checks_running": ["A", "B", "C", "E", "F"],
+            "g_consideration_ready": ["A", "B", "C", "E", "F"],
+        }
+        completed = completed_by_state.get(lane["state"], [])
+        next_role = state["next_resumable_role"] if lane["state"] not in FINAL_STATES else None
+        manual_prompt = None
+        next_command = None
+        can_resume = (
+            state["execution_status"] == "checkpointed"
+            and not _unreleased(state)
+            and next_role is not None
+        )
+        if can_resume:
+            manual_prompt = (
+                f"Use $mythic-edge-workflow as Codex {next_role} for "
+                f"{lane['repository']}#{lane['issue']}; revalidate current authority and continue only "
+                "from the referenced durable artifacts."
+            )
+            end = "F"
+            permission = "; allow-main-draft" if state["invocation"]["permissions"]["allow_main_draft"] else ""
+            next_command = (
+                f"$mythic-edge-issue-wave Dispatch ({next_role}-{end}; run={state['run_id']}{permission})"
+            )
         lanes.append(
             {
                 key: deepcopy(value)
@@ -1764,8 +2619,24 @@ def inspect_projection(state: Mapping[str, Any], *, recovered_projection: bool) 
             | {
                 "local_paths_redacted": True,
                 "mechanically_allowed_next_states": allowed_next_states(lane["state"]),
+                "requested_segment": deepcopy(state["current_segment"]),
+                "roles_completed": completed,
+                "last_completed_role": completed[-1] if completed else None,
+                "remaining_unknowns": [lane["stop_reason"]] if lane["stop_reason"] else [],
+                "manual_next_role_prompt": manual_prompt,
+                "next_segment_command": next_command,
             }
         )
+    governance = (
+        {
+            "schema_version": GOVERNANCE_ROUTE_SCHEMA,
+            "packet_count": sum(len(lane["governance_packets"]) for lane in state["lanes"]),
+            "action": "surface_at_checkpoint_no_task",
+            "prompt": None,
+        }
+        if state["execution_status"] == "checkpointed"
+        else aggregate_governance_packets(state, task_creation_available=False)
+    )
     return {
         "schema_version": INSPECT_SCHEMA,
         "run_id": state["run_id"],
@@ -1774,9 +2645,18 @@ def inspect_projection(state: Mapping[str, Any], *, recovered_projection: bool) 
         "revision": state["revision"],
         "recovered_projection_in_memory": recovered_projection,
         "invocation": deepcopy(state["invocation"]),
+        "execution_status": state["execution_status"],
+        "current_segment": deepcopy(state["current_segment"]),
+        "next_resumable_role": state["next_resumable_role"],
+        "segment_history": deepcopy(state["segment_history"]),
+        "reservation": {
+            "repositories": deepcopy(state["reservation"]["repositories"]),
+            "lease": deepcopy(state["reservation"]["lease"]),
+            "recovery": deepcopy(state["reservation"]["recovery"]),
+        },
         "lanes": lanes,
         "run_complete": state["run_complete"],
-        "governance": aggregate_governance_packets(state, task_creation_available=False),
+        "governance": governance,
     }
 
 
@@ -1823,6 +2703,30 @@ def build_parser() -> argparse.ArgumentParser:
     transition_parser.add_argument("--expected-revision", required=True, type=int)
     transition_parser.add_argument("--event", required=True)
 
+    renew_parser = subparsers.add_parser("renew-lease")
+    renew_parser.add_argument("--workspace-root", required=True)
+    renew_parser.add_argument("--run", required=True)
+    renew_parser.add_argument("--expected-revision", required=True, type=int)
+
+    release_parser = subparsers.add_parser("release")
+    release_parser.add_argument("--workspace-root", required=True)
+    release_parser.add_argument("--run", required=True)
+    release_parser.add_argument("--expected-revision", required=True, type=int)
+    release_parser.add_argument("--terminal", action="store_true")
+
+    authorize_parser = subparsers.add_parser("authorize-segment")
+    authorize_parser.add_argument("invocation")
+    authorize_parser.add_argument("--workspace-root", required=True)
+    authorize_parser.add_argument("--run", required=True)
+    authorize_parser.add_argument("--expected-revision", required=True, type=int)
+    authorize_parser.add_argument("--proof", required=True)
+
+    recover_parser = subparsers.add_parser("recover")
+    recover_parser.add_argument("--workspace-root", required=True)
+    recover_parser.add_argument("--run", required=True)
+    recover_parser.add_argument("--expected-revision", required=True, type=int)
+    recover_parser.add_argument("--proof", required=True)
+
     inspect_parser = subparsers.add_parser("inspect")
     inspect_parser.add_argument("--workspace-root", required=True)
     inspect_parser.add_argument("--run", required=True)
@@ -1855,6 +2759,38 @@ def run(argv: Sequence[str] | None = None) -> int:
                 request_value=_read_json_argument(args.event),
             )
             output = inspect_projection(state, recovered_projection=False)
+        elif args.operation == "renew-lease":
+            state = renew_lease(
+                args.workspace_root,
+                args.run,
+                expected_revision=args.expected_revision,
+            )
+            output = inspect_projection(state, recovered_projection=False)
+        elif args.operation == "release":
+            state = release_run(
+                args.workspace_root,
+                args.run,
+                expected_revision=args.expected_revision,
+                terminal=args.terminal,
+            )
+            output = inspect_projection(state, recovered_projection=False)
+        elif args.operation == "authorize-segment":
+            state = authorize_segment(
+                args.workspace_root,
+                args.run,
+                expected_revision=args.expected_revision,
+                invocation_value=parse_invocation(args.invocation),
+                revalidation_proof=_read_json_argument(args.proof),
+            )
+            output = inspect_projection(state, recovered_projection=False)
+        elif args.operation == "recover":
+            state = recover_expired_run(
+                args.workspace_root,
+                args.run,
+                expected_revision=args.expected_revision,
+                proof_value=_read_json_argument(args.proof),
+            )
+            output = inspect_projection(state, recovered_projection=False)
         else:
             _, state, recovered = load_run(args.workspace_root, args.run)
             if args.invocation is not None:
@@ -1878,6 +2814,13 @@ def run(argv: Sequence[str] | None = None) -> int:
             "permission_drift": 3,
             "stale_revision": 3,
             "duplicate_active_lane": 3,
+            "active_wave_limit": 3,
+            "repository_reserved": 3,
+            "unsafe_or_conflicting_scope": 3,
+            "misaligned_segment": 3,
+            "manual_drift_detected": 3,
+            "lease_renewal_overdue": 3,
+            "recovery_proof_required": 3,
             "unsafe_state_root": 4,
             "state_integrity_error": 4,
             "state_not_found": 4,

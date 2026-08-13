@@ -23,8 +23,9 @@ The current package includes:
 - `new-workcycle`: summarize explicitly supplied Mythic Edge repositories using
   read-only metadata and repo-scoped handoffs.
 - `mythic-edge-issue-wave`: explicitly inspect up to three dependency-safe
-  issue lanes or coordinate bounded native-agent A-through-F waves with local
-  recovery state and a stop before G.
+  issue lanes or coordinate checkpointed native-agent A-through-F waves with
+  two-wave reservations, renewable leases, fail-closed recovery, and a stop
+  before G.
 - `mythic-edge-role-pool`: the separate legacy Role Pool package. Its
   byte-bound R0 source and special installation gates remain unchanged.
 
@@ -66,7 +67,10 @@ Dispatch invocation plus current repository authority. The active root Codex
 owns Git/GitHub inspection, candidate and overlap judgment, native subagent
 creation, and consequential transitions. Its bundled Python helper is
 network-free and limited to parsing, manifest validation, run identifiers,
-transition validation, and crash-aware local state.
+transition validation, two-wave admission, renewable leases, checkpoint
+release, and crash-aware local state. Bare Dispatch remains autonomous;
+explicit A-F ranges stop at their requested checkpoint. No helper creates an
+agent or performs GitHub/Git operations.
 
 The new skill is intentionally distinct from `mythic-edge-role-pool`. It does
 not modify, release, synchronize, retry, or make readiness claims about the

@@ -28,20 +28,24 @@ facts.
 
 ## Invocation And Allowlist
 
-The only entry role is `A`. Ignore outer whitespace and whitespace around
-semicolons. Treat modes, roles, option names, and punctuation as exact.
+Inspect accepts only `A`. Bare Dispatch `A` is autonomous through F. New-run
+segments are exactly `A-A`, `A-B`, `A-C`, `A-E`, and `A-F`. Saved-run
+segments begin at the exact next role and end at that role or a later
+normal-path role; aligned `B-B`, `C-C`, `E-E`, and `F-F` are valid. D is not a
+selectable role. Ignore outer whitespace and whitespace around semicolons;
+treat modes, roles, option names, and punctuation as exact.
 
 Allowed options:
 
 - `repos=owner/repo[,owner/repo...]`: one to three unique allowlisted repos;
 - `anchor=owner/repo#number`: one allowlisted repo and positive issue;
 - `run=YYYYMMDDTHHMMSSZ-8hex`: inspect or resume one existing run;
-- `allow-main-draft`: Dispatch only;
-- `allow-wip-exception`: Dispatch only.
+- `allow-main-draft`: Dispatch only and only when the segment contains F;
+- `allow-wip-exception`: new Dispatch run only.
 
 Do not combine `run=` with `repos=` or `anchor=`. Inspect accepts no permission
-flag. A resume may omit saved flags or repeat only a flag already saved as
-true; it cannot add or reduce permission.
+flag. A resume may omit saved flags or repeat only `allow-main-draft` when it
+was already saved as true; it cannot add or reduce permission.
 
 The fixed allowlist is:
 
@@ -115,11 +119,13 @@ checkout and worktree:
 ```
 
 Do not initialize a run when selection is empty or when any precondition is
-unresolved. One state-root admission lock must serialize duplicate-active-lane
-inspection through atomic publication of the complete run directory. Treat an
-existing or stale lock as `state_locked`; do not delete, recover, or retry it.
-Every new worktree must be outside and non-overlapping with the state root, all
-target checkouts, and every recorded worktree.
+unresolved. One state-root admission lock waits at most five seconds and
+serializes inspection through atomic reservation and run publication. Permit
+at most two active waves, six lanes, and disjoint active repository sets.
+Reject cross-run scope, submission-surface, checkout, target, state-root, or
+worktree overlap. A race loser stops before repository effects and is not
+backfilled. Never delete a persistent lock. Every new worktree remains outside
+and non-overlapping with the state root and active-run paths.
 
 ## Dispatch Role Waves
 
@@ -148,6 +154,13 @@ public-safe current packet:
 Use a fresh agent for every A, B, C, E, and F turn. The root verifies the
 durable artifact and current bytes before accepting completion. Chat output
 alone is not a completed role.
+
+For explicit segments, stop at the inclusive endpoint. Wait until every
+unaffected lane reaches that endpoint or a defined stop, append the checkpoint
+release, preserve all work/history, and do not launch the next role. Renew the
+five-minute reservation lease no later than 60 seconds after issue or renewal,
+including during role and CI waits. No lane transition is accepted after that
+renewal deadline or lease expiry.
 
 After A, compare all exact scopes again. Stop the affected conflicting lanes;
 do not replace them. Continue another lane only when the conflict did not
@@ -194,12 +207,27 @@ read-only. If the exact result cannot be proven, use
 When an external write is uncertain, reconcile the branch, commit, comment,
 task, or PR read-only before any repeat. If still unknown, stop.
 
-Resume only a mechanically complete boundary after revalidating current heads,
-artifacts, worktrees, role outcomes, every reviewed/submitted package binding,
-live GitHub state, and immutable permissions. A missing or ambiguous checkout uses
+Resume only a mechanically complete released checkpoint. Reacquire capacity
+and record the exact aligned segment authorization before agent launch, after
+revalidating current heads, artifacts, worktrees, role outcomes, every
+reviewed/submitted package binding, live GitHub state, immutable permissions,
+and cross-run reservations. Supply a closed per-lane proof of exact expected
+and observed repository heads and durable artifact SHA-256 identities; the
+helper binds its canonical digest into the event and segment history. Manual
+or external advancement is drift, not an
+adoptable role outcome. A missing or ambiguous checkout uses
 `checkout_unavailable_or_ambiguous`; incompatible authority uses
 `incompatible_repository_authority`; scope uncertainty uses
 `unsafe_or_conflicting_scope`.
+
+Lease expiry performs no mutation and grants recovery-inspection eligibility
+only. Prove the former parent task and every agent stopped through task state,
+or require explicit user confirmation; repository inactivity alone is not
+proof. Then prove preserved branches, worktrees, artifacts, heads, event chain,
+and operation markers are stable and inactive. An in-flight role becomes
+`unknown_agent_outcome`, is never retried/resumed, and releases capacity only
+after this inspection. A durably complete checkpoint may be released and
+later reacquired; no expired run is automatically resumed.
 
 ## Governance Feedback
 
@@ -212,7 +240,8 @@ Ask the affected role for one redacted packet only for:
 - systemic failure across lanes or roles.
 
 Ordinary exclusion is not material friction. Validate packet identifiers and
-public-safe text before recording it. At completion, aggregate all packets and
+public-safe text before recording it. At a checkpoint, surface packets without
+creating a task. At terminal completion, aggregate all packets and
 ask for exactly one read-only Codex H task. If task creation is unavailable,
 return one pasteable fallback prompt. Never let the helper or a background
 process create the task.
@@ -232,7 +261,8 @@ For Dispatch, return per lane:
   submitted-package binding, branch, draft PR, and checks when available;
 - exact state or stop reason;
 - validation and remaining unknowns;
-- one public-safe pasteable next-role prompt only when mechanically allowed.
+- one public-safe pasteable next-role prompt and aligned saved-run command only
+  for a released safe checkpoint with an exact next role.
 
 Do not publish local absolute paths. End a successful lane at
 `g_consideration_ready` with a G consideration prompt, not a readiness or

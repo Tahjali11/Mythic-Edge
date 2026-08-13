@@ -178,6 +178,37 @@ def _transition(
     )
 
 
+def _advance_one_lane_through_b(
+    tmp_path: Path, workspace: Path, state: dict[str, object]
+) -> dict[str, object]:
+    worktree = tmp_path / "checkpoint-worktree"
+    worktree.mkdir(parents=True, exist_ok=True)
+    for request in (
+        _event(
+            "lane-1",
+            "selected",
+            "a_running",
+            updates={"branch": "issue/101", "worktree_location": str(worktree)},
+        ),
+        _event(
+            "lane-1",
+            "a_running",
+            "a_complete",
+            updates={"artifacts": ["docs/problem_representations/issue-101.md"]},
+        ),
+        _event("lane-1", "a_complete", "a_scope_verified"),
+        _event("lane-1", "a_scope_verified", "b_running"),
+        _event(
+            "lane-1",
+            "b_running",
+            "b_complete",
+            updates={"artifacts": ["docs/contracts/issue-101.md"]},
+        ),
+    ):
+        state = _transition(workspace, state, request)
+    return state
+
+
 @pytest.mark.parametrize(
     ("command", "mode", "repositories", "anchor", "run_id", "permissions"),
     [
@@ -463,7 +494,7 @@ def test_init_is_exclusive_and_rejects_duplicate_active_lane(tmp_path: Path) -> 
     workspace, _, _ = _init(tmp_path)
     _, invocation, manifest, roots = _fixture(tmp_path / "second")
 
-    with pytest.raises(issue_wave.IssueWaveError, match="already has a local run"):
+    with pytest.raises(issue_wave.IssueWaveError, match="reserved") as error:
         issue_wave.init_run(
             workspace,
             invocation,
@@ -472,6 +503,7 @@ def test_init_is_exclusive_and_rejects_duplicate_active_lane(tmp_path: Path) -> 
             run_id="20260813T120001Z-01020304",
             now=FIXED_NOW + timedelta(seconds=1),
         )
+    assert error.value.code == "repository_reserved"
 
 
 @pytest.mark.parametrize("relationship", ["duplicate", "nested"])
@@ -580,6 +612,8 @@ def test_load_replay_rejects_a_hash_valid_recorded_worktree_collision(tmp_path: 
         "schema_version": issue_wave.EVENT_SCHEMA,
         "sequence": state["revision"] + 1,
         "timestamp_utc": "20260813T120002Z",
+        "event_type": "transition",
+        "segment": state["current_segment"],
         "lane_id": "lane-2",
         "from_state": "selected",
         "to_state": "a_running",
@@ -672,7 +706,7 @@ def test_concurrent_same_lane_initialization_admits_exactly_one_run(tmp_path: Pa
         results = list(executor.map(attempt, run_ids))
 
     assert results.count("success") == 1
-    assert set(results) <= {"success", "state_locked", "duplicate_active_lane"}
+    assert set(results) <= {"success", "state_locked", "repository_reserved"}
     state_root = workspace / ".codex" / "role-pool-runs"
     published = [path for path in state_root.iterdir() if issue_wave.RUN_ID_RE.fullmatch(path.name)]
     assert len(published) == 1
@@ -729,6 +763,7 @@ def test_stale_admission_lock_fails_closed_without_cleanup(tmp_path: Path) -> No
             target_roots=roots,
             run_id=RUN_ID,
             now=FIXED_NOW,
+            admission_wait_seconds=0,
         )
     assert error.value.code == "state_locked"
     assert lock.joinpath("owner").read_text(encoding="utf-8") == "stale\n"
@@ -958,11 +993,12 @@ def test_resume_permissions_are_immutable_and_unknown_outcome_is_not_resumable(
     issue_wave.validate_resume_invocation(inspect_resume, state)
     issue_wave.validate_resume_invocation(dispatch_resume, state)
     issue_wave.validate_resume_invocation(same_permission, state)
+    _, _, unprivileged = _init(tmp_path / "unprivileged")
     escalated = issue_wave.parse_invocation(
-        f"$mythic-edge-issue-wave Dispatch (A; run={RUN_ID}; allow-wip-exception)"
+        f"$mythic-edge-issue-wave Dispatch (A; run={RUN_ID}; allow-main-draft)"
     )
     with pytest.raises(issue_wave.IssueWaveError) as drift:
-        issue_wave.validate_resume_invocation(escalated, state)
+        issue_wave.validate_resume_invocation(escalated, unprivileged)
     assert drift.value.code == "permission_drift"
 
     worktree = tmp_path / "worktree"
@@ -1019,6 +1055,9 @@ def _synthetic_private_path_shapes() -> list[str]:
     unix_user = "/" + "/".join(["Users", "Example", "private.txt"])
     unix_temp = "/" + "/".join(["tmp", "private.txt"])
     unix_var = "/" + "/".join(["var", "lib", "private.txt"])
+    unix_etc = "/" + "/".join(["etc", "private.conf"])
+    unix_opt = "/" + "/".join(["opt", "private", "artifact.txt"])
+    forward_unc = "//server/share/private.txt"
     return [
         drive_path,
         f"before {drive_path}",
@@ -1030,6 +1069,11 @@ def _synthetic_private_path_shapes() -> list[str]:
         f"see,{unix_var}",
         unc_path,
         f"[local]({unc_path})",
+        unix_etc,
+        f"before,{unix_opt}",
+        f"[local]({unix_etc})",
+        forward_unc,
+        f"[local]({forward_unc})",
     ]
 
 
@@ -2170,6 +2214,681 @@ def test_governance_packets_are_redacted_aggregated_once_and_have_task_fallback(
         )
 
 
+@pytest.mark.parametrize(
+    ("token", "start", "end"),
+    [("A-A", "A", "A"), ("A-B", "A", "B"), ("A-C", "A", "C"), ("A-E", "A", "E"), ("A-F", "A", "F")],
+)
+def test_parse_new_dispatch_checkpoint_segments(token: str, start: str, end: str) -> None:
+    parsed = issue_wave.parse_invocation(f"$mythic-edge-issue-wave Dispatch ({token})")
+    assert parsed["schema_version"] == "mythic_edge_issue_wave_invocation.v2"
+    assert parsed["segment"] == {"start_role": start, "end_role": end, "explicit": True}
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "$mythic-edge-issue-wave Dispatch (B-B)",
+        "$mythic-edge-issue-wave Dispatch (A-D)",
+        f"$mythic-edge-issue-wave Dispatch (E-C; run={RUN_ID})",
+        "$mythic-edge-issue-wave Dispatch (A-B; allow-main-draft)",
+        f"$mythic-edge-issue-wave Dispatch (C-E; run={RUN_ID}; allow-wip-exception)",
+    ],
+)
+def test_parse_rejects_misaligned_or_permission_incompatible_segments(command: str) -> None:
+    with pytest.raises(issue_wave.IssueWaveError):
+        issue_wave.parse_invocation(command)
+
+
+def _complete_a_b_checkpoint(
+    tmp_path: Path, workspace: Path, state: dict[str, object]
+) -> dict[str, object]:
+    worktree = tmp_path / "checkpoint-worktree"
+    worktree.mkdir(parents=True, exist_ok=True)
+    requests = (
+        _event("lane-1", "selected", "a_running", updates={"branch": "issue/101", "worktree_location": str(worktree)}),
+        _event(
+            "lane-1",
+            "a_running",
+            "a_complete",
+            updates={"artifacts": ["docs/problem_representations/issue-101.md"]},
+        ),
+        _event("lane-1", "a_complete", "a_scope_verified"),
+        _event("lane-1", "a_scope_verified", "b_running"),
+        _event("lane-1", "b_running", "b_complete", updates={"artifacts": ["docs/contracts/issue-101.md"]}),
+    )
+    for request in requests:
+        state = _transition(workspace, state, request)
+    return state
+
+
+def _stable_revalidation_proof(state: dict[str, object]) -> dict[str, object]:
+    lanes = []
+    for lane in state["lanes"]:
+        artifacts = [
+            {
+                "reference": reference,
+                "expected_sha256": hashlib.sha256(reference.encode("utf-8")).hexdigest(),
+                "observed_sha256": hashlib.sha256(reference.encode("utf-8")).hexdigest(),
+            }
+            for reference in lane["artifacts"]
+        ]
+        lanes.append(
+            {
+                "lane_id": lane["lane_id"],
+                "repository": lane["repository"],
+                "issue": lane["issue"],
+                "repository_head": {"expected": "a" * 40, "observed": "a" * 40},
+                "artifacts": artifacts,
+            }
+        )
+    return {
+        "repository_heads_stable": True,
+        "artifacts_stable": True,
+        "worktrees_safe": True,
+        "no_active_operations": True,
+        "lanes": lanes,
+    }
+
+
+def _projection_time(state: dict[str, object]) -> datetime:
+    return datetime.strptime(state["updated_at_utc"], "%Y%m%dT%H%M%SZ").replace(tzinfo=UTC)
+
+
+def _saved_run_bytes(run_directory: Path) -> tuple[bytes, bytes]:
+    return (
+        (run_directory / "run.json").read_bytes(),
+        (run_directory / "events.jsonl").read_bytes(),
+    )
+
+
+def test_lease_renewal_rejects_backward_time_without_mutation_and_accepts_equal_time(
+    tmp_path: Path,
+) -> None:
+    workspace, run_directory, state = _init(tmp_path)
+    current = _projection_time(state)
+    before = _saved_run_bytes(run_directory)
+
+    with pytest.raises(issue_wave.IssueWaveError) as rejected:
+        issue_wave.renew_lease(
+            workspace,
+            RUN_ID,
+            expected_revision=state["revision"],
+            now=current - timedelta(seconds=1),
+        )
+    assert rejected.value.code == "invalid_time"
+    assert _saved_run_bytes(run_directory) == before
+
+    renewed = issue_wave.renew_lease(
+        workspace,
+        RUN_ID,
+        expected_revision=state["revision"],
+        now=current,
+    )
+    assert renewed["updated_at_utc"] == state["updated_at_utc"]
+    assert renewed["reservation"]["lease"]["last_renewed_at_utc"] == state["updated_at_utc"]
+
+
+def test_checkpoint_release_rejects_backward_time_without_mutation_and_accepts_equal_time(
+    tmp_path: Path,
+) -> None:
+    invocation = issue_wave.parse_invocation("$mythic-edge-issue-wave Dispatch (A-B)")
+    workspace, run_directory, state = _init(tmp_path, invocation=invocation)
+    state = _complete_a_b_checkpoint(tmp_path, workspace, state)
+    current = _projection_time(state)
+    before = _saved_run_bytes(run_directory)
+
+    with pytest.raises(issue_wave.IssueWaveError) as rejected:
+        issue_wave.release_run(
+            workspace,
+            RUN_ID,
+            expected_revision=state["revision"],
+            now=current - timedelta(seconds=1),
+        )
+    assert rejected.value.code == "invalid_time"
+    assert _saved_run_bytes(run_directory) == before
+
+    released = issue_wave.release_run(
+        workspace,
+        RUN_ID,
+        expected_revision=state["revision"],
+        now=current,
+    )
+    assert released["execution_status"] == "checkpointed"
+    assert released["updated_at_utc"] == state["updated_at_utc"]
+
+
+def test_terminal_release_rejects_backward_time_without_mutation_and_accepts_equal_time(
+    tmp_path: Path,
+) -> None:
+    workspace, run_directory, state = _init(tmp_path)
+    worktree = tmp_path / "terminal-worktree"
+    worktree.mkdir()
+    state = _transition(
+        workspace,
+        state,
+        _event(
+            "lane-1",
+            "selected",
+            "a_running",
+            updates={"branch": "issue/101", "worktree_location": str(worktree)},
+        ),
+    )
+    state = _transition(workspace, state, _event("lane-1", "a_running", "a_ambiguous"))
+    current = _projection_time(state)
+    before = _saved_run_bytes(run_directory)
+
+    with pytest.raises(issue_wave.IssueWaveError) as rejected:
+        issue_wave.release_run(
+            workspace,
+            RUN_ID,
+            expected_revision=state["revision"],
+            terminal=True,
+            now=current - timedelta(seconds=1),
+        )
+    assert rejected.value.code == "invalid_time"
+    assert _saved_run_bytes(run_directory) == before
+
+    released = issue_wave.release_run(
+        workspace,
+        RUN_ID,
+        expected_revision=state["revision"],
+        terminal=True,
+        now=current,
+    )
+    assert released["execution_status"] == "terminal"
+    assert released["updated_at_utc"] == state["updated_at_utc"]
+
+
+def test_checkpoint_release_rejects_expiry_plus_one_without_mutation_and_accepts_expiry(
+    tmp_path: Path,
+) -> None:
+    invocation = issue_wave.parse_invocation("$mythic-edge-issue-wave Dispatch (A-B)")
+    workspace, run_directory, state = _init(tmp_path, invocation=invocation)
+    state = _complete_a_b_checkpoint(tmp_path, workspace, state)
+    expiry = issue_wave._timestamp_datetime(state["reservation"]["lease"]["expires_at_utc"])
+    before = _saved_run_bytes(run_directory)
+
+    with pytest.raises(issue_wave.IssueWaveError) as rejected:
+        issue_wave.release_run(
+            workspace,
+            RUN_ID,
+            expected_revision=state["revision"],
+            now=expiry + timedelta(seconds=1),
+        )
+    assert rejected.value.code == "recovery_proof_required"
+    assert _saved_run_bytes(run_directory) == before
+
+    released = issue_wave.release_run(
+        workspace,
+        RUN_ID,
+        expected_revision=state["revision"],
+        now=expiry,
+    )
+    assert released["execution_status"] == "checkpointed"
+    assert released["updated_at_utc"] == state["reservation"]["lease"]["expires_at_utc"]
+
+
+def test_terminal_release_rejects_expiry_plus_one_without_mutation_and_accepts_expiry(
+    tmp_path: Path,
+) -> None:
+    workspace, run_directory, state = _init(tmp_path)
+    worktree = tmp_path / "terminal-expiry-worktree"
+    worktree.mkdir()
+    state = _transition(
+        workspace,
+        state,
+        _event(
+            "lane-1",
+            "selected",
+            "a_running",
+            updates={"branch": "issue/101", "worktree_location": str(worktree)},
+        ),
+    )
+    state = _transition(workspace, state, _event("lane-1", "a_running", "a_ambiguous"))
+    expiry = issue_wave._timestamp_datetime(state["reservation"]["lease"]["expires_at_utc"])
+    before = _saved_run_bytes(run_directory)
+
+    with pytest.raises(issue_wave.IssueWaveError) as rejected:
+        issue_wave.release_run(
+            workspace,
+            RUN_ID,
+            expected_revision=state["revision"],
+            terminal=True,
+            now=expiry + timedelta(seconds=1),
+        )
+    assert rejected.value.code == "recovery_proof_required"
+    assert _saved_run_bytes(run_directory) == before
+
+    released = issue_wave.release_run(
+        workspace,
+        RUN_ID,
+        expected_revision=state["revision"],
+        terminal=True,
+        now=expiry,
+    )
+    assert released["execution_status"] == "terminal"
+    assert released["updated_at_utc"] == state["reservation"]["lease"]["expires_at_utc"]
+
+
+def test_segment_authorization_rejects_backward_time_without_mutation_and_accepts_equal_time(
+    tmp_path: Path,
+) -> None:
+    invocation = issue_wave.parse_invocation("$mythic-edge-issue-wave Dispatch (A-B)")
+    workspace, run_directory, state = _init(tmp_path, invocation=invocation)
+    state = _complete_a_b_checkpoint(tmp_path, workspace, state)
+    state = issue_wave.release_run(
+        workspace,
+        RUN_ID,
+        expected_revision=state["revision"],
+        now=_projection_time(state),
+    )
+    resume = issue_wave.parse_invocation(f"$mythic-edge-issue-wave Dispatch (C-C; run={RUN_ID})")
+    current = _projection_time(state)
+    before = _saved_run_bytes(run_directory)
+
+    with pytest.raises(issue_wave.IssueWaveError) as rejected:
+        issue_wave.authorize_segment(
+            workspace,
+            RUN_ID,
+            expected_revision=state["revision"],
+            invocation_value=resume,
+            revalidation_proof=_stable_revalidation_proof(state),
+            now=current - timedelta(seconds=1),
+        )
+    assert rejected.value.code == "invalid_time"
+    assert _saved_run_bytes(run_directory) == before
+
+    authorized = issue_wave.authorize_segment(
+        workspace,
+        RUN_ID,
+        expected_revision=state["revision"],
+        invocation_value=resume,
+        revalidation_proof=_stable_revalidation_proof(state),
+        now=current,
+    )
+    assert authorized["execution_status"] == "active"
+    assert authorized["updated_at_utc"] == state["updated_at_utc"]
+
+
+def test_expired_recovery_rejects_backward_time_without_mutation(
+    tmp_path: Path,
+) -> None:
+    workspace, run_directory, state = _init(tmp_path)
+    proof = {
+        "termination_method": "mechanically_verified",
+        "former_task_stopped": True,
+        "all_agents_stopped": True,
+        "preserved_state_stable": True,
+        "no_active_operations": True,
+    }
+    current = _projection_time(state)
+    before = _saved_run_bytes(run_directory)
+
+    with pytest.raises(issue_wave.IssueWaveError) as rejected:
+        issue_wave.recover_expired_run(
+            workspace,
+            RUN_ID,
+            expected_revision=state["revision"],
+            proof_value=proof,
+            now=current - timedelta(seconds=1),
+        )
+    assert rejected.value.code == "invalid_time"
+    assert _saved_run_bytes(run_directory) == before
+
+    with pytest.raises(issue_wave.IssueWaveError) as not_expired:
+        issue_wave.recover_expired_run(
+            workspace,
+            RUN_ID,
+            expected_revision=state["revision"],
+            proof_value=proof,
+            now=current,
+        )
+    assert not_expired.value.code == "recovery_proof_required"
+    assert _saved_run_bytes(run_directory) == before
+
+
+def test_checkpoint_release_and_exact_next_segment_authorization(tmp_path: Path) -> None:
+    invocation = issue_wave.parse_invocation("$mythic-edge-issue-wave Dispatch (A-B)")
+    workspace, _, state = _init(tmp_path, invocation=invocation)
+    state = _complete_a_b_checkpoint(tmp_path, workspace, state)
+    state = issue_wave.release_run(
+        workspace,
+        RUN_ID,
+        expected_revision=state["revision"],
+        now=FIXED_NOW + timedelta(seconds=20),
+    )
+    assert state["execution_status"] == "checkpointed"
+    assert state["next_resumable_role"] == "C"
+    assert state["reservation"]["repositories"] == []
+    assert (tmp_path / "checkpoint-worktree").exists()
+    checkpoint_output = issue_wave.inspect_projection(state, recovered_projection=False)
+    assert checkpoint_output["lanes"][0]["manual_next_role_prompt"].startswith(
+        "Use $mythic-edge-workflow as Codex C"
+    )
+    assert checkpoint_output["lanes"][0]["next_segment_command"] == (
+        f"$mythic-edge-issue-wave Dispatch (C-F; run={RUN_ID})"
+    )
+
+    resume = issue_wave.parse_invocation(f"$mythic-edge-issue-wave Dispatch (C-E; run={RUN_ID})")
+    resumed = issue_wave.authorize_segment(
+        workspace,
+        RUN_ID,
+        expected_revision=state["revision"],
+        invocation_value=resume,
+        revalidation_proof=_stable_revalidation_proof(state),
+        now=FIXED_NOW + timedelta(seconds=21),
+    )
+    assert resumed["execution_status"] == "active"
+    assert resumed["current_segment"] == {"start_role": "C", "end_role": "E", "explicit": True}
+    assert resumed["segment_history"][-1]["authorized_revision"] == resumed["revision"]
+    assert resumed["segment_history"][-1]["revalidation_proof_sha256"] == hashlib.sha256(
+        issue_wave._canonical_json(_stable_revalidation_proof(state))
+    ).hexdigest()
+
+
+def test_misaligned_resume_and_manual_drift_never_authorize(tmp_path: Path) -> None:
+    invocation = issue_wave.parse_invocation("$mythic-edge-issue-wave Dispatch (A-B)")
+    workspace, _, state = _init(tmp_path, invocation=invocation)
+    state = _complete_a_b_checkpoint(tmp_path, workspace, state)
+    state = issue_wave.release_run(
+        workspace,
+        RUN_ID,
+        expected_revision=state["revision"],
+        now=FIXED_NOW + timedelta(seconds=20),
+    )
+    bad = issue_wave.parse_invocation(f"$mythic-edge-issue-wave Dispatch (E-E; run={RUN_ID})")
+    with pytest.raises(issue_wave.IssueWaveError) as misaligned:
+        issue_wave.authorize_segment(
+            workspace, RUN_ID, expected_revision=state["revision"], invocation_value=bad,
+            revalidation_proof=_stable_revalidation_proof(state), now=FIXED_NOW + timedelta(seconds=21)
+        )
+    assert misaligned.value.code == "misaligned_segment"
+
+    good = issue_wave.parse_invocation(f"$mythic-edge-issue-wave Dispatch (C-C; run={RUN_ID})")
+    drift_proof = _stable_revalidation_proof(state)
+    drift_proof["repository_heads_stable"] = False
+    with pytest.raises(issue_wave.IssueWaveError) as drift:
+        issue_wave.authorize_segment(
+            workspace, RUN_ID, expected_revision=state["revision"], invocation_value=good,
+            revalidation_proof=drift_proof, now=FIXED_NOW + timedelta(seconds=21)
+        )
+    assert drift.value.code == "manual_drift_detected"
+    _, unchanged, _ = issue_wave.load_run(workspace, RUN_ID)
+    assert unchanged["revision"] == state["revision"]
+
+
+def test_lease_renewal_and_unknown_outcome_recovery(tmp_path: Path) -> None:
+    workspace, _, state = _init(tmp_path)
+    assert state["reservation"]["lease"]["expires_at_utc"] == "20260813T120500Z"
+    state = issue_wave.renew_lease(
+        workspace,
+        RUN_ID,
+        expected_revision=state["revision"],
+        now=FIXED_NOW + timedelta(seconds=60),
+    )
+    assert state["reservation"]["lease"]["expires_at_utc"] == "20260813T120600Z"
+    with pytest.raises(issue_wave.IssueWaveError) as overdue:
+        issue_wave.renew_lease(
+            workspace,
+            RUN_ID,
+            expected_revision=state["revision"],
+            now=FIXED_NOW + timedelta(seconds=121),
+        )
+    assert overdue.value.code == "lease_renewal_overdue"
+
+    worktree = tmp_path / "in-flight-worktree"
+    worktree.mkdir()
+    state = issue_wave.transition_run(
+        workspace,
+        RUN_ID,
+        expected_revision=state["revision"],
+        request_value=_event(
+            "lane-1",
+            "selected",
+            "a_running",
+            updates={"branch": "issue/101", "worktree_location": str(worktree)},
+        ),
+        now=FIXED_NOW + timedelta(seconds=60),
+    )
+    proof = {
+        "termination_method": "mechanically_verified",
+        "former_task_stopped": True,
+        "all_agents_stopped": True,
+        "preserved_state_stable": True,
+        "no_active_operations": True,
+    }
+    recovered = issue_wave.recover_expired_run(
+        workspace, RUN_ID, expected_revision=state["revision"], proof_value=proof,
+        now=FIXED_NOW + timedelta(seconds=361)
+    )
+    assert recovered["execution_status"] == "stopped"
+    assert recovered["lanes"][0]["state"] == "unknown_agent_outcome"
+    assert recovered["next_resumable_role"] is None
+    assert worktree.exists()
+
+
+@pytest.mark.parametrize(
+    ("elapsed", "expected_code"),
+    [(60, None), (61, "lease_renewal_overdue"), (300, "lease_renewal_overdue"), (301, "recovery_proof_required")],
+)
+def test_every_transition_requires_a_current_timely_renewed_lease(
+    tmp_path: Path, elapsed: int, expected_code: str | None
+) -> None:
+    workspace, run_directory, state = _init(tmp_path)
+    worktree = tmp_path / f"lease-{elapsed}-worktree"
+    worktree.mkdir()
+    before = ((run_directory / "run.json").read_bytes(), (run_directory / "events.jsonl").read_bytes())
+    request = _event(
+        "lane-1",
+        "selected",
+        "a_running",
+        updates={"branch": "issue/101", "worktree_location": str(worktree)},
+    )
+
+    if expected_code is None:
+        updated = issue_wave.transition_run(
+            workspace,
+            RUN_ID,
+            expected_revision=state["revision"],
+            request_value=request,
+            now=FIXED_NOW + timedelta(seconds=elapsed),
+        )
+        assert updated["lanes"][0]["state"] == "a_running"
+    else:
+        with pytest.raises(issue_wave.IssueWaveError) as rejected:
+            issue_wave.transition_run(
+                workspace,
+                RUN_ID,
+                expected_revision=state["revision"],
+                request_value=request,
+                now=FIXED_NOW + timedelta(seconds=elapsed),
+            )
+        assert rejected.value.code == expected_code
+        assert ((run_directory / "run.json").read_bytes(), (run_directory / "events.jsonl").read_bytes()) == before
+
+
+@pytest.mark.parametrize("nested_direction", ["second_inside_first", "first_inside_second"])
+def test_cross_run_worktree_nesting_is_rejected_without_mutation(
+    tmp_path: Path, nested_direction: str
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    states = []
+    run_ids = [RUN_ID, "20260813T120001Z-01020304"]
+    for index, repository in enumerate(REPOSITORIES[:2]):
+        root = tmp_path / f"checkout-{index}"
+        root.mkdir()
+        manifest = {
+            "schema_version": issue_wave.MANIFEST_SCHEMA,
+            "candidates": [
+                _candidate(
+                    root,
+                    repository,
+                    101 + index,
+                    lane_id=f"lane-{index + 1}",
+                    created_at=f"2026080{index + 1}T120000Z",
+                )
+            ],
+        }
+        _, state = issue_wave.init_run(
+            workspace,
+            _dispatch_invocation(),
+            manifest,
+            target_roots={repository: root},
+            run_id=run_ids[index],
+            now=FIXED_NOW,
+        )
+        states.append(state)
+
+    outer = tmp_path / "shared-worktrees"
+    inner = outer / "nested"
+    inner.mkdir(parents=True)
+    first_path, second_path = (outer, inner) if nested_direction == "second_inside_first" else (inner, outer)
+    states[0] = issue_wave.transition_run(
+        workspace,
+        run_ids[0],
+        expected_revision=states[0]["revision"],
+        request_value=_event(
+            "lane-1", "selected", "a_running",
+            updates={"branch": "issue/101", "worktree_location": str(first_path)},
+        ),
+        now=FIXED_NOW + timedelta(seconds=1),
+    )
+    second_directory = workspace / ".codex" / "role-pool-runs" / run_ids[1]
+    before = ((second_directory / "run.json").read_bytes(), (second_directory / "events.jsonl").read_bytes())
+    with pytest.raises(issue_wave.IssueWaveError) as rejected:
+        issue_wave.transition_run(
+            workspace,
+            run_ids[1],
+            expected_revision=states[1]["revision"],
+            request_value=_event(
+                "lane-2", "selected", "a_running",
+                updates={"branch": "issue/102", "worktree_location": str(second_path)},
+            ),
+            now=FIXED_NOW + timedelta(seconds=2),
+        )
+    assert rejected.value.code == "unsafe_or_conflicting_scope"
+    assert ((second_directory / "run.json").read_bytes(), (second_directory / "events.jsonl").read_bytes()) == before
+
+
+def test_resume_proof_rejects_missing_lane_changed_head_and_changed_artifact(tmp_path: Path) -> None:
+    invocation = issue_wave.parse_invocation("$mythic-edge-issue-wave Dispatch (A-B)")
+    workspace, _, state = _init(tmp_path, invocation=invocation)
+    state = _complete_a_b_checkpoint(tmp_path, workspace, state)
+    state = issue_wave.release_run(
+        workspace, RUN_ID, expected_revision=state["revision"], now=FIXED_NOW + timedelta(seconds=20)
+    )
+    resume = issue_wave.parse_invocation(f"$mythic-edge-issue-wave Dispatch (C-C; run={RUN_ID})")
+    proof = _stable_revalidation_proof(state)
+    mutations = [
+        lambda value: value["lanes"].clear(),
+        lambda value: value["lanes"][0]["repository_head"].update(observed="b" * 40),
+        lambda value: value["lanes"][0]["artifacts"][0].update(observed_sha256="b" * 64),
+    ]
+    for mutate in mutations:
+        candidate = deepcopy(proof)
+        mutate(candidate)
+        with pytest.raises(issue_wave.IssueWaveError):
+            issue_wave.authorize_segment(
+                workspace,
+                RUN_ID,
+                expected_revision=state["revision"],
+                invocation_value=resume,
+                revalidation_proof=candidate,
+                now=FIXED_NOW + timedelta(seconds=21),
+            )
+
+
+@pytest.mark.parametrize("status", ["active", "stopped", "terminal"])
+def test_inspect_withholds_resume_output_unless_checkpoint_is_safe(tmp_path: Path, status: str) -> None:
+    workspace, _, state = _init(tmp_path)
+    if status != "active":
+        state["execution_status"] = status
+    projection = issue_wave.inspect_projection(state, recovered_projection=False)
+    assert all(lane["manual_next_role_prompt"] is None for lane in projection["lanes"])
+    assert all(lane["next_segment_command"] is None for lane in projection["lanes"])
+
+
+def test_expired_lease_blocks_admission_without_mutation(tmp_path: Path) -> None:
+    workspace, run_directory, _ = _init(tmp_path)
+    before = ((run_directory / "run.json").read_bytes(), (run_directory / "events.jsonl").read_bytes())
+    second_root = tmp_path / "second-repository"
+    second_root.mkdir()
+    manifest = {
+        "schema_version": issue_wave.MANIFEST_SCHEMA,
+        "candidates": [_candidate(second_root, REPOSITORIES[1], 202, lane_id="lane-2", created_at="20260802T120000Z")],
+    }
+    with pytest.raises(issue_wave.IssueWaveError) as blocked:
+        issue_wave.init_run(
+            workspace, _dispatch_invocation(), manifest, target_roots={REPOSITORIES[1]: second_root},
+            run_id="20260813T120600Z-01020304", now=FIXED_NOW + timedelta(seconds=301)
+        )
+    assert blocked.value.code == "recovery_proof_required"
+    assert ((run_directory / "run.json").read_bytes(), (run_directory / "events.jsonl").read_bytes()) == before
+
+
+def test_two_simultaneous_disjoint_waves_succeed_and_third_is_rejected(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    barrier = threading.Barrier(2)
+
+    def attempt(index: int) -> str:
+        candidates = []
+        roots = {}
+        for lane_offset in range(3):
+            repository_index = index * 3 + lane_offset
+            repository = issue_wave.DEFAULT_ALLOWLIST[repository_index]
+            root = tmp_path / f"wave-{index}-repo-{lane_offset}"
+            root.mkdir()
+            roots[repository] = root
+            candidates.append(
+                _candidate(
+                    root,
+                    repository,
+                    300 + repository_index,
+                    lane_id=f"wave-{index}-lane-{lane_offset}",
+                    created_at=f"2026080{repository_index + 1}T120000Z",
+                )
+            )
+        manifest = {
+            "schema_version": issue_wave.MANIFEST_SCHEMA,
+            "candidates": candidates,
+        }
+        barrier.wait()
+        issue_wave.init_run(
+            workspace, _dispatch_invocation(), manifest, target_roots=roots,
+            run_id=f"20260813T12000{index}Z-0102030{index}", now=FIXED_NOW
+        )
+        return "success"
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        assert list(executor.map(attempt, (0, 1))) == ["success", "success"]
+
+    root = tmp_path / "repo-7"
+    root.mkdir()
+    manifest = {
+        "schema_version": issue_wave.MANIFEST_SCHEMA,
+        "candidates": [
+            _candidate(
+                root,
+                issue_wave.DEFAULT_ALLOWLIST[6],
+                307,
+                lane_id="lane-7",
+                created_at="20260807T120000Z",
+            )
+        ],
+    }
+    with pytest.raises(issue_wave.IssueWaveError) as third:
+        issue_wave.init_run(
+            workspace,
+            _dispatch_invocation(),
+            manifest,
+            target_roots={issue_wave.DEFAULT_ALLOWLIST[6]: root},
+            run_id="20260813T120003Z-01020303", now=FIXED_NOW + timedelta(seconds=3)
+        )
+    assert third.value.code == "active_wave_limit"
+
+
 def test_repo_owned_skill_metadata_disables_implicit_invocation() -> None:
     metadata = (
         REPO_ROOT
@@ -2210,6 +2929,7 @@ def test_helper_imports_only_deterministic_local_standard_library_modules() -> N
         "re",
         "secrets",
         "sys",
+        "time",
         "typing",
         "uuid",
     }

@@ -21,8 +21,11 @@ The implementation is a lean hybrid:
 - the helper must not inspect GitHub, select issues, spawn agents, invoke Git,
   retry work, open pull requests, or make governance judgments.
 
-V1 starts new work only at Codex A. It does not enter arbitrary B, C, E, or F
-work that lacks a run created by this skill.
+New runs start only at Codex A. Saved runs may continue only from their exact
+mechanically proven next role under the segment rules in this contract. The
+helper remains a local deterministic state boundary; this design adds no
+daemon, service, scheduler, database, custom agent controller, or cross-machine
+coordinator.
 
 ## Source Issue
 
@@ -39,7 +42,7 @@ N/A. Issue #855 is the direct source issue.
 
 ## Risk Tier
 
-Medium.
+High workflow risk; no product-runtime change.
 
 The package is workflow automation that can coordinate repository writes when
 the user explicitly invokes Dispatch. Its mutation surface is bounded to
@@ -127,24 +130,6 @@ Codex E may additionally create:
 This contract file is owned by Codex B and may not be changed by C to make an
 implementation easier. A contract defect routes backward to B.
 
-The current Codex D correction boundary for `ME-IW-855-E-001` is exactly:
-
-- `docs/codex_skills/mythic-edge-issue-wave/SKILL.md`
-- `docs/codex_skills/mythic-edge-issue-wave/references/controller-protocol.md`
-- `docs/codex_skills/mythic-edge-issue-wave/references/state-schema.md`
-- `docs/codex_skills/mythic-edge-issue-wave/scripts/issue_wave_state.py`
-- `tests/test_mythic_edge_issue_wave_skill.py`
-- `docs/implementation_handoffs/mythic_edge_issue_wave_skill_comparison.md`
-
-D replaces the contradictory commit-before-F mechanics only within those
-files and must not edit this contract or the E report. `ME-IW-855-E-002` and
-`ME-IW-855-E-003` are already-contracted implementation/test findings; D may
-address them only within their report's exact isolation and admission-lock
-boundaries and the applicable files above. This B correction does not alter or
-expand either finding. No UI metadata, installer expectation, repo skill
-index, legacy Role Pool/R0 file, commit, push, PR, installation, or real
-Dispatch change belongs to this D boundary.
-
 No installer implementation change is authorized. The existing installer
 already discovers a repo-owned directory containing `SKILL.md`; only its
 expected-skill tests and documentation may change.
@@ -159,16 +144,19 @@ implementation.
 
 ### Invocation Grammar
 
-The only accepted command family is:
+The accepted command family is:
 
 ```text
-$mythic-edge-issue-wave <Mode> (A[; <option>[; <option> ...]])
+$mythic-edge-issue-wave <Mode> (<role-or-segment>[; <option>[; <option> ...]])
 ```
 
-`<Mode>` is exactly `Inspect` or `Dispatch`. The only entry role is exactly
-`A`. Leading and trailing whitespace and whitespace around semicolons may be
-ignored. Unknown modes, roles, options, repeated singleton options, empty
-values, or malformed punctuation fail closed with concise usage guidance.
+`<Mode>` is exactly `Inspect` or `Dispatch`. Inspect accepts only role `A`.
+New Dispatch accepts bare `A` or an explicit segment starting at `A`.
+Saved-run Dispatch accepts bare `A` as the autonomous-resume form or an
+explicit segment beginning at the run's exact next resumable role. Leading and
+trailing whitespace and whitespace around semicolons may be ignored. Unknown
+modes, roles, segments, options, repeated singleton options, empty values, or
+malformed punctuation fail closed with concise usage guidance.
 
 Allowed options:
 
@@ -183,10 +171,21 @@ Allowed options:
 - `allow-wip-exception`: Dispatch-only permission to exceed a repository's
   default WIP limit when current issue-scoped authority also allows it.
 
-`run=` cannot be combined with `repos=` or `anchor=`. A resume command may
-repeat Dispatch permission flags only when they exactly equal the permissions
-already recorded for that run; flags cannot escalate or reduce a saved run.
+`run=` cannot be combined with `repos=` or `anchor=`. `allow-wip-exception` is
+new-run-only. `allow-main-draft` is accepted only when the requested execution
+contains F; on resume it must exactly equal the immutable permission already
+recorded for the run. No resume may escalate or reduce a saved permission.
 Inspect accepts no Dispatch permission flags.
+
+Bare `Dispatch (A)` is the compatibility form for autonomous A through F.
+Bare `Dispatch (A; run=<run-id>)` starts at the run's exact mechanically proven
+next role and continues through F. Explicit new-run checkpoint segments are
+exactly `A-A`, `A-B`, `A-C`, `A-E`, and `A-F`. Explicit saved-run segments must
+start at the exact next resumable role and may end only at that role or a later
+normal-path role through F. Consequently, aligned single-role segments
+`B-B`, `C-C`, `E-E`, and `F-F` are valid on resume. D is a corrective route,
+not a selectable segment role. Backward, repeated, skipped-start, D-inclusive,
+misaligned, or post-F segments fail closed before authorization or effect.
 
 Canonical forms:
 
@@ -198,7 +197,9 @@ $mythic-edge-issue-wave Inspect (A; run=20260813T120000Z-1a2b3c4d)
 $mythic-edge-issue-wave Dispatch (A)
 $mythic-edge-issue-wave Dispatch (A; repos=owner/repo; allow-main-draft)
 $mythic-edge-issue-wave Dispatch (A; anchor=owner/repo#123; allow-wip-exception)
+$mythic-edge-issue-wave Dispatch (A-B; repos=owner/repo)
 $mythic-edge-issue-wave Dispatch (A; run=20260813T120000Z-1a2b3c4d)
+$mythic-edge-issue-wave Dispatch (C-E; run=20260813T120000Z-1a2b3c4d)
 ```
 
 The parser returns a typed, JSON-serializable invocation object. Parsing is
@@ -283,7 +284,7 @@ select candidates.
 
 ### Dispatch Mode
 
-Dispatch uses these root-owned steps:
+One parent Codex task owns one wave. Dispatch uses these root-owned steps:
 
 1. Revalidate each selected issue and matched checkout immediately before any
    write. Create one isolated issue branch and worktree per lane only after all
@@ -314,6 +315,22 @@ Dispatch uses these root-owned steps:
 7. Stop before Codex G and return a directly pasteable G prompt. Never merge,
    deploy, mark a draft ready, close an issue, install the skill, or start a
    runtime/production action.
+
+Bare `Dispatch (A)` performs the complete route above. An explicit segment
+performs only the roles within its inclusive endpoints. At the segment endpoint
+the coordinator waits until every unaffected lane has either reached that
+endpoint or reached a defined stop state, records the checkpoint, releases the
+wave's active reservation, and stops without creating an agent for the next
+role. A stopped lane is not replaced or backfilled. A lane stopped earlier does
+not prevent unaffected lanes from reaching the requested endpoint unless its
+finding invalidates shared evidence or dependencies.
+
+Every resumed segment requires a new immutable segment-authorization event
+before any role agent starts. That event binds the requested segment, exact
+next role, current run revision, revalidated repository heads and artifacts,
+immutable permissions, and reacquired reservations. Segment authorization is
+prerequisite evidence only; it does not establish role success or authorize
+any effect outside the segment.
 
 Agent creation and orchestration remain native root Codex responsibilities. No
 Python program, background service, scheduled task, external controller, or
@@ -414,8 +431,8 @@ Both commit fields require 40 lowercase hexadecimal characters and both
 package fields require 64 lowercase hexadecimal characters. `reviewed_commit`
 is not a compatibility alias: it is an unknown lane/update key and fails
 closed. Because no installation or real Dispatch is authorized for this
-unsubmitted V1 package, D replaces the defective pre-release V1 field rather
-than adding a migration or accepting an ambiguous old run shape.
+unsubmitted package, the implementation keeps this corrected field set rather
+than adding a compatibility alias or accepting an ambiguous old run shape.
 
 Before F starts, the root reconstructs the manifest from the current worktree
 and the recorded `review_base_commit`. `HEAD`, the complete changed-path set,
@@ -454,6 +471,23 @@ set, stage a replacement path, amend, reset, create a replacement commit,
 push a mismatched commit, or open a draft PR after such a mismatch. A fresh D
 fix and fresh independent E review are required before another F attempt.
 
+### Versioned Coordination Schemas
+
+The checkpoint/concurrency revision uses these exact schema versions:
+
+- normalized invocation: `mythic_edge_issue_wave_invocation.v2`;
+- run projection: `mythic_edge_issue_wave_run_state.v2`;
+- ledger event: `mythic_edge_issue_wave_event.v2`;
+- transition/event request: `mythic_edge_issue_wave_event_request.v2`; and
+- redacted Inspect projection: `mythic_edge_issue_wave_inspect.v2`.
+
+The candidate manifest and reviewed-package manifest remain at their existing
+V1 schema versions because their fields and meanings do not change. All V2
+schemas are closed: duplicate keys, unknown keys, missing required keys, wrong
+types, noncanonical identifiers, or invalid cross-field combinations fail
+closed. No V1 run migration or dual-read compatibility is required because no
+installed or real Dispatch state exists.
+
 ### Lane States And Stop Reasons
 
 Progress states are exactly:
@@ -487,6 +521,22 @@ checkout_unavailable_or_ambiguous
 unsafe_or_conflicting_scope
 checks_pending
 ```
+
+Run execution status is separate from lane state and is exactly `active`,
+`checkpointed`, `stopped`, or `terminal`. `active` means a current segment owns
+an unexpired lease and reservations. `checkpointed` means all unaffected lanes
+reached the requested segment endpoint or a defined lane stop and the lease was
+released. `stopped` means safe automatic continuation is unavailable.
+`terminal` means no forward role before G remains. Checkpointed and terminal
+runs consume neither an active-wave slot nor a repository reservation.
+
+The normal role order is `A, B, C, E, F`. The mechanically derived next role is
+`A` before any A work, `B` after `a_scope_verified`, `C` after `b_complete`, `E`
+after `c_complete`, and `F` after `e_approved`. A lane with a stop state,
+`f_complete`, `checks_running`, `checks_pending`, or
+`g_consideration_ready` has no resumable forward role unless this contract
+explicitly names a safe check-status continuation. `unknown_agent_outcome`
+never has a next resumable role.
 
 Allowed forward transitions are:
 
@@ -529,20 +579,44 @@ not resumable. Unaffected lanes continue unless the finding invalidates shared
 dependency or selection evidence, in which case the newly unsafe lanes stop.
 No stopped lane is replaced or backfilled.
 
+Stable coordination error codes additionally include:
+
+- `active_wave_limit`: two other active waves retain unreleased capacity;
+- `repository_reserved`: an active wave already reserves any requested repo;
+- `unsafe_or_conflicting_scope`: a cross-run scope, target-root, worktree,
+  state-root, issue, or known submission-surface conflict exists;
+- `state_locked`: admission or per-run state cannot be locked within its
+  bounded wait; and
+- `recovery_proof_required`: an expired lease exists but prior task/agent
+  termination or a safe preserved boundary is not proven.
+
+These are refusals, not retry instructions. They cause no candidate
+replacement, lane backfill, worktree creation, agent launch, or GitHub effect.
+
 ### Pasteable Next-Role Output
 
 Every lane result contains:
 
+- run and lane identifiers;
 - canonical repository and issue identifier;
-- last completed role;
+- requested segment, roles completed, lane status, and last completed role;
 - durable artifact references, review base, reviewed-package binding, created
   commit, and submitted-package binding where available;
 - validation summary;
 - branch and draft PR reference when applicable;
 - exact state or stop reason;
 - remaining unknowns;
-- one public-safe, directly pasteable next-role prompt when a next role is
-  mechanically allowed.
+- concise role summaries, including A framing and B contract summaries when
+  those roles completed;
+- one public-safe, directly pasteable manual next-role prompt when a next role
+  is mechanically allowed; and
+- the optional exact next-segment command when skill continuation is
+  mechanically possible.
+
+Checkpoint output references exact public-safe artifacts and links but does
+not reproduce complete issue, contract, review, handoff, or transcript bodies.
+It does not create the next-role agent. Material governance packets are listed
+with their trigger reasons, but a checkpoint does not create a Codex H task.
 
 Local absolute paths may be used inside the private local ledger and local
 agent instructions when required, but must never appear in GitHub bodies,
@@ -559,6 +633,12 @@ Dispatch state lives outside every target repository:
   events.jsonl
 ```
 
+The common state root also owns one OS-enforced admission lock used only while
+validating and atomically recording admission, reservation, lease, release, or
+recovery changes. Acquiring that lock waits no longer than five seconds.
+Persistent contention returns `state_locked`. The helper never deletes or
+breaks a lock merely because its file or metadata appears old.
+
 The caller supplies an explicit workspace root and target repository roots.
 The helper resolves them and refuses a state root that is inside, equal to, or
 ambiguous relative to any target repository. Run IDs use UTC plus eight
@@ -569,28 +649,37 @@ default; tests may inject time and entropy.
 
 - schema version, run ID, created/updated UTC times, revision, and last event
   digest;
-- parsed selectors and immutable Dispatch permissions;
+- parsed selectors, immutable Dispatch permissions, requested current segment,
+  exact next resumable role, run execution status, and immutable segment
+  history;
 - canonical repository/issue identifiers and redacted eligibility evidence;
 - lane state, active role, durable artifact references,
   `review_base_commit`, `reviewed_package_sha256`, `created_commit`,
   `submitted_package_sha256`, branch/PR/check references, local worktree
   location, validation summary, and stop reason;
+- canonical target roots and known cross-run scope/submission surfaces;
+- reservation owner, reserved canonical repository set, lease issue/renewal/
+  expiry/release timestamps, and recovery-proof state; and
 - governance packet references and run completion state.
 
 `events.jsonl` contains canonical one-line JSON transition records with schema
-version, sequence number, UTC timestamp, lane ID, from/to state, role, public-
-safe reason/evidence summary, and a SHA-256 link to the previous event. Unknown
-keys, duplicate JSON keys, invalid UTF-8, invalid types, malformed timestamps,
-unexpected revisions, broken hash chains, path escapes, and illegal
-transitions fail closed.
+version, sequence number, UTC timestamp, event type, lane ID when applicable,
+from/to state, role, segment, public-safe reason/evidence summary, and a SHA-256
+link to the previous event. Event types include segment authorization,
+transition, lease creation, lease renewal, checkpoint release, terminal
+release, interruption stop, and recovery admission. Unknown keys, duplicate
+JSON keys, invalid UTF-8, invalid types, malformed timestamps, unexpected
+revisions, broken hash chains, path escapes, and illegal transitions fail
+closed.
 
 The ledger must not store credentials, tokens, environment values, complete
 issue bodies, private transcripts, raw logs, private runtime data, generated
 datasets, workbook exports, webhook URLs, or secret-bearing command output.
 Issue excerpts are reduced to identifiers and public-safe evidence summaries.
 
-State mutation requires an exclusive per-run lock and expected revision. The
-helper appends and flushes the next hash-chained event, then atomically replaces
+State mutation requires the shared admission lock when cross-run ownership can
+change, an exclusive per-run lock, and an expected revision. The helper
+appends and flushes the next hash-chained event, then atomically replaces
 `run.json` with a projection at the same revision. On load:
 
 - a matching event ledger and projection are accepted;
@@ -600,13 +689,83 @@ helper appends and flushes the next hash-chained event, then atomically replaces
   tail, a broken chain, or a conflicting lock fails with
   `state_integrity_error` or `state_locked` and performs no mutation.
 
+### Cross-Run Admission And Isolation
+
+Under the shared admission lock, the helper validates a public-safe inventory
+of all non-released V2 runs in the same canonical workspace. Admission permits
+at most two active waves, three repositories per wave, and six active lanes in
+total. An expired but unrecovered wave remains non-released and blocks capacity
+or repository reuse with `recovery_proof_required`; expiry is not an implicit
+release. The active waves' canonical repository sets must be disjoint. It also
+rejects duplicate or nested target/worktree locations and supplied cross-run
+issue-scope, target-root, worktree, state-root, or known submission-surface
+overlap. Semantic overlap that cannot be mechanically encoded remains a root
+coordinator judgment and must fail closed when material uncertainty remains.
+
+Admission and reservation recording are one atomic critical section and occur
+before branch/worktree creation, agent launch, or GitHub mutation. If two
+invocations race, only a still-valid winner records capacity and repository
+reservations. A loser returns the applicable stable error and performs no
+repository effect, retry, replacement selection, or backfill. Historical,
+checkpointed, stopped runs whose lease was released, and terminal runs remain inspectable but
+do not consume active capacity or hard reservations. Coordination across
+different canonical workspaces or machines is outside this version.
+
+### Renewable Reservation Lease
+
+Every active wave receives a five-minute lease, represented by canonical UTC
+issue, last-renewed, and expiry timestamps. The owning coordinator renews it at
+least once every 60 seconds, including while waiting for role agents or bounded
+CI checks. Each renewal requires the expected run revision, holds the required
+locks, extends expiry to five minutes after the recorded renewal time, and
+appends an atomic hash-chained lease-renewal event. Renewal does not authorize
+a role or prove progress.
+
+A fully recorded checkpoint or normal terminal stop immediately appends its
+release event, clears the active slot and hard repository reservations, and
+sets the appropriate execution status. Branches, worktrees, artifacts, partial
+results, and event history remain preserved. Lease expiration alone performs
+no write: it never deletes, cleans, retries, resumes, releases preserved work,
+backfills, or authorizes a role. It means only that a later invocation may ask
+for recovery inspection.
+
+### Resume And Fail-Closed Recovery
+
 Resume is explicit only. Before continuing, the root coordinator revalidates
 live GitHub state, repository heads, artifacts, worktrees, prior role outcomes,
-immutable permissions, and every recorded reviewed/submitted package binding.
-A lane resumes only from a fully completed, mechanically proven boundary. A
-stale head, missing artifact, changed review base, changed package binding,
-mismatched scope, uncertain agent outcome, changed permission, or conflicting
-live state remains stopped. Resume never means automatic retry.
+immutable permissions, every recorded reviewed/submitted package binding, and
+all active cross-run reservations. A lane resumes only from a fully completed,
+mechanically proven boundary. A stale head, missing artifact, changed review
+base, changed package binding, mismatched scope, uncertain agent outcome,
+changed permission, or conflicting live state remains stopped. Resume never
+means automatic retry.
+
+An expired lease permits recovery inspection only after the former parent task
+and all of its agents are proven finished or stopped through available Codex
+task state. If that cannot be mechanically verified, recovery requires an
+explicit user confirmation that the former task and all its agents were
+stopped. Repository inactivity alone is never proof. The recovery inspection
+then validates the entire event chain, preserved worktrees and branches,
+repository heads, exact artifacts and package bindings, operation markers,
+reservations, and absence of any conflicting agent or repository operation.
+Only a complete checkpoint already durably recorded before interruption may
+reacquire capacity and authorize its exact next segment after full live-state
+revalidation.
+
+If any role was in flight or its durable outcome is uncertain, the lane and run
+stop as `unknown_agent_outcome`. The role is never automatically retried or
+resumed. Expired capacity may be released only after the termination and
+preserved-state inspection above; replacement work requires a fresh invocation
+that independently passes conflict and preserved-worktree checks. No recovery
+path adopts or certifies unproven work.
+
+Manual continuation from a checkpoint prompt is supported, but the saved run
+never imports, adopts, infers, or retrospectively certifies a manually or
+externally completed role. If external work advances a repository, artifact,
+branch, commit, or PR beyond the saved boundary, resume detects drift before
+new segment authorization and stops. The original run remains available for
+read-only Inspect; continued work remains manual or begins as a distinct fresh
+run after conflicts are resolved.
 
 The helper's command-line surface may expose only these operations:
 
@@ -615,6 +774,11 @@ The helper's command-line surface may expose only these operations:
   manifest without writing or inspecting Git;
 - `init`: validate a root-supplied manifest and create a new Dispatch ledger;
 - `transition`: append one expected, allowed transition;
+- `renew-lease`: atomically renew an active wave lease;
+- `release`: atomically checkpoint or terminal-release reservations;
+- `authorize-segment`: record a new or resumed segment before agent launch;
+- `recover`: validate root-supplied task-termination and preserved-state proof,
+  then reacquire capacity only at a proven checkpoint boundary;
 - `inspect`: validate and print a redacted state projection without writing.
 
 All machine errors use a stable code and concise message and return nonzero.
@@ -637,13 +801,15 @@ pattern count when known, unresolved governance question, and suggested review
 route. It contains no local paths, secrets, private content, complete issue
 bodies, transcripts, raw logs, or proposed authority edits.
 
-At run completion, when at least one material packet exists, the root
-coordinator opens one separate read-only Codex task in the saved **Mythic Edge**
-project and asks `$mythic-edge-constitutional-lawyer` to inventory and analyze
-the packets. That task may propose amendments or watch-list items but must not
-edit governance authority or target repositories. If task creation is
-unavailable, the result contains one equivalent directly pasteable prompt.
-No governance task is created when there is no material packet.
+At a checkpoint, the result preserves and surfaces each packet and its trigger
+reason but creates no Codex H task. At terminal run completion, when at least
+one material packet exists, the root coordinator opens one separate read-only
+Codex task in the saved **Mythic Edge** project and asks
+`$mythic-edge-constitutional-lawyer` to inventory and analyze the packets. That
+task may propose amendments or watch-list items but must not edit governance
+authority or target repositories. If task creation is unavailable, the result
+contains one equivalent directly pasteable prompt. No governance task is
+created when there is no material packet.
 
 ## Inputs
 
@@ -667,12 +833,14 @@ or generated prompts are leads only until verified against current authority.
 Inspect output is a read-only human-readable report with structured candidate
 evidence and pasteable Codex A prompts.
 
-Dispatch output is a per-lane report plus a local run ledger. A successful lane
-ends at `g_consideration_ready` with matching reviewed/submitted package
-bindings, the F-created commit, a draft PR, and pasteable Codex G prompt. Other
-lanes end at one exact stop state with evidence and, when safe, a pasteable
-recovery prompt. Neither output is a readiness or authority claim beyond its
-defined state.
+Dispatch output is a per-lane report plus a local run ledger. A checkpointed
+lane ends at its requested role with exact artifact references, concise role
+summaries, a manual next-role prompt, and an optional aligned next-segment
+command. A successful full lane ends at `g_consideration_ready` with matching
+reviewed/submitted package bindings, the F-created commit, a draft PR, and
+pasteable Codex G prompt. Other lanes end at one exact stop state with
+evidence and, when safe, a pasteable recovery prompt. Neither output is a
+readiness or authority claim beyond its defined state.
 
 ## Invariants
 
@@ -680,6 +848,8 @@ defined state.
   unchanged.
 - Inspect is zero-write, including no run directory.
 - Dispatch never selects more than three lanes or more than one issue per repo.
+- One canonical workspace never has more than two active or expired-unreleased
+  waves, six associated lanes, or overlapping unreleased repository sets.
 - Explicit `repos=` never falls back to another repository.
 - Selection and post-A overlap checks fail closed on unknown material scope.
 - Each A, B, C, E, and F turn uses a fresh native subagent and current durable
@@ -695,6 +865,13 @@ defined state.
 - A conflict does not cancel an unaffected lane unless shared evidence or a
   dependency becomes invalid.
 - Stopped lanes are never backfilled or automatically retried.
+- Every active lease lasts five minutes and is renewed no later than 60 seconds
+  after its previous issue or renewal while the coordinator remains active.
+- Checkpoint and normal terminal release preserve all branches, worktrees,
+  artifacts, partial results, and event history.
+- Expiry grants recovery-inspection eligibility only; uncertain task or role
+  outcome remains `unknown_agent_outcome` with no automatic retry.
+- Manual work is never adopted into a saved run.
 - The helper has no network, Git, GitHub, subagent, task-creation, merge,
   deployment, installation, or issue-selection capability.
 - State is local, explicit, versioned, redacted on output, integrity checked,
@@ -706,11 +883,13 @@ defined state.
 
 ## Error Behavior
 
-Malformed invocation, unsupported role, out-of-allowlist repository, excessive
-repository count, invalid option combination, invalid manifest, invalid
-transition, duplicate or stale revision, corrupt state, unsafe state-root
-placement, permission drift, unsupported reviewed-package entry, or reviewed-
-package binding drift fail closed with no unauthorized continuation.
+Malformed invocation, unsupported or misaligned segment, out-of-allowlist
+repository, excessive repository count, invalid option combination, invalid
+manifest, invalid transition, duplicate or stale revision, corrupt state,
+unsafe state-root placement, permission drift, active-wave limit, repository
+reservation, cross-run path or scope overlap, lease/recovery proof failure,
+unsupported reviewed-package entry, or reviewed-package binding drift fail
+closed with no unauthorized continuation.
 
 Eligibility ambiguity excludes the candidate. Post-selection ambiguity stops
 only affected lanes unless the ambiguity invalidates shared evidence. A missing
@@ -737,6 +916,7 @@ Inspect side effects: none.
 Authorized Dispatch side effects are limited to:
 
 - one local run directory outside target repositories;
+- shared admission locking plus atomic local reservation/lease/release records;
 - up to three isolated worktrees and issue branches;
 - repository-authorized A, B, C, E, and implementation handoff artifacts;
 - contracted implementation and test edits on each lane;
@@ -745,8 +925,9 @@ Authorized Dispatch side effects are limited to:
   package proof;
 - one draft PR per successful lane;
 - check-status reads for at most 30 minutes;
-- one separate read-only Codex H task only when material governance packets
-  exist, or a pasteable fallback prompt if task creation is unavailable.
+- one separate read-only Codex H task only at terminal completion when material
+  governance packets exist, or a pasteable fallback prompt if task creation is
+  unavailable.
 
 Dispatch must not clone, clean, stash, reset, delete, merge, deploy, install,
 mark a PR ready, close an issue, rerun checks, access private runtime paths,
@@ -755,38 +936,22 @@ runtime controllers.
 
 ## Dependency Order
 
-1. Add this Codex B contract.
-2. Scaffold the new skill directory with the current skill-creator utility.
-3. Implement the deterministic helper and focused helper tests.
-4. Write the source-loaded skill instructions, protocol references, and UI
-   metadata around the tested helper interface.
-5. Update installer expectations and concise repo-owned skill documentation.
-6. Run focused parsing/state/transition/security tests.
-7. Run a source-loaded live Inspect and prove zero writes.
-8. Run synthetic Dispatch scenarios using disposable repositories, local
-   remotes, fake agent outcomes, and mocked PR/check boundaries.
-9. Write the Codex C implementation handoff.
-10. Run independent Codex E review and create the contract-test report. E
-    computes the canonical pre-commit manifest for the exact reviewed package
-    and records its base and `reviewed_package_sha256`; E does not stage or
-    create a commit.
-11. Route a contract ambiguity to B and a concrete implementation/test finding
-    to D. For the current report, this B correction resolves only
-    `ME-IW-855-E-001`; `ME-IW-855-E-002` and `ME-IW-855-E-003` remain
-    already-contracted D findings under the isolation, locking, and tests
-    already required by this contract and the report.
-12. Codex D aligns the state schema, helper, controller protocol, skill
-    instructions, focused tests, and implementation handoff to the exact
-    reviewed-package handshake. D also resolves E-002 and E-003 only within
-    their existing reported boundaries; D does not redesign this contract or
-    edit the E report.
-13. A fresh independent Codex E reviews the exact corrected bytes, reruns the
-    required adversarial tests, and creates a new review result. A stale E
-    approval or old package binding is invalid after any D byte change.
-14. Only after fresh E reports no blockers and records the new package binding,
-    Codex F may stage exactly those reviewed paths, prove the staged binding,
-    create the commit, prove its package binding, push the issue branch, and
-    open a draft PR to `main` under issue #855's explicit scoped approval.
+1. Revise this Codex B contract before implementation.
+2. Update the deterministic helper, V2 schema/protocol references, skill
+   instructions, UI metadata when needed, focused tests, installer expectations,
+   concise documentation, and implementation handoff within the owned paths.
+3. Run focused parsing, transition, concurrency, lease, recovery, package,
+   redaction, and installer tests.
+4. Run source-loaded live Inspect and prove zero writes.
+5. Run synthetic two-wave Dispatch across six disposable repositories using
+   local remotes and mocked PR/CI boundaries.
+6. Run broader repo validation and prove the legacy Role Pool tree identity.
+7. Run fresh independent Codex E review and replace the stale review report
+   with exact-current-package evidence.
+8. Route concrete findings through D and repeat fresh E after any changed byte.
+9. Only after E reports no blocking findings may Codex F stage the exact
+   reviewed package, create one new commit without amending the existing PR
+   commit, push the current branch, and update draft PR #856.
 
 ## Compatibility
 
@@ -799,16 +964,24 @@ runtime controllers.
   the display-name overlap cannot silently route work.
 - Existing installer refusal, dry-run, and non-destructive copy semantics
   remain unchanged.
-- No arbitrary B/C/E/F resume compatibility is added in V1.
+- Existing bare `Dispatch (A)` remains autonomous through F. New saved-run
+  continuation is limited to exact-next-role segments under V2; no manual-work
+  adoption, arbitrary-role entry, or V1 ledger migration is supported.
 
 ## Tests Required
 
 Focused automated tests must cover:
 
-- every canonical invocation and malformed syntax;
+- bare autonomous Dispatch, every new-run checkpoint `A-A`, `A-B`, `A-C`,
+  `A-E`, and `A-F`, every aligned resume and single-role segment, and malformed
+  syntax;
 - unsupported roles/modes/options, repeated options, invalid combinations,
-  out-of-allowlist repositories, normalization, one-to-three limits, and
-  immutable resume permissions;
+  out-of-allowlist repositories, normalization, one-to-three limits, immutable
+  resume permissions, backward/repeated/skipped/D-inclusive/misaligned/post-F
+  segments, and F-only permission compatibility;
+- exact checkpoint stops, mixed completed/stopped lanes, summaries, artifact
+  references, manual prompts, optional next-segment commands, and proof that no
+  next-role agent launches;
 - deterministic candidate ordering and manifest validation for dependency,
   anchor, WIP, authority compatibility, checkout identity, active work, and
   non-overlap evidence;
@@ -833,10 +1006,26 @@ Focused automated tests must cover:
   status, executable mode, type, byte-length, SHA-256, extra/missing staged
   path, parent, and post-commit package drift, proving the lane reaches
   `d_required` without broad restaging, mismatch push, or PR creation;
-- run-ID shape, target/state-root containment checks, exclusive locking,
-  expected revisions, duplicate JSON keys, unknown keys, hash-chain integrity,
-  atomic snapshot projection, one-event crash recovery, stale state,
-  permission drift, and unknown-outcome non-resumability;
+- V2 schema versions, immutable segment history, segment authorization before
+  role launch, exact next-role derivation, run-ID shape, target/state-root
+  containment, expected revisions, duplicate JSON keys, unknown keys,
+  hash-chain integrity, atomic snapshot projection, one-event crash recovery,
+  stale state, permission drift, and unknown-outcome non-resumability;
+- two genuinely simultaneous disjoint waves succeeding through serialized
+  admission; same-repository, third-wave, target/worktree/state-root,
+  issue-scope, and known submission-surface conflicts failing closed;
+- a five-second bounded admission wait and race losers creating no worktree,
+  branch, agent, GitHub effect, replacement, or backfilled lane;
+- five-minute lease creation; renewal intervals no longer than 60 seconds while
+  roles or CI are awaited; atomic renewal history; immediate checkpoint and
+  terminal release; and preservation of all saved work and history;
+- lease expiry producing zero deletion, retry, resume, authorization, release
+  side effect, or repository mutation;
+- recovery after mechanically verified task termination, explicit-user-
+  confirmation fallback, refusal when termination remains uncertain, stable
+  preserved-state revalidation, and safe checkpoint reacquisition;
+- interrupted in-flight roles becoming `unknown_agent_outcome` without retry,
+  plus manual advancement detection without adoption;
 - field allowlisting, no-echo errors, public output path redaction, governance
   triggers, packet redaction, one-task aggregation, and task fallback;
 - installer discovery, list/dry-run/install behavior for the new skill without
@@ -847,8 +1036,9 @@ Source-loaded live Inspect must inspect current allowed repositories and record
 the examined/excluded/selected evidence while proving zero local and GitHub
 writes.
 
-Synthetic Dispatch must use three disposable local Git repositories and local
-remotes, with PR and CI boundaries mocked. It must cover:
+Synthetic Dispatch must use two simultaneous waves across six disposable local
+Git repositories and local remotes, with PR and CI boundaries mocked. It must
+cover:
 
 - successful A through E with no commit, E approval of a canonical package,
   then F-only exact staging/commit/push/draft-PR progression and passing checks;
@@ -859,6 +1049,9 @@ remotes, with PR and CI boundaries mocked. It must cover:
   routed to `d_required` without a mismatched push or PR;
 - CI pass, failure, and 30-minute timeout;
 - interrupted-run recovery and `unknown_agent_outcome` refusal;
+- checkpoint release and exact-next-role continuation;
+- concurrent disjoint success, overlap refusal, third-wave refusal, admission
+  race loss, lease renewal/expiry, and manual drift without adoption;
 - governance packet aggregation and task-creation fallback.
 
 Required validation commands are selected from current repo tooling and must
@@ -885,6 +1078,9 @@ residue must be preserved.
   Codex B contract.
 - `$mythic-edge-issue-wave` source validates and exposes exact Inspect and
   Dispatch behavior without implicit invocation.
+- Bare Dispatch remains autonomous through F; explicit segments stop exactly
+  at their requested checkpoint and exact-next-role resume records a new
+  authorization before agent launch.
 - Inspect produces useful candidate evidence and pasteable A prompts with zero
   writes.
 - Dispatch instructions create fresh A/B/C/E/F native-agent waves and stop at
@@ -895,14 +1091,27 @@ residue must be preserved.
 - The helper is small, deterministic, network-free, agent-free, fail-closed,
   crash-aware, and limited to parsing/validation/local state transitions.
 - Explicit resume cannot retry uncertain work or silently change permissions.
+- At most two disjoint active or expired-unreleased waves and six associated
+  lanes retain capacity in one canonical workspace; shared repositories, a
+  third wave, or cross-run path/scope conflicts fail closed before repository
+  effects.
+- Every active reservation has a five-minute lease renewed no later than every
+  60 seconds; checkpoint and terminal release are immediate and preserve all
+  work and history.
+- Lease expiry authorizes only recovery inspection. Recovery proves former
+  task/agent termination and stable preserved state; uncertainty remains
+  `unknown_agent_outcome` without automatic retry.
+- Manual or external work is detected as drift and is never adopted or
+  retrospectively certified into saved state.
 - E can approve the exact uncommitted C package by canonical manifest SHA-256
   while F remains the sole staging, commit, push, and draft-PR owner.
 - F proves the staged and committed packages both equal E's binding, records
   the F-created commit plus matching submitted binding at `f_complete`, and
   routes every base/byte/path/status/mode/type/package drift to `d_required`
   without broad restaging or mismatched submission.
-- Governance feedback is material-triggered, redacted, aggregated once, and
-  routed to advisory Codex H without governance edits.
+- Governance feedback is material-triggered and redacted; checkpoints surface
+  packets without creating H, while terminal completion aggregates once and
+  routes to advisory Codex H without governance edits.
 - Live read-only Inspect and all synthetic Dispatch scenarios pass.
 - Focused, adjacent, lint, skill, docs, protected-surface, and secret checks
   pass or are explicitly classified with evidence.
@@ -915,37 +1124,32 @@ residue must be preserved.
 
 ## Next Workflow Action
 
-Next role: Codex D: Module Fixer.
+Next role: Codex C: Module Implementer.
 
 ```text
-Act as fresh Mythic Edge Codex D for issue #855 on branch
-agent/mythic-edge-issue-wave-855 and invoke $mythic-edge-workflow. Read current
-repo authority, live issue #855,
-docs/contracts/mythic_edge_issue_wave_skill.md,
-docs/implementation_handoffs/mythic_edge_issue_wave_skill_comparison.md, and
-docs/contract_test_reports/mythic_edge_issue_wave_skill.md. Fix
-ME-IW-855-E-001 exactly as clarified by the contract: add strict canonical
-`mythic_edge_issue_wave_reviewed_package.v1` validation/binding; replace the
-pre-F `reviewed_commit` requirement with `review_base_commit` plus
-`reviewed_package_sha256` at `e_approved`; require F-only exact-path staging,
-pre-commit index-package equality, one F-created commit, post-commit package
-equality, and `created_commit` plus equal `submitted_package_sha256` at
-`f_complete`; route every named drift dimension to `d_required` without
-restaging, mismatch push, or PR creation. The root coordinator owns Git and
-package reconstruction; the helper may only validate supplied canonical
-manifest/state facts and must gain no Git, network, agent, push, or PR
-capability.
+Act as fresh Mythic Edge Codex C for issue #855 on branch
+agent/mythic-edge-issue-wave-855 and invoke $mythic-edge-workflow. Refresh
+current repo authority, live issue #855, draft PR #856, accepted ADR-0008 and
+ADR-0012, and docs/contracts/mythic_edge_issue_wave_skill.md. Implement only
+the newly contracted checkpoint and two-wave revision: explicit A-A/A-B/A-C/
+A-E/A-F checkpoints; exact-next-role saved-run segments; V2 invocation, run,
+event, event-request, and Inspect schemas; two active disjoint waves; bounded
+admission and cross-run isolation; five-minute leases renewed no later than 60
+seconds; immediate checkpoint/terminal release with preserved work; fail-closed
+expired-lease recovery requiring task/agent termination proof and stable-state
+revalidation; unknown_agent_outcome with no automatic retry; no adoption of
+manual work; and checkpoint/governance outputs. Preserve candidate-manifest
+and reviewed-package V1 semantics, the E/F reviewed-package handshake, and
+every legacy Role Pool/R0 byte.
 
-For E-001, edit only the existing skill instructions, controller protocol,
-state schema, state helper, focused issue-wave tests, and implementation
-handoff. Do not edit this B contract or the E report. ME-IW-855-E-002 and
-ME-IW-855-E-003 remain separate, already-contracted D findings; address them
-only within the exact isolation/locking/test boundaries already stated in the
-contract and E report, without redesigning their contract. Preserve every
-legacy Role Pool/R0 byte. Run focused and adversarial tests plus docs, Ruff,
-safety, legacy-identity, and diff checks. Stop for fresh independent E without
-staging, committing, pushing, opening a PR, installing, performing real
-Dispatch, or doing G/merge/deployment work.
+Edit only the paths owned by this contract, update the implementation handoff,
+and run the exact focused, simultaneous two-wave, lease/recovery, synthetic,
+Inspect-zero-write, installer, Ruff, docs, protected-surface, secret, legacy-
+identity, and diff checks required here. If safe behavior would require a
+daemon, service, scheduler, database, custom agent controller, or cross-machine
+coordinator, stop and route to A. Stop for fresh independent E without staging,
+committing, pushing, updating PR #856, installing, performing a real Dispatch,
+merging, deploying, or closing issue #855.
 ```
 
 ```yaml
@@ -955,23 +1159,23 @@ workflow_handoff:
   issue: "https://github.com/Tahjali11/Mythic-Edge/issues/855"
   tracker: "N/A"
   completed_thread: "B"
-  next_thread: "D"
+  next_thread: "C"
   source_artifact: "docs/contracts/mythic_edge_issue_wave_skill.md"
   target_artifact: "docs/implementation_handoffs/mythic_edge_issue_wave_skill_comparison.md"
-  risk_tier: "medium"
+  risk_tier: "high workflow risk"
   base_branch: "main"
   target_branch: "main"
   branch: "agent/mythic-edge-issue-wave-855"
   validation:
-    - "ME-IW-855-E-001 contract ambiguity corrected against current issue and role authority"
-    - "E-002 and E-003 preserved as already-contracted D findings without scope change"
+    - "Contract reconciled to the refreshed issue #855 checkpoint, concurrency, lease, and recovery authority"
+    - "Candidate-manifest and reviewed-package V1 semantics preserved"
     - "docs consistency checks"
     - "git diff --check"
   stop_conditions:
     - "contract or authority ambiguity"
-    - "any E-001 change outside the exact D boundary"
+    - "safe implementation requires a daemon, service, scheduler, database, custom controller, or cross-machine coordinator"
     - "legacy Role Pool or R0-bound byte change"
-    - "staging, commit, push, PR, real Dispatch, installation, G work, merge, or deployment"
+    - "staging, commit, push, PR update, real Dispatch, installation, G work, merge, deployment, or issue closure"
 ```
 
 ```yaml
@@ -979,7 +1183,7 @@ instruction_context:
   required_for_risk_tier: "medium_or_high"
   deferred_for_low_risk: false
   role: "B"
-  risk_tier: "medium"
+  risk_tier: "high workflow risk"
   global_router_read: true
   repo_agents_read: true
   repo_rules_read: true
@@ -997,9 +1201,9 @@ instruction_context:
     - "local resumable run state"
     - "legacy Role Pool and R0-bound files (explicitly forbidden)"
   authority_conflicts_found: false
-  authority_conflict_notes: "ME-IW-855-E-001's E/F sequencing ambiguity is resolved by a pre-commit reviewed-package binding while F remains the sole staging, commit, push, and PR owner. Issue #855 grants no merge, installation, deployment, or real Dispatch authority."
+  authority_conflict_notes: "Issue #855 records the explicit ADR-0008 override and fixes the checkpoint grammar, two-wave limit, disjoint-repository rule, renewable lease, recovery proof, and manual-continuation boundary. No daemon or cross-machine enforcement is authorized or required."
   stop_conditions:
-    - "the reviewed-package handshake remains ambiguous"
-    - "D requires a path or behavior outside the exact finding boundaries"
+    - "the V2 transition, lease, or recovery contract remains ambiguous"
+    - "implementation requires scope outside the contract-owned paths"
     - "legacy or R0 boundary cannot be proven unchanged"
 ```

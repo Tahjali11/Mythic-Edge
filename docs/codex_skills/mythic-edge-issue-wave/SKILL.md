@@ -1,6 +1,6 @@
 ---
 name: mythic-edge-issue-wave
-description: Inspect up to three dependency-safe Mythic Edge issue lanes or, when explicitly asked to Dispatch, coordinate fresh native Codex A through F role waves with isolated worktrees, local recovery state, draft PRs, and a stop before G. Use for explicit $mythic-edge-issue-wave Inspect or Dispatch invocations; never use implicitly or as a replacement for the legacy mythic-edge-role-pool skill.
+description: Inspect up to three dependency-safe Mythic Edge issue lanes or, when explicitly asked to Dispatch, coordinate checkpointed fresh native Codex A through F role waves with isolated worktrees, two-wave reservations, renewable leases, recovery state, draft PRs, and a stop before G. Use for explicit $mythic-edge-issue-wave Inspect or Dispatch invocations; never use implicitly or as a replacement for the legacy mythic-edge-role-pool skill.
 ---
 
 # Mythic Edge Issue Wave
@@ -25,6 +25,10 @@ py -B scripts/issue_wave_state.py parse <invocation>
 py -B scripts/issue_wave_state.py bind-package --manifest <reviewed-package.json>
 py -B scripts/issue_wave_state.py init ...
 py -B scripts/issue_wave_state.py transition ...
+py -B scripts/issue_wave_state.py renew-lease ...
+py -B scripts/issue_wave_state.py release ...
+py -B scripts/issue_wave_state.py authorize-segment ...
+py -B scripts/issue_wave_state.py recover ...
 py -B scripts/issue_wave_state.py inspect ...
 ```
 
@@ -39,13 +43,15 @@ work, create PRs, poll CI, or decide authority.
 Accept only:
 
 ```text
-$mythic-edge-issue-wave <Inspect|Dispatch> (A[; option ...])
+$mythic-edge-issue-wave <Inspect|Dispatch> (<role-or-segment>[; option ...])
 ```
 
 Options are `repos=`, `anchor=`, `run=`, `allow-main-draft`, and
-`allow-wip-exception` as defined in the controller protocol. Start new work at
-Codex A only. Fail closed on any parser error and return the concise usage
-message without echoing unsafe input.
+`allow-wip-exception` as defined in the controller protocol. Inspect accepts
+only `A`; bare Dispatch `A` remains autonomous through F. New-run checkpoints
+are exactly `A-A`, `A-B`, `A-C`, `A-E`, and `A-F`. Saved-run segments begin
+at the exact next role. Fail closed on backward, skipped, D-inclusive,
+misaligned, or malformed segments without echoing unsafe input.
 
 ## Inspect
 
@@ -86,8 +92,9 @@ issue-scoped authority for every planned effect.
 3. Build a redacted, deterministically ordered manifest. Prove that the state
    root and every target checkout are pairwise non-overlapping. Initialize its
    ledger outside every target repository only after all preconditions pass;
-   one state-root admission lock must cover duplicate-lane scanning through
-   atomic run publication.
+   one state-root admission lock must cover scanning through atomic run
+   publication. Admit at most two active waves with disjoint repository sets;
+   reject cross-run scope/path overlap before any repository effect.
 4. Create one isolated branch and worktree per accepted lane. Never clone,
    clean, stash, reset, or delete.
 5. Create up to three fresh native Codex A subagents in parallel. Give each a
@@ -100,7 +107,9 @@ issue-scoped authority for every planned effect.
 7. For each continuing lane, create a fresh B, then fresh C, then independent
    fresh E, then fresh F agent. Never reuse an agent as the next role.
 8. Verify every role artifact and append a transition only after the durable
-   outcome is proven. Revalidate before each role and external write.
+   outcome is proven. Renew the five-minute lease no later than every 60
+   seconds, including while waiting for agents or CI. Revalidate before each
+   role and external write.
 9. For E, require lane `HEAD` to remain the review base, require an empty real
    index, construct the complete canonical
    `mythic_edge_issue_wave_reviewed_package.v1` manifest from root-observed
@@ -125,6 +134,12 @@ issue-scoped authority for every planned effect.
 12. Stop before D and G. Return a pasteable D or G prompt only when the saved
     state and current evidence permit it.
 
+For an explicit segment, stop after every unaffected lane reaches its endpoint
+or a defined stop. Release the reservation, preserve all work and history, and
+do not launch the next role. Return concise summaries, exact public-safe
+artifact references, validation, a manual prompt, and the aligned next-segment
+command.
+
 If an agent or external write has an uncertain outcome, reconcile read-only
 first. If the exact outcome remains unknown, record
 `unknown_agent_outcome`; never repeat the action or resume that lane.
@@ -135,8 +150,13 @@ Resume only through an explicit `run=` invocation. Validate the saved hash
 chain and projection, then refresh live issue, PR, check, head, worktree,
 artifact, reviewed/submitted package binding, role-outcome, and permission evidence. Omitted permission flags keep
 the saved immutable values; an explicitly repeated flag must already be true
-in the run. Never use resume to retry uncertain work or enter arbitrary B, C,
-E, or F work that this skill did not create.
+in the run. Reacquire capacity and record a segment authorization before the
+next agent starts. Detect manual advancement as drift and never adopt it.
+
+Lease expiry authorizes recovery inspection only. Prove the former parent task
+and all agents stopped, then prove preserved state is stable and inactive;
+repository inactivity alone is insufficient. An in-flight role becomes
+`unknown_agent_outcome` and is never automatically retried or resumed.
 
 ## Governance Feedback
 

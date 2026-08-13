@@ -51,6 +51,17 @@ py -B scripts/issue_wave_state.py transition \
   --event <event-request.json>
 ```
 
+Renew or release the active reservation, authorize an aligned saved-run
+segment after root revalidation, or recover an expired run after termination
+proof:
+
+```text
+py -B scripts/issue_wave_state.py renew-lease --workspace-root <root> --run <id> --expected-revision <n>
+py -B scripts/issue_wave_state.py release --workspace-root <root> --run <id> --expected-revision <n> [--terminal]
+py -B scripts/issue_wave_state.py authorize-segment '<Dispatch run invocation>' --workspace-root <root> --run <id> --expected-revision <n> --proof <proof.json>
+py -B scripts/issue_wave_state.py recover --workspace-root <root> --run <id> --expected-revision <n> --proof <proof.json>
+```
+
 Inspect without writing or repairing:
 
 ```text
@@ -166,9 +177,12 @@ The private ledger contains only:
   events.jsonl
 ```
 
-`run.json` holds schema and run identifiers, created/updated UTC timestamps,
-revision, last event digest, immutable invocation selectors and permissions,
-the accepted candidates, lane projections, and derived run completion.
+`run.json` uses `mythic_edge_issue_wave_state.v2`. It holds schema and run
+identifiers, timestamps, revision, last event digest, immutable selectors and
+permissions, current segment, exact next role, immutable segment history,
+execution status, accepted candidates, lane projections, reservation/lease/
+recovery state, and derived run completion. Execution status is exactly
+`active`, `checkpointed`, `stopped`, or `terminal`.
 
 Each lane projection holds canonical repo/issue identity, redacted eligibility
 summary and scope, private checkout/worktree locations, state, active role,
@@ -182,16 +196,18 @@ alone sets the second pair at `f_complete`; each is immutable afterward.
 that exact branch and newly supply the positive `draft_pr` at `f_complete`.
 Neither submission field may change afterward.
 
-`events.jsonl` starts empty. Every transition appends one canonical UTF-8 LF
-line containing schema version, sequence, UTC timestamp, lane, from/to state,
-role, public-safe reason/evidence, allowlisted projection updates, previous
-event digest, and its own SHA-256 digest.
+`events.jsonl` starts empty. Every V2 event appends one canonical UTF-8 LF line
+containing schema version, sequence, timestamp, event type, segment, optional
+lane transition, role, public-safe reason/evidence, closed updates, previous
+digest, and its own SHA-256 digest. Types are transition, lease renewal,
+checkpoint/terminal release, interruption stop, segment authorization, and
+recovery admission.
 
 An event request uses exactly:
 
 ```json
 {
-  "schema_version": "mythic_edge_issue_wave_event_request.v1",
+  "schema_version": "mythic_edge_issue_wave_event_request.v2",
   "lane_id": "repo-issue-123",
   "from_state": "selected",
   "to_state": "a_running",
@@ -266,19 +282,22 @@ repository evidence is true.
 
 ## Recovery And Locking
 
-Every initialization acquires one exclusive state-root admission lock before
-duplicate-active-lane scanning and holds it through atomic run publication.
-An existing or stale admission lock returns `state_locked`; do not remove,
-recover, wait around, or retry it. Initialization cleanup removes only staging
-state whose ownership was established by that call.
+Every initialization acquires one exclusive state-root admission lock, waits
+at most five seconds, and holds it through atomic reservation and publication.
+It admits at most two active waves and six lanes, requires disjoint active
+repository sets, and rejects cross-run scope and path overlap. Expired but
+unreleased capacity returns `recovery_proof_required`. Never remove a stale or
+persistent lock. Initialization cleanup removes only owned staging state.
 
-Every transition acquires an exclusive ephemeral per-run lock and requires the
-exact current revision. Do not remove or bypass a conflicting lock. Every new
-worktree must be non-overlapping with the state root, every target checkout,
-and every recorded worktree after canonical resolution. Load and replay repeat
-the global isolation check so a collision is a state-integrity failure. A
-worktree location is set once on `selected -> a_running` and cannot later be
-cleared or reassigned to bypass that check.
+Every transition requires the exact current revision, an unexpired lease, and
+a renewal age no greater than 60 seconds. The first immutable worktree binding
+also holds the shared admission lock while checking every unreleased run, then
+the per-run lock while recording the event. Every new worktree must be
+non-overlapping with the state root, every target checkout, and every recorded
+worktree after canonical resolution. Load and replay repeat the within-run
+isolation check so a collision is a state-integrity failure. A worktree
+location is set once on `selected -> a_running` and cannot later be cleared or
+reassigned to bypass that check.
 
 The helper flushes one hash-chained event before atomically replacing
 `run.json`. On read:
@@ -297,12 +316,28 @@ Missing recorded worktrees or artifacts do not rewrite history. Load the
 ledger, report current absence during root revalidation, and stop through the
 appropriate contracted state.
 
+Each active lease lasts five minutes and renewal is accepted no later than 60
+seconds after issue or renewal. Checkpoint and terminal release clear capacity
+immediately but preserve branches, worktrees, artifacts, and history. Expiry
+does nothing by itself. Recovery requires mechanically verified termination or
+explicit owner confirmation plus stable preserved state and no active
+operation. An in-flight role becomes `unknown_agent_outcome` and cannot be
+resumed. A completed checkpoint must reacquire admission and record its exact
+next segment before any agent launch. Its closed revalidation proof contains
+every lane's exact repository head plus every durable artifact reference and
+expected/observed SHA-256 identity. The canonical proof digest is bound into
+both the authorization event and immutable segment history. Missing lanes,
+changed identities, or false revalidation record no authorization.
+
 ## Redaction And Errors
 
 Public summaries, artifact references, scope tokens, check summaries, and
-governance packets reject local absolute paths and common secret/private
-markers. `inspect` omits checkout and worktree locations and marks them
-redacted.
+governance packets reject drive-rooted Windows paths, backslash or
+forward-slash UNC paths, every lexical POSIX absolute path, and common
+secret/private markers while retaining HTTPS and repository-relative text.
+`inspect` omits checkout and worktree locations and marks them redacted. It
+emits saved-run continuation prompts and commands only for a released,
+checkpointed run with one exact next role.
 
 The private ledger may store only the local checkout/worktree paths needed for
 recovery. Never supply credentials, tokens, environment values, complete issue

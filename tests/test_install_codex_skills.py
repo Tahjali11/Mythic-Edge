@@ -315,6 +315,9 @@ def test_repo_owned_issue_wave_lists_dry_runs_and_installs_to_temporary_target(
     assert install_code == installer.EXIT_SUCCESS
     assert "action=installed" in install_output
     assert installer._directories_match(source, target)
+    installed_helper = (target / "scripts" / "issue_wave_state.py").read_text(encoding="utf-8")
+    assert 'INVOCATION_SCHEMA = "mythic_edge_issue_wave_invocation.v2"' in installed_helper
+    assert 'STATE_SCHEMA = "mythic_edge_issue_wave_state.v2"' in installed_helper
     assert unchanged_code == installer.EXIT_SUCCESS
     assert "action=unchanged" in unchanged_output
 

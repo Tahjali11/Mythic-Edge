@@ -1,6 +1,6 @@
 interface:
   display_name: "Mythic Edge Role Pool"
-  short_description: "Coordinate bounded Mythic Edge issue waves"
+  short_description: "Coordinate checkpointed Mythic Edge issue waves"
   default_prompt: "Use $mythic-edge-issue-wave to inspect up to three dependency-safe Mythic Edge issue lanes."
 
 policy:
