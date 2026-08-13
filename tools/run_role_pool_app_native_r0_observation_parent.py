@@ -107,6 +107,10 @@ _DEVELOPMENT_PREDICATES = (
     "repository_root_resolved",
     "audit_installed",
     "before_effect_snapshot_available",
+    "before_source_tree_digest_exact",
+    "before_installed_tree_digest_exact",
+    "before_source_installed_tree_equal",
+    "before_state_bindings_exact",
     "before_effect_snapshot_exact",
     "cpython_runtime_exact",
     "current_process_handle_available",
@@ -125,6 +129,10 @@ _DEVELOPMENT_PREDICATES = (
     "controller_image_path_identity_exact",
     "controller_image_guard_close_exact",
     "after_effect_snapshot_available",
+    "after_source_tree_digest_exact",
+    "after_installed_tree_digest_exact",
+    "after_source_installed_tree_equal",
+    "after_state_bindings_exact",
     "after_effect_snapshot_exact",
     "effect_snapshots_equal",
     "audit_counts_available",
@@ -132,7 +140,13 @@ _DEVELOPMENT_PREDICATES = (
     "development_output_write_complete",
     "development_output_flush_complete",
 )
-_DEVELOPMENT_IMAGE_PREDICATES = _DEVELOPMENT_PREDICATES[6:19]
+_DEVELOPMENT_IMAGE_PREDICATES = _DEVELOPMENT_PREDICATES[10:23]
+_EFFECT_SNAPSHOT_COMPONENTS = (
+    ("source_tree_digest_exact", "source_tree_digest_exact"),
+    ("installed_tree_digest_exact", "installed_tree_digest_exact"),
+    ("source_installed_tree_equal", "source_installed_tree_equal"),
+    ("state_bindings_exact", "state_bindings_exact"),
+)
 
 GENERIC_READ = 0x80000000
 FILE_READ_ATTRIBUTES = 0x00000080
@@ -390,10 +404,31 @@ class _CanonicalTargetBinding:
 
 @dataclass(frozen=True)
 class _EffectSnapshot:
-    exact: bool
     repository_digest: str
     installed_digest: str
     generated_residue: frozenset[str]
+    source_tree_digest_exact: bool
+    installed_tree_digest_exact: bool
+    source_installed_tree_equal: bool
+    state_bindings_exact: bool
+
+    @property
+    def exact(self) -> bool:
+        return (
+            self.source_tree_digest_exact
+            and self.installed_tree_digest_exact
+            and self.source_installed_tree_equal
+            and self.state_bindings_exact
+        )
+
+
+@dataclass(frozen=True)
+class _RolePoolTreeBinding:
+    canonical_bytes: bytes
+    node_count: int
+    file_count: int
+    canonical_byte_count: int
+    sha256: str
 
 
 @dataclass(frozen=True)
@@ -1544,6 +1579,34 @@ def _canonical_bytes(document: Mapping[str, object]) -> bytes:
     return json.dumps(document, ensure_ascii=True, sort_keys=True, separators=(",", ":")).encode("ascii")
 
 
+def _role_pool_tree_binding(
+    rows: tuple[tuple[str, str, bytes], ...],
+) -> _RolePoolTreeBinding:
+    document = {
+        "schema_version": "trusted_owner_role_pool_install_tree.v1",
+        "rows": [
+            {
+                "path": relative,
+                "kind": kind,
+                "byte_count": len(payload),
+                "sha256": hashlib.sha256(payload).hexdigest(),
+            }
+            for relative, kind, payload in rows
+        ],
+    }
+    canonical_bytes = (
+        json.dumps(document, ensure_ascii=True, separators=(",", ":")).encode("utf-8")
+        + b"\n"
+    )
+    return _RolePoolTreeBinding(
+        canonical_bytes=canonical_bytes,
+        node_count=len(rows),
+        file_count=sum(kind == "file" for _, kind, _ in rows),
+        canonical_byte_count=len(canonical_bytes),
+        sha256=hashlib.sha256(canonical_bytes).hexdigest(),
+    )
+
+
 def _tree_snapshot(
     root: Path,
     *,
@@ -1780,8 +1843,12 @@ class _WindowsParentAdapter:
     ) -> _EffectSnapshot:
         source = repository_root / "docs" / "codex_skills" / "mythic-edge-role-pool"
         installed = Path.home() / ".codex" / "skills" / "mythic-edge-role-pool"
-        source_digest = _tree_digest(source, development_context=development_context)
-        installed_digest = _tree_digest(installed, development_context=development_context)
+        source_binding = _role_pool_tree_binding(
+            _tree_snapshot(source, development_context=development_context)
+        )
+        installed_binding = _role_pool_tree_binding(
+            _tree_snapshot(installed, development_context=development_context)
+        )
         repository_digest = _tree_digest(
             repository_root,
             excluded_root_names=_REPOSITORY_METADATA_NAMES,
@@ -1800,10 +1867,14 @@ class _WindowsParentAdapter:
             )
             for relative in sorted(STATE_BINDINGS, key=lambda item: item.as_posix())
         )
-        exact = (
-            source_digest == "3aadf078fe594dafdd870df5577d342ccf1c8ea665f2a8f53cc79a58213717d6"
-            and installed_digest == source_digest
-            and all(observed == STATE_BINDINGS[Path(relative)] for relative, observed in fixed_rows)
+        expected_tree_digest = "3aadf078fe594dafdd870df5577d342ccf1c8ea665f2a8f53cc79a58213717d6"
+        source_tree_digest_exact = source_binding.sha256 == expected_tree_digest
+        installed_tree_digest_exact = installed_binding.sha256 == expected_tree_digest
+        source_installed_tree_equal = (
+            source_binding.canonical_bytes == installed_binding.canonical_bytes
+        )
+        state_bindings_exact = all(
+            observed == STATE_BINDINGS[Path(relative)] for relative, observed in fixed_rows
         )
         residue_candidates = (
             (repository_root / ".pytest_cache", "repository/.pytest_cache"),
@@ -1825,13 +1896,29 @@ class _WindowsParentAdapter:
             if root.exists()
             for path in (root, *root.rglob("*"))
         )
-        return _EffectSnapshot(exact, repository_digest, installed_digest, residue)
+        return _EffectSnapshot(
+            repository_digest=repository_digest,
+            installed_digest=installed_binding.sha256,
+            generated_residue=residue,
+            source_tree_digest_exact=source_tree_digest_exact,
+            installed_tree_digest_exact=installed_tree_digest_exact,
+            source_installed_tree_equal=source_installed_tree_equal,
+            state_bindings_exact=state_bindings_exact,
+        )
 
     def snapshot_effects(self, repository_root: Path) -> _EffectSnapshot:
         try:
             return self._snapshot_effects_exact(repository_root)
         except BaseException:
-            return _EffectSnapshot(False, "", "", frozenset())
+            return _EffectSnapshot(
+                repository_digest="",
+                installed_digest="",
+                generated_residue=frozenset(),
+                source_tree_digest_exact=False,
+                installed_tree_digest_exact=False,
+                source_installed_tree_equal=False,
+                state_bindings_exact=False,
+            )
 
     def _development_snapshot_effects(self, repository_root: Path) -> _EffectSnapshot:
         return self._snapshot_effects_exact(repository_root, development_context=True)
@@ -2866,11 +2953,27 @@ def _drain_pipe(
 
 def _effect_snapshot_values(prefix: str, snapshot: _EffectSnapshot) -> dict[str, object]:
     return {
+        f"{prefix}_source_tree_digest_exact": snapshot.source_tree_digest_exact,
+        f"{prefix}_installed_tree_digest_exact": snapshot.installed_tree_digest_exact,
+        f"{prefix}_source_installed_tree_equal": snapshot.source_installed_tree_equal,
+        f"{prefix}_state_bindings_exact": snapshot.state_bindings_exact,
         f"{prefix}_effect_snapshot_exact": snapshot.exact,
-        f"{prefix}_repository_digest": snapshot.repository_digest,
-        f"{prefix}_installed_digest": snapshot.installed_digest,
-        f"{prefix}_generated_residue": sorted(snapshot.generated_residue),
     }
+
+
+def _record_effect_snapshot_predicates(
+    recorder: _DevelopmentRecorder,
+    prefix: str,
+    snapshot: _EffectSnapshot,
+) -> None:
+    values = _effect_snapshot_values(prefix, snapshot)
+    for predicate_suffix, attribute in _EFFECT_SNAPSHOT_COMPONENTS:
+        recorder.require(
+            f"{prefix}_{predicate_suffix}",
+            cast(bool, getattr(snapshot, attribute)),
+            values=values,
+        )
+    recorder.passed(f"{prefix}_effect_snapshot_exact", values)
 
 
 def _collect_development_effect_evidence(
@@ -3070,11 +3173,7 @@ def _run_development_diagnostic(
         _effect_snapshot_values("before", before),
     )
     try:
-        recorder.require(
-            "before_effect_snapshot_exact",
-            before.exact,
-            values=_effect_snapshot_values("before", before),
-        )
+        _record_effect_snapshot_predicates(recorder, "before", before)
     except _DevelopmentAbort:
         _collect_development_effect_evidence(
             selected_adapter,
@@ -3153,11 +3252,7 @@ def _run_development_diagnostic(
         _effect_snapshot_values("after", after),
     )
     try:
-        recorder.require(
-            "after_effect_snapshot_exact",
-            after.exact,
-            values=_effect_snapshot_values("after", after),
-        )
+        _record_effect_snapshot_predicates(recorder, "after", after)
         snapshots_equal = (
             before.repository_digest == after.repository_digest
             and before.installed_digest == after.installed_digest

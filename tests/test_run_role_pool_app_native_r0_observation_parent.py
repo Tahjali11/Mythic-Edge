@@ -11,6 +11,7 @@ import stat
 import sys
 from collections.abc import Callable
 from dataclasses import dataclass, replace
+from itertools import product
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
@@ -134,12 +135,33 @@ def launch_evidence(**changes: object) -> object:
     return parent._LaunchEvidence(**values)
 
 
+def effect_snapshot(
+    *,
+    repository_digest: str = "repo",
+    installed_digest: str = "installed",
+    generated_residue: frozenset[str] = frozenset(),
+    source_tree_digest_exact: bool = True,
+    installed_tree_digest_exact: bool = True,
+    source_installed_tree_equal: bool = True,
+    state_bindings_exact: bool = True,
+) -> object:
+    return parent._EffectSnapshot(
+        repository_digest=repository_digest,
+        installed_digest=installed_digest,
+        generated_residue=generated_residue,
+        source_tree_digest_exact=source_tree_digest_exact,
+        installed_tree_digest_exact=installed_tree_digest_exact,
+        source_installed_tree_equal=source_installed_tree_equal,
+        state_bindings_exact=state_bindings_exact,
+    )
+
+
 class FakeAdapter:
     def __init__(self) -> None:
         self.os_name = "nt"
         self.platform = "win32"
         self.calls: list[str] = []
-        self.before = parent._EffectSnapshot(True, "repo", "installed", frozenset())
+        self.before = effect_snapshot()
         self.after = self.before
         self.counts = parent._AuditCounts(0, 0, 0, 0)
         self.evidence = launch_evidence()
@@ -436,7 +458,14 @@ def test_development_snapshot_exposes_exception_while_production_remains_blinded
 
     monkeypatch.setattr(adapter, "_snapshot_effects_exact", fail_snapshot)
 
-    assert adapter.snapshot_effects(ROOT) == parent._EffectSnapshot(False, "", "", frozenset())
+    assert adapter.snapshot_effects(ROOT) == effect_snapshot(
+        repository_digest="",
+        installed_digest="",
+        source_tree_digest_exact=False,
+        installed_tree_digest_exact=False,
+        source_installed_tree_equal=False,
+        state_bindings_exact=False,
+    )
     with pytest.raises(OSError, match=PRIVATE_MARKER):
         adapter._development_snapshot_effects(ROOT)
 
@@ -1058,6 +1087,99 @@ def test_pre_post_drift_and_residue_are_safety_failures(which: str) -> None:
     assert result == "observation_safety_boundary_failed"
 
 
+def test_role_pool_tree_binding_matches_installer_known_answer() -> None:
+    rows = (
+        ("SKILL.md", "file", b"alpha\n"),
+        ("scripts", "directory", b""),
+    )
+    expected = (
+        b'{"schema_version":"trusted_owner_role_pool_install_tree.v1","rows":['
+        b'{"path":"SKILL.md","kind":"file","byte_count":6,"sha256":'
+        b'"b6a98d9ce9a2d9149288fa3df42d377c3e42737afdcdaf714e33c0a100b51060"},'
+        b'{"path":"scripts","kind":"directory","byte_count":0,"sha256":'
+        b'"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}]}'
+        b"\n"
+    )
+
+    binding = parent._role_pool_tree_binding(rows)
+
+    assert binding.canonical_bytes == expected
+    assert binding.node_count == 2
+    assert binding.file_count == 1
+    assert binding.canonical_byte_count == 324
+    assert binding.sha256 == "3c2dffc5c0665789afdf67b217c4de4085e6857c0d4c284f969fd2947e47d35e"
+    assert binding.canonical_bytes.endswith(b"\n")
+    assert not binding.canonical_bytes.endswith(b"\n\n")
+
+
+def test_current_role_pool_source_uses_authoritative_tree_binding() -> None:
+    rows = parent._tree_snapshot(
+        ROOT / "docs" / "codex_skills" / "mythic-edge-role-pool"
+    )
+    binding = parent._role_pool_tree_binding(rows)
+
+    assert binding.node_count == 43
+    assert binding.file_count == 38
+    assert binding.canonical_byte_count == 6840
+    assert binding.sha256 == "3aadf078fe594dafdd870df5577d342ccf1c8ea665f2a8f53cc79a58213717d6"
+
+
+def test_effect_snapshot_keeps_tree_and_state_facts_independent(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    source_rows = parent._tree_snapshot(
+        ROOT / "docs" / "codex_skills" / "mythic-edge-role-pool"
+    )
+    installed_rows = [source_rows]
+    state_payload = [b"state"]
+    state_path = Path("state.txt")
+    monkeypatch.setattr(
+        parent,
+        "STATE_BINDINGS",
+        {state_path: hashlib.sha256(state_payload[0]).hexdigest()},
+    )
+
+    def fake_tree_snapshot(root: Path, **_kwargs: object) -> object:
+        if root.name == "mythic-edge-role-pool" and ".codex" in root.parts:
+            return installed_rows[0]
+        return source_rows
+
+    monkeypatch.setattr(parent, "_tree_snapshot", fake_tree_snapshot)
+    monkeypatch.setattr(parent, "_tree_digest", lambda *_args, **_kwargs: "repository")
+    monkeypatch.setattr(parent, "_stable_file_bytes", lambda *_args, **_kwargs: state_payload[0])
+    monkeypatch.setattr(parent.Path, "exists", lambda _path: False)
+    adapter = object.__new__(parent._WindowsParentAdapter)
+
+    exact = adapter._snapshot_effects_exact(tmp_path)
+    assert exact.source_tree_digest_exact is True
+    assert exact.installed_tree_digest_exact is True
+    assert exact.source_installed_tree_equal is True
+    assert exact.state_bindings_exact is True
+    assert exact.exact is True
+
+    changed_rows = list(source_rows)
+    file_index = next(index for index, row in enumerate(changed_rows) if row[1] == "file")
+    relative, kind, _payload = changed_rows[file_index]
+    changed_rows[file_index] = (relative, kind, b"changed")
+    installed_rows[0] = tuple(changed_rows)
+    drifted = adapter._snapshot_effects_exact(tmp_path)
+    assert drifted.source_tree_digest_exact is True
+    assert drifted.installed_tree_digest_exact is False
+    assert drifted.source_installed_tree_equal is False
+    assert drifted.state_bindings_exact is True
+    assert drifted.exact is False
+
+    installed_rows[0] = source_rows
+    state_payload[0] = b"wrong"
+    state_drift = adapter._snapshot_effects_exact(tmp_path)
+    assert state_drift.source_tree_digest_exact is True
+    assert state_drift.installed_tree_digest_exact is True
+    assert state_drift.source_installed_tree_equal is True
+    assert state_drift.state_bindings_exact is False
+    assert state_drift.exact is False
+
+
 def test_repository_tree_digest_covers_every_working_tree_path_except_git_metadata(
     tmp_path: Path,
 ) -> None:
@@ -1089,7 +1211,7 @@ def test_repository_tree_digest_covers_every_working_tree_path_except_git_metada
 
 def test_unstable_effect_snapshot_is_cleanup_unknown() -> None:
     adapter = FakeAdapter()
-    adapter.after = replace(adapter.after, exact=False)
+    adapter.after = replace(adapter.after, source_tree_digest_exact=False)
     result, _owner = run(adapter)
     assert result == "observation_timeout_unknown"
 
@@ -1590,7 +1712,11 @@ def test_success_is_deterministic_for_identical_parent_evidence() -> None:
 @pytest.mark.parametrize(
     "mutation",
     [
-        lambda adapter: setattr(adapter, "before", replace(adapter.before, exact=False)),
+        lambda adapter: setattr(
+            adapter,
+            "before",
+            replace(adapter.before, source_tree_digest_exact=False),
+        ),
         lambda adapter: setattr(adapter, "target_exact", None),
         lambda adapter: setattr(adapter, "evidence", launch_evidence(exit_code=1)),
         lambda adapter: setattr(adapter, "evidence", launch_evidence(stdout_eof=False)),
@@ -1878,7 +2004,7 @@ def test_metadata_audit_boundary_failure_precedes_private_image_inspection(
 
         monkeypatch.setattr(adapter, "snapshot_effects", fail_snapshot)
     else:
-        adapter.before = parent._EffectSnapshot(False, "repo", "installed", frozenset())
+        adapter.before = effect_snapshot(source_tree_digest_exact=False)
 
     assert run_metadata(adapter) == "observation_binding_rejected"
     assert "validate_controller_image" not in adapter.calls
@@ -2217,15 +2343,80 @@ def parse_development_transcript(payload: bytes) -> dict[str, object]:
     return parsed
 
 
+@pytest.mark.parametrize("phase", ["before", "after"])
+@pytest.mark.parametrize("component_values", list(product((False, True), repeat=4)))
+def test_effect_snapshot_vector_and_aggregate_are_exactly_derived(
+    phase: str,
+    component_values: tuple[bool, bool, bool, bool],
+) -> None:
+    component_fields = tuple(attribute for _, attribute in parent._EFFECT_SNAPSHOT_COMPONENTS)
+    snapshot = effect_snapshot(**dict(zip(component_fields, component_values, strict=True)))
+
+    values = parent._effect_snapshot_values(phase, snapshot)
+
+    expected_keys = [
+        f"{phase}_source_tree_digest_exact",
+        f"{phase}_installed_tree_digest_exact",
+        f"{phase}_source_installed_tree_equal",
+        f"{phase}_state_bindings_exact",
+        f"{phase}_effect_snapshot_exact",
+    ]
+    assert list(values) == expected_keys
+    assert list(values.values()) == [*component_values, all(component_values)]
+    assert snapshot.exact is all(component_values)
+    assert all(type(value) is bool for value in values.values())
+
+
+@pytest.mark.parametrize("phase", ["before", "after"])
+@pytest.mark.parametrize("first_false_index", [None, 0, 1, 2, 3])
+def test_effect_snapshot_predicates_stop_at_first_component_and_derive_aggregate(
+    phase: str,
+    first_false_index: int | None,
+) -> None:
+    component_fields = tuple(attribute for _, attribute in parent._EFFECT_SNAPSHOT_COMPONENTS)
+    component_values = [True, True, True, True]
+    if first_false_index is not None:
+        component_values[first_false_index] = False
+    snapshot = effect_snapshot(
+        **dict(zip(component_fields, component_values, strict=True))
+    )
+    recorder = parent._DevelopmentRecorder()
+
+    if first_false_index is None:
+        parent._record_effect_snapshot_predicates(recorder, phase, snapshot)
+    else:
+        with pytest.raises(parent._DevelopmentAbort):
+            parent._record_effect_snapshot_predicates(recorder, phase, snapshot)
+
+    component_predicates = [
+        f"{phase}_{suffix}" for suffix, _ in parent._EFFECT_SNAPSHOT_COMPONENTS
+    ]
+    aggregate = f"{phase}_effect_snapshot_exact"
+    if first_false_index is None:
+        assert recorder.call_order == [*component_predicates, aggregate]
+        assert recorder.first_failed_predicate is None
+    else:
+        assert recorder.call_order == component_predicates[: first_false_index + 1]
+        assert aggregate not in recorder.call_order
+        assert recorder.first_failed_predicate == component_predicates[first_false_index]
+        assert recorder.exception_type == "RuntimeError"
+        assert recorder.exception_message == component_predicates[first_false_index]
+
+
 def configure_development_failure(adapter: FakeAdapter, predicate: str) -> None:
     adapter.development_failure = predicate
-    if predicate == "before_effect_snapshot_exact":
-        adapter.before = replace(adapter.before, exact=False)
-    elif predicate == "controller_image_guard_close_exact":
+    for phase in ("before", "after"):
+        prefix = f"{phase}_"
+        if predicate.startswith(prefix):
+            component = predicate.removeprefix(prefix)
+            if component in dict(parent._EFFECT_SNAPSHOT_COMPONENTS):
+                snapshot = getattr(adapter, phase)
+                setattr(adapter, phase, replace(snapshot, **{component: False}))
+                adapter.development_failure = None
+                return
+    if predicate == "controller_image_guard_close_exact":
         adapter.image_close_results["controller_image_guard"] = False
         adapter.development_failure = None
-    elif predicate == "after_effect_snapshot_exact":
-        adapter.after = replace(adapter.after, exact=False)
     elif predicate == "effect_snapshots_equal":
         adapter.after = replace(adapter.after, repository_digest="changed")
     elif predicate == "audit_counts_zero":
@@ -2244,7 +2435,7 @@ def test_development_diagnostic_success_is_disjoint_and_non_authoritative(
     recorder = parent._run_development_diagnostic(adapter, repository_root=ROOT)
 
     assert recorder.first_failed_predicate is None
-    assert recorder.call_order == list(parent._DEVELOPMENT_PREDICATES[:27])
+    assert recorder.call_order == list(parent._DEVELOPMENT_PREDICATES[:-2])
     assert recorder.controller_image_guard_close == "closed_exact"
     assert adapter.clear_count == 1
     assert "launch" not in adapter.calls
@@ -2301,7 +2492,7 @@ def test_development_transcript_rejects_unclosed_effect_evidence() -> None:
     recorder.passed("development_mode_exact")
     recorder.passed("repository_root_resolved")
     recorder.passed("audit_installed")
-    snapshot = parent._EffectSnapshot(True, "repo", "installed", frozenset())
+    snapshot = effect_snapshot()
     recorder.observe_before_effect_snapshot(snapshot)
     recorder.passed("before_effect_snapshot_available")
 
@@ -2311,7 +2502,7 @@ def test_development_transcript_rejects_unclosed_effect_evidence() -> None:
 
 def test_development_transcript_derives_child_creation_calls() -> None:
     recorder = parent._DevelopmentRecorder()
-    snapshot = parent._EffectSnapshot(True, "repo", "installed", frozenset())
+    snapshot = effect_snapshot()
     recorder.observe_before_effect_snapshot(snapshot)
     recorder.observe_after_effect_snapshot(snapshot)
     recorder.observe_audit_counts(parent._AuditCounts(0, 0, 0, 0))
@@ -2325,11 +2516,10 @@ def test_development_transcript_derives_child_creation_calls() -> None:
 
 def test_development_transcript_derives_inventory_mismatches_and_residue() -> None:
     adapter = FakeAdapter()
-    adapter.after = parent._EffectSnapshot(
-        True,
-        "changed-repository",
-        "changed-installed",
-        frozenset({"new-residue"}),
+    adapter.after = effect_snapshot(
+        repository_digest="changed-repository",
+        installed_digest="changed-installed",
+        generated_residue=frozenset({"new-residue"}),
     )
 
     recorder = parent._run_development_diagnostic(adapter, repository_root=ROOT)
@@ -2407,13 +2597,19 @@ def test_development_path_revalidation_preserves_raw_exception_while_production_
     [
         "audit_installed",
         "before_effect_snapshot_available",
-        "before_effect_snapshot_exact",
+        "before_source_tree_digest_exact",
+        "before_installed_tree_digest_exact",
+        "before_source_installed_tree_equal",
+        "before_state_bindings_exact",
         *parent._DEVELOPMENT_IMAGE_PREDICATES,
         "controller_image_guard_identity_exact",
         "controller_image_path_identity_exact",
         "controller_image_guard_close_exact",
         "after_effect_snapshot_available",
-        "after_effect_snapshot_exact",
+        "after_source_tree_digest_exact",
+        "after_installed_tree_digest_exact",
+        "after_source_installed_tree_equal",
+        "after_state_bindings_exact",
         "effect_snapshots_equal",
         "audit_counts_available",
         "audit_counts_zero",
@@ -2533,7 +2729,7 @@ def test_development_host_failure_emits_one_complete_bounded_transcript(
 
 def test_development_transcript_allows_only_bounded_owner_approved_private_detail() -> None:
     recorder = parent._DevelopmentRecorder()
-    snapshot = parent._EffectSnapshot(True, "repo", "installed", frozenset())
+    snapshot = effect_snapshot()
     recorder.observe_before_effect_snapshot(snapshot)
     recorder.observe_after_effect_snapshot(snapshot)
     recorder.observe_audit_counts(parent._AuditCounts(0, 0, 0, 0))
@@ -2674,7 +2870,7 @@ def test_two_manual_development_runs_are_independent() -> None:
     first = parent._run_development_diagnostic(first_adapter, repository_root=ROOT)
     second = parent._run_development_diagnostic(second_adapter, repository_root=ROOT)
 
-    assert first.call_order == second.call_order == list(parent._DEVELOPMENT_PREDICATES[:27])
+    assert first.call_order == second.call_order == list(parent._DEVELOPMENT_PREDICATES[:-2])
     assert first_adapter.clear_count == second_adapter.clear_count == 1
     assert "launch" not in first_adapter.calls + second_adapter.calls
 
