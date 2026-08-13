@@ -1,0 +1,53 @@
+{
+  "schema_version": "trusted_owner_app_native_r0_parent_controller_package.v1",
+  "repository_id": 1235264383,
+  "repository_name": "tahjali11/mythic-edge",
+  "issue_url": "https://github.com/Tahjali11/Mythic-Edge/issues/826",
+  "tracker_url": "https://github.com/Tahjali11/Mythic-Edge/issues/746",
+  "protected_issue_url": "https://github.com/Tahjali11/Mythic-Edge/issues/769",
+  "governing_contract": {
+    "path": "docs/contracts/role_pool_codex_app_native_r0_successor_parent_controller.md",
+    "byte_count": 125925,
+    "sha256": "3a217958652e28d958be3eadca31673524ebfbf40d27cf0a5462e35801a226a6"
+  },
+  "controller": {
+    "path": "tools/run_role_pool_app_native_r0_observation_parent.py",
+    "byte_count": 130420,
+    "sha256": "5d7c5dee79a693645727bec77e520d5caa5b2f919eb4a78479a20708babca6e6"
+  },
+  "focused_test": {
+    "path": "tests/test_run_role_pool_app_native_r0_observation_parent.py",
+    "byte_count": 108227,
+    "sha256": "a91ccd21235b13d7bc63520353ad5e294a6c903e1abfc89b36eb0f29b4fee7e5"
+  },
+  "established_from": {
+    "pull_request_url": "https://github.com/Tahjali11/Mythic-Edge/pull/853",
+    "reviewed_head": "e11fa36ed7b68a0c84eac47bdbf054be5146f464",
+    "reviewed_tree": "fd0d8bab33c5f99034a563d7e7046021090419d5",
+    "review_url": "https://github.com/Tahjali11/Mythic-Edge/pull/853#pullrequestreview-4923190881",
+    "merge_commit": "d8b347354973f9c0a3be296b206c6a2b9bdbd0b7",
+    "merged_tree": "fd0d8bab33c5f99034a563d7e7046021090419d5"
+  },
+  "source_install_binding": {
+    "node_count": 43,
+    "file_count": 38,
+    "canonical_byte_count": 6840,
+    "sha256": "3aadf078fe594dafdd870df5577d342ccf1c8ea665f2a8f53cc79a58213717d6"
+  },
+  "lifecycle_state": "current_integrated_package_evidence",
+  "authority_effect": "evidence_only_no_operational_authority",
+  "authority_flags": {
+    "implementation_authorized": false,
+    "metadata_operation_authorized": false,
+    "private_path_access_authorized": false,
+    "controller_start_authorized": false,
+    "target_binding_emission_authorized": false,
+    "identity_creation_or_consumption_authorized": false,
+    "observation_1_authorized": false,
+    "receipt_publication_authorized": false,
+    "r0_r8_authorized": false,
+    "stage4_authorized": false,
+    "deployment_authorized": false,
+    "live_ready": false
+  }
+}
