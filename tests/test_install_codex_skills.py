@@ -252,6 +252,76 @@ def test_dry_run_all_and_one_skill_do_not_write(
     assert not (codex_home / "skills").exists()
 
 
+def test_repo_owned_issue_wave_lists_dry_runs_and_installs_to_temporary_target(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    codex_home = tmp_path / "codex-home"
+
+    list_code, list_output = _run(
+        [
+            "--repo-root",
+            str(REPO_ROOT),
+            "--codex-home",
+            str(codex_home),
+            "--list",
+        ],
+        capsys,
+    )
+    dry_run_code, dry_run_output = _run(
+        [
+            "--repo-root",
+            str(REPO_ROOT),
+            "--codex-home",
+            str(codex_home),
+            "--dry-run",
+            "--skill",
+            "mythic-edge-issue-wave",
+        ],
+        capsys,
+    )
+
+    assert list_code == installer.EXIT_SUCCESS
+    assert "skill mythic-edge-issue-wave: action=available" in list_output
+    assert dry_run_code == installer.EXIT_SUCCESS
+    assert "skill mythic-edge-issue-wave: action=would_install" in dry_run_output
+    assert not (codex_home / "skills").exists()
+
+    install_code, install_output = _run(
+        [
+            "--repo-root",
+            str(REPO_ROOT),
+            "--codex-home",
+            str(codex_home),
+            "--skill",
+            "mythic-edge-issue-wave",
+        ],
+        capsys,
+    )
+    unchanged_code, unchanged_output = _run(
+        [
+            "--repo-root",
+            str(REPO_ROOT),
+            "--codex-home",
+            str(codex_home),
+            "--skill",
+            "mythic-edge-issue-wave",
+        ],
+        capsys,
+    )
+
+    source = REPO_ROOT / installer.SKILL_SOURCE_ROOT / "mythic-edge-issue-wave"
+    target = codex_home / "skills" / "mythic-edge-issue-wave"
+    assert install_code == installer.EXIT_SUCCESS
+    assert "action=installed" in install_output
+    assert installer._directories_match(source, target)
+    installed_helper = (target / "scripts" / "issue_wave_state.py").read_text(encoding="utf-8")
+    assert 'INVOCATION_SCHEMA = "mythic_edge_issue_wave_invocation.v2"' in installed_helper
+    assert 'STATE_SCHEMA = "mythic_edge_issue_wave_state.v2"' in installed_helper
+    assert unchanged_code == installer.EXIT_SUCCESS
+    assert "action=unchanged" in unchanged_output
+
+
 def test_installs_missing_skill_and_reports_identical_target_as_unchanged(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
@@ -1665,6 +1735,7 @@ def test_repo_owned_skill_sources_avoid_local_paths_and_private_markers() -> Non
     utc_log_marker = "UTC" + "_Log"
 
     assert [path.parent.name for path in skill_files] == [
+        "mythic-edge-issue-wave",
         "mythic-edge-role-pool",
         "new-workcycle",
         "session-checkout",

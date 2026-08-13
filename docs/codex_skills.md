@@ -17,13 +17,19 @@ Installable skill source lives under:
 docs/codex_skills/
 ```
 
-V1 includes:
+The current package includes:
 
 - `session-checkout`: summarize the current checkout before workflow work.
 - `new-workcycle`: summarize explicitly supplied Mythic Edge repositories using
   read-only metadata and repo-scoped handoffs.
+- `mythic-edge-issue-wave`: explicitly inspect up to three dependency-safe
+  issue lanes or coordinate checkpointed native-agent A-through-F waves with
+  two-wave reservations, renewable leases, fail-closed recovery, and a stop
+  before G.
+- `mythic-edge-role-pool`: the separate legacy Role Pool package. Its
+  byte-bound R0 source and special installation gates remain unchanged.
 
-V1 does not include a skills manifest. The installer discovers directories
+The package does not include a skills manifest. The installer discovers directories
 under `docs/codex_skills/` that contain `SKILL.md`.
 
 ## Install Commands
@@ -39,6 +45,7 @@ Preview installation without writing files:
 ```bash
 python3 tools/install_codex_skills.py --dry-run --all
 python3 tools/install_codex_skills.py --dry-run --skill session-checkout
+python3 tools/install_codex_skills.py --dry-run --skill mythic-edge-issue-wave
 ```
 
 Install into the local Codex skills target:
@@ -47,6 +54,27 @@ Install into the local Codex skills target:
 python3 tools/install_codex_skills.py --all
 python3 tools/install_codex_skills.py --skill session-checkout
 ```
+
+Installation is never implied by an Inspect or Dispatch invocation. Validate
+and source-load `mythic-edge-issue-wave` directly from its repo-owned directory
+until a separate installation action is explicitly authorized.
+
+## Issue-Wave Boundary
+
+`$mythic-edge-issue-wave Inspect (A)` is read-only and creates no ledger,
+branch, worktree, task, or GitHub mutation. Dispatch requires an explicit
+Dispatch invocation plus current repository authority. The active root Codex
+owns Git/GitHub inspection, candidate and overlap judgment, native subagent
+creation, and consequential transitions. Its bundled Python helper is
+network-free and limited to parsing, manifest validation, run identifiers,
+transition validation, two-wave admission, renewable leases, checkpoint
+release, and crash-aware local state. Bare Dispatch remains autonomous;
+explicit A-F ranges stop at their requested checkpoint. No helper creates an
+agent or performs GitHub/Git operations.
+
+The new skill is intentionally distinct from `mythic-edge-role-pool`. It does
+not modify, release, synchronize, retry, or make readiness claims about the
+legacy package or any R0-bound artifact.
 
 For tests or an explicit temporary target:
 
