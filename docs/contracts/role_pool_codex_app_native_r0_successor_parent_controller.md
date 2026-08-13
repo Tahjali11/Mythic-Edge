@@ -19,18 +19,18 @@
 - Accepted context discipline:
   [`ADR-0012`](../decisions/ADR-0012-long-horizon-context-and-delegation-discipline.md).
 - Risk tier: high.
-- Current-binding correction base commit:
-  `f9ea6b34a1fd3f1adbed430575739312fa213f10`.
-- Current-binding correction base tree:
-  `f233374bcda334b42f3480d6eb1aeebadd2adcef`.
+- Effect-snapshot canonicalization correction base commit:
+  `000525a2325d87bfd21332317102b952886a0677`.
+- Effect-snapshot canonicalization correction base tree:
+  `03d0642435a599c57372d80274dc6ad2c89a6388`.
 
 The owner's current instruction is a task-scoped `explicit_user_override` for
 this one successor-parent-controller contract amendment under open lifecycle
 issue #826. It expires with this handoff. It creates no implementation,
 diagnostic-run, metadata-run, process-launch, observation, consumption,
-publication, or rung authority. It corrects only current artifact bindings and
-their mechanically dependent active prose. It does not reactivate the spent
-development authority or authorize Codex C or D.
+publication, or rung authority. It contracts only the two proven effect-snapshot
+defects below and their mechanically dependent tests and handoff. It does not
+authorize Codex C or D, a diagnostic rerun, or any operational action.
 
 Issue #828 is closed and historical. PR #829 integrated the exact controller
 and controller test; PR #830 integrated the accepted predecessor version of
@@ -243,6 +243,34 @@ inspection or mutation and must not be represented as fresh-review cleanliness.
     active prose, and integrated history through PR #850. Preserve every
     historical row and every implementation byte. This correction creates no
     Codex C or D route and no operational authority.
+43. **Observed:** PR #851 integrated the exact current-binding and
+    active-authority correction at
+    `000525a2325d87bfd21332317102b952886a0677`, tree
+    `03d0642435a599c57372d80274dc6ad2c89a6388`. Its contract is `104096` bytes
+    at SHA-256
+    `933565bdce60408a4f79434770980d5a8e5aa1b2388f37674377c3c3f7d310f6`.
+44. **Observed (`ME-RP-826-AB-001`):** the current controller serializes every
+    tree through sorted-key JSON without a final LF. The authoritative
+    installer's Role Pool install-tree binding instead preserves insertion
+    order and appends exactly one final LF. On the exact current `43`-node,
+    `38`-file source tree, the installer derives
+    `3aadf078fe594dafdd870df5577d342ccf1c8ea665f2a8f53cc79a58213717d6`,
+    while the controller derives
+    `6b024a78f59a1e0a159b490997845f0941f6bea08831eb7e76a917b0f21b05a6`.
+45. **Observed (`ME-RP-826-AB-002`):** the controller reduces source digest,
+    installed digest and equality, and all eleven state bindings to one
+    `effect_snapshot_exact` Boolean. The development recorder therefore cannot
+    identify which of those independently observable conditions failed. A
+    false Boolean produces a recorder-generated `RuntimeError(predicate)`; it
+    is not evidence of an underlying Windows or filesystem exception.
+46. **Decision:** bind source and installed Role Pool skill observations to one
+    dedicated implementation of the authoritative installer serialization,
+    without changing the shared `_canonical_bytes` helper or repository-tree
+    digest. Evaluate the four independent before predicates and four
+    independent after predicates in fixed order. The two aggregate
+    `effect_snapshot_exact` predicates are derived AND values only and can
+    never own first failure. Preserve production output, status, lifecycle,
+    containment, effect, cleanup, and authority semantics.
 
 Finding `ME-RP-826-PARENT-A-001` is
 `fixed_confirmed_current_bytes`.
@@ -294,6 +322,9 @@ Findings `ME-RP-826-E-014`, `ME-RP-826-E-015`, and `ME-RP-826-E-016` are
 `fixed_confirmed_current_main`.
 
 Finding `ME-RP-826-E-017` is
+`fixed_confirmed_integrated`.
+
+Findings `ME-RP-826-AB-001` and `ME-RP-826-AB-002` are
 `contracted_pending_independent_confirmation`.
 
 ### Metadata audit-boundary ordering amendment
@@ -311,6 +342,94 @@ acquisition, metadata derivation and revalidation, guard closure, the final
 effect snapshot, audit-count readback, and cleanup. This is an ordering repair,
 not a claim that Python audit events completely observe native Win32 activity.
 Execution mode already satisfies this ordering and remains unchanged.
+
+### Install-tree canonicalization and effect-predicate amendment
+
+The source and installed `mythic-edge-role-pool` trees use exactly the
+authoritative serialization implemented by
+`tools/install_codex_skills.py::_offline_tree_binding`. The controller must
+implement that rule in one dedicated private install-tree canonicalizer; the
+production controller must not import or invoke the installer. For an already
+path-sorted tuple of `(relative_path, kind, payload_bytes)` rows, the
+canonicalizer must:
+
+1. create each row object in exactly `path`, `kind`, `byte_count`, `sha256`
+   insertion order;
+2. create the document in exactly `schema_version`, `rows` insertion order;
+3. use schema version `trusted_owner_role_pool_install_tree.v1`;
+4. serialize with `json.dumps(..., ensure_ascii=True, separators=(",", ":"))`
+   and no key sorting or whitespace;
+5. encode the result as UTF-8;
+6. append exactly one LF byte; and
+7. derive node count, file count, canonical byte count, and lowercase SHA-256
+   from that exact row set and byte sequence.
+
+The controller's shared `_canonical_bytes` helper, canonical target-binding
+formats, stable-identity format, repository-working-tree digest, receipts,
+and all other digest families remain unchanged. The dedicated install-tree
+canonicalizer is used only for the source and installed Role Pool skill
+observations inside the existing effect snapshot. No caller-selected schema,
+row order, encoding, or newline behavior is permitted.
+
+The synthetic known-answer rows are exactly:
+
+```text
+("SKILL.md", "file", b"alpha\n")
+("scripts", "directory", b"")
+```
+
+Their exact canonical bytes are:
+
+```json
+{"schema_version":"trusted_owner_role_pool_install_tree.v1","rows":[{"path":"SKILL.md","kind":"file","byte_count":6,"sha256":"b6a98d9ce9a2d9149288fa3df42d377c3e42737afdcdaf714e33c0a100b51060"},{"path":"scripts","kind":"directory","byte_count":0,"sha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"}]}
+```
+
+The JSON line above is followed by exactly one LF. The artifact is `324`
+bytes at SHA-256
+`3c2dffc5c0665789afdf67b217c4de4085e6857c0d4c284f969fd2947e47d35e`.
+Sorting keys, reordering fields, changing separators or encoding, or omitting
+or duplicating the final LF must fail this known-answer test.
+
+Each available before or after effect snapshot retains these independent
+facts internally:
+
+1. `source_tree_digest_exact`: the authoritative source-tree digest equals
+   `3aadf078fe594dafdd870df5577d342ccf1c8ea665f2a8f53cc79a58213717d6`;
+2. `installed_tree_digest_exact`: the authoritative installed-tree digest
+   equals that same accepted digest;
+3. `source_installed_tree_equal`: the exact ordered source and installed
+   canonical observations are equal; and
+4. `state_bindings_exact`: every one of the eleven fixed state-binding file
+   digests equals its accepted value.
+
+`effect_snapshot_exact` is exactly the AND of those four facts. It is neither
+an independent observation nor a possible first-failure owner. Repository
+digest and generated-residue evidence remain separate existing snapshot facts.
+If snapshot acquisition raises or cannot produce all four facts,
+`before_effect_snapshot_available` or `after_effect_snapshot_available` owns
+the failure. Otherwise the component predicates are evaluated in the order
+defined below; the first false component owns the failure and later predicate
+evaluation stops, while exact cleanup evidence may still be collected.
+
+For every available snapshot, the development recorder's `relevant_values`
+contains one public-safe fixed vector in this exact key order:
+
+```text
+<phase>_source_tree_digest_exact
+<phase>_installed_tree_digest_exact
+<phase>_source_installed_tree_equal
+<phase>_state_bindings_exact
+<phase>_effect_snapshot_exact
+```
+
+`<phase>` is exactly `before` or `after`, and every value is a JSON Boolean.
+The vector contains no path, filename, file content, observed digest, expected
+digest, or machine-specific value. This minimum correction adds no
+`state_binding_mismatch_ids` list and no per-file diagnostic vocabulary. A
+later need for that detail must return to Codex B rather than be invented by
+implementation. A recorder-generated `RuntimeError(predicate)` for a false
+Boolean is a control-flow sentinel only and must not be described as an
+underlying operating-system or filesystem exception.
 
 ### Owner-local unblinded development diagnostic amendment
 
@@ -336,11 +455,13 @@ public admission
 -> repository-root resolution
 -> install_audit
 -> snapshot_effects(before)
+-> evaluate ordered before snapshot predicates
 -> validate and guard the running controller image
 -> revalidate image identity
 -> derive metadata values without canonical target-binding construction
 -> close the image guard
 -> snapshot_effects(after)
+-> evaluate ordered after snapshot predicates
 -> read audit counts
 -> emit one bounded development transcript
 ```
@@ -367,30 +488,38 @@ not a broad phase label. The closed predicate vocabulary is:
 3. `repository_root_resolved`;
 4. `audit_installed`;
 5. `before_effect_snapshot_available`;
-6. `before_effect_snapshot_exact`;
-7. `cpython_runtime_exact`;
-8. `current_process_handle_available`;
-9. `controller_image_query_succeeded`;
-10. `controller_image_query_length_exact`;
-11. `controller_image_path_text_valid`;
-12. `controller_image_components_nonreparse`;
-13. `controller_image_file_ordinary_nonreparse`;
-14. `controller_image_guard_opened`;
-15. `controller_image_bytes_stable`;
-16. `controller_image_file_version_available`;
-17. `controller_image_product_version_available`;
-18. `controller_image_versions_well_formed`;
-19. `controller_image_stable_identity_available`;
-20. `controller_image_guard_identity_exact`;
-21. `controller_image_path_identity_exact`;
-22. `controller_image_guard_close_exact`;
-23. `after_effect_snapshot_available`;
-24. `after_effect_snapshot_exact`;
-25. `effect_snapshots_equal`;
-26. `audit_counts_available`;
-27. `audit_counts_zero`;
-28. `development_output_write_complete`; and
-29. `development_output_flush_complete`.
+6. `before_source_tree_digest_exact`;
+7. `before_installed_tree_digest_exact`;
+8. `before_source_installed_tree_equal`;
+9. `before_state_bindings_exact`;
+10. `before_effect_snapshot_exact`;
+11. `cpython_runtime_exact`;
+12. `current_process_handle_available`;
+13. `controller_image_query_succeeded`;
+14. `controller_image_query_length_exact`;
+15. `controller_image_path_text_valid`;
+16. `controller_image_components_nonreparse`;
+17. `controller_image_file_ordinary_nonreparse`;
+18. `controller_image_guard_opened`;
+19. `controller_image_bytes_stable`;
+20. `controller_image_file_version_available`;
+21. `controller_image_product_version_available`;
+22. `controller_image_versions_well_formed`;
+23. `controller_image_stable_identity_available`;
+24. `controller_image_guard_identity_exact`;
+25. `controller_image_path_identity_exact`;
+26. `controller_image_guard_close_exact`;
+27. `after_effect_snapshot_available`;
+28. `after_source_tree_digest_exact`;
+29. `after_installed_tree_digest_exact`;
+30. `after_source_installed_tree_equal`;
+31. `after_state_bindings_exact`;
+32. `after_effect_snapshot_exact`;
+33. `effect_snapshots_equal`;
+34. `audit_counts_available`;
+35. `audit_counts_zero`;
+36. `development_output_write_complete`; and
+37. `development_output_flush_complete`.
 
 The predicate that first returns false, raises, produces an unavailable value,
 or becomes uncertain owns `first_failed_predicate`. Later cleanup failures are
@@ -682,6 +811,7 @@ threads do not restart the workflow or invalidate accepted dispositions.
 | Buffered-flush clarification contract predecessor | `82743` bytes; `fdf170af1bafb1f6dec4a9842e62f1fab2af9afcff084d1804f599b828b76c99` |
 | Controller-image sole-target contract predecessor | `83373` bytes; `636bfeda4718b55dc6db0e61611999b37ad72b8095be69bd019f8403438bc6da` |
 | Owner-local development-diagnostic amendment predecessor | `85565` bytes; `fbdacb0f1be6b396efdf9809945d2e98df82eeee5f6bea9b4cfde8ccdb42652e` |
+| Effect-snapshot canonicalization amendment predecessor | `104096` bytes; `933565bdce60408a4f79434770980d5a8e5aa1b2388f37674377c3c3f7d310f6` |
 | Accepted #826 lifecycle contract | `37249` bytes; `be7974ba998257981df5c876dfa441b03326ae776405bd269d1470957a785cde` |
 | Accepted #826 harness | `88401` bytes; `cfd3a0baaff6c4bbc5144403fd72f404722b8b96e8eca30fbf588f3180ec0b42` |
 | Accepted #826 harness test | `76211` bytes; `3fc6c35eada99f3a319e1ebe94bd5f33494821301cfdf1ec67f5f35bfc97dc4c` |
@@ -735,32 +865,40 @@ metadata or observation identity.
 
 ## Integrated History And Future Authority Sequence
 
-PRs #829 through #850 are immutable integrated history. PR #847 integrated the
+PRs #829 through #851 are immutable integrated history. PR #847 integrated the
 exact development-diagnostic three-path package. PRs #848, #849, and #850 each
 integrated an exact two-file controller/test correction, ending at current
-main `f9ea6b34a1fd3f1adbed430575739312fa213f10`. They establish the current
+controller/test bytes. PR #851 integrated the exact one-contract current-binding
+and active-authority correction, ending at current main
+`000525a2325d87bfd21332317102b952886a0677`. They establish the current
 contract, controller, focused test, review dispositions, and exact current-byte
-review evidence. They do not establish a successful canonical target binding
-or authorize another development diagnostic, metadata operation, or
-Observation 1. The prior owner decisions remain historical and
-nontransferable.
+review evidence. They do not establish a successful canonical target binding,
+correct the two newly proven implementation defects, or authorize another
+development diagnostic, metadata operation, or Observation 1. The prior owner
+decisions remain historical and nontransferable.
 
 The only prospective sequence under this amendment is:
 
-1. fresh Codex E reviews this exact contract-only current-binding correction
-   against the unchanged current controller and focused test;
-2. if and only if E accepts, separately authorized contract-only Codex F/G may
-   submit and integrate exactly this contract path;
-3. fresh clean-worktree current-main Codex E then re-evaluates eligibility
-   against the exact integrated contract, controller, focused test, and
-   source/install binding; and
-4. only after a clean eligibility verdict may the human owner consider a
-   separate fresh, expiring, single-use decision for any permitted next
-   operation.
+1. fresh Codex E reviews this exact contract-only canonicalization and
+   predicate-split amendment against the unchanged current controller and
+   focused test;
+2. if and only if E accepts, a separate fresh owner decision may authorize
+   Codex C to modify exactly the controller and focused test named below;
+3. Codex C implements only the dedicated install-tree canonicalizer, retained
+   snapshot facts, ordered component predicates, public-safe Boolean vector,
+   and required operation-free tests, without running the development
+   diagnostic or either production mode;
+4. fresh Codex E reviews the exact two-file implementation against this
+   contract; and
+5. separately authorized Codex F/G may submit and integrate only the accepted
+   contract and implementation package through the normal workflow.
 
-No Codex C or D implementation step is part of this correction. A successful
-canonical binding still requires independent exact-byte review before the
-human owner may consider a separate Observation 1 decision.
+No Codex C authority is created by this amendment or its review. No diagnostic
+rerun, metadata operation, or Observation 1 action appears in this sequence.
+After integration, fresh current-main eligibility review and a separate owner
+decision remain required before any operation. A successful canonical binding
+still requires independent exact-byte review before the human owner may
+consider a separate Observation 1 decision.
 
 The chain stops on base, contract, implementation, issue, worktree, source or
 installed tree, target-binding, GitHub, process, validation, or residue drift;
@@ -1451,55 +1589,79 @@ It must prove:
 20. every acquisition prefix and close-failure permutation receives exactly
     one reverse-order close attempt without short-circuiting;
 21. attribute-list deletion and sole controller-image-guard ownership rules;
-22. deterministic pre/post equality, repository-effect drift, write, network,
+22. the dedicated install-tree canonicalizer matches the exact `324`-byte
+    synthetic known answer and the authoritative installer helper, while
+    sorted-key JSON, reordered fields, changed separators or encoding, and
+    missing or duplicate final LF fail; the exact current source projection is
+    `43` nodes, `38` files, `6840` canonical bytes, and
+    `3aadf078fe594dafdd870df5577d342ccf1c8ea665f2a8f53cc79a58213717d6`;
+    the shared `_canonical_bytes`, target-binding KATs, and repository-tree
+    digest remain unchanged;
+23. deterministic pre/post equality, repository-effect drift, write, network,
     external-effect, residue, unstable-read, and sampling-unknown cases without
     hard-coded effect counts; execution mode preserves its existing
     audit-installation, first-snapshot, then image-inspection ordering;
-23. exact construction of all 15 immutable `PostExitFacts` fields from parent
+24. exact construction of all 15 immutable `PostExitFacts` fields from parent
     evidence only and unchanged 32-, 36-, 37-, and 41-field schemas;
-24. exactly one accepted pure-sealer call after execution cleanup, zero sealer
+25. exactly one accepted pure-sealer call after execution cleanup, zero sealer
     calls on every earlier failure and throughout metadata-only and development
     modes;
-25. production receipt output, complete binding output, any binding prefix, and
+26. production receipt output, complete binding output, any binding prefix, and
     every fixed production failure are public-safe and no-echo; the expected
     binding is absent from receipts and child inputs; complete-refusal and
     complete-success output witnesses remain exact; development output is
     tested separately and cannot appear in either production mode;
-26. accepted #826 files and predecessor observer remain byte-identical and no
-    predecessor-observer function is imported or called; and
-27. current-main, worktree, GitHub decision, binding-transport equality, and
+27. accepted #826 files and predecessor observer remain byte-identical and no
+    predecessor-observer function is imported or called;
+28. current-main, worktree, GitHub decision, binding-transport equality, and
     consumption verification remain external preconditions; no operation-free
     test starts a real process or performs network, GitHub, repository,
     installed-tree, registry, release, identity, consumption, or publication
     effects;
-28. exact development-mode admission, zero production-mode call-through, zero
+29. exact development-mode admission, zero production-mode call-through, zero
     canonical binding construction, zero owner loading, zero sealer calls, zero
     child construction or entry, and zero authority, identity, consumption,
     receipt, publication, network, or mutation calls;
-29. one operation-free fake failure for every closed development predicate,
-    proving the first failed predicate is retained, later predicates are not
-    evaluated, required cleanup still runs, and a later cleanup failure does
-    not overwrite the first failure;
-30. raw synthetic private paths, local paths, Win32 values, exceptions, and
+30. one operation-free fake failure for every failure-owning closed
+    development predicate, including each ordered before and after
+    source-digest, installed-digest, tree-equality, and state-binding predicate;
+    the first false component is retained, later predicates are not evaluated,
+    required cleanup still runs, and a later cleanup failure does not overwrite
+    the first failure. `before_effect_snapshot_exact` and
+    `after_effect_snapshot_exact` are exempt from fake-failure injection.
+    Positive derived-value tests prove that each stored Boolean equals the exact
+    AND of its four component Booleans for every synthetic component vector.
+    Ordered-recorder tests prove that each composite predicate is reached and
+    recorded as passed only after all four component predicates pass, is
+    otherwise not evaluated, never owns `first_failed_predicate`, and never
+    obscures or replaces the first false component;
+31. every available fake snapshot emits its exact five-Boolean public-safe
+    vector in the contracted order; vectors distinguish source-digest,
+    installed-digest, source/install-equality, and state-binding failures in one
+    run, contain no path, filename, contents, or observed digest, and add no
+    mismatch-ID vocabulary;
+32. raw synthetic private paths, local paths, Win32 values, exceptions, and
     tracebacks appear only in the development transcript, while credential,
     token, key, authentication, browser, environment-dump, shell-history,
     unrelated-path, and unrelated-file-content sentinels never appear;
-31. the development transcript has exact markers and ordered fields, valid
+33. the development transcript has exact markers and ordered fields, valid
     JSON escaping, one final LF, a `262144`-byte ceiling, one stderr write and
     one flush, empty stdout, and no file or durable artifact; short write,
     overflow, write failure, or flush failure is `diagnostic_incomplete` with
     no repair or second emission;
-32. a no-failure synthetic run produces only
+34. a no-failure synthetic run produces only
     `metadata_path_completed_without_binding`, no canonical binding bytes, and
     no production success; two manual fake runs are independent and prove no
     automatic loop, relaunch, retry, replacement, or cross-run resource reuse;
-33. both production modes instantiate no development recorder, emit no
-    development marker or private value, and preserve exact existing status,
-    output, exit, cleanup, and nonretry behavior; and
-34. one directly proved correction is admissible only when a complete
-    transcript identifies a concrete current-code mismatch with an already
-    accepted production invariant; a semantic change, third path, second
-    correction target, or unexplained failure stops without code expansion.
+35. both production modes instantiate no development recorder, emit no
+    development marker or private value, preserve exact existing status,
+    output, exit, cleanup, and nonretry behavior, and use the corrected
+    internal effect facts without exposing the new development predicate
+    vocabulary; and
+36. the implementation changes only the two proven current-code mismatches;
+    a global `_canonical_bytes` change, installer edit, semantic weakening,
+    third path, additional diagnostic feature, or unexplained failure stops
+    without code expansion.
 
 Required later implementation validation:
 
@@ -1515,19 +1677,19 @@ git diff --check
 
 ## Acceptance And Stop Conditions
 
-Contract acceptance establishes only that the development profile is precise
-and constructible inside the existing two-file envelope. It authorizes no
+Contract acceptance establishes only that the canonicalization correction and
+predicate split are precise and constructible inside the existing two-file
+envelope. It authorizes no
 diagnostic run, metadata run, private-path access, controller start,
 Observation 1, publication, submission, or integration by itself.
 
-The owner's initiating conditional Codex C authority has completed and is
-historical and nontransferable. Fresh independent Codex E acceptance of this
-contract correction activates no Codex C or D authority. It permits only a
-later, separately authorized contract-only Codex F/G integration, followed by
-a fresh clean-worktree current-main Codex E eligibility review. Any later
+The owner's initiating instruction conditionally authorizes only the fresh
+Codex E contract review named below after this Codex B amendment validates.
+Fresh E acceptance activates no Codex C or D authority. A separate fresh owner
+decision is required before either implementation path may change. Any later
 diagnostic, metadata, private-path, controller, child, identity, observation,
-publication, or implementation action requires its own applicable fresh owner
-decision and remains unauthorized here.
+publication, submission, integration, or implementation action remains
+unauthorized here.
 
 Stop and return to Codex A or the owner if:
 
@@ -1561,6 +1723,13 @@ Stop and return to Codex A or the owner if:
   correction boundary, or the proposed correction changes contract semantics
   rather than implementing an accepted invariant;
 - more than one production correction target is needed;
+- exact installer-compatible source and installed tree canonicalization would
+  require changing `_canonical_bytes`, importing production installer code,
+  editing `tools/install_codex_skills.py`, or changing the repository-working-
+  tree digest;
+- the four source, installed, equality, and state-binding component facts
+  cannot be retained in the existing private snapshot boundary or ordered
+  before their derived composite without a new schema or status;
 - a generic runner, shell child, PATH lookup, `py.exe`, alias, shim, wrapper,
   helper, broker, service, task API, fallback, retry, or replacement is needed;
 - creation-time Job Object assignment, exact handle inheritance, complete
@@ -1578,10 +1747,10 @@ Stop and return to Codex A or the owner if:
   any mutation.
 
 The current `126954`-byte controller and `100379`-byte focused test are the
-exact accepted current-main implementation inputs. This amendment changes
-neither file and authorizes no Codex C or D work. Contract acceptance permits
-only separately authorized contract integration followed by a fresh
-current-main eligibility review. No development result may establish binding
+exact accepted current-main implementation starting inputs. This Codex B pass
+changes neither file and authorizes no Codex C or D work. Fresh contract
+acceptance permits only a later separate owner implementation decision for
+those two files. No development result may establish binding
 acceptance, Observation 1 eligibility, privacy, security, assurance,
 deployment, or live readiness.
 
@@ -1595,13 +1764,13 @@ Pasteable prompt:
 Use the current Mythic Edge repository authority.
 Use $mythic-edge-workflow.
 
-Act as Codex E: Independent R0 Current-Binding and Active-Authority Contract Reviewer.
+Act as Codex E: Independent R0 Install-Tree Canonicalization and Effect-Predicate Contract Reviewer.
 
 Repository: Tahjali11/Mythic-Edge
 Issue: https://github.com/Tahjali11/Mythic-Edge/issues/826
 Tracker: https://github.com/Tahjali11/Mythic-Edge/issues/746
 Protected issue: https://github.com/Tahjali11/Mythic-Edge/issues/769
-Reviewed base: origin/main@f9ea6b34a1fd3f1adbed430575739312fa213f10
+Reviewed base: origin/main@000525a2325d87bfd21332317102b952886a0677
 
 Review exactly:
 docs/contracts/role_pool_codex_app_native_r0_successor_parent_controller.md
@@ -1617,43 +1786,49 @@ Read without editing:
 - tests/test_run_role_pool_app_native_r0_observation_parent.py
   byte count: 100379
   SHA-256: 90710f9c026b65566f1cf8e99c0b0357afbf6903700e1eb2acdef0135389454b
+- tools/install_codex_skills.py
+  byte count: 45106
+  SHA-256: 52ee30e62554154bd6231f4b178a4e2fdbdd9121d799264156acfbc046829c8c
 
-Review ME-RP-826-E-017 and its mechanically dependent active-authority
-paragraph only. Confirm the two active current-binding rows match the exact
-current controller and focused test, while the displaced PR #846 hashes remain
-labeled historical and participate in no current-main or eligibility gate.
-Confirm the dependent active prose and integrated history accurately cover PRs
-#847 through #850. Confirm fresh contract acceptance activates no Codex C or D
-authority and permits only separately authorized contract-only integration,
-followed by fresh current-main eligibility review.
+Review ME-RP-826-AB-001 and ME-RP-826-AB-002 only. Confirm the contract binds
+source and installed Role Pool trees to the installer's insertion-ordered,
+compact UTF-8 JSON plus exactly one final LF, while leaving `_canonical_bytes`,
+the repository-working-tree digest, and every other digest family unchanged.
+Reproduce the exact `324`-byte synthetic known answer and the current source
+projection `43/38/6840/3aadf078...17d6`. Confirm a private dedicated
+controller helper is constructible without importing or editing the installer.
 
-Confirm ME-RP-826-E-014, E-015, and E-016 remain
-fixed_confirmed_current_main. Confirm no controller or test edit, Codex C or D
-route, schema, lifecycle, status, containment, diagnostic, metadata,
-Observation 1, or authority change was introduced.
+Confirm the before and after source-digest, installed-digest,
+source/install-equality, and state-binding predicates are ordered and disjoint;
+their composite is derived AND only and cannot own first failure. Confirm each
+available snapshot exposes only the exact five-Boolean public-safe vector, with
+no paths, contents, observed hashes, mismatch-ID vocabulary, schema, status, or
+production-output change. Confirm a recorder-generated RuntimeError is labeled
+as a control-flow sentinel rather than an underlying platform exception.
 
-Run contract-only structural and text checks. The prior exact-current-main
-review recorded 256 focused and 247 adjacent operation-free tests passing;
-rerun them only if independent review policy requires it or semantic drift is
-found. Do not implement, run the development mode, access a private path, run
-metadata or Observation 1, create or consume authority, publish, touch #769,
-submit, merge, deploy, advance R0-R8 or Stage 4, or claim readiness.
+Confirm the later implementation envelope is exactly the controller and its
+focused test, requires separate owner authority, and contains no diagnostic
+rerun. Run contract-only structural checks and operation-free canonicalization
+probes. Do not implement, follow or mutate an unsafe installed target, run the
+development diagnostic, access a private executable path, run metadata or
+Observation 1, create or consume authority, publish, touch #769, submit, merge,
+deploy, advance R0-R8 or Stage 4, or claim readiness.
 
 Lead with findings. Return the exact reviewed contract byte count and SHA-256,
-contract verdict, binding verdict, historical-preservation verdict, changed
-paths, validation, authority flags, generated residue, conditional_routes, and
-workflow_handoff.
+contract verdict, canonicalization verdict, predicate-closure verdict,
+two-file constructibility verdict, changed paths, validation, authority flags,
+generated residue, conditional_routes, and workflow_handoff.
 
 conditional_routes:
   success:
-    next_role: "Codex F/G under separate contract-only integration authority"
+    next_role: "Owner decision for separately authorized Codex C implementation"
     next_two_steps:
-      - "Integrate exactly the independently accepted contract path."
-      - "Run a fresh clean-worktree current-main Codex E eligibility review."
+      - "Authorize Codex C, if desired, for exactly the controller and focused test."
+      - "Implement only the accepted canonicalizer and predicate split, then route to fresh Codex E."
   failure:
-    next_role: "Codex B: narrow current-binding or active-authority contract corrector"
+    next_role: "Codex B: narrow canonicalization or predicate contract corrector"
     next_two_steps:
-      - "Report the first exact binding or historical-label defect and preserve all implementation bytes."
+      - "Report the first exact contract defect and preserve all implementation bytes."
       - "Provide one pasteable correction prompt limited to that finding."
 ```
 
@@ -1665,19 +1840,24 @@ instruction_context:
     - "ADR-0008"
     - "ADR-0012"
   observed:
-    - "Current main is f9ea6b34a1fd3f1adbed430575739312fa213f10 at tree f233374bcda334b42f3480d6eb1aeebadd2adcef."
-    - "PRs #847 through #850 are merged exact history; PR #850 contains only the controller and focused test."
+    - "Current main is 000525a2325d87bfd21332317102b952886a0677 at tree 03d0642435a599c57372d80274dc6ad2c89a6388."
+    - "PR #851 is merged exact one-contract history; the controller and focused test remain unchanged from PR #850."
+    - "The predecessor contract is 104096 bytes at 933565bdce60408a4f79434770980d5a8e5aa1b2388f37674377c3c3f7d310f6."
     - "The current controller is 126954 bytes at c17bdb79ce5d37b20cbe64503c8a77c0898d8734718f0b9bebbc4461826f70d0."
     - "The current focused test is 100379 bytes at 90710f9c026b65566f1cf8e99c0b0357afbf6903700e1eb2acdef0135389454b."
-    - "Fresh E found no implementation defect and reproduced only stale active contract bindings."
+    - "The authoritative installer serialization produces 3aadf078fe594dafdd870df5577d342ccf1c8ea665f2a8f53cc79a58213717d6 for the current 43-node, 38-file, 6840-byte source tree; the controller currently produces 6b024a78f59a1e0a159b490997845f0941f6bea08831eb7e76a917b0f21b05a6."
+    - "All eleven fixed state bindings match their accepted values."
+    - "The public installed-skill checker currently refuses the local target as target_reparse_point; this amendment neither follows nor mutates that target."
     - "Issue #769 is open with zero comments."
   derived:
-    - "The historical PR #846 bytes must remain evidence but cannot remain active current-main gates."
-    - "Exactly one contract path is sufficient; no controller, test, schema, lifecycle, or authority change is required."
+    - "ME-RP-826-AB-001 is caused by controller install-tree canonicalization, not by a mismatch in the current source-tree bytes."
+    - "ME-RP-826-AB-002 requires four ordered component predicates per phase; the existing composite remains a derived AND and cannot own first failure."
+    - "Exactly one contract path is sufficient for this pass; the later implementation ceiling remains the existing controller and focused test."
   proposed:
-    - "One contract-only current-binding correction, fresh E review, then separately authorized contract-only integration."
+    - "One dedicated controller-local install-tree canonicalizer and one bounded effect-predicate split, followed by operation-free tests in the existing focused test file."
   unknown:
-    - "Fresh independent E acceptance of these exact corrected contract bytes remains pending."
+    - "Fresh independent Codex E acceptance of these exact amended contract bytes remains pending."
+    - "Installed-target ordinary-path eligibility remains a separate current-host boundary and is not resolved by this amendment."
   protected_surfaces:
     - "private executable and local filesystem paths"
     - "metadata and Observation 1 authority"
@@ -1686,11 +1866,12 @@ instruction_context:
   authority_conflicts_found: false
   stop_conditions:
     - "The current controller or test byte count or SHA-256 drifts."
-    - "Any implementation, schema, lifecycle, status, authority, or operational change is required."
-    - "A second contract or repository path is required."
+    - "The correction requires changing shared _canonical_bytes, importing or editing the installer, or changing another digest family."
+    - "The predicate split requires a new schema, status, lifecycle, authority, or production-output change."
+    - "A third future implementation path or a second contract path is required."
 
 workflow_handoff:
-  role_performed: "Codex B: Narrow R0 Active-Authority Paragraph Corrector"
+  role_performed: "Codex B: R0 Install-Tree Canonicalization and Effect-Predicate Contract Writer"
   completed_thread: "B"
   next_thread: "E"
   repository: "Tahjali11/Mythic-Edge"
@@ -1698,14 +1879,14 @@ workflow_handoff:
   issue: "https://github.com/Tahjali11/Mythic-Edge/issues/826"
   tracker: "https://github.com/Tahjali11/Mythic-Edge/issues/746"
   protected_issue: "https://github.com/Tahjali11/Mythic-Edge/issues/769"
-  source_artifact: "fresh Codex E handoff requiring a narrow active-authority paragraph correction"
+  source_artifact: "read-only combined Codex A/B diagnostic-sufficiency handoff"
   target_artifact: "docs/contracts/role_pool_codex_app_native_r0_successor_parent_controller.md"
   risk_tier: "high"
   base_branch: "origin/main"
   target_branch: "main"
-  branch: "codex/r0-development-diagnostic-current-binding-826"
-  base_commit: "f9ea6b34a1fd3f1adbed430575739312fa213f10"
-  base_tree: "f233374bcda334b42f3480d6eb1aeebadd2adcef"
+  branch: "codex/r0-effect-snapshot-canonicalization-contract-826"
+  base_commit: "000525a2325d87bfd21332317102b952886a0677"
+  base_tree: "03d0642435a599c57372d80274dc6ad2c89a6388"
   files_changed:
     - "docs/contracts/role_pool_codex_app_native_r0_successor_parent_controller.md"
   read_only_current_implementation_paths:
@@ -1715,11 +1896,19 @@ workflow_handoff:
   current_controller_sha256: "c17bdb79ce5d37b20cbe64503c8a77c0898d8734718f0b9bebbc4461826f70d0"
   current_focused_test_byte_count: 100379
   current_focused_test_sha256: "90710f9c026b65566f1cf8e99c0b0357afbf6903700e1eb2acdef0135389454b"
+  authoritative_installer_byte_count: 45106
+  authoritative_installer_sha256: "52ee30e62554154bd6231f4b178a4e2fdbdd9121d799264156acfbc046829c8c"
+  canonicalization_kat_byte_count: 324
+  canonicalization_kat_sha256: "3c2dffc5c0665789afdf67b217c4de4085e6857c0d4c284f969fd2947e47d35e"
   finding_status:
     ME-RP-826-E-014: "fixed_confirmed_current_main"
     ME-RP-826-E-015: "fixed_confirmed_current_main"
     ME-RP-826-E-016: "fixed_confirmed_current_main"
-    ME-RP-826-E-017: "contracted_pending_independent_confirmation"
+    ME-RP-826-E-017: "fixed_confirmed_integrated"
+    ME-RP-826-AB-001: "contracted_pending_independent_confirmation"
+    ME-RP-826-AB-002: "contracted_pending_independent_confirmation"
+  canonicalization_scope: "dedicated controller-local install-tree helper only; shared _canonical_bytes and installer bytes unchanged"
+  predicate_scope: "four ordered component predicates plus one derived AND for each before and after snapshot"
   development_mode: "--diagnose-metadata-binding-development"
   development_child_creation_authorized: false
   implementation_authorized_now: false
@@ -1734,26 +1923,28 @@ workflow_handoff:
   deployment_authorized: false
   live_ready: false
   validation:
-    - "fresh source review evidence: 256 focused and 247 adjacent operation-free tests passed"
-    - "controller and focused test current byte counts and SHA-256 values independently recomputed"
-    - "historical PR #846 hashes occur only in historical contexts"
+    - "current source mismatch reproduced: authoritative 3aadf078fe594dafdd870df5577d342ccf1c8ea665f2a8f53cc79a58213717d6; controller 6b024a78f59a1e0a159b490997845f0941f6bea08831eb7e76a917b0f21b05a6"
+    - "all eleven fixed state bindings independently matched"
+    - "synthetic canonicalization KAT reproduced at 324 bytes and 3c2dffc5c0665789afdf67b217c4de4085e6857c0d4c284f969fd2947e47d35e"
     - "agent docs: 55 files, 0 errors, 0 warnings"
     - "path-fed protected-surface and secret/private-marker scans: forbidden 0, warnings 0"
-    - "git diff and text-hygiene checks passed"
+    - "validation selector: 3 required, 1 recommended, 0 warnings"
+    - "git diff, ASCII, LF, final-LF, whitespace, and code-fence checks passed"
+    - "matching operational processes: 0; generated residue: 0"
   stop_conditions:
     - "the current controller or focused test binding drifts"
-    - "implementation, schema, lifecycle, status, authority, or operational behavior must change"
-    - "a second changed path is required"
+    - "shared canonicalization, installer, repository-digest, schema, lifecycle, status, authority, or production-output semantics must change"
+    - "a third future implementation path or second changed contract path is required"
   conditional_routes:
     success:
-      next_role: "Codex F/G under separate contract-only integration authority"
+      next_role: "Owner decision for separately authorized Codex C implementation"
       next_two_steps:
-        - "integrate exactly the independently accepted contract path"
-        - "run a fresh clean-worktree current-main Codex E eligibility review"
+        - "authorize Codex C, if desired, for exactly the controller and focused test"
+        - "implement only the accepted canonicalizer and predicate split, then route to fresh Codex E"
     failure:
-      next_role: "Codex B: narrow current-binding or active-authority contract corrector"
+      next_role: "Codex B: narrow canonicalization or predicate contract corrector"
       next_two_steps:
-        - "preserve implementation bytes and report the first exact binding defect"
+        - "preserve implementation bytes and report the first exact contract defect"
         - "provide one pasteable prompt limited to that finding"
-  next_recommended_role: "Codex E: Independent R0 Current-Binding and Active-Authority Contract Reviewer"
+  next_recommended_role: "Codex E: Independent R0 Install-Tree Canonicalization and Effect-Predicate Contract Reviewer"
 ```
