@@ -1133,17 +1133,27 @@ def _unreleased(state: Mapping[str, Any]) -> bool:
     return state["reservation"]["lease"]["released_at_utc"] is None
 
 
+def _current_non_final_scope_participants(
+    state: Mapping[str, Any],
+) -> list[Mapping[str, Any]]:
+    return [lane for lane in state["lanes"] if lane["state"] not in FINAL_STATES]
+
+
 def _admission_check(
     root: Path,
     candidates: Sequence[Mapping[str, Any]],
     *,
     now: datetime,
     excluding_run_id: str | None = None,
+    requested_scope_participants: Sequence[Mapping[str, Any]] | None = None,
 ) -> None:
     if not root.exists():
         return
     requested_repositories = {candidate["repository"] for candidate in candidates}
     requested_paths = [Path(candidate["target_root"]).resolve(strict=False) for candidate in candidates]
+    requested_scopes = (
+        candidates if requested_scope_participants is None else requested_scope_participants
+    )
     unreleased: list[dict[str, Any]] = []
     for child in root.iterdir():
         if (
@@ -1166,8 +1176,8 @@ def _admission_check(
         repositories = set(state["reservation"]["repositories"])
         if requested_repositories.intersection(repositories):
             raise IssueWaveError("repository_reserved", "a requested repository is reserved")
-        existing_candidates = state["candidates"]
-        if scope_conflicts([*existing_candidates, *candidates]):
+        existing_scopes = _current_non_final_scope_participants(state)
+        if scope_conflicts([*existing_scopes, *requested_scopes]):
             raise IssueWaveError("unsafe_or_conflicting_scope", "cross-run scope overlap exists")
         existing_paths = [
             Path(lane["checkout_location"]).resolve(strict=False) for lane in state["lanes"]
@@ -2452,6 +2462,7 @@ def authorize_segment(
                 state["candidates"],
                 now=_timestamp_datetime(timestamp),
                 excluding_run_id=run_id,
+                requested_scope_participants=_current_non_final_scope_participants(state),
             )
             next_role = state["next_resumable_role"]
             requested = invocation["segment"]
@@ -2545,6 +2556,10 @@ def recover_expired_run(
             if any(lane["state"] in RUNNING_STATES for lane in state["lanes"]):
                 event_type = "interruption_stop"
                 status = "stopped"
+                next_role = None
+            elif all(lane["state"] in FINAL_STATES for lane in state["lanes"]):
+                event_type = "terminal_release"
+                status = "terminal"
                 next_role = None
             elif _segment_endpoint_reached(state) and state["current_segment"]["explicit"]:
                 event_type = "checkpoint_release"
