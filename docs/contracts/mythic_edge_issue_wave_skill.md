@@ -29,16 +29,20 @@ coordinator.
 
 ## Source Issue
 
-https://github.com/Tahjali11/Mythic-Edge/issues/855
+https://github.com/Tahjali11/Mythic-Edge/issues/857
 
-Issue #855 is the durable Codex A problem representation and contains the
-issue-scoped user override for the bounded multi-lane implementation and draft
-PR. That override does not extend to issue #826, the legacy Role Pool, merge,
-installation, deployment, or a real write-enabled Mythic Edge dispatch.
+Issue #857 is the durable Codex A correction problem representation for
+findings `ME-IW-855-E-009` through `ME-IW-855-E-011`. Historical issue #855
+and merged PR #856 remain integration and finding evidence; this correction
+does not reopen or rewrite their handoff, final E report, or lifecycle. Issue
+#857 records the narrow, expiring `explicit_user_override` while issue #826
+remains active. That override does not extend to issue #826, issue #813, issue
+#769, the legacy Role Pool, submission, merge, installation, deployment,
+cleanup, or a real write-enabled Mythic Edge Dispatch.
 
 ## Tracker
 
-N/A. Issue #855 is the direct source issue.
+N/A. Issue #857 is the direct correction issue; issue #855 is historical.
 
 ## Risk Tier
 
@@ -111,7 +115,8 @@ Forbidden reverse flow:
 
 ## Files Owned By This Contract
 
-Codex C may create or edit only these implementation paths:
+The original issue #855 Codex C package was limited to these implementation
+paths:
 
 - `docs/codex_skills/mythic-edge-issue-wave/SKILL.md`
 - `docs/codex_skills/mythic-edge-issue-wave/agents/openai.yaml`
@@ -123,16 +128,43 @@ Codex C may create or edit only these implementation paths:
 - `docs/codex_skills.md`
 - `docs/implementation_handoffs/mythic_edge_issue_wave_skill_comparison.md`
 
-Codex E may additionally create:
+That historical allowlist remains compatibility context, not current issue
+#857 edit authority.
 
-- `docs/contract_test_reports/mythic_edge_issue_wave_skill.md`
+For issue #857, Codex D may create or edit exactly these paths:
 
-This contract file is owned by Codex B and may not be changed by C to make an
-implementation easier. A contract defect routes backward to B.
+- `docs/codex_skills/mythic-edge-issue-wave/scripts/issue_wave_state.py`, only
+  for the E-009 admission projection and E-010 recovery precedence fixes;
+- `tests/test_mythic_edge_issue_wave_skill.py`, only for the focused E-009 and
+  E-010 regressions and directly necessary shared test helpers;
+- `tests/test_install_codex_skills.py`, only for one exact E-011
+  contract/helper/reference/installer schema-coherence regression; and
+- `docs/implementation_handoffs/mythic_edge_issue_wave_skill_issue_857_fixer.md`,
+  as the new correction-specific D handoff.
+
+No other original package path is authorized for D. In particular,
+`SKILL.md`, UI metadata, controller protocol, state-schema reference,
+`docs/codex_skills.md`, installer implementation, and every unrelated test are
+read-only. Current evidence establishes the state-schema reference as already
+canonical, so any need to edit it routes back to B and stops D.
+
+The historical issue #855 artifacts are read-only evidence and must not be
+rewritten:
+
+- `docs/implementation_handoffs/mythic_edge_issue_wave_skill_comparison.md`;
+- `docs/contract_test_reports/mythic_edge_issue_wave_skill.md`.
+
+A later fresh Codex E may create only the new correction report
+`docs/contract_test_reports/mythic_edge_issue_wave_skill_issue_857.md` under
+separate E authority.
+
+This contract file is owned by Codex B and may not be changed by C or D to make
+an implementation easier. A contract defect routes backward to B.
 
 No installer implementation change is authorized. The existing installer
-already discovers a repo-owned directory containing `SKILL.md`; only its
-expected-skill tests and documentation may change.
+already discovers a repo-owned directory containing `SKILL.md`; for issue
+#857, only the single schema-coherence assertion in its focused test file may
+change.
 
 The entire tracked subtree
 `docs/codex_skills/mythic-edge-role-pool/` and every legacy R0-bound contract,
@@ -476,10 +508,16 @@ fix and fresh independent E review are required before another F attempt.
 The checkpoint/concurrency revision uses these exact schema versions:
 
 - normalized invocation: `mythic_edge_issue_wave_invocation.v2`;
-- run projection: `mythic_edge_issue_wave_run_state.v2`;
+- run projection: `mythic_edge_issue_wave_state.v2`;
 - ledger event: `mythic_edge_issue_wave_event.v2`;
 - transition/event request: `mythic_edge_issue_wave_event_request.v2`; and
 - redacted Inspect projection: `mythic_edge_issue_wave_inspect.v2`.
+
+The canonical run projection identifier is exactly
+`mythic_edge_issue_wave_state.v2`, matching the helper constant, the
+state-schema reference, and the installer expectation on current `main`.
+`mythic_edge_issue_wave_run_state.v2` was contract-only drift and is not an
+alias, accepted input, emitted value, migration source, or dual-read form.
 
 The candidate manifest and reviewed-package manifest remain at their existing
 V1 schema versions because their fields and meanings do not change. All V2
@@ -487,6 +525,15 @@ schemas are closed: duplicate keys, unknown keys, missing required keys, wrong
 types, noncanonical identifiers, or invalid cross-field combinations fail
 closed. No V1 run migration or dual-read compatibility is required because no
 installed or real Dispatch state exists.
+
+Issue #857 is a predicate correction inside the existing closed V2 package. It
+adds, removes, or renames no invocation, state, lane, event, event-request,
+reservation, lease, recovery, segment-history, Inspect, candidate-manifest, or
+reviewed-package field; changes no allowed transition or stable refusal code;
+and changes no lease duration, renewal interval, lock, revision, timestamp,
+atomic-write, replay, hash-chain, reviewed-package E/F binding, redaction,
+no-echo, public-path, or side-effect rule. Any such need is outside E-009
+through E-011 and must stop for new A/B authority.
 
 ### Lane States And Stop Reasons
 
@@ -696,11 +743,29 @@ of all non-released V2 runs in the same canonical workspace. Admission permits
 at most two active waves, three repositories per wave, and six active lanes in
 total. An expired but unrecovered wave remains non-released and blocks capacity
 or repository reuse with `recovery_proof_required`; expiry is not an implicit
-release. The active waves' canonical repository sets must be disjoint. It also
-rejects duplicate or nested target/worktree locations and supplied cross-run
-issue-scope, target-root, worktree, state-root, or known submission-surface
-overlap. Semantic overlap that cannot be mechanically encoded remains a root
-coordinator judgment and must fail closed when material uncertainty remains.
+release. The active waves' canonical repository sets must be disjoint.
+
+For every comparison side that already has a run projection, cross-run scope
+admission uses only the current `lanes[*].scope` values whose lane state is not
+in the closed `FINAL_STATES` vocabulary. Those are the event-projected live
+scopes and include every accepted post-A refinement. A new run may use its
+validated candidate scopes only before its lane projection exists; saved-run
+reacquisition or segment authorization must supply that run's current
+non-final lane scopes. An existing run's `candidates[*].scope` values are never
+used as current cross-run scope after lane projections exist.
+
+The candidate manifest, including each `candidates[*].scope`, remains immutable
+historical selection evidence. A scope transition changes only the matching
+lane projection; it must not overwrite, delete, reinterpret, or backfill the
+candidate evidence. Final-lane exclusion applies only to the mechanical scope
+comparison. It does not weaken repository reservations, capacity, lease,
+target/worktree/state-root, issue, submission-surface, or recovery checks.
+
+Admission also rejects duplicate or nested target/worktree locations and
+supplied cross-run issue-scope, target-root, worktree, state-root, or known
+submission-surface overlap. Semantic overlap that cannot be mechanically
+encoded remains a root coordinator judgment and must fail closed when material
+uncertainty remains.
 
 Admission and reservation recording are one atomic critical section and occur
 before branch/worktree creation, agent launch, or GitHub mutation. If two
@@ -748,9 +813,33 @@ stopped. Repository inactivity alone is never proof. The recovery inspection
 then validates the entire event chain, preserved worktrees and branches,
 repository heads, exact artifacts and package bindings, operation markers,
 reservations, and absence of any conflicting agent or repository operation.
-Only a complete checkpoint already durably recorded before interruption may
-reacquire capacity and authorize its exact next segment after full live-state
-revalidation.
+
+After that proof succeeds, expired-run outcome selection uses this exact
+precedence:
+
+1. If any lane is in a running state, append one `interruption_stop`, set the
+   run to `stopped`, clear its next resumable role, and preserve the existing
+   `unknown_agent_outcome` behavior for each in-flight lane.
+2. Otherwise, if every lane is in `FINAL_STATES`, append one
+   `terminal_release` before considering any explicit checkpoint predicate.
+   The resulting projection has `execution_status=terminal`,
+   `next_resumable_role=null`, `run_complete=true`, released capacity and hard
+   repository reservations, preserved work/history, and normal terminal
+   governance aggregation availability.
+3. Otherwise, if the explicit segment endpoint is durably complete, append one
+   `checkpoint_release`, set `execution_status=checkpointed`, and preserve the
+   exact pre-existing next-role/check-continuation derivation.
+4. Otherwise append one `interruption_stop`, set `execution_status=stopped`,
+   and expose no resumable role.
+
+The all-final check is therefore normative and must occur before
+`_segment_endpoint_reached()` can select checkpoint recovery. Recovery still
+records exactly one hash-chained coordination event. It does not synthesize a
+role transition, alter a final lane state, retry work, or bypass termination,
+lease-expiry, stable-state, no-active-operation, revision, time, or lock proof.
+Only a complete checkpoint boundary durably proven before interruption may
+later reacquire capacity and authorize its exact next segment after full
+live-state revalidation.
 
 If any role was in flight or its durable outcome is uncertain, the lane and run
 stop as `unknown_agent_outcome`. The role is never automatically retried or
@@ -850,6 +939,9 @@ readiness or authority claim beyond its defined state.
 - Dispatch never selects more than three lanes or more than one issue per repo.
 - One canonical workspace never has more than two active or expired-unreleased
   waves, six associated lanes, or overlapping unreleased repository sets.
+- Cross-run scope admission compares current non-final lane projections,
+  including accepted post-A refinements; candidate scopes remain immutable
+  historical selection evidence.
 - Explicit `repos=` never falls back to another repository.
 - Selection and post-A overlap checks fail closed on unknown material scope.
 - Each A, B, C, E, and F turn uses a fresh native subagent and current durable
@@ -869,6 +961,8 @@ readiness or authority claim beyond its defined state.
   after its previous issue or renewal while the coordinator remains active.
 - Checkpoint and normal terminal release preserve all branches, worktrees,
   artifacts, partial results, and event history.
+- Proven all-final expired recovery terminal-releases before checkpoint
+  recovery, with no next role and `run_complete=true`.
 - Expiry grants recovery-inspection eligibility only; uncertain task or role
   outcome remains `unknown_agent_outcome` with no automatic retry.
 - Manual work is never adopted into a saved run.
@@ -936,22 +1030,20 @@ runtime controllers.
 
 ## Dependency Order
 
-1. Revise this Codex B contract before implementation.
-2. Update the deterministic helper, V2 schema/protocol references, skill
-   instructions, UI metadata when needed, focused tests, installer expectations,
-   concise documentation, and implementation handoff within the owned paths.
-3. Run focused parsing, transition, concurrency, lease, recovery, package,
-   redaction, and installer tests.
-4. Run source-loaded live Inspect and prove zero writes.
-5. Run synthetic two-wave Dispatch across six disposable repositories using
-   local remotes and mocked PR/CI boundaries.
-6. Run broader repo validation and prove the legacy Role Pool tree identity.
-7. Run fresh independent Codex E review and replace the stale review report
-   with exact-current-package evidence.
-8. Route concrete findings through D and repeat fresh E after any changed byte.
-9. Only after E reports no blocking findings may Codex F stage the exact
-   reviewed package, create one new commit without amending the existing PR
-   commit, push the current branch, and update draft PR #856.
+1. Codex B corrects only this contract for issue #857.
+2. Codex D changes only the helper predicates for E-009 and E-010, adds the
+   exact E-009 through E-011 regressions in the two authorized test files, and
+   writes the new correction-specific D handoff.
+3. D runs the correction regressions first, then the complete focused
+   issue-wave and installer suites, without installing a dependency or skill.
+4. D runs current documentation, Ruff, compile, protected-surface,
+   secret-pattern, diff, and legacy Role Pool identity checks that are
+   available without dependency changes.
+5. Fresh Codex E reviews the exact correction package and writes the new issue
+   #857 report; the historical #855 handoff and report remain unchanged.
+6. Any submission or integration action requires a later role and separate
+   owner approval. D and E do not stage, commit, push, open or update a PR,
+   target `main`, merge, close an issue, install, Dispatch, deploy, or clean.
 
 ## Compatibility
 
@@ -969,6 +1061,63 @@ runtime controllers.
   adoption, arbitrary-role entry, or V1 ledger migration is supported.
 
 ## Tests Required
+
+Issue #857 adds these mandatory correction regressions without weakening or
+replacing any existing V2 coverage.
+
+### ME-IW-855-E-009 — current cross-run scope admission
+
+- Parameterize all six scope dimensions: `paths`, `interfaces`,
+  `truth_owners`, `dependencies`, `shared_artifacts`, and `submission_lanes`.
+- Create a first run whose immutable candidate scope contains an initial token,
+  advance its lane through accepted A transitions to `a_scope_verified` with a
+  different current token in the parameterized dimension, and assert both that
+  the candidate token is unchanged and the lane projection owns the refined
+  token.
+- Attempt a second new run in a different repository and non-overlapping
+  target root with the refined token. It must fail
+  `unsafe_or_conflicting_scope` from the current non-final lane projection, not
+  from candidate history.
+- Prove a rejected second run creates no run directory, `run.json`,
+  `events.jsonl`, reservation, branch, worktree, task, repository operation, or
+  GitHub effect; the admitted run's ledger bytes and revision remain unchanged.
+  Helper-unit assertions own the local ledger proof, and the existing mocked
+  orchestration boundary owns the zero downstream-effect proof.
+- Cover saved-run reacquisition or segment authorization so the run being
+  readmitted also supplies its current non-final lane scopes rather than its
+  historical candidates.
+- Prove final lanes are excluded only from scope-token comparison, genuinely
+  disjoint current scopes remain admissible, and all other capacity,
+  reservation, lease, repository, path, and submission checks remain active.
+
+### ME-IW-855-E-010 — all-final expired recovery
+
+- Reproduce the explicit-segment case in which every lane is final, including
+  the one-lane `a_ambiguous` predicate from issue #857, and recover only after
+  the existing expiry and complete recovery proof.
+- Assert exactly one new valid hash-chained event whose type is
+  `terminal_release`, not `checkpoint_release`; assert
+  `execution_status=terminal`, `next_resumable_role is None`,
+  `run_complete is True`, released capacity/reservations, preserved lane and
+  worktree/artifact history, and persisted recovery proof.
+- Include a multi-lane all-final case and prove material governance packets are
+  available to the unchanged terminal aggregation route.
+- Prove precedence is unchanged for the other branches: any in-flight lane
+  remains fail-closed through `interruption_stop` and
+  `unknown_agent_outcome`; a completed explicit checkpoint with at least one
+  non-final lane remains checkpointed; an unproven boundary remains stopped.
+
+### ME-IW-855-E-011 — exact run-schema coherence
+
+- In `tests/test_install_codex_skills.py`, add one focused static coherence
+  regression that extracts the canonical run-projection declaration from this
+  contract, the helper `STATE_SCHEMA`, the state-schema reference declaration,
+  and the installed-helper expectation.
+- Assert all four resolve to exactly `mythic_edge_issue_wave_state.v2`. The test
+  must compare the declarations, not count incidental prose mentions of the
+  superseded contract-only identifier.
+- No alias, V1 migration, dual read, schema rename, state-reference edit, or
+  installer implementation change is authorized.
 
 Focused automated tests must cover:
 
@@ -1074,8 +1223,9 @@ residue must be preserved.
 
 ## Acceptance Criteria
 
-- Issue #855 remains the current Codex A authority and this file is the durable
-  Codex B contract.
+- Issue #857 is the current correction authority, issue #855 and PR #856 remain
+  immutable historical evidence, and this file is the durable Codex B
+  contract.
 - `$mythic-edge-issue-wave` source validates and exposes exact Inspect and
   Dispatch behavior without implicit invocation.
 - Bare Dispatch remains autonomous through F; explicit segments stop exactly
@@ -1095,12 +1245,18 @@ residue must be preserved.
   lanes retain capacity in one canonical workspace; shared repositories, a
   third wave, or cross-run path/scope conflicts fail closed before repository
   effects.
+- Cross-run mechanical scope overlap is calculated from every participating
+  saved run's current non-final lane projections, including post-A scope
+  updates, while candidate scopes remain immutable selection evidence.
 - Every active reservation has a five-minute lease renewed no later than every
   60 seconds; checkpoint and terminal release are immediate and preserve all
   work and history.
 - Lease expiry authorizes only recovery inspection. Recovery proves former
   task/agent termination and stable preserved state; uncertainty remains
   `unknown_agent_outcome` without automatic retry.
+- After that proof, an all-final expired run records a terminal release before
+  checkpoint consideration and projects `terminal`, no next role, and
+  `run_complete=true` with terminal governance routing intact.
 - Manual or external work is detected as drift and is never adopted or
   retrospectively certified into saved state.
 - E can approve the exact uncommitted C package by canonical manifest SHA-256
@@ -1117,65 +1273,108 @@ residue must be preserved.
   pass or are explicitly classified with evidence.
 - The legacy Role Pool tracked tree and R0-bound bytes match the pre-change
   baseline exactly.
-- An independent Codex E report has no blocking findings.
-- Codex F opens an independently reviewed draft PR for issue #855 and stops.
-  No merge, installation, real Mythic Edge Dispatch, issue closure, deployment,
-  or readiness claim occurs.
+- The contract, helper, state-schema reference, and installer expectation name
+  exactly `mythic_edge_issue_wave_state.v2` as the run projection schema.
+- The correction changes no unrelated V2 field, transition, lease,
+  reservation, event-chain, reviewed-package binding, public-safety rule,
+  historical #855 artifact, legacy Role Pool path, or R0-bound byte.
+- A fresh correction-specific Codex E report has no blocking findings before
+  any later submission decision. No staging, commit, push, PR action,
+  main-targeting, merge, installation, real Mythic Edge Dispatch, issue
+  closure, deployment, cleanup, or readiness claim occurs in B, D, or E.
 
 ## Next Workflow Action
 
-Next role: Codex C: Module Implementer.
+Next role: Codex D: Module Fixer for findings `ME-IW-855-E-009` through
+`ME-IW-855-E-011` under issue #857.
 
 ```text
-Act as fresh Mythic Edge Codex C for issue #855 on branch
-agent/mythic-edge-issue-wave-855 and invoke $mythic-edge-workflow. Refresh
-current repo authority, live issue #855, draft PR #856, accepted ADR-0008 and
-ADR-0012, and docs/contracts/mythic_edge_issue_wave_skill.md. Implement only
-the newly contracted checkpoint and two-wave revision: explicit A-A/A-B/A-C/
-A-E/A-F checkpoints; exact-next-role saved-run segments; V2 invocation, run,
-event, event-request, and Inspect schemas; two active disjoint waves; bounded
-admission and cross-run isolation; five-minute leases renewed no later than 60
-seconds; immediate checkpoint/terminal release with preserved work; fail-closed
-expired-lease recovery requiring task/agent termination proof and stable-state
-revalidation; unknown_agent_outcome with no automatic retry; no adoption of
-manual work; and checkpoint/governance outputs. Preserve candidate-manifest
-and reviewed-package V1 semantics, the E/F reviewed-package handshake, and
-every legacy Role Pool/R0 byte.
+Use the Mythic Edge agent constitution. Act as Codex D: Module Fixer for issue
+#857. Refresh origin/main and the live issue; then read issue #855, merged PR
+#856 and its three unresolved review threads, accepted ADR-0008 and ADR-0012,
+docs/contracts/mythic_edge_issue_wave_skill.md, the issue-wave helper,
+state-schema reference, and focused tests. Verify the checkout supplied for D
+against current origin/main; do not create or move a branch/worktree unless the
+owner separately authorizes it.
 
-Edit only the paths owned by this contract, update the implementation handoff,
-and run the exact focused, simultaneous two-wave, lease/recovery, synthetic,
-Inspect-zero-write, installer, Ruff, docs, protected-surface, secret, legacy-
-identity, and diff checks required here. If safe behavior would require a
-daemon, service, scheduler, database, custom agent controller, or cross-machine
-coordinator, stop and route to A. Stop for fresh independent E without staging,
-committing, pushing, updating PR #856, installing, performing a real Dispatch,
-merging, deploying, or closing issue #855.
+Fix only ME-IW-855-E-009 and ME-IW-855-E-010 in
+docs/codex_skills/mythic-edge-issue-wave/scripts/issue_wave_state.py. Cross-run
+admission must compare every saved participant using current non-final
+lanes[*].scope, including accepted post-A refinements, while candidates[*].scope
+remains immutable historical selection evidence. Expired recovery must keep
+the in-flight stop first, then terminal-release every all-final run before
+considering an explicit checkpoint, then checkpoint only a remaining complete
+explicit boundary, otherwise stop.
+
+Add only the contract-required regressions to
+tests/test_mythic_edge_issue_wave_skill.py. Update
+tests/test_install_codex_skills.py only for the single E-011 coherence test
+proving the contract, helper, state reference, and installer expectation all
+declare exactly mythic_edge_issue_wave_state.v2. Write the new D handoff only
+to
+docs/implementation_handoffs/mythic_edge_issue_wave_skill_issue_857_fixer.md.
+
+Preserve every unrelated V2 field, transition, lease, reservation, event-chain
+rule, reviewed-package binding, public-safety/no-echo rule, historical #855
+handoff and final E report, the entire legacy mythic-edge-role-pool package,
+and every R0-bound byte. Do not: edit any other path; touch issues #826, #813,
+or #769; install the skill; run a real Dispatch; create a daemon/controller;
+stage, commit, push, open or update a PR, target main, merge, close issues,
+deploy, or clean worktrees.
+
+Run the correction regressions first, then the complete focused issue-wave and
+installer suites, Ruff/compile, agent-doc, protected-surface, secret-pattern,
+legacy-identity, and diff checks available without dependency changes. Stop
+and route to B if the implementation needs a schema/reference/contract change,
+to A if scope must expand, or immediately if any legacy Role Pool/R0 byte or
+unauthorized path would change. Return the exact changed paths and hashes,
+finding-by-finding evidence, validation and unavailable checks, remaining risk,
+a pasteable fresh Codex E prompt, and a D-to-E workflow_handoff.
 ```
 
 ```yaml
 workflow_handoff:
+  role_performed: "Codex B: Module Contract Writer"
   repository: "Tahjali11/Mythic-Edge"
   repository_url: "https://github.com/Tahjali11/Mythic-Edge"
-  issue: "https://github.com/Tahjali11/Mythic-Edge/issues/855"
+  issue: "https://github.com/Tahjali11/Mythic-Edge/issues/857"
   tracker: "N/A"
   completed_thread: "B"
-  next_thread: "C"
+  next_thread: "D"
   source_artifact: "docs/contracts/mythic_edge_issue_wave_skill.md"
-  target_artifact: "docs/implementation_handoffs/mythic_edge_issue_wave_skill_comparison.md"
+  target_artifact: "docs/implementation_handoffs/mythic_edge_issue_wave_skill_issue_857_fixer.md"
   risk_tier: "high workflow risk"
   base_branch: "main"
-  target_branch: "main"
-  branch: "agent/mythic-edge-issue-wave-855"
+  target_branch: "main_requires_separate_owner_approval"
+  branch: "not_created_by_codex_b"
+  internal_project_area: "Quality / Governance"
+  truth_owner: "deterministic issue-wave state helper and current module contract"
+  bridge_code_status: "shared_support"
+  lane_activation:
+    repo: "Tahjali11/Mythic-Edge"
+    active_issue_or_lane: "#826"
+    lane_status: "active_second_lane_under_explicit_user_override"
+    tracker_selected_next_lane: ""
+    exception:
+      name: "explicit_user_override"
+      blocked_active_issue_or_pr: "#826"
+      reason: "Correct the three current-main issue-wave findings before installation or real Dispatch."
+      allowed_scope: "Exact ME-IW-855-E-009 through ME-IW-855-E-011 correction lifecycle only."
+      expiration_condition: "Correction merge and issue closeout, explicit park/defer/cancel/reassignment, or owner revocation."
+      authorized_by: "Human owner in the current task on 2026-08-13"
+      recorded_in: "#857"
   validation:
-    - "Contract reconciled to the refreshed issue #855 checkpoint, concurrency, lease, and recovery authority"
-    - "Candidate-manifest and reviewed-package V1 semantics preserved"
-    - "docs consistency checks"
-    - "git diff --check"
+    - "Current-main helper, reference, and installer evidence establish mythic_edge_issue_wave_state.v2 as canonical."
+    - "The three PR #856 threads were live-verified unresolved and not outdated."
+    - "py -B tools/check_agent_docs.py: 55 checked, 0 errors, 0 warnings."
+    - "Protected-surface and secret-pattern path scans: 1 path, 0 forbidden, 0 warnings."
+    - "git diff --check against a temporary origin/main index: passed without changing the real index."
   stop_conditions:
-    - "contract or authority ambiguity"
-    - "safe implementation requires a daemon, service, scheduler, database, custom controller, or cross-machine coordinator"
-    - "legacy Role Pool or R0-bound byte change"
-    - "staging, commit, push, PR update, real Dispatch, installation, G work, merge, deployment, or issue closure"
+    - "Any ambiguity in the canonical schema identifier or recovery precedence."
+    - "Any required edit outside the exact D allowlist."
+    - "Any legacy mythic-edge-role-pool or R0-bound byte change."
+    - "Any issue #826, #813, or #769 effect."
+    - "Any installation, real Dispatch, staging, submission, main-targeting, merge, deployment, cleanup, or readiness action."
 ```
 
 ```yaml
@@ -1196,14 +1395,15 @@ instruction_context:
     - "ADR-0008"
     - "ADR-0012"
   protected_surfaces:
-    - "workflow coordination and native subagent dispatch"
-    - "Git branches, worktrees, commits, pushes, and draft pull requests"
-    - "local resumable run state"
+    - "cross-run admission and concurrent repository-write isolation"
+    - "expired-run recovery state and terminal governance routing"
+    - "closed coordination schema identifiers"
     - "legacy Role Pool and R0-bound files (explicitly forbidden)"
   authority_conflicts_found: false
-  authority_conflict_notes: "Issue #855 records the explicit ADR-0008 override and fixes the checkpoint grammar, two-wave limit, disjoint-repository rule, renewable lease, recovery proof, and manual-continuation boundary. No daemon or cross-machine enforcement is authorized or required."
+  authority_conflict_notes: "Issue #857 records the narrow ADR-0008 explicit_user_override, and current main independently supports mythic_edge_issue_wave_state.v2. No legacy Role Pool or broader package edit is required."
   stop_conditions:
-    - "the V2 transition, lease, or recovery contract remains ambiguous"
-    - "implementation requires scope outside the contract-owned paths"
-    - "legacy or R0 boundary cannot be proven unchanged"
+    - "the exact E-009 through E-011 contract cannot be implemented within the D allowlist"
+    - "any unrelated V2 behavior or public-safety rule would change"
+    - "legacy Role Pool or R0 preservation cannot be proven"
+    - "any operational or GitHub write outside later separately approved roles"
 ```

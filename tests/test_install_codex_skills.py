@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import hashlib
 import importlib.util
 import json
@@ -18,6 +19,7 @@ installer = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = installer
 SPEC.loader.exec_module(installer)
 REPO_ROOT = Path(__file__).resolve().parents[1]
+ISSUE_WAVE_STATE_SCHEMA_EXPECTATION = "mythic_edge_issue_wave_state.v2"
 
 
 def _write_skill(repo_root: Path, name: str, body: str | None = None) -> Path:
@@ -317,9 +319,59 @@ def test_repo_owned_issue_wave_lists_dry_runs_and_installs_to_temporary_target(
     assert installer._directories_match(source, target)
     installed_helper = (target / "scripts" / "issue_wave_state.py").read_text(encoding="utf-8")
     assert 'INVOCATION_SCHEMA = "mythic_edge_issue_wave_invocation.v2"' in installed_helper
-    assert 'STATE_SCHEMA = "mythic_edge_issue_wave_state.v2"' in installed_helper
+    assert f'STATE_SCHEMA = "{ISSUE_WAVE_STATE_SCHEMA_EXPECTATION}"' in installed_helper
     assert unchanged_code == installer.EXIT_SUCCESS
     assert "action=unchanged" in unchanged_output
+
+
+def test_issue_wave_run_projection_schema_declarations_are_coherent() -> None:
+    contract = (REPO_ROOT / "docs" / "contracts" / "mythic_edge_issue_wave_skill.md").read_text(
+        encoding="utf-8"
+    )
+    helper_path = (
+        REPO_ROOT
+        / "docs"
+        / "codex_skills"
+        / "mythic-edge-issue-wave"
+        / "scripts"
+        / "issue_wave_state.py"
+    )
+    state_reference = (
+        REPO_ROOT
+        / "docs"
+        / "codex_skills"
+        / "mythic-edge-issue-wave"
+        / "references"
+        / "state-schema.md"
+    ).read_text(encoding="utf-8")
+
+    contract_marker = "The canonical run projection identifier is exactly\n`"
+    reference_marker = "`run.json` uses `"
+    assert contract.count(contract_marker) == 1
+    assert state_reference.count(reference_marker) == 1
+    contract_schema = contract.split(contract_marker, 1)[1].split("`", 1)[0]
+    reference_schema = state_reference.split(reference_marker, 1)[1].split("`", 1)[0]
+
+    helper_tree = ast.parse(helper_path.read_text(encoding="utf-8"))
+    helper_declarations = [
+        node.value.value
+        for node in helper_tree.body
+        if isinstance(node, ast.Assign)
+        and any(isinstance(target, ast.Name) and target.id == "STATE_SCHEMA" for target in node.targets)
+        and isinstance(node.value, ast.Constant)
+        and isinstance(node.value.value, str)
+    ]
+    assert len(helper_declarations) == 1
+
+    declarations = {
+        "contract": contract_schema,
+        "helper": helper_declarations[0],
+        "state_reference": reference_schema,
+        "installer_expectation": ISSUE_WAVE_STATE_SCHEMA_EXPECTATION,
+    }
+    assert declarations == {
+        source: "mythic_edge_issue_wave_state.v2" for source in declarations
+    }
 
 
 def test_installs_missing_skill_and_reports_identical_target_as_unchanged(
