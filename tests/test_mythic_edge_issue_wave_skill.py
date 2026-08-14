@@ -243,6 +243,7 @@ def _advance_one_lane_to_refined_a_scope(
     ("command", "mode", "repositories", "anchor", "run_id", "permissions"),
     [
         ("$mythic-edge-issue-wave Inspect (A)", "Inspect", None, None, None, (False, False)),
+        ("mythicedgeissuewave Inspect (A;)", "Inspect", None, None, None, (False, False)),
         (
             "$mythic-edge-issue-wave Inspect (A; repos=tahjali11/mythic-edge,Tahjali11/Mythic-Edge-Analytics)",
             "Inspect",
@@ -268,6 +269,7 @@ def _advance_one_lane_to_refined_a_scope(
             (False, False),
         ),
         ("$mythic-edge-issue-wave Dispatch (A)", "Dispatch", None, None, None, (False, False)),
+        ("mythicedgeissuewave Dispatch (A;)", "Dispatch", None, None, None, (False, False)),
         (
             "$mythic-edge-issue-wave Dispatch (A; repos=Tahjali11/Mythic-Edge; allow-main-draft)",
             "Dispatch",
@@ -319,13 +321,75 @@ def test_parse_canonical_invocations(
 
 
 @pytest.mark.parametrize(
+    ("selector", "canonical"),
+    [
+        ("Mythic-Edge", "Tahjali11/Mythic-Edge"),
+        ("Mythic-Edge-Analytics", "Tahjali11/Mythic-Edge-Analytics"),
+        ("Analytics", "Tahjali11/Mythic-Edge-Analytics"),
+        ("Fable-Engine", "Tahjali11/Mythic-Edge-Fable-Engine"),
+        ("Corpus", "Tahjali11/Mythic-Edge-Corpus"),
+        ("Automation-Artifacts", "Tahjali11/Mythic-Edge-Automation-Artifacts"),
+        ("Security", "Tahjali11/Mythic-Edge-Security"),
+        ("Feature-Expansions", "Tahjali11/Mythic-Edge-Feature-Expansions"),
+        ("Research-and-Development", "Tahjali11/Mythic-Edge-Research-and-Development"),
+        ("Application-Function", "Tahjali11/Mythic-Edge-Application-Function"),
+        ("Governance", "Tahjali11/Mythic-Edge-Governance"),
+        ("security", "Tahjali11/Mythic-Edge-Security"),
+    ],
+)
+def test_parse_repository_selectors_accept_full_names_and_short_aliases(
+    selector: str, canonical: str
+) -> None:
+    parsed = issue_wave.parse_invocation(
+        f"mythicedgeissuewave Inspect (A; repos={selector})"
+    )
+
+    assert parsed["selectors"]["repositories"] == [canonical]
+
+
+def test_parse_anchor_accepts_short_repository_alias() -> None:
+    parsed = issue_wave.parse_invocation(
+        "mythicedgeissuewave Inspect (A; anchor=Security#123)"
+    )
+
+    assert parsed["selectors"]["anchor"] == {
+        "repository": "Tahjali11/Mythic-Edge-Security",
+        "issue": 123,
+    }
+
+
+def test_parse_rejects_repository_duplicates_after_alias_normalization() -> None:
+    with pytest.raises(issue_wave.IssueWaveError) as error:
+        issue_wave.parse_invocation(
+            "mythicedgeissuewave Inspect "
+            "(A; repos=Security,Mythic-Edge-Security)"
+        )
+
+    assert error.value.code == "invalid_invocation"
+    assert "unique repositories" in error.value.message
+
+
+def test_repository_aliases_do_not_widen_internal_canonical_validation() -> None:
+    assert (
+        issue_wave._repository_from_selector("Security", code="invalid_invocation")
+        == "Tahjali11/Mythic-Edge-Security"
+    )
+
+    with pytest.raises(issue_wave.IssueWaveError) as error:
+        issue_wave._canonical_repository("Security", code="invalid_manifest")
+
+    assert error.value.code == "invalid_manifest"
+
+
+@pytest.mark.parametrize(
     "command",
     [
         "mythic-edge-issue-wave Inspect (A)",
+        "MythicEdgeIssueWave Inspect (A;)",
         "$mythic-edge-issue-wave inspect (A)",
         "$mythic-edge-issue-wave Inspect (B)",
-        "$mythic-edge-issue-wave Inspect (A;)",
         "$mythic-edge-issue-wave Inspect (A;; repos=Tahjali11/Mythic-Edge)",
+        "mythicedgeissuewave Inspect (A; repos=Security;)",
         "$mythic-edge-issue-wave Inspect (A; unknown=value)",
         "$mythic-edge-issue-wave Inspect (A; repos=)",
         "$mythic-edge-issue-wave Inspect (A; repos=Tahjali11/Unknown)",
@@ -2254,6 +2318,12 @@ def test_parse_new_dispatch_checkpoint_segments(token: str, start: str, end: str
     assert parsed["segment"] == {"start_role": start, "end_role": end, "explicit": True}
 
 
+def test_parse_preferred_dispatch_checkpoint_accepts_role_terminator() -> None:
+    parsed = issue_wave.parse_invocation("mythicedgeissuewave Dispatch (A-B;)")
+
+    assert parsed["segment"] == {"start_role": "A", "end_role": "B", "explicit": True}
+
+
 @pytest.mark.parametrize(
     "command",
     [
@@ -3352,7 +3422,7 @@ def test_two_simultaneous_disjoint_waves_succeed_and_third_is_rejected(tmp_path:
     assert third.value.code == "active_wave_limit"
 
 
-def test_repo_owned_skill_metadata_disables_implicit_invocation() -> None:
+def test_repo_owned_skill_metadata_supports_exact_natural_language_invocation() -> None:
     metadata = (
         REPO_ROOT
         / "docs"
@@ -3363,7 +3433,695 @@ def test_repo_owned_skill_metadata_disables_implicit_invocation() -> None:
     ).read_text(encoding="utf-8")
     assert 'display_name: "Mythic Edge Role Pool"' in metadata
     assert 'default_prompt: "Use $mythic-edge-issue-wave' in metadata
-    assert "allow_implicit_invocation: false" in metadata
+    assert "allow_implicit_invocation: true" in metadata
+
+    skill = (
+        REPO_ROOT
+        / "docs"
+        / "codex_skills"
+        / "mythic-edge-issue-wave"
+        / "SKILL.md"
+    ).read_text(encoding="utf-8")
+    assert "mythicedgeissuewave Inspect" in skill
+    assert "mythicedgeissuewave Dispatch" in skill
+
+
+def _init_inventory_checkout(
+    workspace: Path,
+    name: str,
+    *,
+    repository: str = "Tahjali11/Mythic-Edge",
+    remote_url: str | None = None,
+) -> Path:
+    checkout = workspace / name
+    checkout.parent.mkdir(parents=True, exist_ok=True)
+    _git("init", "-b", "main", str(checkout))
+    _git("config", "user.name", "Issue Wave Test", cwd=checkout)
+    _git("config", "user.email", "issue-wave@example.invalid", cwd=checkout)
+    checkout.joinpath("seed.txt").write_text("seed\n", encoding="utf-8")
+    _git("add", "seed.txt", cwd=checkout)
+    _git("commit", "-m", "seed", cwd=checkout)
+    configured_remote = remote_url or f"https://github.com/{repository}.git"
+    _git("remote", "add", "origin", configured_remote, cwd=checkout)
+    return checkout
+
+
+def _inventory_worktree(result: dict[str, object], path: Path) -> dict[str, object]:
+    repository = result["repositories"][0]
+    matches = [
+        worktree
+        for family in repository["families"]
+        for worktree in family["worktrees"]
+        if Path(worktree["path"]) == path.resolve()
+    ]
+    assert len(matches) == 1
+    return matches[0]
+
+
+def _git_inventory_snapshot(main: Path, worktrees: list[Path]) -> dict[str, object]:
+    common_dir = Path(_git("rev-parse", "--git-common-dir", cwd=main))
+    if not common_dir.is_absolute():
+        common_dir = main / common_dir
+    index_bytes: dict[str, bytes] = {}
+    worktree_files: dict[str, bytes] = {}
+    for worktree in worktrees:
+        index_path = Path(_git("rev-parse", "--git-path", "index", cwd=worktree))
+        if not index_path.is_absolute():
+            index_path = worktree / index_path
+        index_bytes[str(worktree.resolve())] = index_path.resolve().read_bytes()
+        for path in worktree.rglob("*"):
+            if not path.is_file() or ".git" in path.relative_to(worktree).parts:
+                continue
+            worktree_files[f"{worktree.resolve()}::{path.relative_to(worktree)}"] = (
+                path.read_bytes()
+            )
+    return {
+        "refs": _git("show-ref", cwd=main),
+        "registrations": _git("worktree", "list", "--porcelain", cwd=main),
+        "config": common_dir.resolve().joinpath("config").read_bytes(),
+        "indexes": index_bytes,
+        "files": worktree_files,
+    }
+
+
+def test_checkout_inventory_groups_primary_and_linked_worktrees_without_writes(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    main = _init_inventory_checkout(workspace, "MythicEdge")
+    inside = workspace / "MythicEdge-task"
+    outside = tmp_path / "outside" / "MythicEdge-task"
+    outside.parent.mkdir()
+    _git("worktree", "add", "-b", "issue/101", str(inside), cwd=main)
+    _git("worktree", "add", "-b", "issue/102", str(outside), cwd=main)
+    before = _git_inventory_snapshot(main, [main, inside, outside])
+
+    result = issue_wave.inventory_checkouts(
+        workspace / ".",
+        ["Tahjali11/Mythic-Edge"],
+    )
+
+    assert result["schema_version"] == issue_wave.CHECKOUT_INVENTORY_SCHEMA
+    repository = result["repositories"][0]
+    assert repository["classification"] == "usable"
+    assert repository["reason"] == "exactly_one_checkout_family"
+    assert len(repository["families"]) == 1
+    family = repository["families"][0]
+    assert Path(family["primary_worktree"]) == main.resolve()
+    assert {Path(worktree["path"]) for worktree in family["worktrees"]} == {
+        main.resolve(),
+        inside.resolve(),
+        outside.resolve(),
+    }
+    assert all(worktree["head"] == _git("rev-parse", "HEAD", cwd=main) for worktree in family["worktrees"])
+    assert _git_inventory_snapshot(main, [main, inside, outside]) == before
+
+
+def test_checkout_inventory_deduplicates_direct_child_path_alias(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    main = _init_inventory_checkout(workspace, "MythicEdge")
+    alias = workspace / "MythicEdge-alias"
+    try:
+        alias.symlink_to(main, target_is_directory=True)
+    except OSError as error:
+        if sys.platform != "win32":
+            pytest.skip(f"directory symlink unavailable: {error}")
+        junction = subprocess.run(
+            ["cmd.exe", "/d", "/c", "mklink", "/J", str(alias), str(main)],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if junction.returncode != 0:
+            pytest.skip("directory path alias unavailable")
+    before = _git_inventory_snapshot(main, [main])
+
+    result = issue_wave.inventory_checkouts(workspace, ["Tahjali11/Mythic-Edge"])
+
+    repository = result["repositories"][0]
+    assert repository["classification"] == "usable"
+    assert len(repository["families"]) == 1
+    assert Path(repository["families"][0]["primary_worktree"]) == main.resolve()
+    assert _git_inventory_snapshot(main, [main]) == before
+
+
+def test_checkout_inventory_reports_locked_registration_without_writes(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    main = _init_inventory_checkout(workspace, "MythicEdge")
+    locked = tmp_path / "locked"
+    _git("worktree", "add", "-b", "issue/303", str(locked), cwd=main)
+    _git("worktree", "lock", "--reason", "active issue", str(locked), cwd=main)
+    before = _git_inventory_snapshot(main, [main, locked])
+
+    result = issue_wave.inventory_checkouts(workspace, ["Tahjali11/Mythic-Edge"])
+
+    repository = result["repositories"][0]
+    assert repository["classification"] == "usable"
+    assert _inventory_worktree(result, locked)["locked"] is True
+    assert _git_inventory_snapshot(main, [main, locked]) == before
+
+
+def test_checkout_inventory_reports_dirty_untracked_ahead_and_detached_worktrees(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    main = _init_inventory_checkout(workspace, "MythicEdge")
+    head = _git("rev-parse", "HEAD", cwd=main)
+    _git("update-ref", "refs/remotes/origin/main", head, cwd=main)
+
+    dirty = tmp_path / "dirty"
+    ahead = tmp_path / "ahead"
+    detached = tmp_path / "detached"
+    _git("worktree", "add", "-b", "issue/201", str(dirty), cwd=main)
+    _git("worktree", "add", "-b", "issue/202", str(ahead), cwd=main)
+    _git("worktree", "add", "--detach", str(detached), "HEAD", cwd=main)
+    dirty.joinpath("seed.txt").write_text("changed\n", encoding="utf-8")
+    dirty.joinpath("untracked.txt").write_text("untracked\n", encoding="utf-8")
+    _git("branch", "--set-upstream-to=origin/main", cwd=ahead)
+    ahead.joinpath("ahead.txt").write_text("ahead\n", encoding="utf-8")
+    _git("add", "ahead.txt", cwd=ahead)
+    _git("commit", "-m", "ahead", cwd=ahead)
+    before = _git_inventory_snapshot(main, [main, dirty, ahead, detached])
+
+    result = issue_wave.inventory_checkouts(workspace, ["Tahjali11/Mythic-Edge"])
+
+    dirty_state = _inventory_worktree(result, dirty)
+    assert dirty_state["dirty"] is True
+    assert dirty_state["untracked"] is True
+    ahead_state = _inventory_worktree(result, ahead)
+    assert ahead_state["upstream"] == "origin/main"
+    assert ahead_state["ahead"] == 1
+    assert ahead_state["behind"] == 0
+    detached_state = _inventory_worktree(result, detached)
+    assert detached_state["detached"] is True
+    assert detached_state["branch"] is None
+    assert _git_inventory_snapshot(main, [main, dirty, ahead, detached]) == before
+
+
+def test_checkout_inventory_keeps_independent_clones_ambiguous(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    _init_inventory_checkout(workspace, "MythicEdge-one")
+    _init_inventory_checkout(workspace, "MythicEdge-two")
+
+    result = issue_wave.inventory_checkouts(workspace, ["Tahjali11/Mythic-Edge"])
+
+    repository = result["repositories"][0]
+    assert repository["classification"] == "checkout_unavailable_or_ambiguous"
+    assert repository["reason"] == "multiple_independent_git_stores"
+    assert len(repository["families"]) == 2
+
+
+def test_checkout_inventory_reports_fetch_push_mismatch_and_missing_repository(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    main = _init_inventory_checkout(workspace, "MythicEdge")
+    _git(
+        "config",
+        "remote.origin.pushurl",
+        "https://github.com/Tahjali11/Mythic-Edge-Security.git",
+        cwd=main,
+    )
+
+    result = issue_wave.inventory_checkouts(
+        workspace,
+        ["Tahjali11/Mythic-Edge", "Tahjali11/Mythic-Edge-Analytics"],
+    )
+
+    by_repository = {item["repository"]: item for item in result["repositories"]}
+    assert by_repository["Tahjali11/Mythic-Edge"]["reason"] == (
+        "fetch_push_remote_mismatch"
+    )
+    assert by_repository["Tahjali11/Mythic-Edge-Analytics"]["reason"] == (
+        "repository_not_found"
+    )
+
+
+def test_checkout_inventory_reports_stale_registration_without_cleanup(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    main = _init_inventory_checkout(workspace, "MythicEdge")
+    stale = tmp_path / "stale"
+    _git("worktree", "add", "-b", "issue/301", str(stale), cwd=main)
+    shutil.rmtree(stale)
+    registrations_before = _git("worktree", "list", "--porcelain", cwd=main)
+
+    result = issue_wave.inventory_checkouts(workspace, ["Tahjali11/Mythic-Edge"])
+
+    stale_state = _inventory_worktree(result, stale)
+    assert stale_state["missing"] is True
+    assert "missing_worktree_registration" in result["repositories"][0]["warnings"]
+    assert _git("worktree", "list", "--porcelain", cwd=main) == registrations_before
+
+
+def test_checkout_inventory_fails_closed_on_git_failure_and_timeout(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    broken = workspace / "broken"
+    broken.mkdir()
+    broken.joinpath(".git").mkdir()
+
+    failed = issue_wave.inventory_checkouts(workspace, ["Tahjali11/Mythic-Edge"])
+    assert failed["repositories"][0]["reason"] == "git_inspection_failed"
+    assert failed["scan_failures"] == [
+        {"path": str(broken.resolve()), "reason": "git_inspection_failed"}
+    ]
+
+    shutil.rmtree(broken)
+    _init_inventory_checkout(workspace, "MythicEdge")
+
+    def timeout(*args: object, **kwargs: object) -> object:
+        raise subprocess.TimeoutExpired(cmd="git", timeout=0.01)
+
+    monkeypatch.setattr(issue_wave.subprocess, "run", timeout)
+    timed_out = issue_wave.inventory_checkouts(workspace, ["Tahjali11/Mythic-Edge"])
+    assert timed_out["repositories"][0]["reason"] == "git_inspection_failed"
+    assert timed_out["scan_failures"][0]["reason"] == "git_inspection_failed"
+
+
+def test_checkout_inventory_never_emits_remote_credentials(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    _init_inventory_checkout(
+        workspace,
+        "MythicEdge",
+        remote_url=(
+            "https://issue-wave-user:do-not-emit-this@github.com/"
+            "Tahjali11/Mythic-Edge.git"
+        ),
+    )
+
+    result = issue_wave.inventory_checkouts(workspace, ["Tahjali11/Mythic-Edge"])
+    encoded = json.dumps(result, sort_keys=True)
+
+    assert result["repositories"][0]["classification"] == "usable"
+    assert "issue-wave-user" not in encoded
+    assert "do-not-emit-this" not in encoded
+
+
+def test_checkout_inventory_cli_requires_canonical_repositories_and_is_ephemeral(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    _init_inventory_checkout(workspace, "MythicEdge")
+
+    assert issue_wave.run(
+        [
+            "inventory-checkouts",
+            "--workspace-root",
+            str(workspace / "."),
+            "--repository",
+            "Tahjali11/Mythic-Edge",
+        ]
+    ) == 0
+    output = json.loads(capsys.readouterr().out)
+    assert output["schema_version"] == "mythic_edge_issue_wave_checkout_inventory.v1"
+    assert not any(path.name == ".codex" for path in workspace.iterdir())
+
+    assert issue_wave.run(
+        [
+            "inventory-checkouts",
+            "--workspace-root",
+            str(workspace),
+            "--repository",
+            "Mythic-Edge",
+        ]
+    ) == 2
+    assert "invalid_command" in capsys.readouterr().err
+
+
+def test_checkout_inventory_uses_command_local_exact_safe_directory(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+    monkeypatch.setenv("GIT_CONFIG_COUNT", "2")
+    monkeypatch.setenv("GIT_CONFIG_KEY_0", "core.fsmonitor")
+    monkeypatch.setenv("GIT_CONFIG_VALUE_0", "ambient-hook")
+    monkeypatch.setenv("GIT_CONFIG_KEY_1", "safe.directory")
+    monkeypatch.setenv("GIT_CONFIG_VALUE_1", "*")
+    monkeypatch.setenv("GIT_CONFIG_PARAMETERS", "'core.fsmonitor'='ambient-hook'")
+    hostile_git_environment = {
+        "GIT_DIR": str(tmp_path / "outside.git"),
+        "GIT_WORK_TREE": str(tmp_path / "outside-worktree"),
+        "GIT_COMMON_DIR": str(tmp_path / "outside-common"),
+        "GIT_INDEX_FILE": str(tmp_path / "outside-index"),
+        "GIT_OBJECT_DIRECTORY": str(tmp_path / "outside-objects"),
+        "GIT_ALTERNATE_OBJECT_DIRECTORIES": str(tmp_path / "alternate-objects"),
+        "GIT_NAMESPACE": "outside-namespace",
+        "GIT_CONFIG_GLOBAL": str(tmp_path / "outside-global-config"),
+        "GIT_CONFIG_SYSTEM": str(tmp_path / "outside-system-config"),
+        "GIT_TRACE": str(tmp_path / "outside-trace"),
+    }
+    for key, value in hostile_git_environment.items():
+        monkeypatch.setenv(key, value)
+
+    def complete(arguments: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        captured["arguments"] = arguments
+        captured["environment"] = kwargs["env"]
+        return subprocess.CompletedProcess(arguments, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(issue_wave.subprocess, "run", complete)
+    root = tmp_path.resolve()
+
+    issue_wave._run_git_read_only(
+        root,
+        ("config", "--local", "--get-all", "remote.origin.url"),
+        accepted_returncodes=(0, 1),
+    )
+
+    assert captured["arguments"][:5] == [
+        "git",
+        "-c",
+        f"safe.directory={root}",
+        "--no-optional-locks",
+        "-C",
+    ]
+    environment = captured["environment"]
+    assert environment["GIT_OPTIONAL_LOCKS"] == "0"
+    assert environment["GIT_TERMINAL_PROMPT"] == "0"
+    assert environment["GCM_INTERACTIVE"] == "Never"
+    assert environment["GIT_CONFIG_COUNT"] == "1"
+    assert environment["GIT_CONFIG_KEY_0"] == "core.fsmonitor"
+    assert environment["GIT_CONFIG_VALUE_0"] == "false"
+    assert environment["GIT_CONFIG_GLOBAL"] == issue_wave.os.devnull
+    assert environment["GIT_CONFIG_NOSYSTEM"] == "1"
+    assert "GIT_CONFIG_KEY_1" not in environment
+    assert "GIT_CONFIG_VALUE_1" not in environment
+    assert "GIT_CONFIG_PARAMETERS" not in environment
+    for key in hostile_git_environment:
+        if key not in {"GIT_CONFIG_GLOBAL"}:
+            assert key not in environment
+
+
+def test_checkout_inventory_ignores_ambient_repository_redirection(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    direct = _init_inventory_checkout(
+        workspace,
+        "MythicEdge",
+        repository="Tahjali11/Mythic-Edge-Security",
+    )
+    outside_parent = tmp_path / "outside"
+    outside_parent.mkdir()
+    outside = _init_inventory_checkout(outside_parent, "independent")
+    outside_git_dir = Path(_git("rev-parse", "--git-dir", cwd=outside)).resolve()
+    before_direct = _git_inventory_snapshot(direct, [direct])
+    before_outside = _git_inventory_snapshot(outside, [outside])
+    monkeypatch.setenv("GIT_DIR", str(outside_git_dir))
+    monkeypatch.setenv("GIT_WORK_TREE", str(outside))
+
+    result = issue_wave.inventory_checkouts(workspace, ["Tahjali11/Mythic-Edge"])
+
+    repository = result["repositories"][0]
+    assert repository["classification"] == "checkout_unavailable_or_ambiguous"
+    assert repository["reason"] == "repository_not_found"
+    assert repository["families"] == []
+    monkeypatch.delenv("GIT_DIR")
+    monkeypatch.delenv("GIT_WORK_TREE")
+    assert _git_inventory_snapshot(direct, [direct]) == before_direct
+    assert _git_inventory_snapshot(outside, [outside]) == before_outside
+
+
+@pytest.mark.parametrize("selector", ["GIT_CONFIG_GLOBAL", "GIT_CONFIG_SYSTEM"])
+def test_checkout_inventory_ignores_ambient_remote_configuration(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    selector: str,
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    direct = _init_inventory_checkout(workspace, "MythicEdge")
+    _git("remote", "remove", "origin", cwd=direct)
+    injected_config = tmp_path / "injected.gitconfig"
+    injected_config.write_text(
+        '[remote "origin"]\n'
+        "\turl = https://github.com/Tahjali11/Mythic-Edge.git\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    before = _git_inventory_snapshot(direct, [direct])
+    monkeypatch.setenv(selector, str(injected_config))
+
+    result = issue_wave.inventory_checkouts(workspace, ["Tahjali11/Mythic-Edge"])
+
+    repository = result["repositories"][0]
+    assert repository["classification"] == "checkout_unavailable_or_ambiguous"
+    assert repository["reason"] == "repository_not_found"
+    assert repository["families"] == []
+    monkeypatch.delenv(selector)
+    assert _git_inventory_snapshot(direct, [direct]) == before
+
+
+def test_checkout_inventory_suppresses_configured_fsmonitor_hook(tmp_path: Path) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    main = _init_inventory_checkout(workspace, "MythicEdge")
+    marker = tmp_path / "fsmonitor-executed.txt"
+    hook = tmp_path / "fsmonitor-hook"
+    hook.write_text(
+        "#!/bin/sh\n"
+        f"printf 'executed\\n' > '{marker.as_posix()}'\n"
+        "printf 'issue-wave-token\\n'\n",
+        encoding="utf-8",
+        newline="\n",
+    )
+    hook.chmod(hook.stat().st_mode | 0o111)
+    _git("config", "core.fsmonitor", f'"{hook.as_posix()}"', cwd=main)
+    _git("update-index", "--fsmonitor", cwd=main)
+    if marker.exists():
+        marker.unlink()
+    _git("status", "--porcelain=v1", cwd=main)
+    assert marker.exists()
+    marker.unlink()
+    before = _git_inventory_snapshot(main, [main])
+
+    result = issue_wave.inventory_checkouts(workspace, ["Tahjali11/Mythic-Edge"])
+
+    assert result["repositories"][0]["classification"] == "usable"
+    assert not marker.exists()
+    assert _git_inventory_snapshot(main, [main]) == before
+
+
+def test_checkout_inventory_preserves_existing_path_prunable_registration(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    main = _init_inventory_checkout(workspace, "MythicEdge")
+    stale = tmp_path / "stale-existing"
+    _git("worktree", "add", "-b", "issue/302", str(stale), cwd=main)
+    stale.joinpath(".git").unlink()
+    before = _git_inventory_snapshot(main, [main])
+    stale_files_before = {
+        str(path.relative_to(stale)): path.read_bytes()
+        for path in stale.rglob("*")
+        if path.is_file()
+    }
+
+    result = issue_wave.inventory_checkouts(workspace, ["Tahjali11/Mythic-Edge"])
+
+    repository = result["repositories"][0]
+    assert repository["classification"] == "usable"
+    assert "prunable_worktree_registration" in repository["warnings"]
+    stale_state = _inventory_worktree(result, stale)
+    assert stale_state["missing"] is False
+    assert stale_state["prunable"] is True
+    assert stale_state["dirty"] is None
+    assert stale_state["untracked"] is None
+    assert stale_state["upstream"] is None
+    assert stale_state["ahead"] is None
+    assert stale_state["behind"] is None
+    assert _git_inventory_snapshot(main, [main]) == before
+    assert {
+        str(path.relative_to(stale)): path.read_bytes()
+        for path in stale.rglob("*")
+        if path.is_file()
+    } == stale_files_before
+
+
+@pytest.mark.parametrize(
+    "porcelain",
+    [
+        "worktree C:/repo\0branch refs/heads/main\0\0",
+        "worktree C:/repo\0HEAD not-a-commit\0branch refs/heads/main\0\0",
+        f"worktree C:/repo\0HEAD {'a' * 40}\0branch not-a-ref\0\0",
+        (
+            f"worktree C:/repo\0HEAD {'a' * 40}\0"
+            "branch refs/heads/main\0detached\0\0"
+        ),
+        f"worktree C:/repo\0HEAD {'a' * 40}\0\0",
+    ],
+)
+def test_checkout_inventory_rejects_malformed_worktree_porcelain(porcelain: str) -> None:
+    with pytest.raises(issue_wave.IssueWaveError) as error:
+        issue_wave._parse_worktree_porcelain(porcelain)
+
+    assert error.value.code == "checkout_family_inconsistent"
+
+
+def test_checkout_inventory_rejects_same_head_branch_race(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    worktree = tmp_path / "worktree"
+    worktree.mkdir()
+    common = tmp_path / "common"
+    common.mkdir()
+    head = "a" * 40
+
+    def controlled(
+        root: Path,
+        command: tuple[str, ...],
+        *,
+        accepted_returncodes: tuple[int, ...] = (0,),
+    ) -> tuple[int, str]:
+        if command == ("rev-parse", "--git-common-dir"):
+            return 0, str(common)
+        if command == ("rev-parse", "--verify", "HEAD"):
+            return 0, head
+        if command == ("symbolic-ref", "--quiet", "--short", "HEAD"):
+            return 0, "issue/changed\n"
+        if command == ("status", "--porcelain=v1", "-z", "--untracked-files=all"):
+            return 0, ""
+        if command == (
+            "rev-parse",
+            "--abbrev-ref",
+            "--symbolic-full-name",
+            "@{upstream}",
+        ):
+            return 1, ""
+        raise AssertionError(command)
+
+    monkeypatch.setattr(issue_wave, "_run_git_read_only", controlled)
+
+    with pytest.raises(issue_wave.IssueWaveError) as error:
+        issue_wave._inspect_registered_worktree(
+            {
+                "worktree": str(worktree),
+                "HEAD": head,
+                "branch": "refs/heads/issue/original",
+            },
+            expected_common_dir=common,
+            primary_path=worktree,
+        )
+
+    assert error.value.code == "checkout_family_inconsistent"
+
+
+def test_checkout_inventory_rejects_changed_registration_snapshot(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = tmp_path / "root"
+    common = tmp_path / "common"
+    root.mkdir()
+    common.mkdir()
+    missing = tmp_path / "missing"
+    head = "a" * 40
+    first = f"worktree {missing}\0HEAD {head}\0branch refs/heads/main\0\0"
+    second = f"worktree {missing}\0HEAD {head}\0branch refs/heads/changed\0\0"
+    calls = 0
+
+    def controlled(
+        command_root: Path,
+        command: tuple[str, ...],
+        *,
+        accepted_returncodes: tuple[int, ...] = (0,),
+    ) -> tuple[int, str]:
+        nonlocal calls
+        assert command == ("worktree", "list", "--porcelain", "-z")
+        calls += 1
+        return 0, first if calls == 1 else second
+
+    monkeypatch.setattr(issue_wave, "_run_git_read_only", controlled)
+    probe = {"path": root, "common_dir": common}
+
+    with pytest.raises(issue_wave.IssueWaveError) as error:
+        issue_wave._checkout_family(probe, "Tahjali11/Mythic-Edge")
+
+    assert error.value.code == "checkout_family_inconsistent"
+    assert calls == 2
+
+
+def test_issue_wave_docs_keep_git_capability_and_accepted_adrs_coherent() -> None:
+    skill_docs = REPO_ROOT.joinpath("docs", "codex_skills.md").read_text(encoding="utf-8")
+    assert "bounded read-only checkout-family inventory" in skill_docs
+    normalized_skill_docs = " ".join(skill_docs.casefold().split())
+    assert (
+        "no helper performs github, mutating, or networked git operations"
+        in normalized_skill_docs
+    )
+
+    packets = [
+        REPO_ROOT
+        / "docs"
+        / "problem_representations"
+        / "mythic_edge_issue_wave_interface_checkout_resolution.md",
+        REPO_ROOT
+        / "docs"
+        / "contracts"
+        / "mythic_edge_issue_wave_interface_checkout_resolution.md",
+        REPO_ROOT
+        / "docs"
+        / "implementation_handoffs"
+        / "mythic_edge_issue_wave_interface_checkout_resolution.md",
+    ]
+    for packet in packets:
+        text = packet.read_text(encoding="utf-8")
+        assert '- "ADR-0010"' not in text
+        assert '- "ADR-0011"' not in text
+
+    for name in (
+        "ADR-0010-bounded-scope-and-informed-approval.md",
+        "ADR-0011-role-scoped-protected-mutations.md",
+    ):
+        adr = REPO_ROOT.joinpath("docs", "decisions", name).read_text(encoding="utf-8")
+        assert "Status: Proposed" in adr
+
+
+def test_checkout_binding_rules_exclude_only_the_exact_bound_issue() -> None:
+    protocol = (
+        REPO_ROOT
+        / "docs"
+        / "codex_skills"
+        / "mythic-edge-issue-wave"
+        / "references"
+        / "controller-protocol.md"
+    ).read_text(encoding="utf-8")
+    contract = (
+        REPO_ROOT
+        / "docs"
+        / "contracts"
+        / "mythic_edge_issue_wave_interface_checkout_resolution.md"
+    ).read_text(encoding="utf-8")
+
+    for source in (protocol, contract):
+        normalized = source.casefold()
+        assert "exclude only that exact issue" in normalized
+        assert "clean historical worktree" in normalized
+        assert "branch and folder issue numbers are query hints only" in normalized
+        assert "wip-1" in normalized
+        assert "dependency" in normalized
+        assert "scope" in normalized
 
 
 def test_helper_imports_only_deterministic_local_standard_library_modules() -> None:
@@ -3391,14 +4149,26 @@ def test_helper_imports_only_deterministic_local_standard_library_modules() -> N
         "pathlib",
         "re",
         "secrets",
+        "subprocess",
         "sys",
         "time",
         "typing",
         "uuid",
     }
     source = HELPER_PATH.read_text(encoding="utf-8")
-    for forbidden in ("subprocess", "socket", "urllib", "requests", "github", "git "):
+    for forbidden in ("socket", "urllib", "requests"):
         assert forbidden not in source.casefold()
+    assert issue_wave.GIT_READ_ONLY_COMMANDS == {
+        ("config", "--local", "--get-all", "remote.origin.pushurl"),
+        ("config", "--local", "--get-all", "remote.origin.url"),
+        ("rev-list", "--left-right", "--count", "HEAD...@{upstream}"),
+        ("rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"),
+        ("rev-parse", "--git-common-dir"),
+        ("rev-parse", "--verify", "HEAD"),
+        ("status", "--porcelain=v1", "-z", "--untracked-files=all"),
+        ("symbolic-ref", "--quiet", "--short", "HEAD"),
+        ("worktree", "list", "--porcelain", "-z"),
+    }
 
 
 def test_legacy_role_pool_tracked_tree_matches_contract_baseline() -> None:

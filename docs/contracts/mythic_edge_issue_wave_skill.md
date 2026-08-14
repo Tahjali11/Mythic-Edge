@@ -12,14 +12,16 @@ issue lanes. It is intentionally separate from the existing
 
 The implementation is a lean hybrid:
 
-- the root Codex coordinator owns repository and GitHub inspection, candidate
-  judgment, native subagent creation, role packets, Git and GitHub actions, and
-  every consequential workflow decision;
-- a small deterministic Python helper owns only invocation parsing, manifest
-  validation, run identifiers, transition validation, and crash-aware atomic
-  local state recording;
-- the helper must not inspect GitHub, select issues, spawn agents, invoke Git,
-  retry work, open pull requests, or make governance judgments.
+- the root Codex coordinator owns GitHub inspection, issue/worktree binding,
+  candidate judgment, native subagent creation, role packets, Git and GitHub
+  actions, and every consequential workflow decision;
+- a small deterministic Python helper owns invocation parsing, a bounded
+  read-only local Git checkout-family inventory, manifest validation, run
+  identifiers, transition validation, and crash-aware atomic local state
+  recording;
+- the helper must not inspect GitHub, bind or select issues, spawn agents,
+  perform a mutating or networked Git operation, retry work, open pull
+  requests, or make governance judgments.
 
 New runs start only at Codex A. Saved runs may continue only from their exact
 mechanically proven next role under the segment rules in this contract. The
@@ -27,7 +29,22 @@ helper remains a local deterministic state boundary; this design adds no
 daemon, service, scheduler, database, custom agent controller, or cross-machine
 coordinator.
 
-## Source Issue
+## Current Issue #859 Additive Amendment
+
+Issue #859 and
+`docs/contracts/mythic_edge_issue_wave_interface_checkout_resolution.md`
+govern the current public invocation and checkout-family correction. They add
+the preferred `mythicedgeissuewave` token, `(A;)`, documented repository
+aliases, and the ephemeral
+`mythic_edge_issue_wave_checkout_inventory.v1` operation. The root remains
+the sole owner of current issue binding and every eligibility decision.
+
+The #859 amendment supersedes only conflicting invocation, helper Git-read,
+and checkout-identity language in this file. It changes no saved-run schema,
+Dispatch authority, state transition, lease, reservation, recovery,
+reviewed-package binding, legacy Role Pool path, or R0-bound byte.
+
+## Historical Source Issue
 
 https://github.com/Tahjali11/Mythic-Edge/issues/857
 
@@ -42,7 +59,8 @@ cleanup, or a real write-enabled Mythic Edge Dispatch.
 
 ## Tracker
 
-N/A. Issue #857 is the direct correction issue; issue #855 is historical.
+N/A. Issue #859 is the current correction issue. Issues #855 and #857 are
+historical.
 
 ## Risk Tier
 
@@ -115,6 +133,16 @@ Forbidden reverse flow:
 
 ## Files Owned By This Contract
 
+The current issue #859 additive file set is defined exactly in
+`docs/contracts/mythic_edge_issue_wave_interface_checkout_resolution.md`.
+That contract permits the invocation, checkout inventory, coordinator
+protocol, focused test, handoff, and review-report paths while keeping the
+installer implementation, state-schema reference, legacy Role Pool, and
+R0-bound files read-only.
+
+The following sections retain the earlier issue #855 and #857 allowlists as
+historical compatibility evidence; they do not narrow or expand issue #859.
+
 The original issue #855 Codex C package was limited to these implementation
 paths:
 
@@ -176,11 +204,16 @@ implementation.
 
 ### Invocation Grammar
 
-The accepted command family is:
+The preferred command family is:
 
 ```text
-$mythic-edge-issue-wave <Mode> (<role-or-segment>[; <option>[; <option> ...]])
+mythicedgeissuewave <Mode> (<role-or-segment>;[ <option>[; <option> ...]])
 ```
+
+Continue to accept `$mythic-edge-issue-wave` as the backward-compatible
+command token. Accept one trailing semicolon only for a role- or segment-only
+body. The complete compatibility grammar and repository aliases are closed by
+`docs/contracts/mythic_edge_issue_wave_interface_checkout_resolution.md`.
 
 `<Mode>` is exactly `Inspect` or `Dispatch`. Inspect accepts only role `A`.
 New Dispatch accepts bare `A` or an explicit segment starting at `A`.
@@ -258,6 +291,11 @@ an excluded repository is not replaced from the wider allowlist. Without
 `repos=`, all allowlisted repositories may be inspected and at most three lanes
 selected. No run may select more than one issue from one repository.
 
+At the public invocation boundary only, a selector may also be the full
+repository name or the exact non-empty suffix after `Mythic-Edge-`. Internal
+manifests and saved state remain canonical-only. No checkout-path option or
+persistent local mapping exists.
+
 ### Inspect Mode
 
 New-candidate Inspect is read-only and produces:
@@ -284,15 +322,19 @@ must operate directly from the repo-owned skill directory.
 The root coordinator must prove all of the following before selection:
 
 1. The issue is open, is not deferred, and is not already represented by an
-   active issue branch, worktree, pull request, or conflicting current lane.
+   active issue branch, worktree, pull request, or conflicting current lane
+   after exact authoritative active-issue binding. One bound worktree excludes
+   only that exact issue from this duplicate-work predicate.
 2. Every declared prerequisite is complete according to durable current
    authority. An absent or ambiguous prerequisite relationship fails closed.
 3. The repository provides current A-G authority and durable conventions for
    its A, B, C, E, and F artifacts. Incompatible or missing authority excludes
    the candidate.
-4. Exactly one local checkout can be matched to the expected GitHub repository
-   by normalized fetch/push remote identity. Missing and conflicting matches
-   are reported and excluded. Cloning is never automatic.
+4. Exactly one checkout family can be matched to the expected GitHub
+   repository. A family is Git's registered primary worktree plus all linked
+   worktrees sharing one resolved common directory. Multiple independent Git
+   stores, missing checkouts, fetch/push mismatch, or unbound active-looking
+   work are reported and excluded. Cloning is never automatic.
 5. Known file paths or path families, public interfaces, truth owners,
    dependencies, shared artifacts, schema surfaces, and submission lanes do not
    overlap any other selected candidate.
@@ -311,8 +353,9 @@ canonical repository name, then numeric issue number. Fewer than three eligible
 issues returns fewer than three lanes.
 
 The helper may validate the shape and deterministic ordering of a candidate
-manifest supplied by the root coordinator. It must not fetch, infer, rank, or
-select candidates.
+manifest supplied by the root coordinator. It may also produce the closed,
+ephemeral checkout inventory under the #859 amendment. It must not fetch,
+infer, bind, rank, or select candidates.
 
 ### Dispatch Mode
 
@@ -908,6 +951,8 @@ created when there is no material packet.
   root coordinator through read-only operations until Dispatch mutation is
   authorized.
 - Current local checkout, remote, branch, worktree, and dirty-state evidence.
+- The ephemeral `mythic_edge_issue_wave_checkout_inventory.v1` result for the
+  selected canonical repositories; it is consumed in memory and not saved.
 - Current repository authority, accepted ADRs, issue artifacts, contracts,
   handoffs, diffs, and tests.
 - Root-authored candidate manifests, canonical reviewed-package manifests,
@@ -920,7 +965,9 @@ or generated prompts are leads only until verified against current authority.
 ## Outputs
 
 Inspect output is a read-only human-readable report with structured candidate
-evidence and pasteable Codex A prompts.
+evidence and pasteable Codex A prompts. It distinguishes checkout identity,
+exact active-issue exclusions, WIP-1, prerequisites and dependencies,
+authority, and scope conflicts.
 
 Dispatch output is a per-lane report plus a local run ledger. A checkpointed
 lane ends at its requested role with exact artifact references, concise role
@@ -943,6 +990,14 @@ readiness or authority claim beyond its defined state.
   including accepted post-A refinements; candidate scopes remain immutable
   historical selection evidence.
 - Explicit `repos=` never falls back to another repository.
+- One resolved Git common directory defines one checkout family regardless of
+  how many primary or linked worktree paths are registered. Two common
+  directories remain independent clones and ambiguous.
+- A current authoritative worktree binding excludes only that exact issue
+  from duplicate-work detection. Every unrelated issue still faces WIP-1,
+  prerequisite, authority, dependency, and scope gates. A clean historical
+  worktree is ignored; unbound active-looking work blocks the repository.
+- Branch and folder issue numbers are query hints only.
 - Selection and post-A overlap checks fail closed on unknown material scope.
 - Each A, B, C, E, and F turn uses a fresh native subagent and current durable
   artifacts; agent chat history is not authority.
@@ -966,8 +1021,13 @@ readiness or authority claim beyond its defined state.
 - Expiry grants recovery-inspection eligibility only; uncertain task or role
   outcome remains `unknown_agent_outcome` with no automatic retry.
 - Manual work is never adopted into a saved run.
-- The helper has no network, Git, GitHub, subagent, task-creation, merge,
-  deployment, installation, or issue-selection capability.
+- The helper has no network, GitHub, subagent, task-creation, merge,
+  deployment, installation, issue-binding, or issue-selection capability. Its
+  only Git capability is the closed read-only checkout inventory with an exact
+  command-local safe-directory override and optional locks disabled; it never
+  changes global Git configuration.
+- Checkout inventory is never stored in the state/event/inspect schemas,
+  ledger, public role packet, or handoff.
 - State is local, explicit, versioned, redacted on output, integrity checked,
   and outside all target repositories.
 - Validation, draft PR checks, E approval, and
@@ -985,7 +1045,11 @@ reservation, cross-run path or scope overlap, lease/recovery proof failure,
 unsupported reviewed-package entry, or reviewed-package binding drift fail
 closed with no unauthorized continuation.
 
-Eligibility ambiguity excludes the candidate. Post-selection ambiguity stops
+Eligibility ambiguity excludes the candidate. Checkout inventory failure,
+multiple independent stores, fetch/push mismatch, and unbound active work use
+`checkout_unavailable_or_ambiguous` without cleanup or retry. Missing or
+prunable registrations warn and block only when current authority still
+depends on them. Post-selection ambiguity stops
 only affected lanes unless the ambiguity invalidates shared evidence. A missing
 checkout is reported; it is never cloned. Dirty or conflicting worktrees are
 preserved. Interrupted agents yield `unknown_agent_outcome`; no automatic retry
@@ -1005,7 +1069,9 @@ package.
 
 ## Side Effects
 
-Inspect side effects: none.
+Inspect side effects: none. Its checkout inventory uses bounded local Git
+reads with optional locks disabled and performs no fetch, prune, checkout,
+cleanup, repair, config update, file write, or network request.
 
 Authorized Dispatch side effects are limited to:
 
@@ -1028,7 +1094,22 @@ mark a PR ready, close an issue, rerun checks, access private runtime paths,
 read secrets, modify credentials, invoke webhooks, alter workbooks, or start
 runtime controllers.
 
-## Dependency Order
+## Current Issue #859 Dependency Order
+
+1. Add contract-first nomenclature, checkout-family, and exact issue-binding
+   tests.
+2. Implement only the closed read-only inventory operation and coordinator
+   protocol in the #859 combined contract.
+3. Run focused and complete validation plus a source-loaded read-only Inspect.
+4. Route concrete findings through D and obtain fresh independent E approval.
+5. Preserve the installed predecessor, synchronize only
+   `mythic-edge-issue-wave`, prove byte equality, and run installed Inspect;
+   restore the predecessor if installed validation fails.
+6. F submits only E's exact package after target-base authority is explicit.
+7. G verifies package identity, checks, review threads, issue/WIP state, and
+   live evidence, then stops before merge.
+
+## Historical Issue #857 Dependency Order
 
 1. Codex B corrects only this contract for issue #857.
 2. Codex D changes only the helper predicates for E-009 and E-010, adds the
@@ -1120,6 +1201,17 @@ replacing any existing V2 coverage.
   installer implementation change is authorized.
 
 Focused automated tests must cover:
+
+- the preferred `mythicedgeissuewave` command, `(A;)`, backward-compatible
+  token, repository aliases, canonical downstream identity, and malformed
+  input rejection;
+- primary and registered linked worktrees inside and outside the workspace,
+  exact common-directory grouping, clean history, dirty/untracked/ahead/
+  detached state, stale registrations, independent clones, fetch/push
+  mismatch, missing repositories, path aliases, Git failures/timeouts,
+  credential-safe remotes, and unchanged refs/index/files;
+- exact active-issue exclusion while unrelated issues retain independent
+  WIP-1, prerequisite, authority, dependency, and scope gates;
 
 - bare autonomous Dispatch, every new-run checkpoint `A-A`, `A-B`, `A-C`,
   `A-E`, and `A-F`, every aligned resume and single-role segment, and malformed
@@ -1223,11 +1315,12 @@ residue must be preserved.
 
 ## Acceptance Criteria
 
-- Issue #857 is the current correction authority, issue #855 and PR #856 remain
-  immutable historical evidence, and this file is the durable Codex B
-  contract.
-- `$mythic-edge-issue-wave` source validates and exposes exact Inspect and
-  Dispatch behavior without implicit invocation.
+- Issue #859 and the combined interface/checkout contract are current
+  correction authority. Issues #855 and #857 plus PR #856 remain immutable
+  historical evidence.
+- `mythicedgeissuewave` is discoverable only for a complete exact Inspect or
+  Dispatch command, `(A;)` and repository aliases normalize at public input,
+  and `$mythic-edge-issue-wave` remains backward compatible.
 - Bare Dispatch remains autonomous through F; explicit segments stop exactly
   at their requested checkpoint and exact-next-role resume records a new
   authorization before agent launch.
@@ -1239,7 +1332,11 @@ residue must be preserved.
   active-work exclusion, and non-overlap, with deterministic ordering and no
   backfill.
 - The helper is small, deterministic, network-free, agent-free, fail-closed,
-  crash-aware, and limited to parsing/validation/local state transitions.
+  and crash-aware. In addition to parsing, validation, and local state
+  transitions, it owns only the closed ephemeral read-only checkout inventory.
+- One primary checkout and its registered linked worktrees form one family;
+  multiple independent stores remain ambiguous. Exact active-issue exclusion
+  does not waive WIP-1, prerequisite, dependency, authority, or scope gates.
 - Explicit resume cannot retry uncertain work or silently change permissions.
 - At most two disjoint active or expired-unreleased waves and six associated
   lanes retain capacity in one canonical workspace; shared repositories, a
@@ -1283,7 +1380,18 @@ residue must be preserved.
   main-targeting, merge, installation, real Mythic Edge Dispatch, issue
   closure, deployment, cleanup, or readiness claim occurs in B, D, or E.
 
-## Next Workflow Action
+## Current Issue #859 Next Workflow Action
+
+Next role: Codex C under
+`docs/contracts/mythic_edge_issue_wave_interface_checkout_resolution.md`.
+Implement the contract-first inventory and protocol package, validate it, and
+write
+`docs/implementation_handoffs/mythic_edge_issue_wave_interface_checkout_resolution.md`.
+Do not alter saved-run schemas, Dispatch authority, installer implementation,
+legacy Role Pool or R0-bound files. Do not target `main` or merge without the
+separate authority required by current repository governance.
+
+## Historical Issue #857 Next Workflow Action
 
 Next role: Codex D: Module Fixer for findings `ME-IW-855-E-009` through
 `ME-IW-855-E-011` under issue #857.

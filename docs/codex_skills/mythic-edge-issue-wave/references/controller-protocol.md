@@ -4,6 +4,7 @@
 
 - Root authority boundary
 - Invocation and allowlist
+- Checkout-family inventory
 - Inspect protocol
 - Candidate manifest protocol
 - Dispatch role waves
@@ -15,30 +16,45 @@
 
 Keep the active root Codex responsible for:
 
-- current repository and GitHub inspection;
+- current GitHub inspection and interpretation of local Git evidence;
+- authoritative issue/worktree binding;
 - authority, dependency, WIP, eligibility, ranking, and overlap judgment;
 - native subagent creation and self-contained role packets;
 - branch, worktree, commit, push, draft-PR, and check operations;
 - artifact, test, and role-outcome acceptance;
 - every state transition and all A/B/D/E/F/G routing decisions.
 
-Use the helper only after the root has supplied the facts it validates. Helper
-acceptance proves schema and transition consistency, not the truth of supplied
-facts.
+Use the helper's `inventory-checkouts` operation only for the closed local Git
+facts it reads. For every other operation, use the helper only after the root
+has supplied the facts it validates. Helper acceptance proves mechanical Git,
+schema, or transition consistency, not issue identity, active-work status,
+eligibility, authority, or the truth of root-supplied facts.
 
 ## Invocation And Allowlist
+
+The preferred public grammar is:
+
+```text
+mythicedgeissuewave <Inspect|Dispatch> (<role-or-segment>;[ option ...])
+```
+
+Continue to accept `$mythic-edge-issue-wave` as the backward-compatible
+command token. A lone no-option terminator such as `(A;)` or `(A-B;)` is
+valid. A doubled semicolon, empty option, or trailing semicolon after an option
+is invalid. Skill discovery from the exact preferred token loads instructions
+only; it performs no action and grants no authority.
 
 Inspect accepts only `A`. Bare Dispatch `A` is autonomous through F. New-run
 segments are exactly `A-A`, `A-B`, `A-C`, `A-E`, and `A-F`. Saved-run
 segments begin at the exact next role and end at that role or a later
 normal-path role; aligned `B-B`, `C-C`, `E-E`, and `F-F` are valid. D is not a
 selectable role. Ignore outer whitespace and whitespace around semicolons;
-treat modes, roles, option names, and punctuation as exact.
+treat command tokens, modes, roles, option names, and punctuation as exact.
 
 Allowed options:
 
-- `repos=owner/repo[,owner/repo...]`: one to three unique allowlisted repos;
-- `anchor=owner/repo#number`: one allowlisted repo and positive issue;
+- `repos=repo-ref[,repo-ref...]`: one to three unique allowlisted repos;
+- `anchor=repo-ref#number`: one allowlisted repo and positive issue;
 - `run=YYYYMMDDTHHMMSSZ-8hex`: inspect or resume one existing run;
 - `allow-main-draft`: Dispatch only and only when the segment contains F;
 - `allow-wip-exception`: new Dispatch run only.
@@ -63,32 +79,92 @@ The fixed allowlist is:
 Match case-insensitively and emit the spelling above. With `repos=`, inspect
 only that normalized set and never fill from an excluded repository.
 
+A public `repo-ref` may be the canonical `owner/repo`, the full repository
+name, or the exact suffix after `Mythic-Edge-`. The root repository has no
+suffix alias and accepts only `Tahjali11/Mythic-Edge` or `Mythic-Edge`.
+Short aliases are `Analytics`, `Fable-Engine`, `Corpus`,
+`Automation-Artifacts`, `Security`, `Feature-Expansions`,
+`Research-and-Development`, `Application-Function`, and `Governance`.
+Normalize before uniqueness checks, so two aliases for one repository are a
+duplicate. Internal manifests and saved state retain canonical identities and
+do not accept aliases.
+
+## Checkout-Family Inventory
+
+Run exactly:
+
+```text
+py -B scripts/issue_wave_state.py inventory-checkouts \
+  --workspace-root <coordinator-resolved-root> \
+  --repository <canonical> [--repository <canonical> ...]
+```
+
+This is an internal operation. Add no invocation option for a checkout path
+and keep no persistent local checkout map. The helper examines only Git
+folders directly beneath the supplied workspace root. For a matched Git common
+directory, it includes Git's registered primary worktree and every registered
+linked worktree, even when a linked worktree is outside the workspace. It does
+not search outside the workspace for independent clones.
+
+Exactly one common directory is one usable checkout family. Two common
+directories are independent clones and remain
+`checkout_unavailable_or_ambiguous`, even if their remotes match and both are
+clean. A fetch/push mismatch, missing checkout, bounded Git failure, or
+internally inconsistent family also fails closed.
+
+The operation uses only its contracted read-only Git allowlist with an exact
+command-local `safe.directory` value for the inspected path, optional locks
+disabled, terminal prompts disabled, ambient Git state removed, and global and
+system configuration ignored. Origin evidence comes only from the inspected
+checkout's local configuration. It never changes global Git config, fetches,
+prunes, repairs, checks out, cleans, writes, or contacts a remote. Do not expose
+raw remote URLs, command output, or credentials.
+
+Consume `mythic_edge_issue_wave_checkout_inventory.v1` in memory. Never add it
+to a saved-run schema, ledger, public packet, or handoff. Missing or prunable
+registrations are warnings and are never cleaned up. Block on one only when
+current run authority still depends on that registration.
+
 ## Inspect Protocol
 
 Keep a read ledger in the response, not on disk. For each selected repository:
 
 1. Verify the GitHub repository identity.
-2. Match exactly one local checkout by normalized fetch/push remote identity.
+2. Require exactly one checkout family from the ephemeral inventory.
 3. Read current `AGENTS.md`, workflow rules, role conventions, accepted ADRs,
    active issues/contracts/handoffs, and current branch/worktree/PR state.
 4. Query only current public issue, PR, review, and check metadata needed for
    candidate judgment.
-5. Record every issue actually considered and one exclusion or admission
+5. Bind active worktrees only through current open PR/issue linkage, a
+   non-final issue-wave ledger, or a current contract/handoff tied to an open
+   issue. Branch and folder issue numbers are query hints only.
+6. When exactly one issue is bound, exclude only that exact issue from the
+   duplicate-work gate. A clean historical worktree with no current
+   active-work evidence is ignored. Dirty, ahead, in-progress, or open-PR
+   work without exactly one authoritative issue binding blocks the repository.
+7. Record every issue actually considered and one exclusion or admission
    reason.
 
 Admit a candidate only when current evidence proves:
 
 - open and not deferred, parked, duplicate, superseded, or represented by
-  active conflicting work;
+  active conflicting work after exact-issue exclusion;
 - every declared prerequisite is durably complete and the relationship is
   unambiguous;
 - compatible repository-local A through F authority and durable artifact
   conventions exist;
-- exactly one checkout matches the repository;
+- exactly one checkout family matches the repository;
 - WIP-1 passes, or both the invocation and current issue-scoped authority
   permit the saved exception;
 - all material scope dimensions are known and do not conflict with another
   selected lane.
+
+Issue binding changes only duplicate-work detection. Every unrelated issue
+still faces its independent prerequisite, WIP-1, authority, dependency, and
+scope gates. An active worktree for issue X excludes X only; issue Y is
+evaluated normally. If binding remains ambiguous, block the repository before
+selecting either issue. A branch name or folder name never supplies the
+missing authority.
 
 Compare exact files and path families, public interfaces, truth ownership,
 dependencies, shared artifacts, schema/protected surfaces, and submission
@@ -250,8 +326,11 @@ process create the task.
 
 For Inspect, return repositories/issues examined, every exclusion, selected
 candidates in deterministic order, current evidence for every admission
-predicate, and one pasteable A prompt per lane. Explicitly state that no local
-or GitHub write occurred.
+predicate, and one pasteable A prompt per lane. Distinguish checkout identity,
+the exact active issue excluded as duplicate work, WIP-1 incompatibility,
+prerequisites and dependencies, authority, and scope conflicts. Zero selected
+lanes is valid when those gates genuinely exclude everything. Explicitly state
+that no local or GitHub write occurred.
 
 For Dispatch, return per lane:
 

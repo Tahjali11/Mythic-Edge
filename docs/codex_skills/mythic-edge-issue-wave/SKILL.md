@@ -1,15 +1,16 @@
 ---
 name: mythic-edge-issue-wave
-description: Inspect up to three dependency-safe Mythic Edge issue lanes or, when explicitly asked to Dispatch, coordinate checkpointed fresh native Codex A through F role waves with isolated worktrees, two-wave reservations, renewable leases, recovery state, draft PRs, and a stop before G. Use for explicit $mythic-edge-issue-wave Inspect or Dispatch invocations; never use implicitly or as a replacement for the legacy mythic-edge-role-pool skill.
+description: Inspect up to three dependency-safe Mythic Edge issue lanes or, when explicitly asked to Dispatch, coordinate checkpointed fresh native Codex A through F role waves with isolated worktrees, two-wave reservations, renewable leases, recovery state, draft PRs, and a stop before G. Use only for exact mythicedgeissuewave Inspect or mythicedgeissuewave Dispatch commands, or backward-compatible explicit $mythic-edge-issue-wave invocations; do not act on a mere mention or replace the legacy mythic-edge-role-pool skill.
 ---
 
 # Mythic Edge Issue Wave
 
 Coordinate a bounded issue wave while keeping current GitHub and repository
 authority above local state and model judgment. Keep the active root Codex in
-charge. Never delegate GitHub or Git inspection, candidate selection, scope
-judgment, agent creation, artifact acceptance, or consequential transitions to
-the bundled helper.
+charge. Never delegate GitHub inspection, issue/worktree binding, candidate
+selection, scope judgment, agent creation, artifact acceptance, or
+consequential transitions to the bundled helper. The helper may perform only
+the closed, read-only local Git inventory defined below.
 
 ## Load The Protocol
 
@@ -23,6 +24,7 @@ Invoke the helper only through these operations:
 ```text
 py -B scripts/issue_wave_state.py parse <invocation>
 py -B scripts/issue_wave_state.py bind-package --manifest <reviewed-package.json>
+py -B scripts/issue_wave_state.py inventory-checkouts --workspace-root <root> --repository <canonical>...
 py -B scripts/issue_wave_state.py init ...
 py -B scripts/issue_wave_state.py transition ...
 py -B scripts/issue_wave_state.py renew-lease ...
@@ -33,18 +35,33 @@ py -B scripts/issue_wave_state.py inspect ...
 ```
 
 The helper is deterministic, local, and network-free. It parses syntax,
-validates root-supplied manifests, issues run identifiers, validates
-transitions, and records or inspects local state. It does not inspect Git or
-GitHub, rank or select issues, create branches or agents, invoke roles, retry
-work, create PRs, poll CI, or decide authority.
+inventories checkout families with bounded read-only Git commands, validates
+root-supplied manifests, issues run identifiers, validates transitions, and
+records or inspects local state. It does not inspect GitHub, bind worktrees to
+issues, rank or select issues, create branches or agents, invoke roles, retry
+work, create PRs, poll CI, or decide authority. Checkout inventory is
+ephemeral and must never enter saved-run schemas or public handoffs.
 
 ## Accept Only The Public Grammar
 
-Accept only:
+Prefer:
+
+```text
+mythicedgeissuewave <Inspect|Dispatch> (<role-or-segment>;[ option ...])
+```
+
+Keep this explicit form backward compatible:
 
 ```text
 $mythic-edge-issue-wave <Inspect|Dispatch> (<role-or-segment>[; option ...])
 ```
+
+A single trailing semicolon is accepted only when no option follows, as in
+`Inspect (A;)` or `Dispatch (A-B;)`. Repository selectors in `repos=` and
+`anchor=` may use canonical `owner/repo`, the full repository name, or its
+exact suffix after `Mythic-Edge-`; normalize every accepted selector to the
+canonical allowlist spelling. Natural-language discovery loads these
+instructions only. It performs no action and grants no Dispatch authority.
 
 Options are `repos=`, `anchor=`, `run=`, `allow-main-draft`, and
 `allow-wip-exception` as defined in the controller protocol. Inspect accepts
@@ -58,20 +75,36 @@ misaligned, or malformed segments without echoing unsafe input.
 Treat Inspect as mechanically zero-write.
 
 1. Parse the invocation without writing.
-2. Resolve the explicitly selected repositories, or the fixed allowlist, and
-   refresh current read-only GitHub and Git evidence.
-3. Read each repository's current authority before judging it compatible.
-4. Record every issue actually considered with one explicit eligibility or
+2. Resolve the explicitly selected repositories, or the fixed allowlist. Run
+   `inventory-checkouts` against the coordinator's existing workspace root;
+   add no user-facing path option or persistent checkout map.
+3. Treat one registered primary worktree plus all linked worktrees sharing its
+   resolved Git common directory as one checkout family. Include registered
+   linked worktrees outside the workspace, but do not search for independent
+   clones there. Multiple independent common directories remain ambiguous.
+4. Refresh current read-only GitHub evidence and read each repository's
+   current authority before judging it compatible.
+5. Bind active worktrees only from current PR/issue evidence, a non-final
+   issue-wave ledger, or a current contract/handoff tied to an open issue.
+   Branch and folder issue numbers are query hints only.
+6. When one active worktree binds to one issue, exclude only that exact issue
+   from duplicate-work detection. Ignore a clean historical worktree with no
+   current active evidence. Block the repository when dirty, ahead,
+   in-progress, or open-PR work cannot bind to exactly one issue.
+7. Record every issue actually considered with one explicit eligibility or
    exclusion reason.
-5. Prove prerequisites, WIP compatibility, exact checkout identity, absence of
-   active duplicate work, and pairwise lane separation.
-6. Apply `anchor=` only to durable dependency, child, tracker, roadmap, or
+8. Independently prove prerequisites, WIP-1 compatibility, checkout identity,
+   active duplicate work, authority, dependency safety, and pairwise scope
+   separation. An exact-issue exclusion waives none of these other gates.
+9. Apply `anchor=` only to durable dependency, child, tracker, roadmap, or
    explicit next-role edges. Reject textual similarity as evidence.
-7. Rank authority-backed candidates first; then sort equal ranks by oldest
+10. Rank authority-backed candidates first; then sort equal ranks by oldest
    creation time, canonical repository name, and issue number.
-8. Select zero to three lanes, never more than one issue per repository.
-9. Return the evidence and one directly pasteable `$mythic-edge-workflow`
-   Codex A prompt per selected candidate.
+11. Select zero to three lanes, never more than one issue per repository. Zero
+    is valid when the independent gates genuinely exclude every issue.
+12. Return checkout identity, exact active-issue exclusions, WIP-1,
+    dependency, authority, and scope reasons separately, plus one directly
+    pasteable `$mythic-edge-workflow` Codex A prompt per selected candidate.
 
 For `Inspect (A; run=...)`, validate the ledger and compare it with current
 read-only evidence. Report drift and mechanically possible next states, but do
@@ -83,8 +116,9 @@ install this skill for validation.
 
 ## Dispatch
 
-Dispatch is allowed only by an explicit Dispatch invocation plus current
-issue-scoped authority for every planned effect.
+Dispatch is allowed only by a complete parser-accepted command whose mode is
+exactly `Dispatch`, plus current issue-scoped authority for every planned
+effect.
 
 1. Complete the same read-only selection as Inspect.
 2. Revalidate all selected issues, repositories, checkouts, heads, WIP state,
