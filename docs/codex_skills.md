@@ -61,16 +61,22 @@ until a separate installation action is explicitly authorized.
 
 ## Issue-Wave Boundary
 
-`$mythic-edge-issue-wave Inspect (A)` is read-only and creates no ledger,
-branch, worktree, task, or GitHub mutation. Dispatch requires an explicit
-Dispatch invocation plus current repository authority. The active root Codex
-owns Git/GitHub inspection, candidate and overlap judgment, native subagent
+`mythicedgeissuewave Inspect (A;)` is the preferred read-only command and
+creates no ledger, branch, worktree, task, or GitHub mutation. The explicit
+`$mythic-edge-issue-wave` token remains supported. `repos=` and `anchor=` may
+use canonical `owner/repo`, full repository names such as
+`Mythic-Edge-Security`, or short suffixes such as `Security`; the parser emits
+only canonical identities. Dispatch requires a complete parser-accepted
+Dispatch command plus current repository authority. Skill discovery alone
+performs no action. The active root Codex owns GitHub inspection,
+issue/worktree binding, candidate and overlap judgment, native subagent
 creation, and consequential transitions. Its bundled Python helper is
-network-free and limited to parsing, manifest validation, run identifiers,
-transition validation, two-wave admission, renewable leases, checkpoint
-release, and crash-aware local state. Bare Dispatch remains autonomous;
-explicit A-F ranges stop at their requested checkpoint. No helper creates an
-agent or performs GitHub/Git operations.
+network-free and limited to parsing, bounded read-only checkout-family inventory,
+manifest validation, run identifiers, transition validation, two-wave
+admission, renewable leases, checkpoint release, and crash-aware local state.
+Bare Dispatch remains autonomous; explicit A-F ranges stop at their requested
+checkpoint. Helpers do not create agents. No helper performs GitHub, mutating,
+or networked Git operations.
 
 The new skill is intentionally distinct from `mythic-edge-role-pool`. It does
 not modify, release, synchronize, retry, or make readiness claims about the

@@ -6,6 +6,7 @@ import json
 import os
 import re
 import secrets
+import subprocess
 import sys
 import time
 import uuid
@@ -24,6 +25,22 @@ GOVERNANCE_PACKET_SCHEMA = "mythic_edge_issue_wave_governance_packet.v1"
 GOVERNANCE_ROUTE_SCHEMA = "mythic_edge_issue_wave_governance_route.v1"
 INSPECT_SCHEMA = "mythic_edge_issue_wave_inspect.v2"
 REVIEWED_PACKAGE_SCHEMA = "mythic_edge_issue_wave_reviewed_package.v1"
+CHECKOUT_INVENTORY_SCHEMA = "mythic_edge_issue_wave_checkout_inventory.v1"
+
+GIT_COMMAND_TIMEOUT_SECONDS = 5.0
+GIT_READ_ONLY_COMMANDS = frozenset(
+    {
+        ("config", "--local", "--get-all", "remote.origin.pushurl"),
+        ("config", "--local", "--get-all", "remote.origin.url"),
+        ("rev-list", "--left-right", "--count", "HEAD...@{upstream}"),
+        ("rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"),
+        ("rev-parse", "--git-common-dir"),
+        ("rev-parse", "--verify", "HEAD"),
+        ("status", "--porcelain=v1", "-z", "--untracked-files=all"),
+        ("symbolic-ref", "--quiet", "--short", "HEAD"),
+        ("worktree", "list", "--porcelain", "-z"),
+    }
+)
 
 ROLE_ORDER = ("A", "B", "C", "E", "F")
 ROLE_INDEX = {role: index for index, role in enumerate(ROLE_ORDER)}
@@ -53,6 +70,26 @@ DEFAULT_ALLOWLIST = (
     "Tahjali11/Mythic-Edge-Governance",
 )
 ALLOWLIST_BY_CASEFOLD = {name.casefold(): name for name in DEFAULT_ALLOWLIST}
+
+
+def _repository_selector_map() -> dict[str, str]:
+    selectors = dict(ALLOWLIST_BY_CASEFOLD)
+    prefix = "Mythic-Edge-"
+    for canonical in DEFAULT_ALLOWLIST:
+        repository_name = canonical.split("/", 1)[1]
+        aliases = [repository_name]
+        if repository_name.startswith(prefix):
+            aliases.append(repository_name[len(prefix) :])
+        for alias in aliases:
+            key = alias.casefold()
+            existing = selectors.get(key)
+            if existing is not None and existing != canonical:
+                raise RuntimeError("repository selector aliases must be unique")
+            selectors[key] = canonical
+    return selectors
+
+
+REPOSITORY_SELECTORS_BY_CASEFOLD = _repository_selector_map()
 
 PROGRESS_STATES = (
     "selected",
@@ -509,6 +546,15 @@ def _canonical_repository(value: object, *, code: str) -> str:
     return canonical
 
 
+def _repository_from_selector(value: object, *, code: str) -> str:
+    if not isinstance(value, str):
+        raise IssueWaveError(code, "repository is invalid")
+    canonical = REPOSITORY_SELECTORS_BY_CASEFOLD.get(value.casefold())
+    if canonical is None:
+        raise IssueWaveError(code, "repository is outside the allowlist")
+    return canonical
+
+
 def _contains_local_absolute_path(value: str) -> bool:
     if re.search(r"(?<![A-Za-z0-9])[A-Za-z]:[\\/]", value):
         return True
@@ -590,16 +636,19 @@ def parse_invocation(command: str) -> dict[str, Any]:
     if not isinstance(command, str):
         raise IssueWaveError("invalid_invocation", "invocation must be text")
     match = re.fullmatch(
-        r"\s*\$mythic-edge-issue-wave\s+(Inspect|Dispatch)\s*\(\s*(.*?)\s*\)\s*",
+        r"\s*(?:\$mythic-edge-issue-wave|mythicedgeissuewave)"
+        r"\s+(Inspect|Dispatch)\s*\(\s*(.*?)\s*\)\s*",
         command,
     )
     if match is None:
         raise IssueWaveError(
             "invalid_invocation",
-            "usage: $mythic-edge-issue-wave <Inspect|Dispatch> (A[; option ...])",
+            "usage: mythicedgeissuewave <Inspect|Dispatch> (A;[ option ...])",
         )
     mode, body = match.groups()
     parts = [part.strip() for part in body.split(";")]
+    if len(parts) == 2 and parts[-1] == "":
+        parts.pop()
     if not parts or any(not part for part in parts):
         raise IssueWaveError("invalid_invocation", "role or segment is required")
 
@@ -626,7 +675,8 @@ def parse_invocation(command: str) -> dict[str, Any]:
         if not 1 <= len(raw_repositories) <= 3 or any(not item for item in raw_repositories):
             raise IssueWaveError("invalid_invocation", "repos must contain one to three repositories")
         repositories = [
-            _canonical_repository(item, code="invalid_invocation") for item in raw_repositories
+            _repository_from_selector(item, code="invalid_invocation")
+            for item in raw_repositories
         ]
         if len({item.casefold() for item in repositories}) != len(repositories):
             raise IssueWaveError("invalid_invocation", "repos must contain unique repositories")
@@ -637,7 +687,9 @@ def parse_invocation(command: str) -> dict[str, Any]:
         if anchor_match is None:
             raise IssueWaveError("invalid_invocation", "anchor must identify one positive issue")
         anchor = {
-            "repository": _canonical_repository(anchor_match.group(1), code="invalid_invocation"),
+            "repository": _repository_from_selector(
+                anchor_match.group(1), code="invalid_invocation"
+            ),
             "issue": int(anchor_match.group(2)),
         }
 
@@ -2675,6 +2727,588 @@ def inspect_projection(state: Mapping[str, Any], *, recovered_projection: bool) 
     }
 
 
+def _run_git_read_only(
+    root: Path,
+    command: tuple[str, ...],
+    *,
+    accepted_returncodes: tuple[int, ...] = (0,),
+) -> tuple[int, str]:
+    if command not in GIT_READ_ONLY_COMMANDS:
+        raise IssueWaveError(
+            "checkout_inventory_failed",
+            "local Git inspection requested an unsupported command",
+        )
+    environment = os.environ.copy()
+    for key in tuple(environment):
+        normalized_key = key.upper()
+        if normalized_key.startswith("GIT_") or normalized_key == "GCM_INTERACTIVE":
+            environment.pop(key, None)
+    environment["GIT_CONFIG_COUNT"] = "1"
+    environment["GIT_CONFIG_KEY_0"] = "core.fsmonitor"
+    environment["GIT_CONFIG_VALUE_0"] = "false"
+    environment["GIT_CONFIG_GLOBAL"] = os.devnull
+    environment["GIT_CONFIG_NOSYSTEM"] = "1"
+    environment["GIT_OPTIONAL_LOCKS"] = "0"
+    environment["GIT_TERMINAL_PROMPT"] = "0"
+    environment["GCM_INTERACTIVE"] = "Never"
+    try:
+        completed = subprocess.run(
+            [
+                "git",
+                "-c",
+                f"safe.directory={root}",
+                "--no-optional-locks",
+                "-C",
+                str(root),
+                *command,
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            env=environment,
+            timeout=GIT_COMMAND_TIMEOUT_SECONDS,
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise IssueWaveError(
+            "checkout_inventory_failed",
+            "bounded local Git inspection failed",
+        ) from error
+    if completed.returncode not in accepted_returncodes:
+        raise IssueWaveError(
+            "checkout_inventory_failed",
+            "bounded local Git inspection failed",
+        )
+    return completed.returncode, completed.stdout
+
+
+def _opaque_remote_identity(value: str) -> str:
+    digest = hashlib.sha256(value.encode("utf-8", errors="surrogatepass")).hexdigest()
+    return f"opaque:{digest}"
+
+
+def _normalized_remote_identity(value: str) -> str:
+    raw = value.strip()
+    if not raw or any(ord(character) < 32 for character in raw):
+        return _opaque_remote_identity(raw)
+    comparison_value = raw.split("#", 1)[0].split("?", 1)[0]
+    host: str | None = None
+    remote_path: str | None = None
+    if "://" in comparison_value:
+        scheme, remainder = comparison_value.split("://", 1)
+        if scheme.casefold() == "file" or "/" not in remainder:
+            return _opaque_remote_identity(raw)
+        authority, remote_path = remainder.split("/", 1)
+        host_and_port = authority.rsplit("@", 1)[-1]
+        if host_and_port.startswith("["):
+            closing = host_and_port.find("]")
+            host = host_and_port[1:closing] if closing > 0 else None
+        else:
+            host = host_and_port.split(":", 1)[0]
+    else:
+        scp_match = re.fullmatch(
+            r"(?:[^/@:\s]+@)?([^/:\s]+):(.+)", comparison_value
+        )
+        if scp_match is not None:
+            host, remote_path = scp_match.groups()
+        elif "/" in comparison_value:
+            host, remote_path = comparison_value.split("/", 1)
+    if host is None or remote_path is None:
+        return _opaque_remote_identity(raw)
+    normalized_host = host.strip().casefold()
+    if normalized_host == "www.github.com":
+        normalized_host = "github.com"
+    normalized_path = remote_path.strip().strip("/").replace("\\", "/")
+    if normalized_path.casefold().endswith(".git"):
+        normalized_path = normalized_path[:-4]
+    path_parts = [part for part in normalized_path.split("/") if part]
+    if normalized_host == "github.com" and len(path_parts) == 2:
+        return f"github.com/{path_parts[0].casefold()}/{path_parts[1].casefold()}"
+    return _opaque_remote_identity(raw)
+
+
+def _expected_remote_identity(repository: str) -> str:
+    return f"github.com/{repository.casefold()}"
+
+
+def _resolve_git_path(root: Path, value: str) -> Path:
+    candidate = Path(value.strip())
+    if not candidate.is_absolute():
+        candidate = root / candidate
+    try:
+        return candidate.resolve(strict=True)
+    except OSError as error:
+        raise IssueWaveError(
+            "checkout_inventory_failed",
+            "Git common-directory identity is unavailable",
+        ) from error
+
+
+def _probe_checkout_root(root: Path) -> dict[str, object]:
+    _, fetch_output = _run_git_read_only(
+        root,
+        ("config", "--local", "--get-all", "remote.origin.url"),
+        accepted_returncodes=(0, 1),
+    )
+    _, push_output = _run_git_read_only(
+        root,
+        ("config", "--local", "--get-all", "remote.origin.pushurl"),
+        accepted_returncodes=(0, 1),
+    )
+    _, common_output = _run_git_read_only(root, ("rev-parse", "--git-common-dir"))
+    fetch_values = tuple(value for value in fetch_output.splitlines() if value)
+    configured_push_values = tuple(value for value in push_output.splitlines() if value)
+    effective_push_values = configured_push_values or fetch_values
+    return {
+        "path": root,
+        "common_dir": _resolve_git_path(root, common_output),
+        "fetch_identities": tuple(_normalized_remote_identity(value) for value in fetch_values),
+        "push_identities": tuple(
+            _normalized_remote_identity(value) for value in effective_push_values
+        ),
+        "remote_configuration_exact": (
+            len(fetch_values) == 1 and len(effective_push_values) == 1
+        ),
+    }
+
+
+def _valid_registered_branch(value: object) -> bool:
+    if not isinstance(value, str) or not value.startswith("refs/heads/"):
+        return False
+    branch = value.removeprefix("refs/heads/")
+    components = branch.split("/")
+    return (
+        BRANCH_RE.fullmatch(branch) is not None
+        and ".." not in branch
+        and "@{" not in branch
+        and all(
+            component
+            and not component.startswith(".")
+            and not component.endswith(".")
+            and not component.endswith(".lock")
+            for component in components
+        )
+    )
+
+
+def _validate_worktree_record(record: Mapping[str, object]) -> None:
+    allowed_fields = {
+        "worktree",
+        "HEAD",
+        "branch",
+        "bare",
+        "detached",
+        "locked",
+        "prunable",
+    }
+    worktree = record.get("worktree")
+    head = record.get("HEAD")
+    branch_present = "branch" in record
+    detached_present = "detached" in record
+    malformed = (
+        not set(record).issubset(allowed_fields)
+        or not isinstance(worktree, str)
+        or not worktree
+        or not isinstance(head, str)
+        or COMMIT_RE.fullmatch(head) is None
+        or "bare" in record
+        or branch_present == detached_present
+        or (branch_present and not _valid_registered_branch(record.get("branch")))
+        or (detached_present and record.get("detached") is not True)
+    )
+    if malformed:
+        raise IssueWaveError(
+            "checkout_family_inconsistent",
+            "registered worktree inventory is malformed",
+        )
+
+
+def _parse_worktree_porcelain(value: str) -> list[dict[str, object]]:
+    records: list[dict[str, object]] = []
+    current: dict[str, object] = {}
+    for token in value.split("\0"):
+        if not token:
+            if current:
+                _validate_worktree_record(current)
+                records.append(current)
+                current = {}
+            continue
+        key, separator, raw_value = token.partition(" ")
+        if key == "worktree":
+            if current or not separator or not raw_value:
+                raise IssueWaveError(
+                    "checkout_family_inconsistent",
+                    "registered worktree inventory is malformed",
+                )
+            current = {"worktree": raw_value}
+        elif key in {"HEAD", "branch"}:
+            if not current or not separator or not raw_value or key in current:
+                raise IssueWaveError(
+                    "checkout_family_inconsistent",
+                    "registered worktree inventory is malformed",
+                )
+            current[key] = raw_value
+        elif key in {"bare", "detached", "locked", "prunable"}:
+            if not current or key in current:
+                raise IssueWaveError(
+                    "checkout_family_inconsistent",
+                    "registered worktree inventory is malformed",
+                )
+            current[key] = raw_value if separator else True
+        else:
+            raise IssueWaveError(
+                "checkout_family_inconsistent",
+                "registered worktree inventory contains an unsupported field",
+            )
+    if current:
+        _validate_worktree_record(current)
+        records.append(current)
+    if not records:
+        raise IssueWaveError(
+            "checkout_family_inconsistent",
+            "registered worktree inventory is empty or malformed",
+        )
+    return records
+
+
+def _resolved_worktree_path(value: object) -> Path:
+    if not isinstance(value, str) or not value:
+        raise IssueWaveError(
+            "checkout_family_inconsistent",
+            "registered worktree path is invalid",
+        )
+    try:
+        return Path(value).resolve(strict=False)
+    except OSError as error:
+        raise IssueWaveError(
+            "checkout_family_inconsistent",
+            "registered worktree path is invalid",
+        ) from error
+
+
+def _registered_branch(record: Mapping[str, object]) -> str | None:
+    value = record.get("branch")
+    if value is None and record.get("detached") is True:
+        return None
+    if not _valid_registered_branch(value):
+        raise IssueWaveError(
+            "checkout_family_inconsistent",
+            "registered worktree branch is invalid",
+        )
+    assert isinstance(value, str)
+    return value.removeprefix("refs/heads/")
+
+
+def _registered_head(record: Mapping[str, object]) -> str:
+    value = record.get("HEAD")
+    if not isinstance(value, str) or COMMIT_RE.fullmatch(value) is None:
+        raise IssueWaveError(
+            "checkout_family_inconsistent",
+            "registered worktree HEAD is invalid",
+        )
+    return value
+
+
+def _inspect_registered_worktree(
+    record: Mapping[str, object],
+    *,
+    expected_common_dir: Path,
+    primary_path: Path,
+) -> dict[str, object]:
+    _validate_worktree_record(record)
+    path = _resolved_worktree_path(record["worktree"])
+    registered_head = _registered_head(record)
+    registered_branch = _registered_branch(record)
+    registered_detached = "detached" in record
+    missing = not path.exists()
+    prunable = "prunable" in record
+    locked = "locked" in record
+    if missing or prunable:
+        return {
+            "path": str(path),
+            "primary": path == primary_path,
+            "head": registered_head,
+            "branch": registered_branch,
+            "detached": registered_detached,
+            "dirty": None,
+            "untracked": None,
+            "upstream": None,
+            "ahead": None,
+            "behind": None,
+            "missing": missing,
+            "prunable": prunable,
+            "locked": locked,
+        }
+
+    _, common_output = _run_git_read_only(path, ("rev-parse", "--git-common-dir"))
+    if _resolve_git_path(path, common_output) != expected_common_dir:
+        raise IssueWaveError(
+            "checkout_family_inconsistent",
+            "registered worktree common-directory identity changed",
+        )
+    _, head_output = _run_git_read_only(path, ("rev-parse", "--verify", "HEAD"))
+    head = head_output.strip()
+    if COMMIT_RE.fullmatch(head) is None or registered_head != head:
+        raise IssueWaveError(
+            "checkout_family_inconsistent",
+            "registered worktree HEAD changed during inventory",
+        )
+    branch_code, branch_output = _run_git_read_only(
+        path,
+        ("symbolic-ref", "--quiet", "--short", "HEAD"),
+        accepted_returncodes=(0, 1),
+    )
+    branch = branch_output.strip() if branch_code == 0 else None
+    branch_changed = (
+        (branch_code == 0 and not _valid_registered_branch(f"refs/heads/{branch}"))
+        or (branch_code == 0 and (registered_detached or branch != registered_branch))
+        or (branch_code == 1 and (not registered_detached or registered_branch is not None))
+        or (branch_code == 1 and bool(branch_output.strip()))
+    )
+    if branch_changed:
+        raise IssueWaveError(
+            "checkout_family_inconsistent",
+            "registered worktree branch changed during inventory",
+        )
+    _, status_output = _run_git_read_only(
+        path, ("status", "--porcelain=v1", "-z", "--untracked-files=all")
+    )
+    status_entries = [entry for entry in status_output.split("\0") if entry]
+    upstream_code, upstream_output = _run_git_read_only(
+        path,
+        ("rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"),
+        accepted_returncodes=(0, 1, 128),
+    )
+    upstream = upstream_output.strip() if upstream_code == 0 else None
+    ahead: int | None = None
+    behind: int | None = None
+    if upstream is not None:
+        _, counts_output = _run_git_read_only(
+            path, ("rev-list", "--left-right", "--count", "HEAD...@{upstream}")
+        )
+        count_fields = counts_output.split()
+        if len(count_fields) != 2 or any(not field.isdigit() for field in count_fields):
+            raise IssueWaveError(
+                "checkout_family_inconsistent",
+                "registered worktree upstream status is malformed",
+            )
+        ahead, behind = (int(field) for field in count_fields)
+    return {
+        "path": str(path),
+        "primary": path == primary_path,
+        "head": head,
+        "branch": branch,
+        "detached": branch is None,
+        "dirty": bool(status_entries),
+        "untracked": any(entry.startswith("?? ") for entry in status_entries),
+        "upstream": upstream,
+        "ahead": ahead,
+        "behind": behind,
+        "missing": False,
+        "prunable": prunable,
+        "locked": locked,
+    }
+
+
+def _checkout_family(probe: Mapping[str, object], repository: str) -> dict[str, object]:
+    root = probe["path"]
+    common_dir = probe["common_dir"]
+    if not isinstance(root, Path) or not isinstance(common_dir, Path):
+        raise IssueWaveError(
+            "checkout_family_inconsistent",
+            "checkout family probe is malformed",
+        )
+    _, worktree_output = _run_git_read_only(
+        root, ("worktree", "list", "--porcelain", "-z")
+    )
+    records = _parse_worktree_porcelain(worktree_output)
+    primary_path = _resolved_worktree_path(records[0]["worktree"])
+    worktrees = [
+        _inspect_registered_worktree(
+            record,
+            expected_common_dir=common_dir,
+            primary_path=primary_path,
+        )
+        for record in records
+    ]
+    path_keys = [str(worktree["path"]).casefold() for worktree in worktrees]
+    if len(path_keys) != len(set(path_keys)) or sum(
+        worktree["primary"] is True for worktree in worktrees
+    ) != 1:
+        raise IssueWaveError(
+            "checkout_family_inconsistent",
+            "registered worktree identities are not unique",
+        )
+    _, final_worktree_output = _run_git_read_only(
+        root, ("worktree", "list", "--porcelain", "-z")
+    )
+    if final_worktree_output != worktree_output:
+        raise IssueWaveError(
+            "checkout_family_inconsistent",
+            "registered worktree inventory changed during inspection",
+        )
+    worktrees.sort(
+        key=lambda worktree: (
+            0 if worktree["primary"] is True else 1,
+            str(worktree["path"]).casefold(),
+        )
+    )
+    return {
+        "git_common_dir": str(common_dir),
+        "primary_worktree": str(primary_path),
+        "remote_identity": repository,
+        "worktrees": worktrees,
+    }
+
+
+def _direct_git_children(workspace_root: Path) -> list[Path]:
+    try:
+        children = list(workspace_root.iterdir())
+    except OSError as error:
+        raise IssueWaveError(
+            "invalid_command", "workspace root cannot be inspected"
+        ) from error
+    result: dict[str, Path] = {}
+    for child in children:
+        try:
+            is_git_child = child.is_dir() and child.joinpath(".git").exists()
+            if not is_git_child:
+                continue
+            resolved = child.resolve(strict=True)
+        except OSError:
+            continue
+        result.setdefault(str(resolved).casefold(), resolved)
+    return sorted(result.values(), key=lambda path: str(path).casefold())
+
+
+def inventory_checkouts(
+    workspace_root_value: str | Path,
+    repositories_value: Sequence[str],
+) -> dict[str, object]:
+    try:
+        workspace_root = Path(workspace_root_value).resolve(strict=True)
+    except (OSError, TypeError) as error:
+        raise IssueWaveError("invalid_command", "workspace root is unavailable") from error
+    if not workspace_root.is_dir():
+        raise IssueWaveError("invalid_command", "workspace root must be a directory")
+    if not repositories_value:
+        raise IssueWaveError("invalid_command", "at least one repository is required")
+    repositories = [
+        _canonical_repository(repository, code="invalid_command")
+        for repository in repositories_value
+    ]
+    if len(repositories) != len(set(repositories)):
+        raise IssueWaveError("invalid_command", "repositories must be unique")
+    repositories.sort(key=str.casefold)
+
+    probes: list[dict[str, object]] = []
+    scan_failures: list[dict[str, str]] = []
+    for child in _direct_git_children(workspace_root):
+        try:
+            probes.append(_probe_checkout_root(child))
+        except IssueWaveError:
+            scan_failures.append(
+                {"path": str(child), "reason": "git_inspection_failed"}
+            )
+    scan_failures.sort(key=lambda failure: failure["path"].casefold())
+
+    repository_results: list[dict[str, object]] = []
+    for repository in repositories:
+        expected_identity = _expected_remote_identity(repository)
+        matching: list[dict[str, object]] = []
+        conflicts: list[dict[str, str]] = []
+        for probe in probes:
+            fetch_identities = probe["fetch_identities"]
+            push_identities = probe["push_identities"]
+            if not isinstance(fetch_identities, tuple) or not isinstance(
+                push_identities, tuple
+            ):
+                continue
+            exact = (
+                probe["remote_configuration_exact"] is True
+                and fetch_identities == (expected_identity,)
+                and push_identities == (expected_identity,)
+            )
+            if exact:
+                matching.append(probe)
+            elif expected_identity in set(fetch_identities) | set(push_identities):
+                conflicts.append(
+                    {
+                        "path": str(probe["path"]),
+                        "reason": "fetch_push_remote_mismatch",
+                    }
+                )
+
+        grouped: dict[str, list[dict[str, object]]] = {}
+        for probe in matching:
+            common_dir = probe["common_dir"]
+            if not isinstance(common_dir, Path):
+                continue
+            grouped.setdefault(str(common_dir).casefold(), []).append(probe)
+        families: list[dict[str, object]] = []
+        family_inconsistent = False
+        for grouped_probes in grouped.values():
+            grouped_probes.sort(key=lambda probe: str(probe["path"]).casefold())
+            try:
+                families.append(_checkout_family(grouped_probes[0], repository))
+            except IssueWaveError:
+                family_inconsistent = True
+                conflicts.append(
+                    {
+                        "path": str(grouped_probes[0]["path"]),
+                        "reason": "checkout_family_inconsistent",
+                    }
+                )
+        families.sort(key=lambda family: str(family["primary_worktree"]).casefold())
+        conflicts.sort(key=lambda conflict: (conflict["path"].casefold(), conflict["reason"]))
+        warnings = sorted(
+            {
+                warning
+                for family in families
+                for worktree in family["worktrees"]
+                for warning in (
+                    "missing_worktree_registration" if worktree["missing"] else None,
+                    "prunable_worktree_registration" if worktree["prunable"] else None,
+                )
+                if warning is not None
+            }
+        )
+        if scan_failures:
+            classification = "checkout_unavailable_or_ambiguous"
+            reason = "git_inspection_failed"
+        elif any(conflict["reason"] == "fetch_push_remote_mismatch" for conflict in conflicts):
+            classification = "checkout_unavailable_or_ambiguous"
+            reason = "fetch_push_remote_mismatch"
+        elif family_inconsistent:
+            classification = "checkout_unavailable_or_ambiguous"
+            reason = "checkout_family_inconsistent"
+        elif not families:
+            classification = "checkout_unavailable_or_ambiguous"
+            reason = "repository_not_found"
+        elif len(families) > 1:
+            classification = "checkout_unavailable_or_ambiguous"
+            reason = "multiple_independent_git_stores"
+        else:
+            classification = "usable"
+            reason = "exactly_one_checkout_family"
+        repository_results.append(
+            {
+                "repository": repository,
+                "classification": classification,
+                "reason": reason,
+                "conflicts": conflicts,
+                "warnings": warnings,
+                "families": families,
+            }
+        )
+    return {
+        "schema_version": CHECKOUT_INVENTORY_SCHEMA,
+        "scan_failures": scan_failures,
+        "repositories": repository_results,
+    }
+
+
 def _read_json_argument(path_value: str) -> object:
     try:
         return strict_json_loads(Path(path_value).read_bytes())
@@ -2704,6 +3338,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     bind_parser = subparsers.add_parser("bind-package")
     bind_parser.add_argument("--manifest", required=True)
+
+    inventory_parser = subparsers.add_parser("inventory-checkouts")
+    inventory_parser.add_argument("--workspace-root", required=True)
+    inventory_parser.add_argument("--repository", action="append", required=True)
 
     init_parser = subparsers.add_parser("init")
     init_parser.add_argument("invocation")
@@ -2756,6 +3394,8 @@ def run(argv: Sequence[str] | None = None) -> int:
             output = parse_invocation(args.invocation)
         elif args.operation == "bind-package":
             output = bind_reviewed_package(_read_json_argument(args.manifest))
+        elif args.operation == "inventory-checkouts":
+            output = inventory_checkouts(args.workspace_root, args.repository)
         elif args.operation == "init":
             invocation = parse_invocation(args.invocation)
             _, state = init_run(

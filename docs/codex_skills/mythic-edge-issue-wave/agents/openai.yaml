@@ -4,4 +4,4 @@ interface:
   default_prompt: "Use $mythic-edge-issue-wave to inspect up to three dependency-safe Mythic Edge issue lanes."
 
 policy:
-  allow_implicit_invocation: false
+  allow_implicit_invocation: true
